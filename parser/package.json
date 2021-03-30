@@ -1,0 +1,15 @@
+{
+  "name": "parser",
+  "version": "0.0.1",
+  "description": "",
+  "main": "parser.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "esprima": "^4.0.1",
+    "graphviz": "0.0.9"
+  }
+}
