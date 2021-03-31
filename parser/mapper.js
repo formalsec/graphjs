@@ -16,6 +16,7 @@ function mapper(callback, obj) {
         type: "Program",
         sourceType: "script",
         body: new_obj.body.map((stmt) => mapper(callback, stmt)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     //
@@ -25,6 +26,7 @@ function mapper(callback, obj) {
       return {
         type: "Identifier",
         name: new_obj.name,
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "Literal":
@@ -34,23 +36,27 @@ function mapper(callback, obj) {
             value: new_obj.value,
             raw: new_obj.raw,
             regex: new_obj.regex,
+            ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
           }
         : {
             type: "Literal",
             value: new_obj.value,
             raw: new_obj.raw,
+            ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
           };
 
     case "ArrayExpression":
       return {
         type: "ArrayExpression",
         elements: new_obj.elements.map((obj) => mapper(callback, obj)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "ObjectExpression":
       return {
         type: "ObjectExpression",
         properties: new_obj.properties.map((obj) => mapper(callback, obj)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "Property":
@@ -61,6 +67,7 @@ function mapper(callback, obj) {
         computed: new_obj.computed,
         kind: new_obj.kind,
         shorthand: new_obj.shorthand,
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "FunctionExpression":
@@ -72,6 +79,7 @@ function mapper(callback, obj) {
         generator: new_obj.generator,
         async: new_obj.async,
         expression: new_obj.expression,
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "MemberExpression":
@@ -80,6 +88,7 @@ function mapper(callback, obj) {
         computed: new_obj.computed,
         object: mapper(callback, new_obj.object),
         property: mapper(callback, new_obj.property),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "CallExpression":
@@ -87,6 +96,7 @@ function mapper(callback, obj) {
         type: "CallExpression",
         callee: mapper(callback, new_obj.callee),
         arguments: new_obj.arguments.map((arg) => mapper(callback, arg)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "NewExpression":
@@ -94,6 +104,7 @@ function mapper(callback, obj) {
         type: "NewExpression",
         callee: mapper(callback, new_obj.callee),
         arguments: new_obj.arguments.map((arg) => mapper(callback, arg)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "UpdateExpression":
@@ -102,6 +113,7 @@ function mapper(callback, obj) {
         operator: new_obj.operator,
         argument: mapper(callback, new_obj.argument),
         prefix: new_obj.prefix,
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "UnaryExpression":
@@ -110,6 +122,7 @@ function mapper(callback, obj) {
         operator: new_obj.operator,
         argument: mapper(callback, new_obj.argument),
         prefix: new_obj.prefix,
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "BinaryExpression":
@@ -118,6 +131,7 @@ function mapper(callback, obj) {
         operator: new_obj.operator,
         left: mapper(callback, new_obj.left),
         right: mapper(callback, new_obj.right),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "LogicalExpression":
@@ -126,6 +140,7 @@ function mapper(callback, obj) {
         operator: new_obj.operator,
         left: mapper(callback, new_obj.left),
         right: mapper(callback, new_obj.right),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "ConditionalExpression":
@@ -134,6 +149,7 @@ function mapper(callback, obj) {
         test: mapper(callback, new_obj.test),
         consequent: mapper(callback, new_obj.consequent),
         alternate: mapper(callback, new_obj.alternate),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "AssignmentExpression":
@@ -142,12 +158,14 @@ function mapper(callback, obj) {
         operator: new_obj.operator,
         left: mapper(callback, new_obj.left),
         right: mapper(callback, new_obj.right),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "SequenceExpression":
       return {
         type: "SequenceExpression",
         expressions: new_obj.expressions.map((expr) => mapper(callback, expr)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     //
@@ -157,18 +175,21 @@ function mapper(callback, obj) {
       return {
         type: "BlockStatement",
         body: new_obj.body.map((stmt) => mapper(callback, stmt)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "BreakStatement":
       return {
         type: "BreakStatement",
         label: mapper(callback, new_obj.label),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "ContinueStatement":
       return {
         type: "ContinueStatement",
         label: mapper(callback, new_obj.label),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "DoWhileStatement":
@@ -176,6 +197,7 @@ function mapper(callback, obj) {
         type: "DoWhileStatement",
         body: mapper(callback, new_obj.body),
         test: mapper(callback, new_obj.test),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "ExpressionStatement":
@@ -184,10 +206,12 @@ function mapper(callback, obj) {
             type: "ExpressionStatement",
             expression: mapper(callback, new_obj.expression),
             directive: new_obj.directive,
+            ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
           }
         : {
             type: "ExpressionStatement",
             expression: mapper(callback, new_obj.expression),
+            ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
           };
 
     case "ForStatement":
@@ -197,6 +221,7 @@ function mapper(callback, obj) {
         test: mapper(callback, new_obj.test),
         update: mapper(callback, new_obj.update),
         body: mapper(callback, new_obj.body),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "ForInStatement":
@@ -206,6 +231,7 @@ function mapper(callback, obj) {
         right: mapper(callback, new_obj.right),
         body: mapper(callback, new_obj.body),
         each: new_obj.each,
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "FunctionDeclaration":
@@ -217,6 +243,7 @@ function mapper(callback, obj) {
         generator: new_obj.generator,
         async: new_obj.async,
         expression: new_obj.expression,
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "IfStatement":
@@ -226,11 +253,13 @@ function mapper(callback, obj) {
             test: mapper(callback, new_obj.test),
             consequent: mapper(callback, new_obj.consequent),
             alternate: mapper(callback, new_obj.alternate),
+            ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
           }
         : {
             type: "IfStatement",
             test: mapper(callback, new_obj.test),
             consequent: mapper(callback, new_obj.consequent),
+            ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
           };
 
     case "LabeledStatement":
@@ -238,12 +267,14 @@ function mapper(callback, obj) {
         type: "LabeledStatement",
         label: mapper(callback, new_obj.label),
         body: mapper(callback, new_obj.body),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "ReturnStatement":
       return {
         type: "ReturnStatement",
         argument: mapper(callback, new_obj.argument),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "SwitchStatement":
@@ -251,6 +282,7 @@ function mapper(callback, obj) {
         type: "SwitchStatement",
         discriminant: mapper(callback, new_obj.discriminant),
         cases: new_obj.cases.map((kase) => mapper(callback, kase)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "SwitchCase":
@@ -258,12 +290,14 @@ function mapper(callback, obj) {
         type: "SwitchCase",
         test: mapper(callback, new_obj.test),
         consequent: new_obj.consequent.map((stmt) => mapper(callback, stmt)),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "ThrowStatement":
       return {
         type: "ThrowStatement",
         argument: mapper(callback, new_obj.argument),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "VariableDeclaration":
@@ -273,6 +307,7 @@ function mapper(callback, obj) {
           mapper(callback, declr)
         ),
         kind: new_obj.kind,
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "VariableDeclarator":
@@ -280,6 +315,7 @@ function mapper(callback, obj) {
         type: "VariableDeclarator",
         id: mapper(callback, new_obj.id),
         init: mapper(callback, new_obj.init),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "WhileStatement":
@@ -287,6 +323,7 @@ function mapper(callback, obj) {
         type: "WhileStatement",
         test: mapper(callback, new_obj.test),
         body: mapper(callback, new_obj.body),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "WithStatement":
@@ -294,6 +331,7 @@ function mapper(callback, obj) {
         type: "WithStatement",
         object: mapper(callback, new_obj.object),
         body: mapper(callback, new_obj.body),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "TryStatement":
@@ -302,6 +340,7 @@ function mapper(callback, obj) {
         block: mapper(callback, new_obj.block),
         handler: mapper(callback, new_obj.handler),
         finalizer: mapper(callback, new_obj.finalizer),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     case "CatchClause":
@@ -309,6 +348,7 @@ function mapper(callback, obj) {
         type: "CatchClause",
         param: mapper(callback, new_obj.param),
         body: mapper(callback, new_obj.body),
+        ...(new_obj.hasOwnProperty("loc")) && { loc: new_obj.loc},
       };
 
     default:

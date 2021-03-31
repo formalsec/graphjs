@@ -29,18 +29,6 @@ function traverse(callback, obj) {
     };
   }
 
-  // TODO:
-  // Meter para baixo do Switch
-  // E com resultados dos sub-objectos para combinar graphs
-  const cbResult = callback(obj);
-
-  if (cbResult.stop) {
-    return {
-      data: cbResult.data,
-    };
-  }
-  // ----
-
   let resultData = [];
   switch (obj.type) {
     //
@@ -229,6 +217,10 @@ function traverse(callback, obj) {
       resultData = [];
       break;
   }
+
+  // TODO:
+  // Combinar os resultados dos sub-objectos em graphs
+  const cbResult = callback(obj);
 
   return {
     data: cbResult.data.concat(resultData),
