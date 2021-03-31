@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "escodegen": "^2.0.0",
     "esprima": "^4.0.1",
     "graphviz": "0.0.9"
   }

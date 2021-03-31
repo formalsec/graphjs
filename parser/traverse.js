@@ -19,14 +19,12 @@ module.exports = traverse;
 function traverse(callback, obj) {
   function mapReduce(arr) {
     return arr
-      .map((item) => traverse(callback, item))
-      .reduce((acc, retObj) => acc.concat(retObj.data), []);
+      .map((item) => traverse(callback, item));
+      // .reduce((acc, retObj) => acc.concat(retObj), []);
   }
 
   if (obj === null) {
-    return {
-      data: [],
-    };
+    return null;
   }
 
   let resultData = [];
@@ -52,7 +50,10 @@ function traverse(callback, obj) {
       const resultKey = traverse(callback, obj.key);
       const resultValue = traverse(callback, obj.value);
 
-      resultData = resultKey.data.concat(resultValue.data);
+      resultData = [
+        resultKey,
+        resultValue
+      ];
       break;
     }
 
@@ -60,7 +61,10 @@ function traverse(callback, obj) {
       const resultObject = traverse(callback, obj.object);
       const resultProperty = traverse(callback, obj.property);
 
-      resultData = resultObject.data.concat(resultProperty.data);
+      resultData = [
+        resultObject,
+        resultProperty
+      ];
       break;
     }
 
@@ -69,13 +73,14 @@ function traverse(callback, obj) {
       const resultCallee = traverse(callback, obj.callee);
       const resultArguments = mapReduce(obj.arguments);
 
-      resultData = resultCallee.data.concat(resultArguments);
+      resultArguments.unshift(resultCallee);
+      resultData = resultArguments;
       break;
     }
 
     case "UpdateExpression":
     case "UnaryExpression":
-      resultData = traverse(callback, obj.argument).data;
+      resultData = [ traverse(callback, obj.argument) ];
       break;
 
     case "BinaryExpression":
@@ -84,7 +89,10 @@ function traverse(callback, obj) {
       const resultLeft = traverse(callback, obj.left);
       const resultRight = traverse(callback, obj.right);
 
-      resultData = resultLeft.data.concat(resultRight.data);
+      resultData = [
+        resultLeft,
+        resultRight
+      ];
       break;
     }
 
@@ -104,12 +112,15 @@ function traverse(callback, obj) {
       const resultTest = traverse(callback, obj.test);
       const resultBody = traverse(callback, obj.body);
 
-      resultData = resultTest.data.concat(resultBody.data);
+      resultData = [
+        resultTest,
+        resultBody
+      ];
       break;
     }
 
     case "ExpressionStatement":
-      resultData = traverse(callback, obj.expression).data;
+      resultData = [ traverse(callback, obj.expression) ];
       break;
 
     case "ForStatement": {
@@ -118,11 +129,12 @@ function traverse(callback, obj) {
       const resultUpdate = traverse(callback, obj.update);
       const resultBody = traverse(callback, obj.body);
 
-      resultData = resultInit.data.concat(
-        resultTest.data,
-        resultUpdate.data,
-        resultBody.data
-      );
+      resultData = [
+        resultInit,
+        resultTest,
+        resultUpdate,
+        resultBody
+      ];
       break;
     }
 
@@ -131,14 +143,18 @@ function traverse(callback, obj) {
       const resultRight = traverse(callback, obj.right);
       const resultBody = traverse(callback, obj.body);
 
-      resultData = resultLeft.data.concat(resultRight.data, resultBody.data);
+      resultData = [
+        resultLeft,
+        resultRight,
+        resultBody
+      ];
       break;
     }
 
     case "FunctionDeclaration":
     case "FunctionExpression":
     case "LabeledStatement":
-      resultData = traverse(callback, obj.body).data;
+      resultData = [ traverse(callback, obj.body) ];
       break;
 
     case "IfStatement":
@@ -147,30 +163,33 @@ function traverse(callback, obj) {
       const resultConsequent = traverse(callback, obj.consequent);
       const resultAlternate = traverse(callback, obj.alternate);
 
-      resultData = resultTest.data.concat(
-        resultConsequent.data,
-        resultAlternate.data
-      );
+      resultData = [
+        resultTest,
+        resultConsequent,
+        resultAlternate
+      ];
       break;
     }
 
     case "ReturnStatement":
     case "ThrowStatement":
-      resultData = traverse(callback, obj.argument).data;
+      resultData = [ traverse(callback, obj.argument) ];
       break;
 
     case "SwitchStatement": {
       const resultDiscriminant = traverse(callback, obj.discriminant);
       const resultCases = mapReduce(obj.cases);
 
-      resultData = resultDiscriminant.data.concat(resultCases);
+      resultCases.unshift(resultDiscriminant);
+      resultData = resultCases;
       break;
     }
     case "SwitchCase": {
       const resultTest = traverse(callback, obj.test);
       const resultConsequent = mapReduce(obj.consequent);
 
-      resultData = resultTest.data.concat(resultConsequent);
+      resultConsequent.unshift(resultTest);
+      resultData = resultConsequent;
       break;
     }
 
@@ -181,7 +200,7 @@ function traverse(callback, obj) {
       const resultId = traverse(callback, obj.id);
       const resultInit = traverse(callback, obj.init);
 
-      resultData = resultId.data.concat(resultInit.data);
+      resultData = [ resultId, resultInit ];
       break;
     }
 
@@ -189,7 +208,7 @@ function traverse(callback, obj) {
       const resultObject = traverse(callback, obj.object);
       const resultBody = traverse(callback, obj.body);
 
-      resultData = resultObject.data.concat(resultBody.data);
+      resultData = [ resultObject, resultBody ];
       break;
     }
 
@@ -198,10 +217,11 @@ function traverse(callback, obj) {
       const resultHandler = traverse(callback, obj.handler);
       const resultFinalizer = traverse(callback, obj.finalizer);
 
-      resultData = resultBlock.data.concat(
-        resultHandler.data,
-        resultFinalizer.data
-      );
+      resultData = [
+        resultBlock,
+        resultHandler,
+        resultFinalizer
+      ];
       break;
     }
 
@@ -209,7 +229,7 @@ function traverse(callback, obj) {
       const resultParam = traverse(callback, obj.param);
       const resultBlock = traverse(callback, obj.body);
 
-      resultData = resultParam.data.concat(resultBlock.data);
+      resultData = [ resultParam, resultBlock ];
       break;
     }
 
@@ -220,9 +240,7 @@ function traverse(callback, obj) {
 
   // TODO:
   // Combinar os resultados dos sub-objectos em graphs
-  const cbResult = callback(obj);
+  const cbResult = callback(obj, resultData);
 
-  return {
-    data: cbResult.data.concat(resultData),
-  };
+  return cbResult;
 }

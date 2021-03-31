@@ -4,151 +4,150 @@ class GraphBuilder {
         this.node_id = 0;
     }
     
-    build_if(obj) {
+    buildIf(obj) {
         const { test, consequent, alternate}  = obj;
         
         const nodes = {};
         const edges = [];
         
-        const entryNodeId   = this.node_id++;
-        const exitNodeId    = this.node_id++;
+        const entry_node_id   = this.node_id++;
+        const exit_node_id    = this.node_id++;
 
-        const testNodeId        = this.node_id++;
-        const consequentNodeId  = this.node_id++;
-        const alternateNodeId   = this.node_id++;
+        const test_node_id        = this.node_id++;
+        const consequent_node_id  = this.node_id++;
+        const alternate_node_id   = this.node_id++;
         
-        nodes[entryNodeId]      = { type: "_root", loc: null };
-        nodes[testNodeId]       = { type: test.type, loc: `${test.loc.start.line}-${test.loc.end.line}` };
-        nodes[consequentNodeId] = { type: consequent.type, loc: `${consequent.loc.start.line}-${consequent.loc.end.line}` };
-        nodes[alternateNodeId]  = { type: alternate.type, loc: `${alternate.loc.start.line}-${alternate.loc.end.line}` };
-        nodes[exitNodeId]       = { type: "_end", loc: null };
+        nodes[entry_node_id]      = { type: "_root", loc: null };
+        nodes[test_node_id]       = { type: test.type, loc: `${test.loc.start.line}-${test.loc.end.line}` };
+        nodes[consequent_node_id] = { type: consequent.type, loc: `${consequent.loc.start.line}-${consequent.loc.end.line}` };
+        nodes[alternate_node_id]  = { type: alternate.type, loc: `${alternate.loc.start.line}-${alternate.loc.end.line}` };
+        nodes[exit_node_id]       = { type: "_end", loc: null };
         
-        edges.push({ edge: [entryNodeId, testNodeId], label: "if"});
-        edges.push({ edge: [testNodeId, consequentNodeId], label: "true" });
-        edges.push({ edge: [testNodeId, alternateNodeId], label: "false" });
-        edges.push({ edge: [consequentNodeId, exitNodeId] });
-        edges.push({ edge: [alternateNodeId, exitNodeId] });
+        edges.push({ edge: [entry_node_id, test_node_id], label: "if"});
+        edges.push({ edge: [test_node_id, consequent_node_id], label: "true" });
+        edges.push({ edge: [test_node_id, alternate_node_id], label: "false" });
+        edges.push({ edge: [consequent_node_id, exit_node_id] });
+        edges.push({ edge: [alternate_node_id, exit_node_id] });
         
-        return { entryNodeId, exitNodeId, nodes, edges };
+        return { entry_node_id, exit_node_id, nodes, edges };
     }
     
-    build_while(obj) {
+    buildWhile(obj) {
         const { test, body}  = obj;
         
         const nodes = {};
         const edges = [];
 
-        const entryNodeId   = this.node_id++;
-        const exitNodeId    = this.node_id++;
+        const entry_node_id   = this.node_id++;
+        const exit_node_id    = this.node_id++;
 
-        const testNodeId    = this.node_id++;
-        const bodyNodeId    = this.node_id++;
+        const test_node_id    = this.node_id++;
+        const body_node_id    = this.node_id++;
         
-        nodes[entryNodeId]  = { type: "_root", loc: null };
-        nodes[testNodeId]   = { type: test.type, loc: `${test.loc.start.line}-${test.loc.end.line}` };
-        nodes[bodyNodeId]   = { type: body.type, loc: `${body.loc.start.line}-${body.loc.end.line}` };
-        nodes[exitNodeId]   = { type: "_end", loc: null };
+        nodes[entry_node_id]  = { type: "_root", loc: null };
+        nodes[test_node_id]   = { type: test.type, loc: `${test.loc.start.line}-${test.loc.end.line}` };
+        nodes[body_node_id]   = { type: body.type, loc: `${body.loc.start.line}-${body.loc.end.line}` };
+        nodes[exit_node_id]   = { type: "_end", loc: null };
         
-        edges.push({ edge: [entryNodeId, testNodeId], label: "while"});
-        edges.push({ edge: [testNodeId, bodyNodeId], label: "true" });
-        edges.push({ edge: [bodyNodeId, testNodeId] });
-        edges.push({ edge: [testNodeId, exitNodeId] });
+        edges.push({ edge: [entry_node_id, test_node_id], label: "while"});
+        edges.push({ edge: [test_node_id, body_node_id], label: "true" });
+        edges.push({ edge: [body_node_id, test_node_id] });
+        edges.push({ edge: [test_node_id, exit_node_id] });
         
-        return { entryNodeId, exitNodeId, nodes, edges };
+        return { entry_node_id, exit_node_id, nodes, edges };
     }
     
-    build_switch(obj) {
+    buildSwitch(obj) {
         const { discriminant, cases }  = obj;
         
         const nodes = {};
         const edges = [];
 
-        const entryNodeId   = this.node_id++;
-        const exitNodeId    = this.node_id++;
+        const entry_node_id   = this.node_id++;
+        const exit_node_id    = this.node_id++;
         
-        const discriminantNodeId = this.node_id++;
+        const discriminant_node_id = this.node_id++;
 
-        nodes[entryNodeId]          = { type: "_root", loc: null };
-        nodes[discriminantNodeId]   = { type: discriminant.type, loc: `${discriminant.loc.start.line}-${discriminant.loc.end.line}` };
-        nodes[exitNodeId]           = { type: "_end", loc: null };
+        nodes[entry_node_id]          = { type: "_root", loc: null };
+        nodes[discriminant_node_id]   = { type: discriminant.type, loc: `${discriminant.loc.start.line}-${discriminant.loc.end.line}` };
+        nodes[exit_node_id]           = { type: "_end", loc: null };
         
-        edges.push({ edge: [entryNodeId, discriminantNodeId], label: "switch"});
+        edges.push({ edge: [entry_node_id, discriminant_node_id], label: "switch"});
         
-        
-        let switchCasesVisited = 0;
-        const numberSwitchCases = cases.length;
+        let switch_cases_visited = 0;
+        const number_switch_cases = cases.length;
         
         cases.forEach((switchCase) => {
             const { test, consequent } = switchCase;
-            const switchCaseId = this.node_id++;
+            const switch_case_id = this.node_id++;
             
             if (test) {
-                nodes[switchCaseId] = { type: test.type, loc: `${test.loc.start.line}-${test.loc.end.line}` };
-                edges.push({ edge: [discriminantNodeId, switchCaseId], label: test.value.toString() });
+                nodes[switch_case_id] = { type: test.type, loc: `${test.loc.start.line}-${test.loc.end.line}` };
+                edges.push({ edge: [discriminant_node_id, switch_case_id], label: test.value.toString() });
             } else {
-                nodes[switchCaseId] = { type: "Default", loc: `${switchCase.loc.start.line}-${switchCase.loc.end.line}` };
-                edges.push({ edge: [discriminantNodeId, switchCaseId] });
+                nodes[switch_case_id] = { type: "Default", loc: `${switchCase.loc.start.line}-${switchCase.loc.end.line}` };
+                edges.push({ edge: [discriminant_node_id, switch_case_id] });
             }
             
             consequent.forEach((statement) => {
-                const statementId = this.node_id++; 
-                nodes[statementId] = { type: statement.type, loc: `${statement.loc.start.line}-${statement.loc.end.line}` };
-                edges.push({ edge: [this.node_id-2, statementId] });
+                const statement_id = this.node_id++; 
+                nodes[statement_id] = { type: statement.type, loc: `${statement.loc.start.line}-${statement.loc.end.line}` };
+                edges.push({ edge: [this.node_id-2, statement_id] });
             });
             
-            const lastStatement = this.node_id-1;
-            if (nodes[lastStatement].type == "BreakStatement") {
-                edges.push({ edge: [lastStatement, exitNodeId] });
-            } else if (switchCasesVisited + 1 == numberSwitchCases) {
-                edges.push({ edge: [lastStatement, exitNodeId] });
+            const last_statement = this.node_id-1;
+            if (nodes[last_statement].type == "BreakStatement") {
+                edges.push({ edge: [last_statement, exit_node_id] });
+            } else if (switch_cases_visited + 1 == number_switch_cases) {
+                edges.push({ edge: [last_statement, exit_node_id] });
             } else {
-                edges.push({ edge: [lastStatement, this.node_id] });
+                edges.push({ edge: [last_statement, this.node_id] });
             }
             
-            switchCasesVisited++;
+            switch_cases_visited++;
         });
         
-        return { entryNodeId, exitNodeId, nodes, edges };
+        return { entry_node_id, exit_node_id, nodes, edges };
     }
     
-    build_return(obj) {
+    buildReturn(obj) {
         const { argument }  = obj;
         
         const nodes = {};
         const edges = [];
 
-        const entryNodeId       = this.node_id++;
-        const exitNodeId        = this.node_id++;
-        const argumentNodeId    = this.node_id++;
+        const entry_node_id       = this.node_id++;
+        const exit_node_id        = this.node_id++;
+        const argument_node_id    = this.node_id++;
         
-        nodes[entryNodeId]      = { type: "_root", loc: null };
-        nodes[argumentNodeId]   = { type: argument.type, loc: `${argument.loc.start.line}-${argument.loc.end.line}` };
-        nodes[exitNodeId]       = { type: "_end", loc: null };
+        nodes[entry_node_id]      = { type: "_root", loc: null };
+        nodes[argument_node_id]   = { type: argument.type, loc: `${argument.loc.start.line}-${argument.loc.end.line}` };
+        nodes[exit_node_id]       = { type: "_end", loc: null };
         
-        edges.push({ edge: [entryNodeId, argumentNodeId], label: "return"});
-        edges.push({ edge: [argumentNodeId, exitNodeId] });
+        edges.push({ edge: [entry_node_id, argument_node_id], label: "return"});
+        edges.push({ edge: [argument_node_id, exit_node_id] });
         
-        return { entryNodeId, exitNodeId, nodes, edges };
+        return { entry_node_id, exit_node_id, nodes, edges };
     }
 
-    // build_call(obj) {
+    // buildCall(obj) {
     //     const { callee } = obj;
 
     //     const nodes = {};
     //     const edges = [];
 
-    //     const entryNodeId   = this.node_id++;
-    //     const exitNodeId    = this.node_id++;
+    //     const entry_node_id   = this.node_id++;
+    //     const exit_node_id    = this.node_id++;
     //     const calleeId      = this.node_id++;
 
-    //     nodes[entryNodeId] = { type: "_root", loc: null };
+    //     nodes[entry_node_id] = { type: "_root", loc: null };
     //     nodes[calleeId] = { type: `${obj.type} ${callee.name}`, loc: `${callee.loc.start.line}-${callee.loc.end.line}` };
-    //     nodes[exitNodeId] = { type: "_end", loc: null };
+    //     nodes[exit_node_id] = { type: "_end", loc: null };
         
-    //     edges.push({ edge: [entryNodeId, calleeId], label: "call"});
-    //     edges.push({ edge: [calleeId, exitNodeId] });
+    //     edges.push({ edge: [entry_node_id, calleeId], label: "call"});
+    //     edges.push({ edge: [calleeId, exit_node_id] });
         
-    //     return { entryNodeId, exitNodeId, nodes, edges };
+    //     return { entry_node_id, exit_node_id, nodes, edges };
     // }
 }
 
