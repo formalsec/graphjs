@@ -26,6 +26,6 @@ function outputGraph(graphs) {
         });
 
         console.log(g_dot.to_dot());
-        g_dot.output("png", "test01.png");
+        //g_dot.output("png", "test01.png");
     });
 }

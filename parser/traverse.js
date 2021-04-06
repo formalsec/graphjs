@@ -151,6 +151,7 @@ function traverse(callback, obj) {
       break;
     }
 
+    case "ArrowFunctionExpression":
     case "FunctionDeclaration":
     case "FunctionExpression":
     case "LabeledStatement":
