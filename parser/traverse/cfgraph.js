@@ -1,5 +1,5 @@
 
-let { NODE_COUNT, printDebug } = require('./utils');
+let { NODE_COUNT, printDebug } = require('../utils/utils');
 
 function buildIf(obj) {
     const { test, consequent, alternate}  = obj;
