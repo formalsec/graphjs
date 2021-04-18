@@ -23,28 +23,26 @@ const createVariableDeclaration = (obj, variable_name) => {
 
 const flatStmts = (children) => children.map((child) => child.stmts).flat();
 const flatExprs = (children) => children.map((child) => child.expr).flat();
+const isNotLiteral = (obj) => obj.type !== 'Literal' && obj.type !== 'Identifier';
 
 const normProgram = (obj, children) => {
-    const stmts = flatStmts(children);
-    const new_obj = copyObj(obj);
-    new_obj.body = stmts;
+    const new_obj   = copyObj(obj);
+    new_obj.body    = flatStmts(children);
     return { stmts: [ new_obj ], expr: null };
 };
 
 const normBinaryExpression = (obj, children) => {
-    const new_stmts = children[0].stmts.concat(children[1].stmts);
-            
     const new_obj   = copyObj(obj);
     new_obj.left    = children[0].expr;
     new_obj.right   = children[1].expr;
     
-    const variable  = getNextVariableName(); // Change this to a function so it is cleaner
+    const variable  = getNextVariableName();
     const { var_obj, new_stmt } = createVariableDeclaration(new_obj, variable);
 
     return {
-        stmts: new_stmts.concat(new_stmt),
+        stmts: [...children[0].stmts, ...children[1].stmts, new_stmt],
         expr: var_obj,
-    };;
+    };
 };
 
 const normVariableDeclaration = (obj, children) => {
@@ -66,20 +64,20 @@ const normVariableDeclarator = (obj, children) => {
     let stmts = [];
 
     if (children[1]) {
-        stmts = children[1].stmts; 
+        stmts = [...children[1].stmts]; 
         const init_expression = children[1].expr;
         new_obj.init = init_expression;
         
-        // This only applies if the chil was a binary expression that required normalization
-        if (init_expression.type === "Identifier" && children[1].stmts.length > 0) {
-            const init_expression_id = init_expression.name;
-            const last_stmt = children[1].stmts.slice(-1)[0];
+        // This only applies if the child was a binary expression that required normalization
+        // if (init_expression.type === "Identifier" && children[1].stmts.length > 0) {
+        //     const init_expression_id = init_expression.name;
+        //     const last_stmt = children[1].stmts.slice(-1)[0];
 
-            if (last_stmt.type === "VariableDeclaration" && last_stmt.declarations[0].id.name === init_expression_id) {
-                children[1].stmts.pop(); // remove stmt
-                new_obj.init = last_stmt.declarations[0].init;
-            }
-        }
+        //     if (last_stmt.type === "VariableDeclaration" && last_stmt.declarations[0].id.name === init_expression_id) {
+        //         stmts = children[1].stmts.slice(0, children[1].stmts.length-1); // remove last stmt
+        //         new_obj.init = last_stmt.declarations[0].init;
+        //     }
+        // }
     }
 
     return {
@@ -88,23 +86,23 @@ const normVariableDeclarator = (obj, children) => {
     };
 };
 
-function normBlockStatement(obj, children) {
+const normBlockStatement = (obj, children) => {
     const stmts = flatStmts(children);
+
+    // shouldn't really be anything here
     const exprs = flatExprs(children).filter(elem => elem != null);
 
     const new_obj = copyObj(obj);
-    new_obj.body = stmts.concat(exprs);
-
+    new_obj.body = [...stmts, ...exprs];
     return {
-        stmts: [new_obj],
+        stmts: [ new_obj ],
         expr: null,
     };
-}
+};
 
-function normIfStatement(obj, children) {
-    let new_stmts = children[0].stmts;
-    const new_obj = copyObj(obj);
-    new_obj.test = children[0].expr;
+const normIfStatement = (obj, children) => {
+    const new_obj   = copyObj(obj);
+    new_obj.test    = children[0].expr;
     new_obj.consequent = children[1].stmts[0];
 
     if (new_obj.alternate) {
@@ -112,110 +110,108 @@ function normIfStatement(obj, children) {
     }
 
     return {
-        stmts: new_stmts.concat(new_obj),
+        stmts: [ ...children[0].stmts, new_obj],
         expr: null,
     };
-}
+};
 
-function normConditionalExpression(obj, children) {
-    let new_stmts = children[0].stmts.concat(children[1].stmts, children[2].stmts);
-    const new_obj = copyObj(obj);
-    new_obj.test = children[0].expr;
+const normConditionalExpression = (obj, children) => {
+    const new_obj   = copyObj(obj);
+    new_obj.test    = children[0].expr;
     new_obj.consequent = children[1].expr;
     new_obj.alternate = children[2].expr;
 
     return {
-        stmts: new_stmts,
+        stmts: [...children[0].stmts, ...children[1].stmts, ...children[2].stmts],
         expr: new_obj,
     };
-}
+};
 
-function normWhileStatement(obj, children) {
-    const new_obj = copyObj(obj);
-    new_obj.test = children[0].expr;
-    new_obj.body = children[1].stmts[0];
+const normWhileStatement = (obj, children) => {
+    const new_obj   = copyObj(obj);
+    new_obj.test    = children[0].expr;
+    new_obj.body    = children[1].stmts[0];
 
     return {
-        stmts: children[0].stmts.concat(new_obj),
+        stmts: [...children[0].stmts, new_obj],
         expr: null,
     };
-}
+};
 
-function normAssignmentExpressions(obj, children) {
-    const stmts = children[0].stmts.concat(children[1].stmts);
-    const new_obj = copyObj(obj);
-    new_obj.left = children[0].expr;
-    new_obj.right = children[1].expr;
+const normAssignmentExpressions = (obj, children) => {
+    const new_obj   = copyObj(obj);
+    new_obj.left    = children[0].expr;
+    new_obj.right   = children[1].expr;
 
     return {
-        stmts,
+        stmts: [...children[0].stmts, ...children[1].stmts],
         expr: new_obj,
     };
-}
+};
 
-function normExpressionStatement(obj, children) {
-    let stmts = (children[0].expr) ?
-        children[0].stmts.concat(children[0].expr) :
-        children[0].stmts;
+const normExpressionStatement = (obj, children) => {
+    const new_obj = copyObj(obj);
+    new_obj.expression = children[0].expr
 
     return {
-        stmts,
+        stmts: [...children[0].stmts, new_obj] ,
+        expr: null,
+    };;
+};
+
+const normUpdateExpression = (obj, children) => {
+    const new_obj = copyObj(obj);
+    new_obj.argument = children[0].expr;
+
+    const variable  = getNextVariableName(); // Change this to a function so it is cleaner
+    const { var_obj, new_stmt } = createVariableDeclaration(new_obj, variable);
+
+    return {
+        stmts: [...children[0].stmts, new_stmt],
+        expr: var_obj,
+    };
+};
+
+const normFunctionDeclaration = (obj, children) => {
+    const new_obj   = copyObj(obj);
+    new_obj.body    = children[0].stmts[0];
+
+    return {
+        stmts: [ new_obj ],
         expr: null,
     };
-}
+};
 
-function normUpdateExpression(obj, children) {
-    const stmts = children[0].stmts;
+const normReturnStatement = (obj, children) => {
     const new_obj = copyObj(obj);
     new_obj.argument = children[0].expr;
 
     return {
-        stmts,
-        expr: new_obj,
-    };
-}
-
-function normFunctionDeclaration(obj, children) {
-    const new_obj = copyObj(obj);
-    new_obj.body = children[0].stmts[0];
-
-    return {
-        stmts: [new_obj],
+        stmts: [...children[0].stmts, new_obj],
         expr: null,
     };
-}
+};
 
-function normFunctionExpression(obj, children) {
+const normFunctionExpression = (obj, children) => {
     const new_obj = copyObj(obj);
-    const child_expr = children[0].expr;
-    const child_stmts = children[0].stmts;
-    
     let stmts = [];
 
-    if (child_expr) {
-        new_obj.body = child_expr;
-        stmts = child_stmts;
-    } else {
-        new_obj.body = child_stmts[0];
+    if (children[0].expr) { // ArrowFunctionExpression
+        new_obj.body = children[0].expr;
+        stmts = children[0].stmts;
+    } else { // FunctionExpression
+        new_obj.body = children[0].stmts[0];
     }
 
-    return {
-        stmts,
-        expr: new_obj,
-    };
-}
-
-function normReturnStatement(obj, children) {
-    const new_obj = copyObj(obj);
-    new_obj.argument = children[0].expr;
-    
-    const stmts = children[0].stmts.concat(new_obj);
+    const variable  = getNextVariableName(); // Change this to a function so it is cleaner
+    const { var_obj, new_stmt } = createVariableDeclaration(new_obj, variable);
+    stmts.push(new_stmt);
 
     return {
         stmts,
-        expr: null,
+        expr: var_obj,
     };
-}
+};
 
 // TODO: Ask Prof. José what should be done in this case
 // IDEA: change it to a while??
@@ -234,57 +230,73 @@ function normReturnStatement(obj, children) {
 //     };
 // }
 
-function normCallExpression(obj, children) {
-    const stmts = flatStmts(children);
-    const callee = children.shift();
+const normCallExpression = (obj, children) => {
+    const new_obj   = copyObj(obj);
+    new_obj.callee  = children[0].expr;
+    new_obj.arguments = flatExprs(children.slice(1)); // immutable shift()
 
-    const new_obj = copyObj(obj);
-    new_obj.callee = callee.expr;
-    new_obj.arguments = children.map((child) => child.expr).flat();
+    const variable  = getNextVariableName(); // Change this to a function so it is cleaner
+    const { var_obj, new_stmt } = createVariableDeclaration(new_obj, variable);
 
     return {
-        stmts,
-        expr: new_obj,
+        stmts: [...flatStmts(children), new_stmt],
+        expr: var_obj,
     };
-}
+};
 
 function normMemberExpression(obj, children) {
-    const stmts = children[0].stmts.concat(children[1].stmts);
-    
     const new_obj = copyObj(obj);
     new_obj.object = children[0].expr;
     new_obj.property = children[1].expr;
 
+    const variable  = getNextVariableName(); // Change this to a function so it is cleaner
+    const { var_obj, new_stmt } = createVariableDeclaration(new_obj, variable);
+
     return {
-        stmts,
-        expr: new_obj,
+        stmts: [...children[0].stmts, ...children[1].stmts, new_stmt],
+        expr: var_obj,
     };
 }
 
 function normObjectExpression(obj, children) {
-    const stmts = flatStmts(children);
-
     const new_obj = copyObj(obj);
     new_obj.properties = children.map((child) => child.expr).flat();
+
+    const variable  = getNextVariableName(); // Change this to a function so it is cleaner
+    const { var_obj, new_stmt } = createVariableDeclaration(new_obj, variable);
     
     return {
-        stmts,
-        expr: new_obj,
+        stmts: [...flatStmts(children), new_stmt],
+        expr: var_obj,
     };
 }
 
 function normProperty(obj, children) {
-    const stmts = children[0].stmts.concat(children[1].stmts);
-    
-    const key = children[0].expr;
-    const value = children[1].expr;
-
     const new_obj = copyObj(obj);
-    new_obj.key = key;
-    new_obj.value = value;
+    
+    let key_stmts = [...children[0].stmts]; // Copy
+    let value_stmts = [...children[1].stmts]; // Copy
+
+    if (isNotLiteral(children[0].expr)) {
+        const variable  = getNextVariableName();
+        const { var_obj, new_stmt } = createVariableDeclaration(children[0].expr, variable);
+        new_obj.key = var_obj;
+        key_stmts.push(new_stmt);
+    } else {
+        new_obj.key = children[0].expr;
+    }
+
+    if (isNotLiteral(children[1].expr)) {
+        const variable  = getNextVariableName();
+        const { var_obj, new_stmt } = createVariableDeclaration(children[1].expr, variable);
+        new_obj.value = var_obj;
+        value_stmts.push(new_stmt);
+    } else {
+        new_obj.value = children[1].expr;
+    }
 
     return {
-        stmts,
+        stmts: [...key_stmts, ...value_stmts],
         expr: new_obj,
     };
 }
@@ -383,6 +395,20 @@ module.exports = {
     normBinaryExpression,
     normVariableDeclaration,
     normVariableDeclarator,
-    
+    normBlockStatement,
+    normIfStatement,
+    normConditionalExpression,
+    normWhileStatement,
+    normAssignmentExpressions,
+    normExpressionStatement,
+    normUpdateExpression,
+    normFunctionDeclaration,
+    normReturnStatement,
+    normFunctionExpression,
+    normCallExpression,
+    normMemberExpression,
+    normObjectExpression,
+    normProperty,
+
     normalize,
 };
