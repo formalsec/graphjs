@@ -1,4 +1,4 @@
-const { setVariableCount } = require('../utils/utils');
+const { resetVariableCount } = require('../utils/utils');
 const {
     createVariableDeclaration,
     flatStmts,
@@ -48,7 +48,7 @@ test('create a new variable statement', () => {
         new_stmt: expected_stmt,
     };
 
-    expect(createVariableDeclaration(old_object, variable_name)).toEqual(expected_return);
+    expect(createVariableDeclaration(old_object, variable_name)).toMatchObject(expected_return);
 });
 
 test('flat statements of children array', () => {
@@ -79,7 +79,7 @@ test('normalize Program', () => {
         body: [ stmtExample(3), stmtExample(4) ],
     };
 
-    expect(normProgram(original_prog, children)).toEqual({
+    expect(normProgram(original_prog, children)).toMatchObject({
         stmts: [ expected_prog ],
         expr: null,
     });
@@ -126,8 +126,8 @@ test('normalize BinaryExpression', () => {
         kind: 'let',
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normBinaryExpression(original_binary_expr, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normBinaryExpression(original_binary_expr, children)).toMatchObject({
         stmts: [3, 4, new_stmt],
         expr: variable_obj,
     });
@@ -168,8 +168,8 @@ test('normalize LogicalExpression', () => {
         kind: 'let',
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normBinaryExpression(original_binary_expr, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normBinaryExpression(original_binary_expr, children)).toMatchObject({
         stmts: [3, 4, new_stmt],
         expr: variable_obj,
     });
@@ -196,7 +196,7 @@ test('normalize VariableDeclaration', () => {
 
     const children = [ childrenExample(3), childrenExample(4), childrenExample(5) ];
 
-    expect(normVariableDeclaration(original_stmt, children)).toEqual({
+    expect(normVariableDeclaration(original_stmt, children)).toMatchObject({
         stmts: [
             3, 4, 5,
             createDeclaration(3),
@@ -220,7 +220,7 @@ test('normalize VariableDeclarator (1) without binary expression', () => {
 
     children = [ { stmts: [], expr: id_obj }, childrenExample(1) ]
 
-    expect(normVariableDeclarator(original_obj, children)).toEqual({
+    expect(normVariableDeclarator(original_obj, children)).toMatchObject({
         stmts: [1],
         expr: {
             type: 'VariableDeclarator',
@@ -243,7 +243,7 @@ test('normalize VariableDeclarator (2) with binary expression', () => {
 
     children = [ { stmts: [], expr: id_obj }, childrenExample('x') ]
 
-    expect(normVariableDeclarator(original_obj, children)).toEqual({
+    expect(normVariableDeclarator(original_obj, children)).toMatchObject({
         stmts: ['x'],
         expr: {
             type: 'VariableDeclarator',
@@ -281,7 +281,7 @@ test('normalize VariableDeclarator (2) with binary expression', () => {
 
 //     children = [ { stmts: [], expr: id_obj }, childrenExample('v0') ]
 
-//     expect(normVariableDeclarator(original_obj, children)).toEqual({
+//     expect(normVariableDeclarator(original_obj, children)).toMatchObject({
 //         stmts: [],
 //         expr: {
 //             type: 'VariableDeclarator',
@@ -302,7 +302,7 @@ test('normalize BlockStatement', () => {
 
     const children = [ childrenExample('x_'), childrenExample('y_') ];
 
-    expect(normBlockStatement(original_obj, children)).toEqual({
+    expect(normBlockStatement(original_obj, children)).toMatchObject({
         stmts: [
             {
                 type: 'BlockStatement',
@@ -326,7 +326,7 @@ test('normalize IfStatement (1) without alternate', () => {
 
     const children = [ childExpr('expr_'), childStmt('stmt_') ];
 
-    expect(normIfStatement(original_obj, children)).toEqual({
+    expect(normIfStatement(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
             {
@@ -353,7 +353,7 @@ test('normalize IfStatement (2) with alternate', () => {
 
     const children = [ childExpr('expr_'), childStmt('stmt_1_'), childStmt('stmt_2_') ];
 
-    expect(normIfStatement(original_obj, children)).toEqual({
+    expect(normIfStatement(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
             {
@@ -380,7 +380,7 @@ test('normalize ConditionalExpression', () => {
 
     const children = [ childExpr('expr_1_'), childExpr('expr_2_'), childExpr('expr_3_') ];
 
-    expect(normConditionalExpression(original_obj, children)).toEqual({
+    expect(normConditionalExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
             'expr_2_',
@@ -408,7 +408,7 @@ test('normalize WhileStatement', () => {
 
     const children = [ childExpr('expr_1_'), childStmt('stmt_1_') ];
 
-    expect(normWhileStatement(original_obj, children)).toEqual({
+    expect(normWhileStatement(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
             {
@@ -434,7 +434,7 @@ test('normalize DoWhileStatement', () => {
 
     const children = [ childExpr('expr_1_'), childStmt('stmt_1_') ];
 
-    expect(normWhileStatement(original_obj, children)).toEqual({
+    expect(normWhileStatement(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
             {
@@ -460,7 +460,7 @@ test('normalize AssignmentExpression', () => {
 
     const children = [ childExpr('expr_1_'), childExpr('expr_2_') ];
 
-    expect(normAssignmentExpressions(original_obj, children)).toEqual({
+    expect(normAssignmentExpressions(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
             'expr_2_',
@@ -485,7 +485,7 @@ test('normalize ExpressionStatement', () => {
 
     const children = [ childExpr('expr_') ];
 
-    expect(normExpressionStatement(original_obj, children)).toEqual({
+    expect(normExpressionStatement(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
             {
@@ -515,8 +515,8 @@ test('normalize UpdateExpression', () => {
 
     const children = [ childExpr('expr_') ];
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normUpdateExpression(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normUpdateExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
             {
@@ -558,8 +558,8 @@ test('normalize UnaryExpression', () => {
 
     const children = [ childExpr('expr_') ];
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normUpdateExpression(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normUpdateExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
             {
@@ -599,7 +599,7 @@ test('normalize FunctionDeclaration', () => {
 
     const children = [ childStmt('stmt_') ];
 
-    expect(normFunctionDeclaration(original_obj, children)).toEqual({
+    expect(normFunctionDeclaration(original_obj, children)).toMatchObject({
         stmts: [
             {
                 type: 'FunctionDeclaration',
@@ -627,7 +627,7 @@ test('normalize ReturnStatement', () => {
 
     const children = [ childExpr('expr_') ];
 
-    expect(normReturnStatement(original_obj, children)).toEqual({
+    expect(normReturnStatement(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
             {
@@ -650,7 +650,7 @@ test('normalize ThrowStatement', () => {
 
     const children = [ childExpr('expr_') ];
 
-    expect(normReturnStatement(original_obj, children)).toEqual({
+    expect(normReturnStatement(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
             {
@@ -683,8 +683,8 @@ test('normalize FunctionExpression', () => {
         name: "v0"
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normFunctionExpression(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normFunctionExpression(original_obj, children)).toMatchObject({
         stmts: [
             {
                 type: "VariableDeclaration",
@@ -731,8 +731,8 @@ test('normalize ArrowFunctionExpression (1) with BlockStatement', () => {
         name: "v0"
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normFunctionExpression(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normFunctionExpression(original_obj, children)).toMatchObject({
         stmts: [
             {
                 type: "VariableDeclaration",
@@ -779,8 +779,8 @@ test('normalize ArrowFunctionExpression (2) with Expression', () => {
         name: "v0"
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normFunctionExpression(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normFunctionExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
             {
@@ -824,8 +824,8 @@ test('normalize CallExpression', () => {
         name: 'v0',
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normCallExpression(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normCallExpression(original_obj, children)).toMatchObject({
         stmts: [
             'callee_',
             'expr_1_',
@@ -868,8 +868,8 @@ test('normalize MemberExpression', () => {
         name: 'v0',
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normMemberExpression(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normMemberExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
             'expr_2_',
@@ -913,8 +913,8 @@ test('normalize ObjectExpression', () => {
         name: 'v0',
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normObjectExpression(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normObjectExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
             'expr_2_',
@@ -956,7 +956,7 @@ test('normalize Property with Identifier key and Literal value', () => {
 
     const children = [ childExpr('expr_1_'), childExpr('expr_2_') ];
 
-    expect(normProperty(original_obj, children)).toEqual({
+    expect(normProperty(original_obj, children)).toMatchObject({
         stmts: [ 'expr_1_', 'expr_2_' ],
         expr: {
             type: "Property",
@@ -996,8 +996,8 @@ test('normalize Property with Identifier key and Expression value', () => {
         name: 'v0',
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normProperty(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normProperty(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
             {
@@ -1050,8 +1050,8 @@ test('normalize Property with Expression key and Literal value', () => {
         name: 'v0',
     };
 
-    setVariableCount(0); // setting this to make sure next variable name is v0
-    expect(normProperty(original_obj, children)).toEqual({
+    resetVariableCount(); // setting this to make sure next variable name is v0
+    expect(normProperty(original_obj, children)).toMatchObject({
         stmts: [
             {
                 type: "VariableDeclaration",

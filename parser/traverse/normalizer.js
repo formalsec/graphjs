@@ -6,19 +6,19 @@ const createVariableDeclaration = (obj, variable_name) => {
         name: variable_name,
     };
     
-    let new_stmt = {
+    let new_stmt = copyObj({
         type: "VariableDeclaration",
         declarations: [
-            {
+            copyObj({
                 type: "VariableDeclarator",
-                id: var_obj,
+                id: copyObj(var_obj),
                 init: obj,
-            }
+            })
         ],
         kind: "let",
-    };
+    });
 
-    return { var_obj, new_stmt };
+    return { var_obj: copyObj(var_obj), new_stmt };
 };
 
 const flatStmts = (children) => children.map((child) => child.stmts).flat();
@@ -63,6 +63,7 @@ const normVariableDeclarator = (obj, children) => {
     const new_obj = copyObj(obj);
     let stmts = [];
 
+    new_obj.id = children[0].expr;
     if (children[1]) {
         stmts = [...children[1].stmts]; 
         const init_expression = children[1].expr;
@@ -173,8 +174,13 @@ const normUpdateExpression = (obj, children) => {
 };
 
 const normFunctionDeclaration = (obj, children) => {
-    const new_obj   = copyObj(obj);
-    new_obj.body    = children[0].stmts[0];
+    const new_obj = copyObj(obj);
+
+    if(children[0]) {
+        new_obj.id = children[0].expr;
+    }
+
+    new_obj.body = children[1].stmts[0];
 
     return {
         stmts: [ new_obj ],
@@ -196,11 +202,15 @@ const normFunctionExpression = (obj, children) => {
     const new_obj = copyObj(obj);
     let stmts = [];
 
-    if (children[0].expr) { // ArrowFunctionExpression
-        new_obj.body = children[0].expr;
-        stmts = children[0].stmts;
+    if (children[0]) {
+        new_obj.id = children[0].expr;
+    }
+
+    if (children[1].expr) { // ArrowFunctionExpression
+        new_obj.body = children[1].expr;
+        stmts = children[1].stmts;
     } else { // FunctionExpression
-        new_obj.body = children[0].stmts[0];
+        new_obj.body = children[1].stmts[0];
     }
 
     const variable  = getNextVariableName(); // Change this to a function so it is cleaner
@@ -312,7 +322,7 @@ function normalize(obj, children) {
         case "Literal":
             return {
                 stmts: [],
-                expr: obj,
+                expr: copyObj(obj),
             };
 
         case "BlockStatement":
@@ -379,7 +389,7 @@ function normalize(obj, children) {
             return normProperty(obj, children);
 
         default:
-            console.log("default ->", obj.type);
+            //console.log("default ->", obj.type);
             return {
                 stmts: [],
                 expr: null

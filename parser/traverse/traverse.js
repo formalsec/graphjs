@@ -155,7 +155,9 @@ function traverse(callback, obj) {
     case "FunctionDeclaration":
     case "FunctionExpression":
     case "LabeledStatement":
-      resultData = [ traverse(callback, obj.body) ];
+      const resultId = traverse(callback, obj.id);
+      const resultBody = traverse(callback, obj.body);
+      resultData = [ resultId, resultBody ];
       break;
 
     case "IfStatement":
