@@ -34,6 +34,10 @@ class DotOutput {
                     label = `#${n.id} ${n.type} (${n.obj.name})`;
                     break;
 
+                // case 'Literal':
+                //     label = `#${n.id} ${n.type} (${n.obj.raw})`;
+                //     break;
+
                 case 'UpdateExpression':
                 case 'UnaryExpression':        
                     label = `#${n.id} ${n.type} (${n.obj.operator})`;
@@ -58,6 +62,22 @@ class DotOutput {
         return color;
     }
 
+    getNodeColor(n) {
+        let color = 'black';
+        if (n.obj) {
+            switch (n.obj.type) {
+                case 'AST':
+                    color = 'blue';
+                    break;
+                case 'CFG':
+                    color = 'red';
+                    break;
+            }
+        }
+
+        return color;
+    }
+
     output(graph, options, filename) {
         const g_dot = graphviz.digraph('G');
 
@@ -65,7 +85,6 @@ class DotOutput {
         const edges = graph.edges;
 
         nodes.forEach(n => {
-
             let edges = n.edges;
 
             if (options.ignore) {
@@ -74,12 +93,14 @@ class DotOutput {
 
             if (edges.length > 0) {
                 const label = this.getNodeLabel(n);
-                g_dot.addNode(label);
+                const color = this.getNodeColor(n);
+                g_dot.addNode(label, {fontcolor: color, color: color });
             }
         });
 
         edges.forEach(e => {
-            const [n1, n2] = e.nodes;
+            let [n1, n2] = e.nodes;
+
             const label = e.label;
 
             if (!options.ignore.includes(e.type)) {
@@ -88,7 +109,7 @@ class DotOutput {
             }
         });
 
-        // console.log(g_dot.to_dot());
+        console.log(g_dot.to_dot());
         g_dot.output("svg", `${filename}.svg`);
     }
 }

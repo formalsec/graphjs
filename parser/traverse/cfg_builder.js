@@ -4,7 +4,7 @@ module.exports.cfg_builder = function(ast_graph) {
     this._g = ast_graph;
     self = this;
 
-    this.defaultNode = (obj, children) => {
+    this.defaultNode = (obj) => {
         const node = this._g.nodes.get(obj._id);
         return {
             root: node,
@@ -24,8 +24,8 @@ module.exports.cfg_builder = function(ast_graph) {
             switch (obj.type) {
                 // Scripts
                 case "Program": {
-                    let _start = self._g.addNode('_main_start');
-                    let _end = self._g.addNode('_main_end');
+                    let _start = self._g.addNode('_main_start', { type: 'CFG' });
+                    let _end = self._g.addNode('_main_end', { type: 'CFG' });
 
                     node_obj = self._g.nodes.get(obj._id);
 
@@ -128,8 +128,8 @@ module.exports.cfg_builder = function(ast_graph) {
 
                     let name = node_id ? `${node_obj.id}_${node_id.root.obj.name}` : `${node_obj.id}_anon`;
 
-                    let _start = self._g.addNode(`_${name}_start`);
-                    let _end = self._g.addNode(`_${name}_end`);
+                    let _start = self._g.addNode(`_${name}_start`, { type: 'CFG' });
+                    let _end = self._g.addNode(`_${name}_end`, { type: 'CFG' });
 
                     self._g.addEdge(_start.id, node_body.root.id, { type: 'CFG' });
                     self._g.addEdge(node_body.exit.id, _end.id, { type: 'CFG' });
@@ -142,7 +142,7 @@ module.exports.cfg_builder = function(ast_graph) {
 
                     let [test, consequent, alternate] = children;
 
-                    let _end_if = self._g.addNode(`_${node_obj.id}_end_if`);
+                    let _end_if = self._g.addNode(`_${node_obj.id}_end_if`, { type: 'CFG' });
 
                     self._g.addEdge(node_obj.id, test.root.id, { type: 'CFG', label: 'test'});
                     self._g.addEdge(test.exit.id, consequent.root.id, { type: 'CFG', label: 'TRUE'});
@@ -173,14 +173,7 @@ module.exports.cfg_builder = function(ast_graph) {
                 // }
             
                 // case "VariableDeclaration": {
-                //     new_obj = copyObj(obj);
-                //     delete new_obj.declarations;
-                //     new_node = self._g.addNode(obj.type, new_obj);
-
-                //     for(let i = 0; i < children.length; i++) {
-                //         self._g.addEdge(new_node.id, children[i].id, { type: 'AST', label: i+1});
-                //     }
-                //     break;
+                //     return children[0];
                 // }
                 
                 // case "VariableDeclarator": {
@@ -208,7 +201,7 @@ module.exports.cfg_builder = function(ast_graph) {
                 // }
             
                 default:
-                    return self.defaultNode(obj, children);
+                    return self.defaultNode(obj);
             }
         }
     };

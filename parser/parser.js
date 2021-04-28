@@ -19,8 +19,8 @@ function parse(file, graph_options) {
         const normalized_ast = traverse(normalize, ast).stmts[0];
         // console.log(JSON.stringify(normalized_ast, null, 2));
         
-        // const code = escodegen.generate(normalized_ast);
-        // console.log(code);
+        const code = escodegen.generate(normalized_ast);
+        console.log(code);
         
         const ast_functions = ast_builder();
         traverse(ast_functions.visit, normalized_ast);

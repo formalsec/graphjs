@@ -1,4 +1,3 @@
-const { copyObj } = require('../utils/utils');
 const { Node, Edge, Graph } = require('./graph');
 
 module.exports.ast_builder = function() {
@@ -177,6 +176,9 @@ module.exports.ast_builder = function() {
                 // }
             
                 case "VariableDeclaration": {
+                    // obj_node = children[0];
+                    // break;
+                    
                     obj_node = self._g.addNode(obj.type, obj);
 
                     for(let i = 0; i < children.length; i++) {

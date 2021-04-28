@@ -1,5 +1,3 @@
-const object_hash = require('object-hash');
-
 class Node {
     constructor(id, type, obj={}) {
         this._id = id;
@@ -91,7 +89,7 @@ class Graph {
 
     addNode(label, obj) {
         const count = this.node_counter++;
-        const id = obj ? obj._id : count;
+        const id = obj && obj._id ? obj._id : count;
         const node = new Node(id, label, obj);
         this._nodes.set(id, node);
         return node;
