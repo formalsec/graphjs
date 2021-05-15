@@ -2,11 +2,9 @@ const yargs = require('yargs/yargs');
 const fs        = require('fs');
 const esprima   = require('esprima');
 const escodegen = require('escodegen');
-// const mapper    = require('./mapper');
-const traverse  = require('./traverse/traverse');
 const { normalize } = require('./traverse/normalizer');
-const { ast_builder } = require('./traverse/ast_builder');
-const { cfg_builder } = require('./traverse/cfg_builder');
+const { buildAST } = require('./traverse/ast_builder');
+const { buildCFG } = require('./traverse/cfg_builder');
 // const { printDebug } = require('./utils');
 const { OutputManager, DotOutput } = require('./output/output_strategy');
 
@@ -16,21 +14,21 @@ function parse(file, graph_options) {
         const data  = fs.readFileSync(file, 'utf8');
         const ast   = esprima.parse(data);//, { loc: true });
 
-        const normalized_ast = traverse(normalize, ast).stmts[0];
+        const normalized_ast = normalize(ast).stmts[0];
         // console.log(JSON.stringify(normalized_ast, null, 2));
         
         const code = escodegen.generate(normalized_ast);
-        console.log(code);
+        // console.log(code);
+
+        const ast_graph = buildAST(normalized_ast);
+        // console.log(graph);
         
-        const ast_functions = ast_builder();
-        traverse(ast_functions.visit, normalized_ast);
-        let graph = ast_functions.graph();
+        const cfg_graph = buildCFG(ast_graph);
+        // const cfg_functions = cfg_builder(graph);
+        // traverse(cfg_functions.visit, normalized_ast);
+        // graph = cfg_functions.graph();
 
-        const cfg_functions = cfg_builder(graph);
-        traverse(cfg_functions.visit, normalized_ast);
-        graph = cfg_functions.graph();
-
-        return graph;
+        return cfg_graph;
     } catch(e) {
         console.log('Error:', e.stack);
     }
@@ -38,11 +36,14 @@ function parse(file, graph_options) {
 
 const argv = yargs(process.argv.slice(3))
     .array('ignore')
+    .boolean('show_code')
     .argv;
+
 const filename = process.argv[2];
 if (fs.existsSync(filename)) {
     const graph_options = {
         ignore: argv.ignore || [],
+        show_code: argv.show_code || false,
     };
 
     const graph = parse(filename, graph_options);
