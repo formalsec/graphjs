@@ -3,7 +3,6 @@ let NODE_COUNT = 0;
 
 const copyObj = (obj) => {
     const new_obj = JSON.parse(JSON.stringify(obj));
-    new_obj._id = getNextNodeId();
     return new_obj;
 };
 

@@ -311,12 +311,23 @@ function normProperty(obj, children) {
     };
 }
 
-function normalize(obj, children) {
-    if (!obj) {
+function normalize(obj) {
+    function mapReduce(arr) {
+        return arr.map((item) => normalize(item));
+    }
+
+    if (obj === null) {
         return null;
     }
-    
+
     switch (obj.type) {
+        //
+        // Scripts
+        //
+        case "Program": {
+            resultData = mapReduce(obj.body);
+            return normProgram(obj, resultData);
+        }
 
         case "Identifier":
         case "Literal":
@@ -325,77 +336,249 @@ function normalize(obj, children) {
                 expr: copyObj(obj),
             };
 
-        case "BlockStatement":
-            return normBlockStatement(obj, children);
-        
-        case "LogicalExpression":
-        case "BinaryExpression":
-            return normBinaryExpression(obj, children);
+        //
+        // Expressions
+        //
+        // case "ArrayExpression":
+        //     resultData = mapReduce(obj.elements);
+        //     break;
 
-        case "IfStatement":
-            return normIfStatement(obj, children);
+        case "ObjectExpression":
+            resultData = mapReduce(obj.properties);
+            return normObjectExpression(obj, resultData);
 
-        case "ConditionalExpression":
-            return normConditionalExpression(obj, children);
+        case "Property": {
+            const resultKey = normalize(obj.key);
+            const resultValue = normalize(obj.value);
 
-        case "WhileStatement":
-        case "DoWhileStatement":
-            return normWhileStatement(obj, children);
+            resultData = [
+            resultKey,
+            resultValue
+            ];
+            return normProperty(obj, resultData);
+        }
 
-        case "VariableDeclarator":
-            return normVariableDeclarator(obj, children);
-        
-        case "VariableDeclaration":
-            return normVariableDeclaration(obj, children);
-                     
-        case "ExpressionStatement":
-            return normExpressionStatement(obj, children);
+        case "MemberExpression": {
+            const resultObject = normalize(obj.object);
+            const resultProperty = normalize(obj.property);
 
-        case "AssignmentExpression":
-            return normAssignmentExpressions(obj, children);
+            resultData = [
+            resultObject,
+            resultProperty
+            ];
+            return normMemberExpression(obj, resultData);
+        }
 
-        case "UnaryExpression":
+        case "CallExpression":
+        case "NewExpression": {
+            const resultCallee = normalize(obj.callee);
+            const resultArguments = mapReduce(obj.arguments);
+
+            resultArguments.unshift(resultCallee);
+            resultData = resultArguments;
+            return normCallExpression(obj, resultData);
+        }
+
         case "UpdateExpression":
-            return normUpdateExpression(obj, children);
+        case "UnaryExpression":
+            resultData = [ normalize(obj.argument) ];
+            return normUpdateExpression(obj, resultData);
 
-        case "FunctionDeclaration":
-            return normFunctionDeclaration(obj, children);
+        case "BinaryExpression":
+        case "LogicalExpression": {
+            const resultLeft = normalize(obj.left);
+            const resultRight = normalize(obj.right);
+
+            resultData = [
+                resultLeft,
+                resultRight
+            ];
+            return normBinaryExpression(obj, resultData);
+        }
+
+        case "AssignmentExpression": {
+            const resultLeft = normalize(obj.left);
+            const resultRight = normalize(obj.right);
+
+            resultData = [
+            resultLeft,
+            resultRight
+            ];
+            return normAssignmentExpressions(obj, resultData);
+        }
+
+        // case "SequenceExpression":
+        //     resultData = mapReduce(obj.expressions);
+        //     break;
+
+        //
+        // Statements and Declarations
+        //
+        case "BlockStatement": {
+            resultData = mapReduce(obj.body);
+            return normBlockStatement(obj, resultData);
+        }
+
+        case "DoWhileStatement":
+        case "WhileStatement": {
+            const resultTest = normalize(obj.test);
+            const resultBody = normalize(obj.body);
+
+            resultData = [
+            resultTest,
+            resultBody
+            ];
+            return normWhileStatement(obj, resultData);
+        }
+
+        case "ExpressionStatement": {
+            resultData = [ normalize(obj.expression) ];
+            return normExpressionStatement(obj, resultData);
+        }
+
+        // case "ForStatement": {
+        //     const resultInit = normalize(obj.init);
+        //     const resultTest = normalize(obj.test);
+        //     const resultUpdate = normalize(obj.update);
+        //     const resultBody = normalize(obj.body);
+
+        //     resultData = [
+        //     resultInit,
+        //     resultTest,
+        //     resultUpdate,
+        //     resultBody
+        //     ];
+        //     break;
+        // }
+
+        // case "ForInStatement": {
+        //     const resultLeft = normalize(obj.left);
+        //     const resultRight = normalize(obj.right);
+        //     const resultBody = normalize(obj.body);
+
+        //     resultData = [
+        //     resultLeft,
+        //     resultRight,
+        //     resultBody
+        //     ];
+        //     break;
+        // }
+
+        case "FunctionDeclaration": {
+            const resultId = normalize(obj.id);
+            const resultBody = normalize(obj.body);
+            resultData = [ resultId, resultBody ];
+            return normFunctionDeclaration(obj, resultData);
+        }
 
         case "ArrowFunctionExpression":
         case "FunctionExpression":
-            return normFunctionExpression(obj, children);
+        case "LabeledStatement": {
+            const resultId = normalize(obj.id);
+            const resultBody = normalize(obj.body);
+            resultData = [ resultId, resultBody ];
+            return normFunctionExpression(obj, resultData);
+        }
+
+        case "IfStatement": {
+            const resultTest = normalize(obj.test);
+            const resultConsequent = normalize(obj.consequent);
+            const resultAlternate = normalize(obj.alternate);
+
+            resultData = [
+                resultTest,
+                resultConsequent,
+                resultAlternate
+            ];
+            return normIfStatement(obj, resultData);
+        }
+
+        case "ConditionalExpression": {
+            const resultTest = normalize(obj.test);
+            const resultConsequent = normalize(obj.consequent);
+            const resultAlternate = normalize(obj.alternate);
+
+            resultData = [
+                resultTest,
+                resultConsequent,
+                resultAlternate
+            ];
+            return normConditionalExpression(obj, resultData);
+        }
 
         case "ReturnStatement":
-        case "ThrowStatement":
-            return normReturnStatement(obj, children);
+        case "ThrowStatement": {
+            resultData = [ normalize(obj.argument) ];
+            return normReturnStatement(obj, resultData);
+        }
 
-        // case "ForStatement":
-        //     return normForStatement(obj, children);
-                            
-        case "Program":
-            return normProgram(obj, children);
+        // case "SwitchStatement": {
+        //     const resultDiscriminant = normalize(obj.discriminant);
+        //     const resultCases = mapReduce(obj.cases);
 
-        case "NewExpression":
-        case "CallExpression":
-            return normCallExpression(obj, children);
+        //     resultCases.unshift(resultDiscriminant);
+        //     resultData = resultCases;
+        //     break;
+        // }
 
-        case "MemberExpression":
-            return normMemberExpression(obj, children);
+        // case "SwitchCase": {
+        //     const resultTest = normalize(obj.test);
+        //     const resultConsequent = mapReduce(obj.consequent);
 
-        case "ObjectExpression":
-            return normObjectExpression(obj, children);
+        //     resultConsequent.unshift(resultTest);
+        //     resultData = resultConsequent;
+        //     break;
+        // }
 
-        case "Property":
-            return normProperty(obj, children);
+        case "VariableDeclaration": {
+            resultData = mapReduce(obj.declarations);
+            return normVariableDeclaration(obj, resultData);
+        }
 
-        default:
-            //console.log("default ->", obj.type);
-            return {
-                stmts: [],
-                expr: null
-            };
+        case "VariableDeclarator": {
+            const resultId = normalize(obj.id);
+            const resultInit = normalize(obj.init);
+
+            resultData = [ resultId, resultInit ];
+            return normVariableDeclarator(obj, resultData);
+        }
+
+        // case "WithStatement": {
+        //     const resultObject = normalize(obj.object);
+        //     const resultBody = normalize(obj.body);
+
+        //     resultData = [ resultObject, resultBody ];
+        //     break;
+        // }
+
+        // case "TryStatement": {
+        //     const resultBlock = normalize(obj.block);
+        //     const resultHandler = normalize(obj.handler);
+        //     const resultFinalizer = normalize(obj.finalizer);
+
+        //     resultData = [
+        //     resultBlock,
+        //     resultHandler,
+        //     resultFinalizer
+        //     ];
+        //     break;
+        // }
+
+        // case "CatchClause": {
+        //     const resultParam = normalize(obj.param);
+        //     const resultBlock = normalize(obj.body);
+
+        //     resultData = [ resultParam, resultBlock ];
+        //     break;
+        // }   
     }
+
+    return {
+        stmts: [],
+        expr: null
+    };
 }
+
 
 module.exports = {
     createVariableDeclaration,

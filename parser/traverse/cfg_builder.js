@@ -1,208 +1,117 @@
-const { Node, Edge, Graph } = require('./graph');
+const { Graph } = require('./graph');
 
-module.exports.cfg_builder = function(ast_graph) {
-    this._g = ast_graph;
-    self = this;
+function buildCFG(ast_graph) {
+    const graph = ast_graph;
+    traverse(graph.start_nodes['AST'][0]);
+    return graph;
 
-    this.defaultNode = (obj) => {
-        const node = this._g.nodes.get(obj._id);
+    function defaultNode(node) {
+        node.edges.map(edge => traverse(edge.nodes[1]));
         return {
             root: node,
             exit: node,
         };
     };
 
-    return {
-        graph: () => self._g,
-        visit: (obj, children) => {
-            if (!obj) {
-                return null;
-            }
-            
-            let node_obj = null;        
-            let previous_node = null;
-            switch (obj.type) {
-                // Scripts
-                case "Program": {
-                    let _start = self._g.addNode('_main_start', { type: 'CFG' });
-                    let _end = self._g.addNode('_main_end', { type: 'CFG' });
-
-                    node_obj = self._g.nodes.get(obj._id);
-
-                    previous_node = _start;
-                    children.forEach(child_obj => {
-                        const { root, exit } = child_obj;
-                        self._g.addEdge(previous_node.id, root.id, { type: 'CFG' });
-                        previous_node = exit;
-                    });
-                    self._g.addEdge(previous_node.id, _end.id, { type: 'CFG' });
-                    return self.defaultNode(obj, children);
-                }
-            
-                // // Expressions
-                // case "ArrayExpression":
-                //     break;
-            
-                // case "ObjectExpression":
-                //     break;
-                
-                // case "Property": {
-                //     break;
-                // }
-            
-                // case "MemberExpression": {
-                //     break;
-                // }
-            
-                // case "CallExpression":
-                // case "NewExpression": {
-                //     break;
-                // }
-            
-                // case "UpdateExpression":
-                // case "UnaryExpression":
-                //     new_obj = copyObj(obj);
-                //     delete new_obj.argument;
-                //     new_node = self._g.addNode(obj.type, new_obj);
-
-                //     let [argument] = children;
-                //     self._g.addEdge(new_node.id, argument.id, { type: 'AST', label: 'argument'})
-                //     break;
-            
-                // case "BinaryExpression":
-                // case "LogicalExpression":
-                // case "AssignmentExpression": {
-                //     break;
-                // }
-            
-                // case "SequenceExpression":
-                //     break;
-            
-                // Statements and Declarations
-                case "BlockStatement": {
-                    node_obj = self._g.nodes.get(obj._id);
-                    
-                    previous_node = node_obj;
-                    children.forEach(child_obj => {
-                        const { root, exit } = child_obj;
-                        self._g.addEdge(previous_node.id, root.id, { type: 'CFG' });
-                        previous_node = exit;
-                    });
-                    
-                    return {
-                        root: node_obj,
-                        exit: previous_node,
-                    };
-                }
-            
-                // case "DoWhileStatement":
-                // case "WhileStatement": {
-                //     break;
-                // }
-            
-                // case "ExpressionStatement":
-                //     new_obj = copyObj(obj);
-                //     delete new_obj.expression;
-                //     new_node = self._g.addNode(obj.type, new_obj);
-
-                //     let [expression] = children;
-
-                //     self._g.addEdge(new_node.id, expression.id, { type: 'AST', label: 'expression'});
-                //     break;
-            
-                // case "ForStatement": {
-                //     break;
-                // }
-            
-                // case "ForInStatement": {
-                //     break;
-                // }
-            
-                case "ArrowFunctionExpression":
-                case "FunctionDeclaration":
-                case "FunctionExpression":
-                case "LabeledStatement": {
-                    node_obj = self._g.nodes.get(obj._id);
-
-                    let [node_id, node_body] = children;
-
-                    let name = node_id ? `${node_obj.id}_${node_id.root.obj.name}` : `${node_obj.id}_anon`;
-
-                    let _start = self._g.addNode(`_${name}_start`, { type: 'CFG' });
-                    let _end = self._g.addNode(`_${name}_end`, { type: 'CFG' });
-
-                    self._g.addEdge(_start.id, node_body.root.id, { type: 'CFG' });
-                    self._g.addEdge(node_body.exit.id, _end.id, { type: 'CFG' });
-                    return self.defaultNode(obj, children);
-                }
-            
-                case "IfStatement":
-                case "ConditionalExpression": {
-                    node_obj = self._g.nodes.get(obj._id);
-
-                    let [test, consequent, alternate] = children;
-
-                    let _end_if = self._g.addNode(`_${node_obj.id}_end_if`, { type: 'CFG' });
-
-                    self._g.addEdge(node_obj.id, test.root.id, { type: 'CFG', label: 'test'});
-                    self._g.addEdge(test.exit.id, consequent.root.id, { type: 'CFG', label: 'TRUE'});
-                    self._g.addEdge(consequent.exit.id, _end_if.id, { type: 'CFG' });
-
-                    if (alternate) {
-                        self._g.addEdge(test.exit.id, alternate.root.id, { type: 'CFG', label: 'FALSE'});
-                        self._g.addEdge(alternate.exit.id, _end_if.id, { type: 'CFG' });
-                    } else {
-                        self._g.addEdge(test.exit.id, _end_if.id, { type: 'CFG', label: 'FALSE'});
-                    }
-                    return {
-                        root: node_obj,
-                        exit: _end_if,
-                    };
-                }
-            
-                // case "ReturnStatement":
-                // case "ThrowStatement":
-                //     break;
-            
-                // case "SwitchStatement": {
-                //     break;
-                // }
+    function traverse(node) {
         
-                // case "SwitchCase": {
-                //     break;
-                // }
-            
-                // case "VariableDeclaration": {
-                //     return children[0];
-                // }
-                
-                // case "VariableDeclarator": {
-                //     new_obj = copyObj(obj);
-                //     delete new_obj.id;
-                //     delete new_obj.init;
-                //     new_node = self._g.addNode(obj.type, new_obj);
-
-                //     let [id, init] = children;
-                //     self._g.addEdge(new_node.id, id.id, { type: 'AST', label: 'id'});
-                //     self._g.addEdge(new_node.id, init.id, { type: 'AST', label: 'init'});
-                //     break;
-                // }
-            
-                // case "WithStatement": {
-                //     break;
-                // }
-            
-                // case "TryStatement": {
-                //     break;
-                // }
-            
-                // case "CatchClause": {
-                //     break;
-                // }
-            
-                default:
-                    return self.defaultNode(obj);
-            }
+        if (node === null) {
+            return;
         }
-    };
-};
+              
+        let previous_node = null;
+        switch (node.type) {
+            //
+            // Scripts
+            //
+            case "Program": {
+                let _start = graph.addNode('_main_start', { type: 'CFG' });
+                graph.add_start_nodes('CFG', _start);
+
+                let _end = graph.addNode('_main_end', { type: 'CFG' });
+
+                previous_node = _start;
+                node.edges.forEach(edge => {
+                    const [n, child_node] = edge.nodes;
+                    const { root, exit } = traverse(child_node);
+                    graph.addEdge(previous_node.id, root.id, { type: 'CFG' });
+                    previous_node = exit;
+                });
+                graph.addEdge(previous_node.id, _end.id, { type: 'CFG' });
+                return {
+                    root: _start,
+                    exit: _end,
+                };
+            }
+
+            case "BlockStatement": {
+                previous_node = node;
+                node.edges.forEach(edge => {
+                    const [n, child_node] = edge.nodes;
+                    const { root, exit } = traverse(child_node);
+                    graph.addEdge(previous_node.id, root.id, { type: 'CFG' });
+                    previous_node = exit;
+                });
+                
+                return {
+                    root: node,
+                    exit: previous_node,
+                };
+            }
+
+            case "ArrowFunctionExpression":
+            case "FunctionDeclaration":
+            case "FunctionExpression":
+            case "LabeledStatement": {
+                let node_id, node_body;
+                if (node.edges.length > 1) {
+                    [node_id, node_body] = node.edges.map(edge => traverse(edge.nodes[1]));
+                } else {
+                    [node_body] = node.edges.map(edge => traverse(edge.nodes[1]));
+                }
+
+                let name = node_id ? `${node.id}_${node_id.root.obj.name}` : `${node.id}_anon`;
+
+                let _start = graph.addNode(`_${name}_start`, { type: 'CFG' });
+                graph.add_start_nodes('CFG', _start);
+
+                let _end = graph.addNode(`_${name}_end`, { type: 'CFG' });
+
+                graph.addEdge(_start.id, node_body.root.id, { type: 'CFG' });
+                graph.addEdge(node_body.exit.id, _end.id, { type: 'CFG' });
+                return {
+                    root: node,
+                    exit: node,
+                };
+            }
+
+            case "IfStatement":
+            case "ConditionalExpression": {
+                let [test, consequent, alternate] = node.edges.map(edge => traverse(edge.nodes[1]));
+
+                let _end_if = graph.addNode(`_${node.id}_end_if`, { type: 'CFG' });
+
+                graph.addEdge(node.id, test.root.id, { type: 'CFG', label: 'test'});
+                graph.addEdge(test.exit.id, consequent.root.id, { type: 'CFG', label: 'TRUE'});
+                graph.addEdge(consequent.exit.id, _end_if.id, { type: 'CFG' });
+
+                if (alternate) {
+                    graph.addEdge(test.exit.id, alternate.root.id, { type: 'CFG', label: 'FALSE'});
+                    graph.addEdge(alternate.exit.id, _end_if.id, { type: 'CFG' });
+                } else {
+                    graph.addEdge(test.exit.id, _end_if.id, { type: 'CFG', label: 'FALSE'});
+                }
+                return {
+                    root: node,
+                    exit: _end_if,
+                };
+            }
+            
+            default:
+                return defaultNode(node);
+        }
+    }
+}
+
+
+module.exports = { buildCFG };

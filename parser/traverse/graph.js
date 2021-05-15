@@ -65,6 +65,7 @@ class Graph {
         this._nodes = new Map();
         this._edges = new Map();
         this._output_manager = output_manager;
+        this._start_nodes = {};
     }
 
     get nodes() {
@@ -83,13 +84,24 @@ class Graph {
         return this.edge_counter;
     }
 
+    get start_nodes() {
+        return this._start_nodes;
+    }
+
+    add_start_nodes(node_type, start_node) {
+        if (this._start_nodes.hasOwnProperty(node_type)) {
+            this._start_nodes[node_type].push(start_node);
+        } else {
+            this._start_nodes[node_type] = [start_node];
+        }
+    }
+
     set output_manager(output_manager) {
         this._output_manager = output_manager;
     }
 
     addNode(label, obj) {
-        const count = this.node_counter++;
-        const id = obj && obj._id ? obj._id : count;
+        const id = this.node_counter++;
         const node = new Node(id, label, obj);
         this._nodes.set(id, node);
         return node;
@@ -104,7 +116,7 @@ class Graph {
         this._edges.set(id, edge);
 
         node_1.addEdge(edge);
-        node_2.addEdge(edge);
+        //node_2.addEdge(edge);
         return edge;
     }
 
