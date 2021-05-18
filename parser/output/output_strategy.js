@@ -42,7 +42,8 @@ class DotOutput {
                     if (init.type != "FunctionExpression") {
                         if (this.show_code) {
                             const code = escodegen.generate(n.obj);
-                            label = `#${n.id} ${n.type} \n\n${code}`;
+                            // label = `#${n.id} ${n.type} \n\n${code}`;
+                            label = `#${n.id} » ${code}`;
                         }
                     }
                     break;    
@@ -51,7 +52,8 @@ class DotOutput {
                 case 'ExpressionStatement': {
                     if (this.show_code) {
                         const code = escodegen.generate(n.obj);
-                        label = `#${n.id} ${n.type} \n\n${code}`;
+                        // label = `#${n.id} ${n.type} \n\n${code}`;
+                        label = `#${n.id} » ${code}`;
                     }
                     break;
                 }
