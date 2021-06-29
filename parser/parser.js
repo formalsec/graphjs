@@ -5,6 +5,7 @@ const escodegen = require('escodegen');
 const { normalize } = require('./traverse/normalizer');
 const { buildAST } = require('./traverse/ast_builder');
 const { buildCFG } = require('./traverse/cfg_builder');
+const { buildPDG } = require('./traverse/dep_builder');
 // const { printDebug } = require('./utils');
 const { OutputManager, DotOutput } = require('./output/output_strategy');
 
@@ -18,15 +19,17 @@ function parse(file, graph_options) {
         // console.log(JSON.stringify(normalized_ast, null, 2));
         
         const code = escodegen.generate(normalized_ast);
-        // console.log(code);
+        console.log(code);
 
         const ast_graph = buildAST(normalized_ast);
-        // console.log(graph);
+        // console.log(ast_graph);
         
         const cfg_graph = buildCFG(ast_graph);
         // const cfg_functions = cfg_builder(graph);
         // traverse(cfg_functions.visit, normalized_ast);
         // graph = cfg_functions.graph();
+
+        const pdg_graph = buildPDG(cfg_graph);
 
         return cfg_graph;
     } catch(e) {

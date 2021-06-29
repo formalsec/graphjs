@@ -5,9 +5,9 @@ function buildAST(obj) {
     traverse(obj);
     return graph;
 
-    function traverse(obj) {
-        function mapReduce(arr) {
-            return arr.map((item) => traverse(item));
+    function traverse(obj, parent_node) {
+        function mapReduce(arr, parent_node) {
+            return arr.map((item) => traverse(item, parent_node));
         }
         
         if (obj === null) {
@@ -20,9 +20,10 @@ function buildAST(obj) {
             // Scripts
             //
             case "Program": {
-                resultData = mapReduce(obj.body);
                 obj_node = graph.addNode(obj.type, obj);
                 graph.add_start_nodes('AST', obj_node);
+                
+                resultData = mapReduce(obj.body, obj_node);
 
                 for(let i = 0; i < resultData.length; i++) {
                     graph.addEdge(obj_node.id, resultData[i].id, { type: 'AST', label: i+1});
@@ -31,12 +32,14 @@ function buildAST(obj) {
             }
 
             case "BlockStatement": {
-                resultData = mapReduce(obj.body);
-                obj_node = graph.addNode(obj.type, obj);
+                // resultData = mapReduce(obj.body);
+                obj_node = mapReduce(obj.body, parent_node);
 
-                for(let i = 0; i < resultData.length; i++) {
-                    graph.addEdge(obj_node.id, resultData[i].id, { type: 'AST', label: i+1});
-                }
+                // obj_node = graph.addNode(obj.type, obj);
+
+                // for(let i = 0; i < resultData.length; i++) {
+                //     graph.addEdge(obj_node.id, resultData[i].id, { type: 'AST', label: i+1});
+                // }
                 break;
             }
     
@@ -48,8 +51,9 @@ function buildAST(obj) {
             //     break;
     
             case "ObjectExpression": {
-                resultData = mapReduce(obj.properties);
                 obj_node = graph.addNode(obj.type, obj);
+                
+                resultData = mapReduce(obj.properties, obj_node);
 
                 for(let i = 0; i < resultData.length; i++) {
                     graph.addEdge(obj_node.id, resultData[i].id, { type: 'AST', label: i+1});
@@ -58,9 +62,10 @@ function buildAST(obj) {
             }
 
             case "Property": {
-                const key = traverse(obj.key);
-                const computed = traverse(obj.value);
                 obj_node = graph.addNode(obj.type, obj);
+                
+                const key = traverse(obj.key, obj_node);
+                const computed = traverse(obj.value, obj_node);
 
                 graph.addEdge(obj_node.id, key.id, { type: 'AST', label: 'key' });
                 graph.addEdge(obj_node.id, computed.id, { type: 'AST', label: 'computed' });
@@ -68,9 +73,10 @@ function buildAST(obj) {
             }
     
             case "MemberExpression": {
-                const object = traverse(obj.object);
-                const property = traverse(obj.property);
                 obj_node = graph.addNode(obj.type, obj);
+                
+                const object = traverse(obj.object, obj_node);
+                const property = traverse(obj.property, obj_node);
 
                 graph.addEdge(obj_node.id, object.id, { type: 'AST', label: 'object' });
                 graph.addEdge(obj_node.id, property.id, { type: 'AST', label: 'property' });
@@ -79,9 +85,10 @@ function buildAST(obj) {
     
             case "CallExpression":
             case "NewExpression": {
-                const callee = traverse(obj.callee);
-                const arguments = mapReduce(obj.arguments);
                 obj_node = graph.addNode(obj.type, obj);
+                
+                const callee = traverse(obj.callee, obj_node);
+                const arguments = mapReduce(obj.arguments, obj_node);
 
                 graph.addEdge(obj_node.id, callee.id, { type: 'AST', label: 'callee' });
 
@@ -93,8 +100,9 @@ function buildAST(obj) {
     
             case "UpdateExpression":
             case "UnaryExpression": {
-                const argument = traverse(obj.argument);
                 obj_node = graph.addNode(obj.type, obj);
+                
+                const argument = traverse(obj.argument, obj_node);
 
                 graph.addEdge(obj_node.id, argument.id, { type: 'AST', label: 'argument'});
                 break;
@@ -103,9 +111,10 @@ function buildAST(obj) {
             case "BinaryExpression":
             case "LogicalExpression":
             case "AssignmentExpression": {
-                const left = traverse(obj.left);
-                const right = traverse(obj.right);
                 obj_node = graph.addNode(obj.type, obj);
+                
+                const left = traverse(obj.left, obj_node);
+                const right = traverse(obj.right, obj_node);
 
                 graph.addEdge(obj_node.id, left.id, { type: 'AST', label: 'left'});
                 graph.addEdge(obj_node.id, right.id, { type: 'AST', label: 'right'})
@@ -132,8 +141,9 @@ function buildAST(obj) {
             // }
     
             case "ExpressionStatement": {
-                const expression = traverse(obj.expression);
                 obj_node = graph.addNode(obj.type, obj);
+                
+                const expression = traverse(obj.expression, obj_node);
                 graph.addEdge(obj_node.id, expression.id, { type: 'AST', label: 'expression'});
                 break;
             }
@@ -165,44 +175,73 @@ function buildAST(obj) {
             //     ];
             //     break;
             // }
+
+            case "Identifier": {
+                obj_node = graph.addNode(obj.type, obj);
+                obj_node.identifier = obj.name;
+                break;
+            }
     
             case "ArrowFunctionExpression":
             case "FunctionDeclaration":
             case "FunctionExpression":
             case "LabeledStatement": {
-                const node_id = traverse(obj.id);
-                const node_body = traverse(obj.body);
                 obj_node = graph.addNode(obj.type, obj);
-
-                if (node_id) {
-                    graph.addEdge(obj_node.id, node_id.id, { type: 'AST', label: 'id'});
+                obj_node.identifier = obj.id ? obj.id.name : `anon`;
+                
+                // const node_id = traverse(obj.id, obj_node);
+                const node_body_stmts = traverse(obj.body, obj_node); // must be blockstatement
+                
+                for(let i = 0; i < node_body_stmts.length; i++) {
+                    graph.addEdge(obj_node.id, node_body_stmts[i].id, { type: 'AST', label: i+1});
                 }
 
-                graph.addEdge(obj_node.id, node_body.id, { type: 'AST', label: 'body'});
+                // if (node_id) {
+                //     graph.addEdge(obj_node.id, node_id.id, { type: 'AST', label: 'id'});
+                // }
                 break;
             }
     
             case "IfStatement":
             case "ConditionalExpression": {
-                const test = traverse(obj.test);
-                const consequent = traverse(obj.consequent);
-                const alternate = traverse(obj.alternate);
-                
                 obj_node = graph.addNode(obj.type, obj);
+                // obj_node = traverse(obj.test, obj_node);
 
+                const test = traverse(obj.test, obj_node);
+                const consequent = traverse(obj.consequent, obj_node);
+                const alternate = traverse(obj.alternate, obj_node);
+                
                 graph.addEdge(obj_node.id, test.id, { type: 'AST', label: 'test'});
-                graph.addEdge(obj_node.id, consequent.id, { type: 'AST', label: 'consequent'});
+
+                if (Array.isArray(consequent)) {
+                    const consequent_node = graph.addNode(obj.consequent.type, obj.consequent);
+                    for(let i = 0; i < consequent.length; i++) {
+                        graph.addEdge(consequent_node.id, consequent[i].id, { type: 'AST', label: i+1});
+                    }
+                    graph.addEdge(obj_node.id, consequent_node.id, { type: 'AST', label: 'then'});
+                } else {
+                    graph.addEdge(obj_node.id, consequent.id, { type: 'AST', label: 'then'});
+                }
 
                 if (alternate) {
-                    graph.addEdge(obj_node.id, alternate.id, { type: 'AST', label: 'alternate'});
+                    if (Array.isArray(alternate)) {
+                        const alternate_node = graph.addNode(obj.alternate.type, obj.alternate);
+                        for(let i = 0; i < alternate.length; i++) {
+                            graph.addEdge(alternate_node.id, alternate[i].id, { type: 'AST', label: i+1});
+                        }
+                        graph.addEdge(obj_node.id, alternate_node.id, { type: 'AST', label: 'else'});
+                    } else {
+                        graph.addEdge(obj_node.id, alternate.id, { type: 'AST', label: 'else'});
+                    }
                 }
                 break;
             }
     
             case "ReturnStatement":
             case "ThrowStatement": {
-                const argument = traverse(obj.argument);
                 obj_node = graph.addNode(obj.type, obj);
+
+                const argument = traverse(obj.argument, obj_node);
 
                 if (argument) {
                     graph.addEdge(obj_node.id, argument.id, { type: 'AST', label: 'argument'});
@@ -228,21 +267,24 @@ function buildAST(obj) {
             // }
     
             case "VariableDeclaration": {
-                resultData = mapReduce(obj.declarations);
-                obj_node = graph.addNode(obj.type, obj);
-
-                for(let i = 0; i < resultData.length; i++) {
-                    graph.addEdge(obj_node.id, resultData[i].id, { type: 'AST', label: i+1});
-                }
+                obj_node = traverse(obj.declarations[0], parent_node);
+                
+                // obj_node = graph.addNode(obj.type, obj);
+                // resultData = mapReduce(obj.declarations, obj_node); 
+                // for(let i = 0; i < resultData.length; i++) {
+                //     graph.addEdge(obj_node.id, resultData[i].id, { type: 'AST', label: i+1});
+                // }
                 break;
             }
 
             case "VariableDeclarator": {
-                const id_node = traverse(obj.id);
-                const init_node = traverse(obj.init);
                 obj_node = graph.addNode(obj.type, obj);
+                obj_node.identifier = obj.id.name;
 
-                graph.addEdge(obj_node.id, id_node.id, { type: 'AST', label: 'id'});
+                //const id_node = traverse(obj.id, obj_node);
+                const init_node = traverse(obj.init, obj_node);
+
+                // graph.addEdge(obj_node.id, id_node.id, { type: 'AST', label: 'id'});
 
                 if (init_node) {
                     graph.addEdge(obj_node.id, init_node.id, { type: 'AST', label: 'init'});

@@ -1,8 +1,8 @@
 let v0 = require('lodash');
 var _ = v0;
 let v1 = module.exports;
-let v65 = function (db) {
-    let v64 = function search(opts) {
+let v64 = function (db) {
+    let v63 = function search(opts) {
         let v2 = _.extend;
         let v3 = {};
         let v4 = { include_docs: true };
@@ -43,65 +43,63 @@ let v65 = function (db) {
             let v28 = opts.filter;
             let v29 = eval(v28);
             v29;
-            let v30 = opts.filter;
-            v30 = filter;
         }
-        let v31 = opts.index;
-        let v32 = v31 !== undefined;
-        if (v32) {
-            let v33 = opts.build;
+        let v30 = opts.index;
+        let v31 = v30 !== undefined;
+        if (v31) {
+            let v32 = opts.build;
+            let v33 = opts.index;
+            v32 = v33;
             let v34 = opts.index;
-            v33 = v34;
-            let v35 = opts.index;
-            let v36 = delete v35;
-            v36;
+            let v35 = delete v34;
+            v35;
         }
-        let v37 = opts.includeDocs;
-        let v38 = v37 !== undefined;
-        if (v38) {
-            let v39 = opts.include_docs;
+        let v36 = opts.includeDocs;
+        let v37 = v36 !== undefined;
+        if (v37) {
+            let v38 = opts.include_docs;
+            let v39 = opts.includeDocs;
+            v38 = v39;
             let v40 = opts.includeDocs;
-            v39 = v40;
-            let v41 = opts.includeDocs;
-            let v42 = delete v41;
-            v42;
+            let v41 = delete v40;
+            v41;
         }
-        let v43 = opts.build;
-        let v44 = opts.query;
-        let v45 = v43 && v44;
-        if (v45) {
-            let v46 = opts.build;
-            let v47 = delete v46;
-            v47;
+        let v42 = opts.build;
+        let v43 = opts.query;
+        let v44 = v42 && v43;
+        if (v44) {
+            let v45 = opts.build;
+            let v46 = delete v45;
+            v46;
         }
-        let v48 = db.pouch;
-        let v49 = v48.search;
-        let v50 = v49(opts);
-        let v51 = v50.then;
-        let v62 = function (raw) {
-            let v52 = opts.raw;
-            if (v52) {
+        let v47 = db.pouch;
+        let v48 = v47.search;
+        let v49 = v48(opts);
+        let v50 = v49.then;
+        let v61 = function (raw) {
+            let v51 = opts.raw;
+            if (v51) {
                 return raw;
             }
-            let v53 = opts.include_docs;
-            if (v53) {
-                let v54 = raw.rows;
-                let v55 = v54.map;
-                let v60 = function (result) {
-                    let v56 = result.doc;
-                    let v57 = v56._score;
-                    let v58 = result.score;
-                    v57 = v58;
-                    let v59 = result.doc;
-                    return v59;
+            let v52 = opts.include_docs;
+            if (v52) {
+                let v53 = raw.rows;
+                let v54 = v53.map;
+                let v59 = function (result) {
+                    let v55 = result.doc;
+                    let v56 = v55._score;
+                    let v57 = result.score;
+                    v56 = v57;
+                    let v58 = result.doc;
+                    return v58;
                 };
-                let v61 = v55(v60);
-                return v61;
+                let v60 = v54(v59);
+                return v60;
             }
         };
-        let v63 = v51(v62);
-        return v63;
+        let v62 = v50(v61);
+        return v62;
     };
-    return v64;
+    return v63;
 };
-v1 = v65;
+v1 = v64;

@@ -352,8 +352,8 @@ function normalize(obj) {
             const resultValue = normalize(obj.value);
 
             resultData = [
-            resultKey,
-            resultValue
+                resultKey,
+                resultValue
             ];
             return normProperty(obj, resultData);
         }
@@ -363,8 +363,8 @@ function normalize(obj) {
             const resultProperty = normalize(obj.property);
 
             resultData = [
-            resultObject,
-            resultProperty
+                resultObject,
+                resultProperty
             ];
             return normMemberExpression(obj, resultData);
         }
