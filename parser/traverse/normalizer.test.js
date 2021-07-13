@@ -21,7 +21,11 @@ const {
     normMemberExpression,
     normObjectExpression,
     normProperty,
+    normalize
 } = require('./normalizer');
+
+const esprima   = require('esprima');
+const escodegen = require('escodegen');
 
 test('create a new variable statement', () => {
     const variable_name = "v0";
@@ -1079,4 +1083,93 @@ test('normalize Property with Expression key and Literal value', () => {
             shorthand: false,
         },
     });
+});
+
+// COMPLETE NORMALIZATIONS
+
+function testNormalization(code) {
+    const ast = esprima.parse(code);
+    const new_ast = normalize(ast).stmts[0];
+    const new_code = escodegen.generate(new_ast);
+    expect(eval(new_code)).toEqual(eval(code));
+}
+
+test('testing normalize - check that normalization retains same behaviour (1) - binary expression', () => {
+    const code = "1 + 2";
+    testNormalization(code);
+});
+
+test('testing normalize - check that normalization retains same behaviour (2) - assignment', () => {
+    const code = "let x; x = 1";
+    testNormalization(code);
+});
+
+test('testing normalize - check that normalization retains same behaviour (3) - conditionals', () => {
+    const code1 = "let status = (true) ? 'adult' : 'minor';";
+    testNormalization(code1);
+
+    const code2 = "let x = 6;let status = (x === 6) ? 1 + 2 : 1 + 2 + 3;";
+    testNormalization(code2);
+});
+
+test('testing normalize - check that normalization retains same behaviour (4) - variable declarations', () => {
+    const code1 = "let x = 1;";
+    testNormalization(code1);
+
+    const code2 = "let x = 1 + 2;";
+    testNormalization(code2);
+
+    const code3 = "let x = 1 + 2 + 3;";
+    testNormalization(code3);
+
+    const code4 = "let x = 1 + 2, y = 3;";
+    testNormalization(code4);
+});
+
+test('testing normalize - check that normalization retains same behaviour (5) - function declarations', () => {
+    const code1 = "function f1() {let x = 0;}";
+    testNormalization(code1);
+
+    const code2 = "function f2(x, y, z) {x++;}";
+    testNormalization(code2);
+
+    const code3 = "function f3() {let x = 1 + 2 + 3;return x;}";
+    testNormalization(code3);
+
+    const code4 = "function f4() {throw x;}";
+    testNormalization(code4);
+});
+
+test('testing normalize - check that normalization retains same behaviour (6) - function expressions', () => {
+    const code1 = "let z = function() {1+1;};";
+    testNormalization(code1);
+
+    const code2 = "let x = (z) => 1+2+3;";
+    testNormalization(code2);
+});
+
+test('testing normalize - check that normalization retains same behaviour (7) - if statements', () => {
+    const code1 = "if (true) {1;}";
+    testNormalization(code1);
+
+    const code2 = "let x = 1 + 2 + 3; if(x) {let y = 1 + 2 + 3;}";
+    testNormalization(code2);
+
+    const code3 = "let x = 1 + 2 + 3; if (x) {let y = 1 + 2 + 3;} else {let z = 1 + 2 + 3;}";
+    testNormalization(code3);
+
+    const code4 = "let x = 1 + 2 + 3; if (x === 6) {let y = 1 + 2 + 3;} else {let z = 1 + 2 + 3;}";
+    testNormalization(code4);
+});
+
+
+test('testing normalize - check that normalization retains same behaviour (8) - unary expressions', () => {
+    const code1 = "+false;";
+    testNormalization(code1);
+
+    const code2 = "!false;";
+    testNormalization(code2);
+
+    const code3 = "let x = 0;x++;";
+    testNormalization(code3);
 });
