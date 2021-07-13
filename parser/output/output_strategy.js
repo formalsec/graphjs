@@ -109,7 +109,7 @@ class DotOutput {
                     color = 'red';
                     break;
                 case 'PDG':
-                    color = 'green';
+                    color = 'darkgreen';
                     break;
             }
         }

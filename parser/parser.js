@@ -50,6 +50,7 @@ if (fs.existsSync(filename)) {
     };
 
     const graph = parse(filename, graph_options);
+    // console.log(graph);
     const output_manager = new OutputManager(graph_options);
     output_manager.writer = new DotOutput();
     graph.output_manager = output_manager;
