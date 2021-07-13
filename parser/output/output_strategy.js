@@ -31,19 +31,19 @@ class DotOutput {
         if (n.obj) {
             switch(n.type) {
                 case 'Identifier': {
-                    label = `#${n.id} ${n.type} (${n.obj.name})`;
+                    label = `#${n.id} ${n.type} (${n.identifier})`;
                     break;
                 }
                 
-                case 'VariableDeclaration': {
-                    const declarator = n.obj.declarations[0];
-                    const init = declarator ? declarator.init : n.obj.init;
+                case 'VariableDeclarator': {
+                    const init = n.obj.init;
+                    label = `#${n.id} Variable (${n.identifier})`;
 
-                    if (init.type != "FunctionExpression") {
+                    if (init && init.type != "FunctionExpression") {
                         if (this.show_code) {
                             const code = escodegen.generate(n.obj);
                             // label = `#${n.id} ${n.type} \n\n${code}`;
-                            label = `#${n.id} » ${code}`;
+                            label = `#${n.id}» ${code}`;
                         }
                     }
                     break;    
@@ -53,7 +53,7 @@ class DotOutput {
                     if (this.show_code) {
                         const code = escodegen.generate(n.obj);
                         // label = `#${n.id} ${n.type} \n\n${code}`;
-                        label = `#${n.id} » ${code}`;
+                        label = `#${n.id}» ${code}`;
                     }
                     break;
                 }
@@ -67,7 +67,14 @@ class DotOutput {
                 case 'BinaryExpression': {
                     label = `#${n.id} ${n.type} (${n.obj.operator})`;
                     break;                        
-                }      
+                }
+                
+                case "ArrowFunctionExpression":
+                case "FunctionDeclaration":
+                case "FunctionExpression":
+                case "LabeledStatement": {
+                    label = `#${n.id} Function (${n.identifier})`;
+                }
             }    
         }
 
@@ -83,6 +90,9 @@ class DotOutput {
             case 'CFG':
                 color = 'red';
                 break;
+            case 'PDG':
+                color = 'darkgreen';
+                break;
         }
 
         return color;
@@ -97,6 +107,9 @@ class DotOutput {
                     break;
                 case 'CFG':
                     color = 'red';
+                    break;
+                case 'PDG':
+                    color = 'darkgreen';
                     break;
             }
         }
@@ -177,11 +190,10 @@ class DotOutput {
                 edges = n.edges.filter(e => e.type != 'AST');
             }
 
-            if (this.show_code && n.type == "VariableDeclaration") {
-                const declarator = n.obj.declarations[0];
-                const init = declarator ? declarator.init : n.obj.init;
+            if (this.show_code && n.type == "VariableDeclarator") {
+                const init = n.obj.init;
 
-                if (init.type != "FunctionExpression") {
+                if (init && init.type != "FunctionExpression") {
                     // continue;
                     edges = n.edges.filter(e => e.type != 'AST');
                 }

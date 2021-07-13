@@ -18,7 +18,7 @@ module.exports = function (db) {
         opts.filter += "return false;}";
       }
       eval(opts.filter);
-      opts.filter = filter;
+      //opts.filter = filter;
     }
 
     if (opts.index !== undefined) {

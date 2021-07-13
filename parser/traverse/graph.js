@@ -4,6 +4,7 @@ class Node {
         this._type = type;
         this._obj = obj;
         this._edges = [];
+        this.identifier = null;
     }
 
     get id() {
@@ -24,6 +25,14 @@ class Node {
 
     get edges() {
         return this._edges;
+    }
+
+    get identifier() {
+        return this._identifier;
+    }
+
+    set identifier(identifier_str) {
+        this._identifier = identifier_str;
     }
 
     addEdge(edge) {

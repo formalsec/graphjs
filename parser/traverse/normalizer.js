@@ -179,7 +179,7 @@ const normFunctionDeclaration = (obj, children) => {
     if(children[0]) {
         new_obj.id = children[0].expr;
     }
-
+    
     new_obj.body = children[1].stmts[0];
 
     return {
@@ -352,8 +352,8 @@ function normalize(obj) {
             const resultValue = normalize(obj.value);
 
             resultData = [
-            resultKey,
-            resultValue
+                resultKey,
+                resultValue
             ];
             return normProperty(obj, resultData);
         }
@@ -363,8 +363,8 @@ function normalize(obj) {
             const resultProperty = normalize(obj.property);
 
             resultData = [
-            resultObject,
-            resultProperty
+                resultObject,
+                resultProperty
             ];
             return normMemberExpression(obj, resultData);
         }
@@ -397,12 +397,17 @@ function normalize(obj) {
         }
 
         case "AssignmentExpression": {
-            const resultLeft = normalize(obj.left);
+            let resultLeft;
+            if (obj.left.type == "MemberExpression") {
+                resultLeft = { stmts: [], expr: obj.left };
+            } else {
+                resultLeft = normalize(obj.left);
+            }
             const resultRight = normalize(obj.right);
 
             resultData = [
-            resultLeft,
-            resultRight
+                resultLeft,
+                resultRight
             ];
             return normAssignmentExpressions(obj, resultData);
         }
@@ -425,8 +430,8 @@ function normalize(obj) {
             const resultBody = normalize(obj.body);
 
             resultData = [
-            resultTest,
-            resultBody
+                resultTest,
+                resultBody
             ];
             return normWhileStatement(obj, resultData);
         }

@@ -585,11 +585,12 @@ test('normalize UnaryExpression', () => {
 
 test('normalize FunctionDeclaration', () => {
     const createTestingObj = (name) => ({ type: 'Identifier', name });
+    const childExpr = (name) => ({ stmts: [ name ], expr: createTestingObj(name) });
     const childStmt = (name) => ({ stmts: [createTestingObj(name)], expr: null });
 
     const original_obj = {
         type: 'FunctionDeclaration',
-        id: { type: 'Identifier', name: 'foo' },
+        id: createTestingObj('foo'),
         params: [],
         body: createTestingObj('stmt'),
         generator: false,
@@ -597,13 +598,13 @@ test('normalize FunctionDeclaration', () => {
         expression: false,
     };
 
-    const children = [ childStmt('stmt_') ];
+    const children = [ childExpr('foo_'), childStmt('stmt_') ];
 
     expect(normFunctionDeclaration(original_obj, children)).toMatchObject({
         stmts: [
             {
                 type: 'FunctionDeclaration',
-                id: { type: 'Identifier', name: 'foo' },
+                id: createTestingObj('foo_'),
                 params: [],
                 body: createTestingObj('stmt_'),
                 generator: false,
@@ -664,11 +665,12 @@ test('normalize ThrowStatement', () => {
 
 test('normalize FunctionExpression', () => {
     const createTestingObj = (name) => ({ type: 'Identifier', name });
+    const childExpr = (name) => ({ stmts: [ name ], expr: createTestingObj(name) });
     const childStmt = (name) => ({ stmts: [createTestingObj(name)], expr: null });
 
     const original_obj = {
         type: 'FunctionExpression',
-        id: { type: 'Identifier', name: 'foo' },
+        id: createTestingObj('foo'),
         params: [],
         body: createTestingObj('stmt'),
         generator: false,
@@ -676,7 +678,7 @@ test('normalize FunctionExpression', () => {
         expression: true,
     };
 
-    const children = [ childStmt('stmt_') ];
+    const children = [ childExpr('foo_'), childStmt('stmt_') ];
 
     const variable_obj = {
         type: "Identifier",
@@ -694,7 +696,7 @@ test('normalize FunctionExpression', () => {
                         id: variable_obj,
                         init: {
                             type: 'FunctionExpression',
-                            id: { type: 'Identifier', name: 'foo' },
+                            id: createTestingObj('foo_'),
                             params: [],
                             body: createTestingObj('stmt_'),
                             generator: false,
@@ -712,11 +714,12 @@ test('normalize FunctionExpression', () => {
 
 test('normalize ArrowFunctionExpression (1) with BlockStatement', () => {
     const createTestingObj = (name) => ({ type: 'Identifier', name });
+    const childExpr = (name) => ({ stmts: [ name ], expr: createTestingObj(name) });
     const childStmt = (name) => ({ stmts: [createTestingObj(name)], expr: null });
 
     const original_obj = {
         type: 'ArrowFunctionExpression',
-        id: { type: 'Identifier', name: 'foo' },
+        id: createTestingObj('foo'),
         params: [],
         body: createTestingObj('stmt'),
         generator: false,
@@ -724,7 +727,7 @@ test('normalize ArrowFunctionExpression (1) with BlockStatement', () => {
         expression: false,
     };
 
-    const children = [ childStmt('stmt_') ];
+    const children = [ childExpr('foo_'), childStmt('stmt_') ];
 
     const variable_obj = {
         type: "Identifier",
@@ -742,7 +745,7 @@ test('normalize ArrowFunctionExpression (1) with BlockStatement', () => {
                         id: variable_obj,
                         init: {
                             type: 'ArrowFunctionExpression',
-                            id: { type: 'Identifier', name: 'foo' },
+                            id: createTestingObj('foo_'),
                             params: [],
                             body: createTestingObj('stmt_'),
                             generator: false,
@@ -764,7 +767,7 @@ test('normalize ArrowFunctionExpression (2) with Expression', () => {
 
     const original_obj = {
         type: 'ArrowFunctionExpression',
-        id: { type: 'Identifier', name: 'foo' },
+        id: createTestingObj('foo'),
         params: [],
         body: createTestingObj('expr'),
         generator: false,
@@ -772,7 +775,7 @@ test('normalize ArrowFunctionExpression (2) with Expression', () => {
         expression: false,
     };
 
-    const children = [ childExpr('expr_') ];
+    const children = [ childExpr('foo_'), childExpr('expr_') ];
 
     const variable_obj = {
         type: "Identifier",
@@ -791,7 +794,7 @@ test('normalize ArrowFunctionExpression (2) with Expression', () => {
                         id: variable_obj,
                         init: {
                             type: 'ArrowFunctionExpression',
-                            id: { type: 'Identifier', name: 'foo' },
+                            id: createTestingObj('foo_'),
                             params: [],
                             body: createTestingObj('expr_'),
                             generator: false,

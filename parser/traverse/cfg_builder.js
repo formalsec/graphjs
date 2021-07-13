@@ -1,5 +1,3 @@
-const { Graph } = require('./graph');
-
 function buildCFG(ast_graph) {
     const graph = ast_graph;
     traverse(graph.start_nodes['AST'][0]);
@@ -63,22 +61,23 @@ function buildCFG(ast_graph) {
             case "FunctionDeclaration":
             case "FunctionExpression":
             case "LabeledStatement": {
-                let node_id, node_body;
-                if (node.edges.length > 1) {
-                    [node_id, node_body] = node.edges.map(edge => traverse(edge.nodes[1]));
-                } else {
-                    [node_body] = node.edges.map(edge => traverse(edge.nodes[1]));
-                }
-
-                let name = node_id ? `${node.id}_${node_id.root.obj.name}` : `${node.id}_anon`;
-
+                let name = `${node.id}_${node.identifier}`;
+                
                 let _start = graph.addNode(`_${name}_start`, { type: 'CFG' });
                 graph.add_start_nodes('CFG', _start);
-
+                
                 let _end = graph.addNode(`_${name}_end`, { type: 'CFG' });
+                
+                previous_node = _start;
+                node.edges.forEach(edge => {
+                    const [n, child_node] = edge.nodes;
+                    const { root, exit } = traverse(child_node);
+                    graph.addEdge(previous_node.id, root.id, { type: 'CFG' });
+                    previous_node = exit;
+                });
 
-                graph.addEdge(_start.id, node_body.root.id, { type: 'CFG' });
-                graph.addEdge(node_body.exit.id, _end.id, { type: 'CFG' });
+                // graph.addEdge(_start.id, node_body.root.id, { type: 'CFG' });
+                graph.addEdge(previous_node.id, _end.id, { type: 'CFG' });
                 return {
                     root: node,
                     exit: node,
