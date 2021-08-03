@@ -28,7 +28,7 @@ const esprima   = require('esprima');
 const escodegen = require('escodegen');
 
 test('create a new variable statement', () => {
-    const variable_name = "v0";
+    const variable_name = "v1";
     const variable_id = {
         type: "Identifier",
         name: variable_name,
@@ -110,7 +110,7 @@ test('normalize BinaryExpression', () => {
     
     const variable_obj = {
         type: 'Identifier',
-        name: 'v0',
+        name: 'v1',
     };
 
     const new_stmt = {
@@ -130,7 +130,7 @@ test('normalize BinaryExpression', () => {
         kind: 'let',
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normBinaryExpression(original_binary_expr, children)).toMatchObject({
         stmts: [3, 4, new_stmt],
         expr: variable_obj,
@@ -152,7 +152,7 @@ test('normalize LogicalExpression', () => {
     
     const variable_obj = {
         type: 'Identifier',
-        name: 'v0',
+        name: 'v1',
     };
 
     const new_stmt = {
@@ -172,7 +172,7 @@ test('normalize LogicalExpression', () => {
         kind: 'let',
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normBinaryExpression(original_binary_expr, children)).toMatchObject({
         stmts: [3, 4, new_stmt],
         expr: variable_obj,
@@ -215,7 +215,7 @@ test('normalize VariableDeclarator (1) without binary expression', () => {
     const createVariable = (n) => ({ variable: `v${n}` });
     const childrenExample  = (n) => ({ stmts: [n], expr: createVariable(n) });
     
-    const id_obj = { type: 'Identifier', name: 'v0' };
+    const id_obj = { type: 'Identifier', name: 'v1' };
     const original_obj = {
         type: 'VariableDeclarator',
         id: id_obj,
@@ -238,7 +238,7 @@ test('normalize VariableDeclarator (2) with binary expression', () => {
     const createVariable = (name) => ({ type: 'Identifier', name });
     const childrenExample  = (name) => ({ stmts: [name], expr: createVariable(name) });
     
-    const id_obj = { type: 'Identifier', name: 'v0' };
+    const id_obj = { type: 'Identifier', name: 'v1' };
     const original_obj = {
         type: 'VariableDeclarator',
         id: id_obj,
@@ -280,10 +280,10 @@ test('normalize VariableDeclarator (2) with binary expression', () => {
 //     const original_obj = {
 //         type: 'VariableDeclarator',
 //         id: id_obj,
-//         init: createVariable('v0'),
+//         init: createVariable('v1'),
 //     };
 
-//     children = [ { stmts: [], expr: id_obj }, childrenExample('v0') ]
+//     children = [ { stmts: [], expr: id_obj }, childrenExample('v1') ]
 
 //     expect(normVariableDeclarator(original_obj, children)).toMatchObject({
 //         stmts: [],
@@ -514,12 +514,12 @@ test('normalize UpdateExpression', () => {
 
     const variable_obj = {
         type: "Identifier",
-        name: "v0"
+        name: "v1"
     };
 
     const children = [ childExpr('expr_') ];
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normUpdateExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
@@ -557,12 +557,12 @@ test('normalize UnaryExpression', () => {
 
     const variable_obj = {
         type: "Identifier",
-        name: "v0"
+        name: "v1"
     };
 
     const children = [ childExpr('expr_') ];
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normUpdateExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
@@ -686,10 +686,10 @@ test('normalize FunctionExpression', () => {
 
     const variable_obj = {
         type: "Identifier",
-        name: "v0"
+        name: "v1"
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normFunctionExpression(original_obj, children)).toMatchObject({
         stmts: [
             {
@@ -735,10 +735,10 @@ test('normalize ArrowFunctionExpression (1) with BlockStatement', () => {
 
     const variable_obj = {
         type: "Identifier",
-        name: "v0"
+        name: "v1"
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normFunctionExpression(original_obj, children)).toMatchObject({
         stmts: [
             {
@@ -783,10 +783,10 @@ test('normalize ArrowFunctionExpression (2) with Expression', () => {
 
     const variable_obj = {
         type: "Identifier",
-        name: "v0"
+        name: "v1"
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normFunctionExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_',
@@ -828,10 +828,10 @@ test('normalize CallExpression', () => {
 
     const variable_obj = {
         type: 'Identifier',
-        name: 'v0',
+        name: 'v1',
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normCallExpression(original_obj, children)).toMatchObject({
         stmts: [
             'callee_',
@@ -872,10 +872,10 @@ test('normalize MemberExpression', () => {
 
     const variable_obj = {
         type: 'Identifier',
-        name: 'v0',
+        name: 'v1',
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normMemberExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
@@ -917,10 +917,10 @@ test('normalize ObjectExpression', () => {
 
     const variable_obj = {
         type: 'Identifier',
-        name: 'v0',
+        name: 'v1',
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normObjectExpression(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
@@ -1000,10 +1000,10 @@ test('normalize Property with Identifier key and Expression value', () => {
 
     const variable_obj = {
         type: 'Identifier',
-        name: 'v0',
+        name: 'v1',
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normProperty(original_obj, children)).toMatchObject({
         stmts: [
             'expr_1_',
@@ -1054,10 +1054,10 @@ test('normalize Property with Expression key and Literal value', () => {
 
     const variable_obj = {
         type: 'Identifier',
-        name: 'v0',
+        name: 'v1',
     };
 
-    resetVariableCount(); // setting this to make sure next variable name is v0
+    resetVariableCount(); // setting this to make sure next variable name is v1
     expect(normProperty(original_obj, children)).toMatchObject({
         stmts: [
             {

@@ -207,7 +207,11 @@ class DotOutput {
     
                 if (!options.ignore.includes(e.type)) {
                     const color = this.getEdgeColor(e);
-                    g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { label: label, fontcolor: color, color: color });
+                    if (e.type == "PDG") {
+                        g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { dir: "both", label: label, fontcolor: color, color: color });
+                    } else {
+                        g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { label: label, fontcolor: color, color: color });
+                    }
                 }
             });
         }

@@ -1,4 +1,4 @@
-let { getNextVariableName, copyObj } = require('../utils/utils');
+const { getNextVariableName, copyObj } = require('../utils/utils');
 
 const createVariableDeclaration = (obj, variable_name) => {
     const var_obj = {

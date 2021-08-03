@@ -1,5 +1,6 @@
-let VAR_COUNT = 0;
-let NODE_COUNT = 0;
+let VAR_COUNT = 1;
+let NODE_COUNT = 1;
+let OBJ_COUNT = 1;
 
 const copyObj = (obj) => {
     const new_obj = JSON.parse(JSON.stringify(obj));
@@ -9,12 +10,15 @@ const copyObj = (obj) => {
 const getNextNodeId = () => NODE_COUNT++;
 
 const getNextVariableName = () => `v${VAR_COUNT++}`;
-const resetVariableCount = () => VAR_COUNT = 0;
+const resetVariableCount = () => VAR_COUNT = 1;
+
+const getNextObjectName = () => `o${OBJ_COUNT++}`;
 
 module.exports = {
     getNextVariableName,
     resetVariableCount,
     getNextNodeId,
     copyObj,
+    getNextObjectName,
 };
 

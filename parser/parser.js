@@ -13,7 +13,7 @@ const { OutputManager, DotOutput } = require('./output/output_strategy');
 function parse(file, graph_options) {
     try {
         const data  = fs.readFileSync(file, 'utf8');
-        const ast   = esprima.parse(data);//, { loc: true });
+        const ast   = esprima.parse(data, { loc: true });
 
         const normalized_ast = normalize(ast).stmts[0];
         // console.log(JSON.stringify(normalized_ast, null, 2));

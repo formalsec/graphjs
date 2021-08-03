@@ -10,14 +10,14 @@ test('create immutable copy of object', () => {
 });
 
 test('reset variable count', () => {
-    expect(resetVariableCount()).toBe(0);
+    expect(resetVariableCount()).toBe(1);
 });
 
 test('get variable name', () => {
     resetVariableCount();
 
-    expect(getNextVariableName()).toBe('v0');
     expect(getNextVariableName()).toBe('v1');
     expect(getNextVariableName()).toBe('v2');
     expect(getNextVariableName()).toBe('v3');
+    expect(getNextVariableName()).toBe('v4');
 });

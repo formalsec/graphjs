@@ -1,4 +1,5 @@
 const { Graph } = require('./graph');
+const { getNextObjectName } = require('../utils/utils');
 
 function buildPDG(cfg_graph) {
     const graph = cfg_graph;
@@ -46,12 +47,39 @@ function buildPDG(cfg_graph) {
         current[name] = node_id;
     }
 
+    function createObjectDependencyNode(name) {
+        const obj_create_name = getNextObjectName();
+        const node_obj = graph.addNode(obj_create_name, { type: 'PDG' });
+        graph.add_start_nodes('PDG', node_obj);
+        dep_objs[name] = { id: node_obj.id };
+        return node_obj;
+    }
+
+    function createObjectDependencyEdge(stmt_node, node_obj, dep_type, name) {
+        let edge;
+        if (name) {
+            edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'PDG', label: `${dep_type} ${name}` }); 
+        } else {
+            edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'PDG', label: `${dep_type}` });
+        }
+        return edge;
+    }
+
     function traverse(node, current_namespace) {
         if (node === null) {
             return;
         }
 
         switch (node.type) {
+            case "FunctionDeclaration": {
+                node.obj.params.forEach(p => {
+                    const name = p.name;
+                    const node_obj = createObjectDependencyNode(name);
+                    createObjectDependencyEdge(node, node_obj, "CREATE", name);
+                });
+                break;
+            }
+
             case "VariableDeclarator": {
                 const name = node.obj.id.name;
                 local_declared_objs.push(name);
@@ -61,11 +89,8 @@ function buildPDG(cfg_graph) {
                 const init = init_edge.length > 0 ? init_edge[0].nodes[1] : null;
                 
                 if (init) {
-                    const deps = getExpressionDependencies(init, current_namespace);
-                    addDepencyEdge(deps);
-                    ro_table[node.id] = deps;
+                    createExpressionDependencies(node, init, current_namespace);
                 }
-
 
                 node.edges.filter(edge => edge.type == "CFG").forEach(edge => {
                     const n = edge.nodes[1];
@@ -77,10 +102,9 @@ function buildPDG(cfg_graph) {
             case "ExpressionStatement": {
                 const expr = node.edges.filter(e => e.type == "AST" && e.label == "expression")[0].nodes[1];
                 if (expr) {
-                    const deps = getExpressionDependencies(expr, current_namespace);
-                    addDepencyEdge(deps);
-                    ro_table[node.id] = deps;
+                    createExpressionDependencies(node, expr, current_namespace);
                 }
+                break;
             }
 
             default:
@@ -89,86 +113,10 @@ function buildPDG(cfg_graph) {
                     traverse(n, current_namespace);
                 });
         }
-
-        function addDepencyEdge(deps) {
-            deps.forEach(dep_obj => {
-                const { dep, type, name, property } = dep_obj;
-                if (type == "VAR") {
-                    graph.addEdge(dep, node.id, { type: 'PDG', label: name });
-                } else if (type == "LOOKUP") {
-                    graph.addEdge(dep_objs[name].id, node.id, { type: 'PDG', label: property });
-                }
-            });
-        }
     }
 
-    function getExpressionDependencies(expr, current_namespace) {
+    function createExpressionDependencies(parent, expr, current_namespace) {
         switch (expr.type) {
-            case "Literal": {
-                return [
-                    {
-                        dep: expr.id,
-                        type: "CONST",
-                    }
-                ];
-            }
-
-            case "Identifier": {
-                const variable_id = getVariableIdOfNamespace(expr.obj.name, current_namespace);
-                if (variable_id) {
-                    return [
-                        {
-                            dep: variable_id,
-                            type: "VAR",
-                            name: expr.obj.name
-                        }
-                    ];
-                }
-            }
-
-            case "BinaryExpression": {
-                // our normalization makes sure that binary expressions only have 
-                // identifiers or literals as children
-                const left = expr.edges.filter(e => e.type == "AST" && e.label == "left")[0].nodes[1];
-                const right = expr.edges.filter(e => e.type == "AST" && e.label == "right")[0].nodes[1];
-                
-                const deps = [];
-                
-                if (left.type == "Literal") {
-                    deps.push({
-                        dep: left.id,
-                        type: "CONST",
-                    });
-                } else {
-                    // console.log(left);
-                    const left_id = getVariableIdOfNamespace(left.obj.name, current_namespace);
-                    if (left_id) {
-                        deps.push({
-                            dep: left_id,
-                            type: "VAR",
-                            name: left.obj.name
-                        });
-                    }
-                }
-
-                if (right.type == "Literal") {
-                    deps.push({
-                        dep: right.id,
-                        type: "CONST",
-                    });
-                } else {
-                    const right_id = getVariableIdOfNamespace(right.obj.name, current_namespace);
-                    if (right_id) {
-                        deps.push({
-                            dep: right_id,
-                            type: "VAR",
-                            name: right.obj.name
-                        });
-                    }
-                }
-
-                return deps;
-            }
 
             case "AssignmentExpression": {
                 // our normalization makes sure that assignment expressions only have 2 types of variables:
@@ -176,76 +124,42 @@ function buildPDG(cfg_graph) {
                 // and member expressions on the left (writes to object properties)
                 const left = expr.edges.filter(e => e.type == "AST" && e.label == "left")[0].nodes[1];
                 const right = expr.edges.filter(e => e.type == "AST" && e.label == "right")[0].nodes[1];
-                
-                const deps = [];
+                let node_obj;
 
-                
                 if (right.type == "Literal") {
-                    deps.push({
-                        dep: right.id,
-                        type: "CONST",
-                    });
-                } else {
-                    const right_id = getVariableIdOfNamespace(right.obj.name, current_namespace);
-                    deps.push({
-                        dep: right_id,
-                        type: "VAR",
-                        name: right.obj.name
-                    });
+                    // createObjectDependencyEdge(parent, right, "CONST");
+                } else if (right.type == "MemberExpression") {
+                // } else {
+                    // const right_id = getVariableIdOfNamespace(right.obj.name, current_namespace);
+                    // const right_node = graph.nodes.get(right_id);
+                    // createObjectDependencyEdge(parent, right, "VAR", right.obj.name);
                 }
-                
+
                 if (left.type == "MemberExpression") {
-                    let obj_name = left.obj.object.name;
-                    let property_name = left.obj.property.name;
+                    const obj_name = left.obj.object.name;
+                    const property_name = left.obj.property.name;
 
                     if (!dep_objs.hasOwnProperty(obj_name)) {
-                        node_obj = graph.addNode(obj_name, { type: 'PDG' });
-                        graph.add_start_nodes('PDG', node_obj);
-                        dep_objs[obj_name] = { id: node_obj.id };
+                        node_obj = createObjectDependencyNode(obj_name);
                     } else {
                         node_obj = graph.nodes.get(dep_objs[obj_name].id);
+                        createObjectDependencyEdge(parent, node_obj, "WRITE", property_name);
                     }
-                    
-                    let new_obj = node_obj.obj;
-                    new_obj[property_name] = deps;
-                    node_obj.obj = new_obj;
-
-                    dep_objs[obj_name][property_name] = deps;
-                    return [];
                 }
-
-                return deps;
+                break;
             }
 
             case "MemberExpression": {
-                let obj_name = expr.obj.object.name;
-                let property_name = expr.obj.property.name;
-                let node_id;
+                const obj_name = expr.obj.object.name;
+                const property_name = expr.obj.property.name;
 
                 if (!dep_objs.hasOwnProperty(obj_name)) {
-                    node_obj = graph.addNode(obj_name, { type: 'PDG' });
-                    graph.add_start_nodes('PDG', node_obj);
-                    dep_objs[obj_name] = { id: node_obj.id };
+                    node_obj = createObjectDependencyNode(obj_name);
                 } else {
                     node_obj = graph.nodes.get(dep_objs[obj_name].id);
+                    createObjectDependencyEdge(parent, node_obj, "LOOKUP", property_name);
                 }
-                
-                let new_obj = node_obj.obj;
-                new_obj[property_name] = null;
-                node_obj.obj = new_obj;
-
-                dep_objs[obj_name][property_name] = null;
-
-                const deps = [];
-
-                deps.push({
-                    dep: expr.id,
-                    type: "LOOKUP",
-                    name: obj_name,
-                    property: property_name
-                });
-
-                return deps;
+                break;
             }
 
             default:
