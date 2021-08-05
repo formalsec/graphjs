@@ -13,6 +13,7 @@ const getNextVariableName = () => `v${VAR_COUNT++}`;
 const resetVariableCount = () => VAR_COUNT = 1;
 
 const getNextObjectName = () => `o${OBJ_COUNT++}`;
+const resetObjectCount = () => OBJ_COUNT = 1;
 
 module.exports = {
     getNextVariableName,
@@ -20,5 +21,6 @@ module.exports = {
     getNextNodeId,
     copyObj,
     getNextObjectName,
+    resetObjectCount,
 };
 
