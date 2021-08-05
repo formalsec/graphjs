@@ -7,27 +7,34 @@ function buildPDG(cfg_graph) {
     
     const var_namespace = {};
     const ro_table = {}; // this holds dependencies for each statement (by id)
-    const local_declared_objs = [];
-    const dep_objs = [];
+    const dep_objs = {};
+    const visited_nodes = [];
     
     start_nodes.forEach(node => {
         const current_namespace = node.type == "_main_start" ? "global" : node.type;
         traverse(node, current_namespace);
     });
 
-    console.log("=============\n VAR context\n=============")
-    console.table(var_namespace);
-
-    console.log("==========\n RO table\n==========");
-    Object.keys(ro_table).forEach(k => console.log(k, " - ", ro_table[k]));
-
-    console.log("====================\n LOCALS table\n====================");
-    console.log(local_declared_objs);
-
-    console.log("====================\n OBJECT DEPENDENCY table\n====================");
-    Object.keys(dep_objs).forEach(k => console.log(k, " - ", dep_objs[k]));
+    printAuxiliaryStructures();
 
     return graph;
+
+    function printAuxiliaryStructures() {
+        if (Object.keys(var_namespace).length > 0) {
+            console.log("=============\n VAR context\n=============");
+            console.table(var_namespace);
+        }
+
+        if (Object.keys(ro_table).length > 0) {
+            console.log("==========\n RO table\n==========");
+            Object.keys(ro_table).forEach(k => console.log(k, " - ", ro_table[k]));
+        }
+
+        if (Object.keys(dep_objs).length > 0) {
+            console.log("====================\n OBJECT DEPENDENCY table\n====================");
+            Object.keys(dep_objs).forEach(k => console.log(k, " - ", dep_objs[k]));
+        }
+    }
 
     function getVariableIdOfNamespace(name, current_namespace) {
 
@@ -67,7 +74,8 @@ function buildPDG(cfg_graph) {
 
     function addRoEntry(node_id, entry) {
         if (ro_table.hasOwnProperty(node_id)) {
-            ro_table[node_id].push(entry);
+            const same_entry = ro_table[node_id].filter(e => e.dep == entry.dep);
+            if (same_entry.length == 0) ro_table[node_id].push(entry);
         } else {
             ro_table[node_id] = [ entry ];
         }
@@ -107,7 +115,7 @@ function buildPDG(cfg_graph) {
             const variable = graph.nodes.get(dep_identifier);
             createObjectDependencyEdge(parent, variable, ro_entry.type);
         } else {
-            throw new Error("Shouldn't happen");
+            throw new Error(`${dep_name} with id ${dep_identifier} is not in ro_table.`);
             // unless maybe it is a function param
             // and node types not implemented yet
         }
@@ -118,14 +126,18 @@ function buildPDG(cfg_graph) {
             return;
         }
 
+        // to avoid duplicate traversal of a node with more than one "from" CFG edge
+        if (visited_nodes.includes(node.id)) return;
+        visited_nodes.push(node.id);
+
         switch (node.type) {
             case "FunctionDeclaration": {
                 node.obj.params.forEach(p => {
                     // This is probably not right
                     const name = p.name;
-                    
-                    local_declared_objs.push(name);
-                    addVariableToNamespace(name, node.id, current_namespace);
+
+                    // Namespace has to be function namespace (node.type)
+                    addVariableToNamespace(name, node.id, node.namespace);
 
                     const node_obj = createObjectDependencyNode(name);
                     createObjectDependencyEdge(node, node_obj, "CREATE", name);
@@ -134,9 +146,13 @@ function buildPDG(cfg_graph) {
                 break;
             }
 
+            case "Identifier": {
+                addIdentifierDependencyRo(node, node.obj.name, current_namespace);
+                break;
+            }
+
             case "VariableDeclarator": {
                 const name = node.obj.id.name;
-                local_declared_objs.push(name);
                 addVariableToNamespace(name, node.id, current_namespace);
 
                 const init_edge = node.edges.filter(e => e.type == "AST" && e.label == "init");
@@ -157,6 +173,7 @@ function buildPDG(cfg_graph) {
             }
         }
 
+        // console.log("####", node.type);
         node.edges.filter(edge => edge.type == "CFG").forEach(edge => {
             const n = edge.nodes[1];
             traverse(n, current_namespace);
@@ -172,13 +189,7 @@ function buildPDG(cfg_graph) {
             }
 
             case "Identifier": {
-                try {
-                    addIdentifierDependencyRo(parent, expr.obj.name, current_namespace);
-                } catch(e) {
-                    console.log(ro_table);
-                    console.error("ERROR: ", expr);
-                    console.error(e.stack);
-                }
+                addIdentifierDependencyRo(parent, expr.obj.name, current_namespace);
                 break;
             }
 
@@ -190,6 +201,7 @@ function buildPDG(cfg_graph) {
                 break;
             }
 
+            case "LogicalExpression":
             case "BinaryExpression": {
                 // our normalization makes sure that binary expressions only have 2 types of variables:
                 // identifiers or literals on the right
@@ -202,13 +214,7 @@ function buildPDG(cfg_graph) {
                     addLiteralDependencyRo(parent.id, expr.id);
                 } else { // some identifier (var)
                     identifiers.forEach(el => {
-                        try {
-                            addIdentifierDependencyRo(parent, el.obj.name, current_namespace);
-                        } catch(e) {
-                            console.log(ro_table);
-                            console.error("ERROR: ", expr);
-                            console.error(e.stack);
-                        }
+                        addIdentifierDependencyRo(parent, el.obj.name, current_namespace);
                     });
                 }
                 break;
@@ -219,7 +225,13 @@ function buildPDG(cfg_graph) {
                 // identifiers or literals on the right
                 // and member expressions on the left (writes to object properties)
                 const { left, right } = getLeftAndRight(expr);         
-                handleRightSideAssignment(parent, right, current_namespace);
+                //handleRightSideAssignment(parent, right, current_namespace);
+
+                if (right.type == "Literal") {
+                    addLiteralDependencyRo(parent.id, expr.id);
+                } else if (right.type == "Identifier") {
+                    addIdentifierDependencyRo(parent, right.obj.name, current_namespace);
+                }
                 
                 if (left.type == "MemberExpression") {
                     handleMemberExpresion(parent, left, "WRITE");
@@ -232,40 +244,39 @@ function buildPDG(cfg_graph) {
                 break;
             }
 
-            // case "UnaryExpression": {
-            //     // our normalization makes sure that unary expressions only have 2 types of variables:
-            //     // identifiers or literals on the right
-            //     const argument = expr.obj.argument;
-            //     if (argument.type == "Literal") {
-            //         // ro_table[parent.id] = {
-            //         //     dep: expr.id,
-            //         //     type: "CONST",
-            //         // };
-            //     } else {
-            //         const obj_name = argument.name;
-            //         console.log(obj_name);
-            //     }
-            //     console.log(expr);
-            //     break;
-            // }
+            case "ArrowFunctionExpression": {
+                addReturnDependencyRo(parent.id, expr.id);
+                break;
+            }
+
+            case "UnaryExpression": {
+                // our normalization makes sure that unary expressions only have 2 types of variables:
+                // identifiers or literals on the right
+                const argument = expr.obj.argument;
+                if (argument.type == "Literal") {
+                    addLiteralDependencyRo(parent.id, expr.id);
+                } else {
+                    addIdentifierDependencyRo(parent, argument.name, current_namespace);
+                }
+                break;
+            }
 
             case "CallExpression": {
+                const callee = expr.obj.callee;
+                if (callee && ro_table.hasOwnProperty(callee.name)) {
+                    addIdentifierDependencyRo(parent, callee.name, current_namespace);
+                }
+
                 const arguments = expr.obj.arguments;
                 arguments.forEach(arg => {
-                    try {
-                        addIdentifierDependencyRo(parent, arg.obj.name, current_namespace);
-                    } catch(e) {
-                        console.log(ro_table);
-                        console.error("ERROR: ", expr);
-                        console.error(e.stack);
-                    }
+                    addIdentifierDependencyRo(parent, arg.name, current_namespace);
                 });
                 addReturnDependencyRo(parent.id, expr.id);
                 break;
             }
 
             default:
-                return [];
+                throw new Error(`Oops, this is not implemented for ${expr.type} nodes`);
         }
 
         function handleMemberExpresion(parent, node, dep_type) {
@@ -273,10 +284,8 @@ function buildPDG(cfg_graph) {
             const property_name = node.obj.property.name;
 
             const dep_identifier = getVariableIdOfNamespace(obj_name, current_namespace);
-            console.log(dep_objs);
             if (ro_table.hasOwnProperty(dep_identifier)) {
-                const vars = ro_table[dep_identifier].filter(ro => ro.type == "VAR");
-                console.log(vars);
+                const vars = ro_table[dep_identifier].filter(ro => ro.type == "VAR" || ro.type == "OBJ");
                 vars.forEach(v => {
                     let node_obj;
                     if (!dep_objs.hasOwnProperty(v.name)) {
@@ -289,43 +298,12 @@ function buildPDG(cfg_graph) {
                 });
                 addObjectDependencyRo(parent.id, node.id, obj_name);
             }
-
-            // if (!dep_objs.hasOwnProperty(obj_name)) {
-            //     node_obj = createObjectDependencyNode(obj_name);
-            // } else {
-            //     node_obj = graph.nodes.get(dep_objs[obj_name].id);
-            //     createObjectDependencyEdge(parent, node_obj, dep_type, property_name);
-            // }
         }
 
         function getLeftAndRight(expr) {
             const left = expr.edges.filter(e => e.type == "AST" && e.label == "left")[0].nodes[1];
             const right = expr.edges.filter(e => e.type == "AST" && e.label == "right")[0].nodes[1];
             return { left, right };
-        }
-
-        function handleRightSideAssignment(parent, right, current_namespace) {
-            switch (right.type) {
-                case "Literal": {
-                    // const ro_entry = { dep: expr.id, type: "CONST" };
-                    // addRoEntry(parent.id, ro_entry);
-                    break;
-                }
-    
-                case "Identifier": {
-                    addIdentifierDependencyRo(parent, right.obj.name, current_namespace);
-                    break;
-                }
-    
-                // case "CallExpression": {
-                //     console.log(right);
-                //     break;
-                // }
-    
-                // case "MemberExpression": {
-                //     break;
-                // }
-            }
         }
     }
 }

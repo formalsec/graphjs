@@ -62,10 +62,12 @@ function buildCFG(ast_graph) {
             case "FunctionExpression":
             case "LabeledStatement": {
                 let name = `${node.id}_${node.identifier}`;
-                
-                let _start = graph.addNode(`_${name}_start`, { type: 'CFG' });
+                const cfg_namespace = `_${name}_start`;
+
+                let _start = graph.addNode(cfg_namespace, { type: 'CFG' });
                 graph.add_start_nodes('CFG', _start);
-                
+                node.namespace = cfg_namespace;
+
                 let _end = graph.addNode(`_${name}_end`, { type: 'CFG' });
                 
                 previous_node = _start;

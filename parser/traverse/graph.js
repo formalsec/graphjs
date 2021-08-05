@@ -5,6 +5,7 @@ class Node {
         this._obj = obj;
         this._edges = [];
         this.identifier = null;
+        this._namespace = null;
     }
 
     get id() {
@@ -33,6 +34,14 @@ class Node {
 
     set identifier(identifier_str) {
         this._identifier = identifier_str;
+    }
+
+    get namespace() {
+        return this._namespace;
+    }
+
+    set namespace(namespace) {
+        this._namespace = namespace;
     }
 
     addEdge(edge) {
