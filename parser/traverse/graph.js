@@ -60,6 +60,7 @@ class Edge {
 
         this._type = edge_info.type;
         this._label = edge_info.label;
+        this._obj_name = edge_info.obj_name || '';
     }
 
     get nodes() {
@@ -72,6 +73,10 @@ class Edge {
 
     get label() {
         return this._label;
+    }
+
+    get obj_name() {
+        return this._obj_name;
     }
 }
 

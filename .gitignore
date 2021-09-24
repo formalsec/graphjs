@@ -1,3 +1,4 @@
 parser/node_modules/*
 parser/if.json
 parser/coverage/*
+neo4j-custom/queries/virtual_py/*

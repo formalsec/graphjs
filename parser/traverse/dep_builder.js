@@ -56,7 +56,9 @@ function buildPDG(cfg_graph) {
 
     function createObjectDependencyNode(name) {
         const obj_create_name = getNextObjectName();
-        const node_obj = graph.addNode(obj_create_name, { type: 'PDG' });
+        const node_obj = graph.addNode('PDG_OBJECT', { type: 'PDG' });
+        node_obj.identifier = obj_create_name;
+
         graph.add_start_nodes('PDG', node_obj);
         dep_objs[name] = { id: node_obj.id };
         return node_obj;
@@ -65,9 +67,9 @@ function buildPDG(cfg_graph) {
     function createObjectDependencyEdge(stmt_node, node_obj, dep_type, name) {
         let edge;
         if (name) {
-            edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'PDG', label: `${dep_type} ${name}` }); 
+            edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'PDG', label: dep_type, obj_name: name }); 
         } else {
-            edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'PDG', label: `${dep_type}` });
+            edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'PDG', label: dep_type });
         }
         return edge;
     }

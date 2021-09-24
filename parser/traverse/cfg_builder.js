@@ -24,9 +24,13 @@ function buildCFG(ast_graph) {
             //
             case "Program": {
                 let _start = graph.addNode('_main_start', { type: 'CFG' });
+                // let _start = graph.addNode('CFG_FUNC_START', { type: 'CFG' });
+                // _start.identifier = 'main';
                 graph.add_start_nodes('CFG', _start);
 
                 let _end = graph.addNode('_main_end', { type: 'CFG' });
+                // let _end = graph.addNode('CFG_FUNC_END', { type: 'CFG' });
+                // _end.identifier = 'main';
 
                 previous_node = _start;
                 node.edges.forEach(edge => {
@@ -65,11 +69,16 @@ function buildCFG(ast_graph) {
                 const cfg_namespace = `_${name}_start`;
 
                 let _start = graph.addNode(cfg_namespace, { type: 'CFG' });
+                // let _start = graph.addNode('CFG_FUNC_START', { type: 'CFG' });
+                // _start.identifier = name;
+
                 graph.add_start_nodes('CFG', _start);
                 node.namespace = cfg_namespace;
 
                 let _end = graph.addNode(`_${name}_end`, { type: 'CFG' });
-                
+                // let _end = graph.addNode('CFG_FUNC_END', { type: 'CFG' });
+                // _end.identifier = name;
+
                 previous_node = _start;
                 node.edges.forEach(edge => {
                     const [n, child_node] = edge.nodes;
@@ -91,6 +100,8 @@ function buildCFG(ast_graph) {
                 let [test, consequent, alternate] = node.edges.map(edge => traverse(edge.nodes[1]));
 
                 let _end_if = graph.addNode(`_${node.id}_end_if`, { type: 'CFG' });
+                // let _end_if = graph.addNode('CFG_IF_END', { type: 'CFG' });
+                // _end_if.identifier = node.id;
 
                 graph.addEdge(node.id, test.root.id, { type: 'CFG', label: 'test'});
                 graph.addEdge(test.exit.id, consequent.root.id, { type: 'CFG', label: 'TRUE'});

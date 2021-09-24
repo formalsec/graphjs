@@ -7,7 +7,9 @@ const { buildAST } = require('./traverse/ast_builder');
 const { buildCFG } = require('./traverse/cfg_builder');
 const { buildPDG } = require('./traverse/dep_builder');
 // const { printDebug } = require('./utils');
-const { OutputManager, DotOutput } = require('./output/output_strategy');
+const { OutputManager } = require('./output/output_strategy');
+const { DotOutput } = require('./output/dot_output');
+const { CSVOutput } = require('./output/csv_output');
 
 // Returns a graph object
 function parse(file, graph_options) {
@@ -38,6 +40,7 @@ function parse(file, graph_options) {
 }
 
 const argv = yargs(process.argv.slice(3))
+    .boolean('csv')
     .array('ignore')
     .boolean('show_code')
     .argv;
@@ -50,10 +53,13 @@ if (fs.existsSync(filename)) {
     };
 
     const graph = parse(filename, graph_options);
-    // console.log(graph);
-    const output_manager = new OutputManager(graph_options);
-    output_manager.writer = new DotOutput();
-    graph.output_manager = output_manager;
+    
+    if (argv.csv) {
+        graph.output_manager = new OutputManager(graph_options, new CSVOutput());
+    } else {
+        graph.output_manager = new OutputManager(graph_options, new DotOutput());
+    }
+    
     graph.output('graph');
 } else {
     console.error(`${filename} is not a valid file.`);
