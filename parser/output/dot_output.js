@@ -9,6 +9,11 @@ class DotOutput {
                 case 'PDG_OBJECT':
                     label = `#${n.id} ${n.type} ${n.identifier}`;
                     break;
+
+                case 'CFG_F_START':
+                case 'CFG_F_END':
+                    label = `#${n.id} ${n.type} ${n.identifier}`;
+                    break;
                 
                 case 'Identifier': {
                     label = `#${n.id} ${n.type} (${n.identifier})`;
@@ -61,6 +66,35 @@ class DotOutput {
         return label;
     }
 
+    getEdgeLabel(e) {
+        let label = '';
+
+        switch(e.label) {
+            case 'WRITE':
+            case 'LOOKUP':
+            case 'CREATE':
+                label = `${e.label} ${e.obj_name}`;
+                break;
+
+            case 'arg':
+                label = `${e.label} ${e.argument_index}`;
+                break;
+
+            case 'param':
+                label = `${e.label} ${e.param_index}`;
+                break;
+
+            case 'stmt':
+                label = e.stmt_index;
+                break;
+            
+            default:
+                label = e.label;
+        }
+
+        return label;
+    }
+
     getEdgeColor(e) {
         let color = 'black';
         switch (e.type) {
@@ -96,41 +130,6 @@ class DotOutput {
 
         return color;
     }
-
-    // output(graph, options, filename) {
-    //     const g_dot = graphviz.digraph('G');
-
-    //     const nodes = graph.nodes;
-    //     const edges = graph.edges;
-
-    //     nodes.forEach(n => {
-    //         let edges = n.edges;
-
-    //         if (options.ignore) {
-    //             edges = n.edges.filter(e => !options.ignore.includes(e.type));
-    //         }
-
-    //         if (edges.length > 0) {
-    //             const label = this.getNodeLabel(n);
-    //             const color = this.getNodeColor(n);
-    //             g_dot.addNode(label, {fontcolor: color, color: color });
-    //         }
-    //     });
-
-    //     edges.forEach(e => {
-    //         let [n1, n2] = e.nodes;
-
-    //         const label = e.label;
-
-    //         if (!options.ignore.includes(e.type)) {
-    //             const color = this.getEdgeColor(e);
-    //             g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { label: label, fontcolor: color, color: color });
-    //         }
-    //     });
-
-    //     // console.log(g_dot.to_dot());
-    //     g_dot.output("svg", `${filename}.svg`);
-    // }
 
     output(graph, options, filename) {
         this.show_code = options.show_code || false;
@@ -183,20 +182,16 @@ class DotOutput {
                 let [n1, n2] = e.nodes;
                 nodes_to_print.push(n2);
     
-                let label = '';
-                if (e.obj_name) {
-                    label = `${e.label} ${e.obj_name}`;
-                } else {
-                    label = e.label;
-                }
+                const label = this.getEdgeLabel(e);
     
                 if (!options.ignore.includes(e.type)) {
                     const color = this.getEdgeColor(e);
-                    if (e.type == "PDG") {
-                        g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { dir: "both", label: label, fontcolor: color, color: color });
-                    } else {
-                        g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { label: label, fontcolor: color, color: color });
-                    }
+                    // if (e.type == "PDG") {
+                    //     g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { dir: "both", label: label, fontcolor: color, color: color });
+                    // } else {
+                    //     g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { label: label, fontcolor: color, color: color });
+                    // }
+                    g_dot.addEdge(this.getNodeLabel(n1), this.getNodeLabel(n2), { label: label, fontcolor: color, color: color });
                 }
             });
         }

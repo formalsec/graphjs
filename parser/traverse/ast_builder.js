@@ -32,14 +32,14 @@ function buildAST(obj) {
             }
 
             case "BlockStatement": {
-                // resultData = mapReduce(obj.body);
-                obj_node = mapReduce(obj.body, parent_node);
+                resultData = mapReduce(obj.body);
+                // obj_node = mapReduce(obj.body, parent_node);
 
-                // obj_node = graph.addNode(obj.type, obj);
+                obj_node = graph.addNode(obj.type, obj);
 
-                // for(let i = 0; i < resultData.length; i++) {
-                //     graph.addEdge(obj_node.id, resultData[i].id, { type: 'AST', label: i+1});
-                // }
+                for(let i = 0; i < resultData.length; i++) {
+                    graph.addEdge(obj_node.id, resultData[i].id, { type: 'AST', label: 'stmt', stmt_index: i+1});
+                }
                 break;
             }
     
@@ -93,7 +93,7 @@ function buildAST(obj) {
                 graph.addEdge(obj_node.id, callee.id, { type: 'AST', label: 'callee' });
 
                 for(let i = 0; i < arguments.length; i++) {
-                    graph.addEdge(obj_node.id, arguments[i].id, { type: 'AST', label: i+1});
+                    graph.addEdge(obj_node.id, arguments[i].id, { type: 'AST', label: 'arg', argument_index: i+1});
                 }
                 break;
             }
@@ -188,17 +188,19 @@ function buildAST(obj) {
             case "LabeledStatement": {
                 obj_node = graph.addNode(obj.type, obj);
                 obj_node.identifier = obj.id ? obj.id.name : `anon`;
-                
-                // const node_id = traverse(obj.id, obj_node);
-                const node_body_stmts = traverse(obj.body, obj_node); // must be blockstatement
-                
-                for(let i = 0; i < node_body_stmts.length; i++) {
-                    graph.addEdge(obj_node.id, node_body_stmts[i].id, { type: 'AST', label: i+1});
+
+                const node_params = obj.params.map(param => traverse(param, obj_node));
+ 
+                for(let i = 0; i < node_params.length; i++) {
+                    graph.addEdge(obj_node.id, node_params[i].id, { type: 'AST', label: 'param', param_index: i+1});
                 }
 
-                // if (node_id) {
-                //     graph.addEdge(obj_node.id, node_id.id, { type: 'AST', label: 'id'});
+                const node_body_stmts = traverse(obj.body, obj_node); // must be blockstatement
+                graph.addEdge(obj_node.id, node_body_stmts.id, { type: 'AST', label: 'block' });
+                // for(let i = 0; i < node_body_stmts.length; i++) {
+                //     graph.addEdge(obj_node.id, node_body_stmts[i].id, { type: 'AST', label: i+1});
                 // }
+
                 break;
             }
     

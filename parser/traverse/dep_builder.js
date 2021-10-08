@@ -11,7 +11,8 @@ function buildPDG(cfg_graph) {
     const visited_nodes = [];
     
     start_nodes.forEach(node => {
-        const current_namespace = node.type == "_main_start" ? "global" : node.type;
+        // console.log(node);
+        const current_namespace = node.namespace == "_main" ? "global" : node.namespace;
         traverse(node, current_namespace);
     });
 
@@ -115,7 +116,7 @@ function buildPDG(cfg_graph) {
             }
             addRoEntry(parent.id, ro_entry);
             const variable = graph.nodes.get(dep_identifier);
-            createObjectDependencyEdge(parent, variable, ro_entry.type);
+            createObjectDependencyEdge(variable, parent, ro_entry.type);
         } else {
             throw new Error(`${dep_name} with id ${dep_identifier} is not in ro_table.`);
             // unless maybe it is a function param
@@ -155,6 +156,7 @@ function buildPDG(cfg_graph) {
 
             case "VariableDeclarator": {
                 const name = node.obj.id.name;
+                node.identifier = name;
                 addVariableToNamespace(name, node.id, current_namespace);
 
                 const init_edge = node.edges.filter(e => e.type == "AST" && e.label == "init");
@@ -294,7 +296,14 @@ function buildPDG(cfg_graph) {
                         node_obj = createObjectDependencyNode(v.name);
                     } else {
                         node_obj = graph.nodes.get(dep_objs[v.name].id);
-                        createObjectDependencyEdge(parent, node_obj, dep_type, property_name);
+
+                        if (dep_type == "LOOKUP") {
+                            createObjectDependencyEdge(node_obj, parent, dep_type, property_name);    
+                        } else if (dep_type == "WRITE") {
+                            createObjectDependencyEdge(parent, node_obj, dep_type, property_name);
+                        } else {
+                            throw new Error(`Dependency type should be LOOKUP or WRITE, instead ${dep_type} was supplied.`);
+                        }
                     }
                     dep_objs[obj_name] = { id: node_obj.id };
                 });

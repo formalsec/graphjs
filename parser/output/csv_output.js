@@ -25,12 +25,11 @@ class CSVOutput {
             // node identifier name
             switch(node.type) {
                 case 'Identifier':
+                case 'VariableDeclarator':
                 case 'FunctionDeclaration':
                 case 'PDG_OBJECT':
-                case 'CFG_MAIN_START':
-                case 'CFG_MAIN_END':
-                case 'CFG_FUNC_START':
-                case 'CFG_FUNC_END':
+                case 'CFG_F_START':
+                case 'CFG_F_END':
                 case 'CFG_IF_END':
                     n.push(node.identifier);
                     break;
@@ -55,10 +54,10 @@ class CSVOutput {
 
         
         // RELS
-        // FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿Arguments
+        // FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿ArgumentIndex
         
         const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
-        edgesWriteStream.write('FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿Arguments\n');
+        edgesWriteStream.write('FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex\n');
 
         graph.edges.forEach(edge => {
             const e = [];
@@ -78,8 +77,9 @@ class CSVOutput {
             if (edge.obj_name) e.push(edge.obj_name)
             else e.push('')
 
-            // arguments
-            e.push(JSON.stringify({}));
+            // argument index
+            if (edge.argument_index) e.push(edge.argument_index)
+            else e.push('');
 
             edgesWriteStream.write(`${e.join('¿')}\n`);
         });

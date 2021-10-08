@@ -61,6 +61,13 @@ class Edge {
         this._type = edge_info.type;
         this._label = edge_info.label;
         this._obj_name = edge_info.obj_name || '';
+        this._argument_index = edge_info.argument_index;
+        this._param_index = edge_info.param_index;
+        this._stmt_index = edge_info.stmt_index;
+    }
+
+    get id() {
+        return this._id;
     }
 
     get nodes() {
@@ -77,6 +84,18 @@ class Edge {
 
     get obj_name() {
         return this._obj_name;
+    }
+
+    get argument_index() {
+        return this._argument_index;
+    }
+
+    get param_index() {
+        return this._param_index;
+    }
+
+    get stmt_index() {
+        return this._stmt_index;
     }
 }
 
@@ -138,8 +157,9 @@ class Graph {
         const edge = new Edge(id, node_1, node_2, edge_info);
         this._edges.set(id, edge);
 
+        // console.log(node_id_1);
+        // console.log(node_1);
         node_1.addEdge(edge);
-        //node_2.addEdge(edge);
         return edge;
     }
 

@@ -12,7 +12,7 @@ const { DotOutput } = require('./output/dot_output');
 const { CSVOutput } = require('./output/csv_output');
 
 // Returns a graph object
-function parse(file, graph_options) {
+function parse(file) {
     try {
         const data  = fs.readFileSync(file, 'utf8');
         const ast   = esprima.parse(data, { loc: true });
@@ -33,7 +33,7 @@ function parse(file, graph_options) {
 
         const pdg_graph = buildPDG(cfg_graph);
 
-        return cfg_graph;
+        return pdg_graph;
     } catch(e) {
         console.log('Error:', e.stack);
     }
@@ -52,7 +52,7 @@ if (fs.existsSync(filename)) {
         show_code: argv.show_code || false,
     };
 
-    const graph = parse(filename, graph_options);
+    const graph = parse(filename);
     
     if (argv.csv) {
         graph.output_manager = new OutputManager(graph_options, new CSVOutput());
