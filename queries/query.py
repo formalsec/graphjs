@@ -52,7 +52,7 @@ def find_source_objects_and_variables(session):
 			# get (function, pdg_object) pairs that we consider source
 			query = f"""
 				MATCH
-					(f:FunctionDeclaration)-[c:PDG]->(obj:PDG_OBJECT)
+					(f:FunctionDeclaration)-[c:OBJECT]->(obj:PDG_OBJECT)
 				WHERE
 					f.Id = '{p_function}' AND
 					c.RelationType = 'CREATE' AND
@@ -157,7 +157,8 @@ def find_pdg_paths(session, sources, sinks):
 			sink_id = sink['sink'].get('Id')
 
 			if source_func == sink_func:
-				print("Testing", source_id, sink_id)
+				print("Testing path between:")
+				print("\tsource - ", source_id, ", and sink - ", sink_id)
 				with session.begin_transaction() as tx:
 					# QUERY 3
 					# get (function, parameter) pairs that we consider source
@@ -185,5 +186,11 @@ with neo_driver.session() as session:
 	# print(calls)
 	params = find_source_objects_and_variables(session)
 	# print(params)
-	print(find_pdg_paths(session, params, calls))
-	#find_pdg_dependencies(session, params, calls)
+	paths = find_pdg_paths(session, params, calls)
+
+	if len(paths) > 0:
+		# detected vulnerability
+		for p in paths:
+			print("Detected vulnerability in the following (source, sink) pair nodes: ", p)
+	else:
+		print("No vulnerability detected for that source and sink")

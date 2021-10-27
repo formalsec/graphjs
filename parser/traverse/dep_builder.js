@@ -9,9 +9,10 @@ function buildPDG(cfg_graph) {
     const ro_table = {}; // this holds dependencies for each statement (by id)
     const dep_objs = {};
     const visited_nodes = [];
+
+    const intra_context_stack = [];
     
     start_nodes.forEach(node => {
-        // console.log(node);
         const current_namespace = node.namespace == "_main" ? "global" : node.namespace;
         traverse(node, current_namespace);
     });
@@ -59,10 +60,31 @@ function buildPDG(cfg_graph) {
         const obj_create_name = getNextObjectName();
         const node_obj = graph.addNode('PDG_OBJECT', { type: 'PDG' });
         node_obj.identifier = obj_create_name;
+        node_obj.variable_name = name;
 
         graph.add_start_nodes('PDG', node_obj);
-        dep_objs[name] = { id: node_obj.id };
         return node_obj;
+    }
+
+    function addObjectToDependencies(name, node_obj, other_context) {
+        let entry;
+        if (other_context) entry = { id: node_obj.id, contexts: other_context.slice() } 
+        else entry = { id: node_obj.id, contexts: intra_context_stack.slice() };
+        
+        if (dep_objs.hasOwnProperty(name)) {
+            dep_objs[name].push(entry);
+        } else {
+            dep_objs[name] = [ entry ];
+        }
+    }
+
+    function createNewObjectVersion(older_version) {
+        const original_name = older_version.variable_name;
+        const new_obj_version = createObjectDependencyNode(original_name);
+        addObjectToDependencies(original_name, new_obj_version);
+        createObjectEdge(older_version, new_obj_version, "NEW_VERSION");
+
+        return new_obj_version;
     }
 
     function createObjectDependencyEdge(stmt_node, node_obj, dep_type, name) {
@@ -71,6 +93,16 @@ function buildPDG(cfg_graph) {
             edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'PDG', label: dep_type, obj_name: name }); 
         } else {
             edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'PDG', label: dep_type });
+        }
+        return edge;
+    }
+
+    function createObjectEdge(stmt_node, node_obj, dep_type, name) {
+        let edge;
+        if (name) {
+            edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'OBJECT', label: dep_type, obj_name: name }); 
+        } else {
+            edge = graph.addEdge(stmt_node.id, node_obj.id, { type: 'OBJECT', label: dep_type });
         }
         return edge;
     }
@@ -134,16 +166,29 @@ function buildPDG(cfg_graph) {
         visited_nodes.push(node.id);
 
         switch (node.type) {
+            case "CFG_F_START": {
+                intra_context_stack.push(node.namespace);
+                break;
+            }
+
+            case "IfStatement": {
+                intra_context_stack.push(node.id);
+                break;
+            }
+
+            case "CFG_F_END":
+            case "CFG_IF_END": {
+                intra_context_stack.pop();
+                break;
+            }
+
             case "FunctionDeclaration": {
                 node.obj.params.forEach(p => {
-                    // This is probably not right
                     const name = p.name;
-
-                    // Namespace has to be function namespace (node.type)
                     addVariableToNamespace(name, node.id, node.namespace);
-
                     const node_obj = createObjectDependencyNode(name);
-                    createObjectDependencyEdge(node, node_obj, "CREATE", name);
+                    addObjectToDependencies(name, node_obj, [ node.namespace ]);
+                    createObjectEdge(node, node_obj, "CREATE", name);
                     addObjectDependencyRo(node.id, node_obj.id, name);
                 });
                 break;
@@ -177,7 +222,6 @@ function buildPDG(cfg_graph) {
             }
         }
 
-        // console.log("####", node.type);
         node.edges.filter(edge => edge.type == "CFG").forEach(edge => {
             const n = edge.nodes[1];
             traverse(n, current_namespace);
@@ -200,7 +244,8 @@ function buildPDG(cfg_graph) {
             case "ObjectExpression": {
                 const name = parent.obj.id.name;
                 const node_obj = createObjectDependencyNode(name);
-                createObjectDependencyEdge(parent, node_obj, "CREATE", name);
+                addObjectToDependencies(name, node_obj);
+                createObjectEdge(parent, node_obj, "CREATE", name);
                 addObjectDependencyRo(parent.id, expr.id, name);
                 break;
             }
@@ -228,8 +273,7 @@ function buildPDG(cfg_graph) {
                 // our normalization makes sure that assignment expressions only have 2 types of variables:
                 // identifiers or literals on the right
                 // and member expressions on the left (writes to object properties)
-                const { left, right } = getLeftAndRight(expr);         
-                //handleRightSideAssignment(parent, right, current_namespace);
+                const { left, right } = getLeftAndRight(expr);
 
                 if (right.type == "Literal") {
                     addLiteralDependencyRo(parent.id, expr.id);
@@ -291,21 +335,29 @@ function buildPDG(cfg_graph) {
             if (ro_table.hasOwnProperty(dep_identifier)) {
                 const vars = ro_table[dep_identifier].filter(ro => ro.type == "VAR" || ro.type == "OBJ");
                 vars.forEach(v => {
-                    let node_obj;
                     if (!dep_objs.hasOwnProperty(v.name)) {
-                        node_obj = createObjectDependencyNode(v.name);
+                        const node_obj = createObjectDependencyNode(v.name);
+                        addObjectToDependencies(v.name, node_obj);
                     } else {
-                        node_obj = graph.nodes.get(dep_objs[v.name].id);
+                        if (dep_type == "WRITE") {
+                            // get latest object version node
+                            const node_id = dep_objs[v.name].slice(-1)[0].id;
+                            const node_obj = graph.nodes.get(node_id);
 
-                        if (dep_type == "LOOKUP") {
-                            createObjectDependencyEdge(node_obj, parent, dep_type, property_name);    
-                        } else if (dep_type == "WRITE") {
-                            createObjectDependencyEdge(parent, node_obj, dep_type, property_name);
+                            // create new version
+                            const new_obj_version = createNewObjectVersion(node_obj);
+                            
+                            // link new version to previous version
+                            createObjectDependencyEdge(parent, new_obj_version, dep_type, property_name);
+                        } else if (dep_type == "LOOKUP") {
+                            // search all object version in the context
+                            const current_context = intra_context_stack.slice(-1)[0];
+                            const node_ids = dep_objs[v.name].filter(version => version.contexts.includes(current_context));
+                            node_ids.forEach(node_obj => createObjectDependencyEdge(node_obj, parent, dep_type, property_name));    
                         } else {
                             throw new Error(`Dependency type should be LOOKUP or WRITE, instead ${dep_type} was supplied.`);
                         }
                     }
-                    dep_objs[obj_name] = { id: node_obj.id };
                 });
                 addObjectDependencyRo(parent.id, node.id, obj_name);
             }
