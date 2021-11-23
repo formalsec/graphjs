@@ -27,6 +27,7 @@ def convert_graph(directory, output_file):
 
     # [Id:ID; Type; Kind; Code; Range; Location; Value; Raw; Async; Label:LABEL; SemanticType]
     for row in get_csv_content(os.path.join(directory, "nodes.csv"))[1:]:
+        print(row)
         n_id = row[0]
         n_label = row[9]
         n_type = row[1]
