@@ -5,10 +5,10 @@ class Edge {
 
         this._type = edgeInfo.type;
         this._label = edgeInfo.label;
-        this._obj_name = edgeInfo.obj_name || "";
-        this._argument_index = edgeInfo.argument_index;
-        this._param_index = edgeInfo.param_index;
-        this._stmt_index = edgeInfo.stmt_index;
+        this._obj_name = edgeInfo.objName || "";
+        this._argument_index = edgeInfo.argumentIndex;
+        this._param_index = edgeInfo.paramIndex;
+        this._stmt_index = edgeInfo.stmtIndex;
     }
 
     get id() {
@@ -27,19 +27,19 @@ class Edge {
         return this._label;
     }
 
-    get obj_name() {
+    get objName() {
         return this._obj_name;
     }
 
-    get argument_index() {
+    get argumentIndex() {
         return this._argument_index;
     }
 
-    get param_index() {
+    get paramIndex() {
         return this._param_index;
     }
 
-    get stmt_index() {
+    get stmtIndex() {
         return this._stmt_index;
     }
 }

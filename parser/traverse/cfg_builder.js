@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return */
 function buildCFG(astGraph) {
     const graph = astGraph;
 
@@ -122,15 +123,15 @@ function buildCFG(astGraph) {
             const _endIf = graph.addNode("CFG_IF_END", { type: "CFG" });
             _endIf.identifier = node.id;
 
-            graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test"});
-            graph.addEdge(test.exit.id, consequent.root.id, { type: "CFG", label: "TRUE"});
+            graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test" });
+            graph.addEdge(test.exit.id, consequent.root.id, { type: "CFG", label: "TRUE" });
             graph.addEdge(consequent.exit.id, _endIf.id, { type: "CFG" });
 
             if (alternate) {
-                graph.addEdge(test.exit.id, alternate.root.id, { type: "CFG", label: "FALSE"});
+                graph.addEdge(test.exit.id, alternate.root.id, { type: "CFG", label: "FALSE" });
                 graph.addEdge(alternate.exit.id, _endIf.id, { type: "CFG" });
             } else {
-                graph.addEdge(test.exit.id, _endIf.id, { type: "CFG", label: "FALSE"});
+                graph.addEdge(test.exit.id, _endIf.id, { type: "CFG", label: "FALSE" });
             }
             return {
                 root: node,

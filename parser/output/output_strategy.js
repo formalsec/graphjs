@@ -1,8 +1,4 @@
-const graphviz = require('graphviz');
-const escodegen = require('escodegen');
-
 class OutputManager {
-
     constructor(options, writer) {
         this._writer = writer;
         this._options = options;

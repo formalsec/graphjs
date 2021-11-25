@@ -13,9 +13,9 @@ describe("Testing edge class", () => {
         edgeInfo = {
             type: "EdgeType",
             label: "EdgeLabel",
-            argument_index: 1,
-            param_index: 2,
-            stmt_index: 3,
+            argumentIndex: 1,
+            paramIndex: 2,
+            stmtIndex: 3,
         };
 
         node1 = new Node(1, "Node1");
@@ -46,18 +46,18 @@ describe("Testing edge class", () => {
     });
 
     test("make sure edge obj_name matches", () => {
-        expect(edge.obj_name).toBe("");
+        expect(edge.objName).toBe("");
     });
 
     test("make sure edge argument_index matches", () => {
-        expect(edge.argument_index).toBe(edgeInfo.argument_index);
+        expect(edge.argumentIndex).toBe(edgeInfo.argumentIndex);
     });
 
     test("make sure edge param_index matches", () => {
-        expect(edge.param_index).toBe(edgeInfo.param_index);
+        expect(edge.paramIndex).toBe(edgeInfo.paramIndex);
     });
 
     test("make sure edge stmt_index matches", () => {
-        expect(edge.stmt_index).toBe(edgeInfo.stmt_index);
+        expect(edge.stmtIndex).toBe(edgeInfo.stmtIndex);
     });
 });

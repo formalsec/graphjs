@@ -1,16 +1,16 @@
-const fs = require('fs');
+const fs = require("fs");
 
 class CSVOutput {
+    // eslint-disable-next-line class-methods-use-this
     output(graph, options, filename) {
-
         // NODES
         // Id:ID¿Type¿Raw¿Location¿Label:LABEL
-        
+
         const nodesWriteStream = fs.createWriteStream(`${filename}_nodes.csv`);
         // nodesWriteStream.write('Id:ID¿Type¿Raw¿Location¿Label:LABEL\n');
-        nodesWriteStream.write('Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n');
+        nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n");
 
-        graph.nodes.forEach(node =>{
+        graph.nodes.forEach((node) => {
             const n = [];
 
             // node id
@@ -19,49 +19,41 @@ class CSVOutput {
             // node type
             n.push(node.type);
 
-            // raw node
-            //n.push(JSON.stringify(node.obj));
-
             // node identifier name
-            switch(node.type) {
-                case 'Identifier':
-                case 'VariableDeclarator':
-                case 'FunctionDeclaration':
-                case 'PDG_OBJECT':
-                case 'CFG_F_START':
-                case 'CFG_F_END':
-                case 'CFG_IF_END':
-                    n.push(node.identifier);
-                    break;
-                
-                default:
-                    n.push('');
+            switch (node.type) {
+            case "Identifier":
+            case "VariableDeclarator":
+            case "FunctionDeclaration":
+            case "PDG_OBJECT":
+            case "CFG_F_START":
+            case "CFG_F_END":
+            case "CFG_IF_END":
+                n.push(node.identifier);
+                break;
+
+            default:
+                n.push("");
             }
-            // if (node.type == 'Identifier' || node.type == 'FunctionDeclaration' || node.type == 'OBJECT') n.push(node.identifier)
-            // else n.push('')
 
             // code location
             if (node.obj.loc) n.push(JSON.stringify(node.obj.loc));
-            else n.push('');
-            
-            // node label
-            //n.push('')
+            else n.push("");
+
             n.push(node.type);
 
-            nodesWriteStream.write(`${n.join('¿')}\n`);
+            nodesWriteStream.write(`${n.join("¿")}\n`);
         });
-        nodesWriteStream.close()
+        nodesWriteStream.close();
 
-        
         // RELS
         // FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿ArgumentIndex
-        
-        const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
-        edgesWriteStream.write('FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex\n');
 
-        graph.edges.forEach(edge => {
+        const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
+        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex\n");
+
+        graph.edges.forEach((edge) => {
             const e = [];
-            let [n1, n2] = edge.nodes;
+            const [n1, n2] = edge.nodes;
 
             // from and to nodes
             e.push(n1.id);
@@ -72,16 +64,16 @@ class CSVOutput {
 
             // relation type
             if (edge.label) e.push(edge.label);
-            else e.push('');
+            else e.push("");
 
-            if (edge.obj_name) e.push(edge.obj_name)
-            else e.push('')
+            if (edge.objName) e.push(edge.objName);
+            else e.push("");
 
             // argument index
-            if (edge.argument_index) e.push(edge.argument_index)
-            else e.push('');
+            if (edge.argumentIndex) e.push(edge.argumentIndex);
+            else e.push("");
 
-            edgesWriteStream.write(`${e.join('¿')}\n`);
+            edgesWriteStream.write(`${e.join("¿")}\n`);
         });
         edgesWriteStream.close();
     }
