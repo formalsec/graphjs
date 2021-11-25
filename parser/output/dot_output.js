@@ -14,12 +14,12 @@ class DotOutput {
                 case 'CFG_F_END':
                     label = `#${n.id} ${n.type} ${n.identifier}`;
                     break;
-                
+
                 case 'Identifier': {
                     label = `#${n.id} ${n.type} (${n.identifier})`;
                     break;
                 }
-                
+
                 case 'VariableDeclarator': {
                     const init = n.obj.init;
                     label = `#${n.id} Variable (${n.identifier})`;
@@ -31,7 +31,7 @@ class DotOutput {
                             label = `#${n.id}» ${code}`;
                         }
                     }
-                    break;    
+                    break;
                 }
 
                 case 'ExpressionStatement': {
@@ -51,16 +51,16 @@ class DotOutput {
                 case 'UnaryExpression':
                 case 'BinaryExpression': {
                     label = `#${n.id} ${n.type} (${n.obj.operator})`;
-                    break;                        
+                    break;
                 }
-                
+
                 case "ArrowFunctionExpression":
                 case "FunctionDeclaration":
                 case "FunctionExpression":
                 case "LabeledStatement": {
                     label = `#${n.id} Function (${n.identifier})`;
                 }
-            }    
+            }
         }
 
         return label;
@@ -87,7 +87,7 @@ class DotOutput {
             case 'stmt':
                 label = e.stmt_index;
                 break;
-            
+
             default:
                 label = e.label;
         }
@@ -135,9 +135,9 @@ class DotOutput {
         this.show_code = options.show_code || false;
         const g_dot = graphviz.digraph('G');
 
-        const nodes_to_print = Object.keys(graph.start_nodes)
+        const nodes_to_print = Object.keys(graph.startNodes)
             .filter(type => !options.ignore.includes(type))
-            .map(type => graph.start_nodes[type]).flat();
+            .map(type => graph.startNodes[type]).flat();
         const nodes_visited = [];
 
         while (nodes_to_print.length > 0) {
@@ -148,7 +148,7 @@ class DotOutput {
             if (nodes_visited.includes(n.id)) {
                 continue;
             }
-            
+
             if (options.ignore && options.ignore.includes(n.obj.type)) {
                 continue;
             }
@@ -163,7 +163,7 @@ class DotOutput {
             const label = this.getNodeLabel(n);
             const color = this.getNodeColor(n);
             g_dot.addNode(label, {fontcolor: color, color: color });
-            
+
             if (this.show_code && n.type == "ExpressionStatement") {
                 //continue;
                 edges = n.edges.filter(e => e.type != 'AST');
@@ -181,9 +181,9 @@ class DotOutput {
             edges.forEach(e => {
                 let [n1, n2] = e.nodes;
                 nodes_to_print.push(n2);
-    
+
                 const label = this.getEdgeLabel(e);
-    
+
                 if (!options.ignore.includes(e.type)) {
                     const color = this.getEdgeColor(e);
                     // if (e.type == "PDG") {

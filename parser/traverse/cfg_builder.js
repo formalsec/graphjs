@@ -1,155 +1,150 @@
-function buildCFG(ast_graph) {
-    const graph = ast_graph;
-    traverse(graph.start_nodes['AST'][0]);
-    return graph;
-
-    function defaultNode(node) {
-        node.edges.map(edge => traverse(edge.nodes[1]));
-        return {
-            root: node,
-            exit: node,
-        };
-    };
+function buildCFG(astGraph) {
+    const graph = astGraph;
 
     function traverse(node) {
-        
+        function defaultNode(defNode) {
+            defNode.edges.map((edge) => traverse(edge.nodes[1]));
+            return {
+                root: defNode,
+                exit: defNode,
+            };
+        }
+
         if (node === null) {
             return;
         }
 
         switch (node.type) {
-            //
-            // Scripts
-            //
-            case "Program": {
-                const cfg_namespace = 'main';
-                // let _start = graph.addNode('_main_start', { type: 'CFG' });
-                
-                let _start = graph.addNode('CFG_F_START', { type: 'CFG' });
-                _start.identifier = 'main';
-                _start.namespace = cfg_namespace;
-                graph.add_start_nodes('CFG', _start);
+        //
+        // Scripts
+        //
+        case "Program": {
+            const cfgNamespace = "main";
 
-                // let _end = graph.addNode('_main_end', { type: 'CFG' });
-                let _end = graph.addNode('CFG_F_END', { type: 'CFG' });
-                _end.identifier = 'main';
+            const _start = graph.addNode("CFG_F_START", { type: "CFG" });
+            _start.identifier = "main";
+            _start.namespace = cfgNamespace;
+            graph.addStartNodes("CFG", _start);
 
-                let previous_node = _start;
-                node.edges.forEach(edge => {
-                    const [n, child_node] = edge.nodes;
-                    const { root, exit } = traverse(child_node);
-                    graph.addEdge(previous_node.id, root.id, { type: 'CFG' });
-                    previous_node = exit;
-                });
-                graph.addEdge(previous_node.id, _end.id, { type: 'CFG' });
-                return {
-                    root: _start,
-                    exit: _end,
-                };
+            const _end = graph.addNode("CFG_F_END", { type: "CFG" });
+            _end.identifier = "main";
+
+            let previousNode = _start;
+            node.edges.forEach((edge) => {
+                const [, childNode] = edge.nodes;
+                const { root, exit } = traverse(childNode);
+                graph.addEdge(previousNode.id, root.id, { type: "CFG" });
+                previousNode = exit;
+            });
+            graph.addEdge(previousNode.id, _end.id, { type: "CFG" });
+            return {
+                root: _start,
+                exit: _end,
+            };
+        }
+
+        // case "BlockStatement": {
+        //     // let previousNode = node;
+        //     let previousNode = parent_node;
+        //     // console.log(node.edges);
+        //     console.log(parent_node);
+
+        //     node.edges.forEach(edge => {
+        //         const [n, childNode] = edge.nodes;
+        //         console.log(previousNode.id);
+        //         const { root, exit } = traverse(childNode);
+        //         graph.addEdge(previousNode.id, root.id, { type: "CFG" });
+        //         previousNode = exit;
+        //     });
+
+        //     return {
+        //         root: parent_node,
+        //         exit: previousNode,
+        //     };
+        // }
+
+        case "BlockStatement": {
+            let previousNode = node.edges[0].nodes[1];
+            const firstNode = previousNode;
+
+            node.edges.slice(1).forEach((edge) => {
+                const [, childNode] = edge.nodes;
+                const { root, exit } = traverse(childNode);
+                graph.addEdge(previousNode.id, root.id, { type: "CFG" });
+                previousNode = exit;
+            });
+
+            return {
+                root: firstNode,
+                exit: previousNode,
+            };
+        }
+
+        case "ArrowFunctionExpression":
+        case "FunctionDeclaration":
+        case "FunctionExpression":
+        case "LabeledStatement": {
+            const name = `${node.id}_${node.identifier}`;
+            const cfgNamespace = `_${name}`;
+
+            const _start = graph.addNode("CFG_F_START", { type: "CFG" });
+            _start.identifier = name;
+            _start.namespace = cfgNamespace;
+
+            graph.addStartNodes("CFG", _start);
+            // eslint-disable-next-line no-param-reassign
+            node.namespace = cfgNamespace;
+
+            const _end = graph.addNode("CFG_F_END", { type: "CFG" });
+            _end.identifier = name;
+
+            const blockEdge = node.edges.filter((edge) => edge.label === "block")[0];
+            const blockNode = blockEdge.nodes[1];
+            // blockNode.edges.forEach(edge => {
+            //     const [n, childNode] = edge.nodes;
+            //     const { root, exit } = traverse(childNode);
+            //     graph.addEdge(previousNode.id, root.id, { type: "CFG" });
+            //     previousNode = exit;
+            // });
+            const { root, exit } = traverse(blockNode);
+            graph.addEdge(_start.id, root.id, { type: "CFG" });
+            graph.addEdge(exit.id, _end.id, { type: "CFG" });
+            return {
+                root: node,
+                exit: node,
+            };
+        }
+
+        case "IfStatement":
+        case "ConditionalExpression": {
+            const [test, consequent, alternate] = node.edges.map((edge) => traverse(edge.nodes[1]));
+
+            const _endIf = graph.addNode("CFG_IF_END", { type: "CFG" });
+            _endIf.identifier = node.id;
+
+            graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test"});
+            graph.addEdge(test.exit.id, consequent.root.id, { type: "CFG", label: "TRUE"});
+            graph.addEdge(consequent.exit.id, _endIf.id, { type: "CFG" });
+
+            if (alternate) {
+                graph.addEdge(test.exit.id, alternate.root.id, { type: "CFG", label: "FALSE"});
+                graph.addEdge(alternate.exit.id, _endIf.id, { type: "CFG" });
+            } else {
+                graph.addEdge(test.exit.id, _endIf.id, { type: "CFG", label: "FALSE"});
             }
+            return {
+                root: node,
+                exit: _endIf,
+            };
+        }
 
-            // case "BlockStatement": {
-            //     // let previous_node = node;
-            //     let previous_node = parent_node;
-            //     // console.log(node.edges);
-            //     console.log(parent_node);
-
-            //     node.edges.forEach(edge => {
-            //         const [n, child_node] = edge.nodes;
-            //         console.log(previous_node.id);
-            //         const { root, exit } = traverse(child_node);
-            //         graph.addEdge(previous_node.id, root.id, { type: 'CFG' });
-            //         previous_node = exit;
-            //     });
-                
-            //     return {
-            //         root: parent_node,
-            //         exit: previous_node,
-            //     };
-            // }
-
-            case "BlockStatement": {
-                let previous_node = node.edges[0].nodes[1];
-                const first_node = previous_node;
-
-                node.edges.slice(1).forEach(edge => {
-                    const [n, child_node] = edge.nodes;
-                    const { root, exit } = traverse(child_node);
-                    graph.addEdge(previous_node.id, root.id, { type: 'CFG' });
-                    previous_node = exit;
-                });
-                
-                return {
-                    root: first_node,
-                    exit: previous_node,
-                };
-            }
-
-            case "ArrowFunctionExpression":
-            case "FunctionDeclaration":
-            case "FunctionExpression":
-            case "LabeledStatement": {
-                let name = `${node.id}_${node.identifier}`;
-                const cfg_namespace = `_${name}`;
-
-                // let _start = graph.addNode(cfg_namespace, { type: 'CFG' });
-                let _start = graph.addNode('CFG_F_START', { type: 'CFG' });
-                _start.identifier = name;
-                _start.namespace = cfg_namespace;
-
-                graph.add_start_nodes('CFG', _start);
-                node.namespace = cfg_namespace;
-
-                // let _end = graph.addNode(`_${name}_end`, { type: 'CFG' });
-                let _end = graph.addNode('CFG_F_END', { type: 'CFG' });
-                _end.identifier = name;
-
-                const block_edge = node.edges.filter(edge => edge.label == 'block')[0];
-                const block_node = block_edge.nodes[1];
-                // block_node.edges.forEach(edge => {
-                //     const [n, child_node] = edge.nodes;
-                //     const { root, exit } = traverse(child_node);
-                //     graph.addEdge(previous_node.id, root.id, { type: 'CFG' });
-                //     previous_node = exit;
-                // });
-                const {root, exit } = traverse(block_node);
-                graph.addEdge(_start.id, root.id, { type: 'CFG' });
-                graph.addEdge(exit.id, _end.id, { type: 'CFG' });
-                return {
-                    root: node,
-                    exit: node,
-                };
-            }
-
-            case "IfStatement":
-            case "ConditionalExpression": {
-                let [test, consequent, alternate] = node.edges.map(edge => traverse(edge.nodes[1]));
-
-                // let _end_if = graph.addNode(`_${node.id}_end_if`, { type: 'CFG' });
-                let _end_if = graph.addNode('CFG_IF_END', { type: 'CFG' });
-                _end_if.identifier = node.id;
-
-                graph.addEdge(node.id, test.root.id, { type: 'CFG', label: 'test'});
-                graph.addEdge(test.exit.id, consequent.root.id, { type: 'CFG', label: 'TRUE'});
-                graph.addEdge(consequent.exit.id, _end_if.id, { type: 'CFG' });
-
-                if (alternate) {
-                    graph.addEdge(test.exit.id, alternate.root.id, { type: 'CFG', label: 'FALSE'});
-                    graph.addEdge(alternate.exit.id, _end_if.id, { type: 'CFG' });
-                } else {
-                    graph.addEdge(test.exit.id, _end_if.id, { type: 'CFG', label: 'FALSE'});
-                }
-                return {
-                    root: node,
-                    exit: _end_if,
-                };
-            }
-            
-            default:
-                return defaultNode(node);
+        default:
+            return defaultNode(node);
         }
     }
-}
 
+    traverse(graph.startNodes.AST[0]);
+    return graph;
+}
 
 module.exports = { buildCFG };
