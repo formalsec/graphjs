@@ -1134,3 +1134,38 @@ test("testing normalize - check that normalization retains same behaviour (8) - 
     const code3 = "let x = 0;x++;";
     testNormalization(code3);
 });
+
+test("testing normalize - check that normalization retains same behaviour (8) - object expressions", () => {
+    const code1 = "let x = {};";
+    testNormalization(code1);
+
+    const code2 = "let x = { p: \"p\" };";
+    testNormalization(code2);
+});
+
+test("testing normalize - check that normalization retains same behaviour (8) - member expressions", () => {
+    const code1 = "let x = {}; x.p = \"p\"";
+    testNormalization(code1);
+
+    const code2 = "let x = { p: \"p\" }; let y = x.p;";
+    testNormalization(code2);
+});
+
+test("testing normalize - check that normalization retains same behaviour (8) - call and new expressions", () => {
+    const code1 = "let x = eval(\"1+2\");";
+    testNormalization(code1);
+
+    const code2 = "let x = new Object();";
+    testNormalization(code2);
+});
+
+test("testing normalize - check that normalization retains same behaviour (8) - do and dowhile statements", () => {
+    const code1 = "while (false) { 1; }";
+    testNormalization(code1);
+
+    // const code2 = "let x = 0; while (x < 1) { x++; }";
+    // testNormalization(code2);
+
+    // const code3 = "let x = 0; do { x++ } while (x < 1);";
+    // testNormalization(code3);
+});

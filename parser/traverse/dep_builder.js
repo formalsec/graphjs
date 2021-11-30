@@ -3,7 +3,7 @@ const { getNextObjectName } = require("../utils/utils");
 function printAuxiliaryStructures(varNamespace, roTable, depObjs) {
     if (Object.keys(varNamespace).length > 0) {
         console.log("=============\n VAR context\n=============");
-        console.table(varNamespace);
+        console.log(varNamespace);
     }
 
     if (Object.keys(roTable).length > 0) {
@@ -29,12 +29,17 @@ function buildPDG(cfgGraph) {
     const intraContextStack = [];
 
     function getVariableIdOfNamespace(name, currentNamespace) {
-        if (name === "undefined") return null;
+        if (name === undefined) return null;
 
         const current = varNamespace[currentNamespace];
         const { global } = varNamespace;
 
-        return Object.keys(current).includes(name) ? current[name] : global[name];
+        try {
+            const result = Object.keys(current).includes(name) ? current[name] : global[name];
+            return result;
+        } catch (TypeError) {
+            throw new Error(`Failed to find ${name} in namespaces ${currentNamespace} or global.`);
+        }
     }
 
     function addVariableToNamespace(name, nodeId, currentNamespace) {
@@ -151,6 +156,7 @@ function buildPDG(cfgGraph) {
     }
 
     function handleMemberExpresion(parent, node, depType, currentNamespace) {
+        // console.log(node);
         const objName = node.obj.object.name;
         const propertyName = node.obj.property.name;
 
@@ -251,7 +257,16 @@ function buildPDG(cfgGraph) {
             break;
         }
 
+        case "FunctionExpression":
         case "ArrowFunctionExpression": {
+            expr.obj.params.forEach((p) => {
+                const { name } = p;
+                addVariableToNamespace(name, expr.id, expr.namespace);
+                const nodeObj = createObjectDependencyNode(name);
+                addObjectToDependencies(name, nodeObj, [expr.namespace]);
+                createObjectEdge(expr, nodeObj, "CREATE", name);
+                addObjectDependencyRo(expr.id, nodeObj.id, name);
+            });
             addReturnDependencyRo(parent.id, expr.id);
             break;
         }
@@ -276,7 +291,9 @@ function buildPDG(cfgGraph) {
 
             const args = expr.obj.arguments;
             args.forEach((arg) => {
-                addIdentifierDependencyRo(parent, arg.name, currentNamespace);
+                if (arg.type === "Identifier") {
+                    addIdentifierDependencyRo(parent, arg.name, currentNamespace);
+                }
             });
             addReturnDependencyRo(parent.id, expr.id);
             break;

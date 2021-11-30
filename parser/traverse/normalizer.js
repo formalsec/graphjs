@@ -21,6 +21,40 @@ const createVariableDeclaration = (obj, variableName) => {
     return { varObj: copyObj(varObj), newStmt };
 };
 
+const createVariableDeclarator = (key, value, originalInit) => {
+    const memExpr = {
+        type: "MemberExpression",
+        computed: false,
+        object: copyObj(originalInit),
+        property: value,
+    };
+
+    return {
+        type: "VariableDeclarator",
+        id: copyObj(key),
+        init: copyObj(memExpr),
+    };
+};
+
+const unpattern = (declarations) => {
+    const unpatternedDeclarations = [];
+
+    declarations.forEach((decl) => {
+        if (decl.id.type === "ObjectPattern") {
+            const originalInit = decl.init;
+            decl.id.properties.forEach(
+                (prop) => unpatternedDeclarations.push(
+                    createVariableDeclarator(prop.key, prop.value, originalInit),
+                ),
+            );
+        } else {
+            unpatternedDeclarations.push(decl);
+        }
+    });
+
+    return unpatternedDeclarations;
+};
+
 const flatStmts = (children) => children.map((child) => child.stmts).flat();
 const flatExprs = (children) => children.map((child) => child.expr).flat();
 const isNotLiteral = (obj) => obj.type !== "Literal" && obj.type !== "Identifier";
@@ -529,7 +563,8 @@ function normalize(obj) {
     // }
 
     case "VariableDeclaration": {
-        const resultData = mapReduce(obj.declarations);
+        const unpatternedDeclarations = unpattern(obj.declarations);
+        const resultData = mapReduce(unpatternedDeclarations);
         return normVariableDeclaration(obj, resultData);
     }
 
