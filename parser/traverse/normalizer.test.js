@@ -48,7 +48,7 @@ test("create a new variable statement", () => {
                     init: oldObject,
                 },
             ],
-            kind: "let",
+            kind: "const",
         },
     };
 
@@ -126,7 +126,7 @@ test("normalize BinaryExpression", () => {
                 },
             },
         ],
-        kind: "let",
+        kind: "const",
     };
 
     resetVariableCount(); // setting this to make sure next variable name is v1
@@ -168,7 +168,7 @@ test("normalize LogicalExpression", () => {
                 },
             },
         ],
-        kind: "let",
+        kind: "const",
     };
 
     resetVariableCount(); // setting this to make sure next variable name is v1
@@ -184,7 +184,7 @@ test("normalize VariableDeclaration", () => {
     const createDeclaration = (n) => ({
         type: "VariableDeclaration",
         declarations: [createVariable(n)],
-        kind: "let",
+        kind: "const",
     });
 
     const originalStmt = {
@@ -194,7 +194,7 @@ test("normalize VariableDeclaration", () => {
             createVariable(1),
             createVariable(2),
         ],
-        kind: "let",
+        kind: "const",
     };
 
     const children = [childrenExample(3), childrenExample(4), childrenExample(5)];
@@ -498,7 +498,7 @@ test("normalize UpdateExpression", () => {
                         },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: variableObj,
@@ -541,7 +541,7 @@ test("normalize UnaryExpression", () => {
                         },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: variableObj,
@@ -669,7 +669,7 @@ test("normalize FunctionExpression", () => {
                         },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: variableObj,
@@ -718,7 +718,7 @@ test("normalize ArrowFunctionExpression (1) with BlockStatement", () => {
                         },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: variableObj,
@@ -767,7 +767,7 @@ test("normalize ArrowFunctionExpression (2) with Expression", () => {
                         },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: variableObj,
@@ -810,7 +810,7 @@ test("normalize CallExpression", () => {
                         },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: variableObj,
@@ -854,7 +854,7 @@ test("normalize MemberExpression", () => {
                         },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: variableObj,
@@ -900,7 +900,7 @@ test("normalize ObjectExpression", () => {
                         },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: variableObj,
@@ -976,7 +976,7 @@ test("normalize Property with Identifier key and Expression value", () => {
                         init: { type: "RandomTestingType" },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
         ],
         expr: {
@@ -1029,7 +1029,7 @@ test("normalize Property with Expression key and Literal value", () => {
                         init: { type: "RandomTestingType" },
                     },
                 ],
-                kind: "let",
+                kind: "const",
             },
             "expr_2_",
         ],

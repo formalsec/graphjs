@@ -20,6 +20,8 @@ const getNextObjectName = () => `o${OBJ_COUNT++}`;
 // eslint-disable-next-line no-return-assign
 const resetObjectCount = () => OBJ_COUNT = 1;
 
+const printJSON = (json) => console.log(JSON.stringify(json, null, 2));
+
 module.exports = {
     getNextVariableName,
     resetVariableCount,
@@ -28,4 +30,5 @@ module.exports = {
     copyObj,
     getNextObjectName,
     resetObjectCount,
+    printJSON,
 };

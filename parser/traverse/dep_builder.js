@@ -1,4 +1,5 @@
-const { getNextObjectName } = require("../utils/utils");
+// eslint-disable-next-line no-unused-vars
+const { getNextObjectName, printJSON } = require("../utils/utils");
 
 function printAuxiliaryStructures(varNamespace, roTable, depObjs) {
     if (Object.keys(varNamespace).length > 0) {
@@ -38,7 +39,8 @@ function buildPDG(cfgGraph) {
             const result = Object.keys(current).includes(name) ? current[name] : global[name];
             return result;
         } catch (TypeError) {
-            throw new Error(`Failed to find ${name} in namespaces ${currentNamespace} or global.`);
+        // throw new Error(`Failed to find ${name} in namespaces ${currentNamespace} or global.`);
+            return null;
         }
     }
 
@@ -126,6 +128,7 @@ function buildPDG(cfgGraph) {
 
     function addIdentifierDependencyRo(parent, depName, currentNamespace) {
         const depIdentifier = getVariableIdOfNamespace(depName, currentNamespace);
+        if (!depIdentifier) return;
 
         const roEntry = {
             dep: depIdentifier,
@@ -142,11 +145,12 @@ function buildPDG(cfgGraph) {
             addRoEntry(parent.id, roEntry);
             const variable = graph.nodes.get(depIdentifier);
             createObjDepEdge(variable, parent, roEntry.type);
-        } else {
-            throw new Error(`${depName} with id ${depIdentifier} is not in roTable.`);
-            // unless maybe it is a function param
-            // and node types not implemented yet
         }
+        // else {
+        //     throw new Error(`${depName} with id ${depIdentifier} is not in roTable.`);
+        //     // unless maybe it is a function param
+        //     // and node types not implemented yet
+        // }
     }
 
     function getLeftAndRight(expr) {
@@ -156,38 +160,36 @@ function buildPDG(cfgGraph) {
     }
 
     function handleMemberExpresion(parent, node, depType, currentNamespace) {
-        // console.log(node);
         const objName = node.obj.object.name;
         const propertyName = node.obj.property.name;
 
         const depIdentifier = getVariableIdOfNamespace(objName, currentNamespace);
         if (Object.prototype.hasOwnProperty.call(roTable, depIdentifier)) {
-            const vars = roTable[depIdentifier].filter((ro) => ro.type === "VAR" || ro.type === "OBJ");
+            const vars = roTable[depIdentifier].filter((ro) => ro.type === "OBJ" && ro.name === objName);
             vars.forEach((v) => {
-                if (!Object.prototype.hasOwnProperty.call(depObjs, v.name)) {
-                    const nodeObj = createObjectDependencyNode(v.name);
-                    addObjectToDependencies(v.name, nodeObj);
-                } else if (depType === "WRITE") {
-                    // get latest object version node
-                    const nodeId = depObjs[v.name].slice(-1)[0].id;
-                    const nodeObj = graph.nodes.get(nodeId);
+                if (Object.prototype.hasOwnProperty.call(depObjs, v.name)) {
+                    if (depType === "WRITE") {
+                        // get latest object version node
+                        const nodeId = depObjs[v.name].slice(-1)[0].id;
+                        const nodeObj = graph.nodes.get(nodeId);
 
-                    // create new version
-                    const newObjVersion = createNewObjectVersion(nodeObj);
+                        // create new version
+                        const newObjVersion = createNewObjectVersion(nodeObj);
 
-                    // link new version to previous version
-                    createObjDepEdge(parent, newObjVersion, depType, propertyName);
-                } else if (depType === "LOOKUP") {
-                    // search all object version in the context
-                    const currentContext = intraContextStack.slice(-1)[0];
-                    const nodeIds = depObjs[v.name].filter(
-                        (version) => version.contexts.includes(currentContext),
-                    );
-                    nodeIds.forEach(
-                        (nodeObj) => createObjDepEdge(nodeObj, parent, depType, propertyName),
-                    );
-                } else {
-                    throw new Error(`Dependency type should be LOOKUP or WRITE, instead ${depType} was supplied.`);
+                        // link new version to previous version
+                        createObjDepEdge(parent, newObjVersion, depType, propertyName);
+                    } else if (depType === "LOOKUP") {
+                        // search all object version in the context
+                        const currentContext = intraContextStack.slice(-1)[0];
+                        const nodeIds = depObjs[v.name].filter(
+                            (version) => version.contexts.includes(currentContext),
+                        );
+                        nodeIds.forEach(
+                            (nodeObj) => createObjDepEdge(nodeObj, parent, depType, propertyName),
+                        );
+                    } else {
+                        throw new Error(`Dependency type should be LOOKUP or WRITE, instead ${depType} was supplied.`);
+                    }
                 }
             });
             addObjectDependencyRo(parent.id, node.id, objName);
@@ -219,7 +221,6 @@ function buildPDG(cfgGraph) {
         case "BinaryExpression": {
             // our normalization makes sure that binary expressions only have 2 types of variables:
             // identifiers or literals on the right
-            // and member expressions on the left (writes to object properties)
             const { left, right } = getLeftAndRight(expr);
             const identifiers = [left, right].filter((el) => el.type === "Identifier");
 
@@ -235,8 +236,8 @@ function buildPDG(cfgGraph) {
         }
 
         case "AssignmentExpression": {
-            // our normalization guarantees assignment expressions only have 2 types of variables:
-            // identifiers or literals on the right
+            // our normalization guarantees assignment expressions only have 3 types of variables:
+            // identifiers, literals or callexpressions on the right
             // and member expressions on the left (writes to object properties)
             const { left, right } = getLeftAndRight(expr);
 
@@ -253,6 +254,7 @@ function buildPDG(cfgGraph) {
         }
 
         case "MemberExpression": {
+            // We want to restrict to handling lookups here and not var dependencies for the object
             handleMemberExpresion(parent, expr, "LOOKUP", currentNamespace);
             break;
         }
@@ -261,11 +263,11 @@ function buildPDG(cfgGraph) {
         case "ArrowFunctionExpression": {
             expr.obj.params.forEach((p) => {
                 const { name } = p;
-                addVariableToNamespace(name, expr.id, expr.namespace);
+                addVariableToNamespace(name, parent.id, expr.namespace);
                 const nodeObj = createObjectDependencyNode(name);
                 addObjectToDependencies(name, nodeObj, [expr.namespace]);
-                createObjectEdge(expr, nodeObj, "CREATE", name);
-                addObjectDependencyRo(expr.id, nodeObj.id, name);
+                createObjectEdge(parent, nodeObj, "CREATE", name);
+                addObjectDependencyRo(parent.id, nodeObj.id, name);
             });
             addReturnDependencyRo(parent.id, expr.id);
             break;
@@ -285,7 +287,7 @@ function buildPDG(cfgGraph) {
 
         case "CallExpression": {
             const { callee } = expr.obj;
-            if (callee && Object.prototype.hasOwnProperty.call(roTable, callee.name)) {
+            if (callee) {
                 addIdentifierDependencyRo(parent, callee.name, currentNamespace);
             }
 
@@ -296,6 +298,15 @@ function buildPDG(cfgGraph) {
                 }
             });
             addReturnDependencyRo(parent.id, expr.id);
+
+            // if the function return might be a usable object
+            if (parent.type !== "ExpressionStatement") {
+                const name = parent.identifier;
+                const nodeObj = createObjectDependencyNode(name);
+                addObjectToDependencies(name, nodeObj, [currentNamespace]);
+                createObjectEdge(parent, nodeObj, "CREATE", name);
+                addObjectDependencyRo(parent.id, nodeObj.id, name);
+            }
             break;
         }
 
@@ -381,8 +392,7 @@ function buildPDG(cfgGraph) {
     }
 
     startNodes.forEach((node) => {
-        const currentNamespace = node.namespace === "_main" ? "global" : node.namespace;
-        traverse(node, currentNamespace);
+        traverse(node, node.namespace);
     });
 
     printAuxiliaryStructures(varNamespace, roTable, depObjs);

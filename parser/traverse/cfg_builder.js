@@ -20,15 +20,15 @@ function buildCFG(astGraph) {
         // Scripts
         //
         case "Program": {
-            const cfgNamespace = "_main";
+            const cfgNamespace = "__main__";
 
             const _start = graph.addNode("CFG_F_START", { type: "CFG" });
-            _start.identifier = "_main";
+            _start.identifier = "__main__";
             _start.namespace = cfgNamespace;
             graph.addStartNodes("CFG", _start);
 
             const _end = graph.addNode("CFG_F_END", { type: "CFG" });
-            _end.identifier = "_main";
+            _end.identifier = "__main__";
 
             let previousNode = _start;
             node.edges.forEach((edge) => {
@@ -90,7 +90,7 @@ function buildCFG(astGraph) {
         case "FunctionExpression":
         case "LabeledStatement": {
             const name = `${node.id}_${node.identifier}`;
-            const cfgNamespace = `_${name}`;
+            const cfgNamespace = `__${name}__`;
 
             const _start = graph.addNode("CFG_F_START", { type: "CFG" });
             _start.identifier = name;
@@ -105,12 +105,6 @@ function buildCFG(astGraph) {
 
             const blockEdge = node.edges.filter((edge) => edge.label === "block")[0];
             const blockNode = blockEdge.nodes[1];
-            // blockNode.edges.forEach(edge => {
-            //     const [n, childNode] = edge.nodes;
-            //     const { root, exit } = traverse(childNode);
-            //     graph.addEdge(previousNode.id, root.id, { type: "CFG" });
-            //     previousNode = exit;
-            // });
             const { root, exit } = traverse(blockNode);
             graph.addEdge(_start.id, root.id, { type: "CFG" });
             graph.addEdge(exit.id, _end.id, { type: "CFG" });

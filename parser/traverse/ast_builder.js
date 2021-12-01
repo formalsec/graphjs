@@ -37,7 +37,7 @@ function buildAST(originalObj) {
 
             // eslint-disable-next-line no-plusplus
             for (let i = 0; i < resultData.length; i++) {
-                graph.addEdge(objNode.id, resultData[i].id, { type: "AST", label: "stmt", stmt_index: i + 1 });
+                graph.addEdge(objNode.id, resultData[i].id, { type: "AST", label: "stmt", stmtIndex: i + 1 });
             }
             break;
         }
@@ -94,7 +94,7 @@ function buildAST(originalObj) {
 
             // eslint-disable-next-line no-plusplus
             for (let i = 0; i < args.length; i++) {
-                graph.addEdge(objNode.id, args[i].id, { type: "AST", label: "arg", argument_index: i + 1 });
+                graph.addEdge(objNode.id, args[i].id, { type: "AST", label: "arg", argumentIndex: i + 1 });
             }
             break;
         }
@@ -192,7 +192,7 @@ function buildAST(originalObj) {
 
             // eslint-disable-next-line no-plusplus
             for (let i = 0; i < nodeParams.length; i++) {
-                graph.addEdge(objNode.id, nodeParams[i].id, { type: "AST", label: "param", param_index: i + 1 });
+                graph.addEdge(objNode.id, nodeParams[i].id, { type: "AST", label: "param", paramIndex: i + 1 });
             }
 
             const nodeBodyStmts = traverse(obj.body, objNode); // must be blockstatement

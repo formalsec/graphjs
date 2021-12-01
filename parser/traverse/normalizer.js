@@ -1,4 +1,5 @@
-const { getNextVariableName, copyObj } = require("../utils/utils");
+// eslint-disable-next-line no-unused-vars
+const { getNextVariableName, copyObj, printJSON } = require("../utils/utils");
 
 const createVariableDeclaration = (obj, variableName) => {
     const varObj = {
@@ -6,7 +7,7 @@ const createVariableDeclaration = (obj, variableName) => {
         name: variableName,
     };
 
-    const newStmt = copyObj({
+    const newStmt = {
         type: "VariableDeclaration",
         declarations: [
             copyObj({
@@ -15,18 +16,18 @@ const createVariableDeclaration = (obj, variableName) => {
                 init: obj,
             }),
         ],
-        kind: "let",
-    });
+        kind: "const",
+    };
 
-    return { varObj: copyObj(varObj), newStmt };
+    return { varObj: copyObj(varObj), newStmt: copyObj(newStmt) };
 };
 
-const createVariableDeclarator = (key, value, originalInit) => {
+const createVariableDeclarator = (key, propertyValue, objectValue) => {
     const memExpr = {
         type: "MemberExpression",
         computed: false,
-        object: copyObj(originalInit),
-        property: value,
+        object: copyObj(objectValue),
+        property: propertyValue,
     };
 
     return {
@@ -36,15 +37,38 @@ const createVariableDeclarator = (key, value, originalInit) => {
     };
 };
 
+const createVariableDeclaratorStmt = (variableName, newInit) => {
+    const varObj = {
+        type: "Identifier",
+        name: variableName,
+    };
+
+    const newStmt = {
+        type: "VariableDeclarator",
+        id: copyObj(varObj),
+        init: copyObj(newInit),
+    };
+
+    return { varObj: copyObj(varObj), newStmt: copyObj(newStmt) };
+};
+
 const unpattern = (declarations) => {
     const unpatternedDeclarations = [];
 
     declarations.forEach((decl) => {
         if (decl.id.type === "ObjectPattern") {
             const originalInit = decl.init;
+
+            const variable = getNextVariableName();
+            const { varObj, newStmt } = createVariableDeclaratorStmt(variable, originalInit);
+
+            // push a new variable with the member expression
+            unpatternedDeclarations.push(newStmt);
+
+            // push declarations for each property using accesses to new variable
             decl.id.properties.forEach(
                 (prop) => unpatternedDeclarations.push(
-                    createVariableDeclarator(prop.key, prop.value, originalInit),
+                    createVariableDeclarator(prop.key, prop.value, varObj),
                 ),
             );
         } else {
@@ -249,7 +273,7 @@ const normFunctionExpression = (obj, children) => {
 
 // TODO: Ask Prof. José what should be done in this case
 // IDEA: change it to a while??
-// function normForStatement(obj, children) {
+// function normForStatement(obj, children, parent) {
 //     const stmts = children[0].stmts.concat(children[2].stmts);
 
 //     const newObj = copyObj(obj);
@@ -264,12 +288,19 @@ const normFunctionExpression = (obj, children) => {
 //     };
 // }
 
-const normCallExpression = (obj, children) => {
+const normCallExpression = (obj, children, parent) => {
     const newObj = copyObj(obj);
     newObj.callee = children[0].expr;
-    newObj.arguments = flatExprs(children.slice(1)); // immutable shift()
+    newObj.arguments = flatExprs(children.slice(1));
 
-    const variable = getNextVariableName(); // Change this to a function so it is cleaner
+    if (parent && (parent.type === "VariableDeclarator" || parent.type === "ExpressionStatement")) {
+        return {
+            stmts: [...flatStmts(children)],
+            expr: newObj,
+        };
+    }
+
+    const variable = getNextVariableName();
     const { varObj, newStmt } = createVariableDeclaration(newObj, variable);
 
     return {
@@ -278,10 +309,17 @@ const normCallExpression = (obj, children) => {
     };
 };
 
-function normMemberExpression(obj, children) {
+function normMemberExpression(obj, children, parent) {
     const newObj = copyObj(obj);
     newObj.object = children[0].expr;
     newObj.property = children[1].expr;
+
+    if (parent && (parent.type === "VariableDeclarator" || parent.type === "ExpressionStatement")) {
+        return {
+            stmts: [...children[0].stmts, ...children[1].stmts],
+            expr: newObj,
+        };
+    }
 
     const variable = getNextVariableName(); // Change this to a function so it is cleaner
     const { varObj, newStmt } = createVariableDeclaration(newObj, variable);
@@ -308,8 +346,8 @@ function normObjectExpression(obj, children) {
 function normProperty(obj, children) {
     const newObj = copyObj(obj);
 
-    const keyStmts = [...children[0].stmts]; // Copy
-    const valueStmts = [...children[1].stmts]; // Copy
+    const keyStmts = [...children[0].stmts];
+    const valueStmts = [...children[1].stmts];
 
     if (isNotLiteral(children[0].expr)) {
         const variable = getNextVariableName();
@@ -335,9 +373,9 @@ function normProperty(obj, children) {
     };
 }
 
-function normalize(obj) {
-    function mapReduce(arr) {
-        return arr.map((item) => normalize(item));
+function normalize(obj, parent) {
+    function mapReduce(arr, p) {
+        return arr.map((item) => normalize(item, p));
     }
 
     if (obj === null) {
@@ -349,8 +387,8 @@ function normalize(obj) {
     // Scripts
     //
     case "Program": {
-        const resultData = mapReduce(obj.body);
-        return normProgram(obj, resultData);
+        const resultData = mapReduce(obj.body, obj);
+        return normProgram(obj, resultData, parent);
     }
 
     case "Identifier":
@@ -365,56 +403,56 @@ function normalize(obj) {
     // Expressions
     //
     // case "ArrayExpression":
-    //     resultData = mapReduce(obj.elements);
+    //     resultData = mapReduce(obj.elements, obj);
     //     break;
 
     case "ObjectExpression": {
-        const resultData = mapReduce(obj.properties);
-        return normObjectExpression(obj, resultData);
+        const resultData = mapReduce(obj.properties, obj);
+        return normObjectExpression(obj, resultData, parent);
     }
 
     case "Property": {
-        const resultKey = normalize(obj.key);
-        const resultValue = normalize(obj.value);
+        const resultKey = normalize(obj.key, obj);
+        const resultValue = normalize(obj.value, obj);
 
         const resultData = [
             resultKey,
             resultValue,
         ];
-        return normProperty(obj, resultData);
+        return normProperty(obj, resultData, parent);
     }
 
     case "MemberExpression": {
-        const resultObject = normalize(obj.object);
-        const resultProperty = normalize(obj.property);
+        const resultObject = normalize(obj.object, obj);
+        const resultProperty = normalize(obj.property, obj);
 
         const resultData = [
             resultObject,
             resultProperty,
         ];
-        return normMemberExpression(obj, resultData);
+        return normMemberExpression(obj, resultData, parent);
     }
 
     case "CallExpression":
     case "NewExpression": {
-        const resultCallee = normalize(obj.callee);
-        const resultArguments = mapReduce(obj.arguments);
+        const resultCallee = normalize(obj.callee, obj);
+        const resultArguments = mapReduce(obj.arguments, obj);
 
         resultArguments.unshift(resultCallee);
         const resultData = resultArguments;
-        return normCallExpression(obj, resultData);
+        return normCallExpression(obj, resultData, parent);
     }
 
     case "UpdateExpression":
     case "UnaryExpression": {
-        const resultData = [normalize(obj.argument)];
+        const resultData = [normalize(obj.argument, obj)];
         return normUpdateExpression(obj, resultData);
     }
 
     case "BinaryExpression":
     case "LogicalExpression": {
-        const resultLeft = normalize(obj.left);
-        const resultRight = normalize(obj.right);
+        const resultLeft = normalize(obj.left, obj);
+        const resultRight = normalize(obj.right, obj);
 
         const resultData = [
             resultLeft,
@@ -428,9 +466,9 @@ function normalize(obj) {
         if (obj.left.type === "MemberExpression") {
             resultLeft = { stmts: [], expr: obj.left };
         } else {
-            resultLeft = normalize(obj.left);
+            resultLeft = normalize(obj.left, obj);
         }
-        const resultRight = normalize(obj.right);
+        const resultRight = normalize(obj.right, obj);
 
         const resultData = [
             resultLeft,
@@ -440,21 +478,21 @@ function normalize(obj) {
     }
 
     // case "SequenceExpression":
-    //     const resultData = mapReduce(obj.expressions);
+    //     const resultData = mapReduce(obj.expressions, obj);
     //     break;
 
     //
     // Statements and Declarations
     //
     case "BlockStatement": {
-        const resultData = mapReduce(obj.body);
+        const resultData = mapReduce(obj.body, obj);
         return normBlockStatement(obj, resultData);
     }
 
     case "DoWhileStatement":
     case "WhileStatement": {
-        const resultTest = normalize(obj.test);
-        const resultBody = normalize(obj.body);
+        const resultTest = normalize(obj.test, obj);
+        const resultBody = normalize(obj.body, obj);
 
         const resultData = [
             resultTest,
@@ -464,15 +502,15 @@ function normalize(obj) {
     }
 
     case "ExpressionStatement": {
-        const resultData = [normalize(obj.expression)];
+        const resultData = [normalize(obj.expression, obj)];
         return normExpressionStatement(obj, resultData);
     }
 
     // case "ForStatement": {
-    //     const resultInit = normalize(obj.init);
-    //     const resultTest = normalize(obj.test);
-    //     const resultUpdate = normalize(obj.update);
-    //     const resultBody = normalize(obj.body);
+    //     const resultInit = normalize(obj.init, obj);
+    //     const resultTest = normalize(obj.test, obj);
+    //     const resultUpdate = normalize(obj.update, obj);
+    //     const resultBody = normalize(obj.body, obj);
 
     //     const resultData = [
     //     resultInit,
@@ -484,9 +522,9 @@ function normalize(obj) {
     // }
 
     // case "ForInStatement": {
-    //     const resultLeft = normalize(obj.left);
-    //     const resultRight = normalize(obj.right);
-    //     const resultBody = normalize(obj.body);
+    //     const resultLeft = normalize(obj.left, obj);
+    //     const resultRight = normalize(obj.right, obj);
+    //     const resultBody = normalize(obj.body, obj);
 
     //     const resultData = [
     //     resultLeft,
@@ -497,8 +535,8 @@ function normalize(obj) {
     // }
 
     case "FunctionDeclaration": {
-        const resultId = normalize(obj.id);
-        const resultBody = normalize(obj.body);
+        const resultId = normalize(obj.id, obj);
+        const resultBody = normalize(obj.body, obj);
         const resultData = [resultId, resultBody];
         return normFunctionDeclaration(obj, resultData);
     }
@@ -506,16 +544,16 @@ function normalize(obj) {
     case "ArrowFunctionExpression":
     case "FunctionExpression":
     case "LabeledStatement": {
-        const resultId = normalize(obj.id);
-        const resultBody = normalize(obj.body);
+        const resultId = normalize(obj.id, obj);
+        const resultBody = normalize(obj.body, obj);
         const resultData = [resultId, resultBody];
         return normFunctionExpression(obj, resultData);
     }
 
     case "IfStatement": {
-        const resultTest = normalize(obj.test);
-        const resultConsequent = normalize(obj.consequent);
-        const resultAlternate = normalize(obj.alternate);
+        const resultTest = normalize(obj.test, obj);
+        const resultConsequent = normalize(obj.consequent, obj);
+        const resultAlternate = normalize(obj.alternate, obj);
 
         const resultData = [
             resultTest,
@@ -526,9 +564,9 @@ function normalize(obj) {
     }
 
     case "ConditionalExpression": {
-        const resultTest = normalize(obj.test);
-        const resultConsequent = normalize(obj.consequent);
-        const resultAlternate = normalize(obj.alternate);
+        const resultTest = normalize(obj.test, obj);
+        const resultConsequent = normalize(obj.consequent, obj);
+        const resultAlternate = normalize(obj.alternate, obj);
 
         const resultData = [
             resultTest,
@@ -540,13 +578,13 @@ function normalize(obj) {
 
     case "ReturnStatement":
     case "ThrowStatement": {
-        const resultData = [normalize(obj.argument)];
+        const resultData = [normalize(obj.argument, obj)];
         return normReturnStatement(obj, resultData);
     }
 
     // case "SwitchStatement": {
-    //     const resultDiscriminant = normalize(obj.discriminant);
-    //     const resultCases = mapReduce(obj.cases);
+    //     const resultDiscriminant = normalize(obj.discriminant, obj);
+    //     const resultCases = mapReduce(obj.cases, obj);
 
     //     resultCases.unshift(resultDiscriminant);
     //     const resultData = resultCases;
@@ -554,8 +592,8 @@ function normalize(obj) {
     // }
 
     // case "SwitchCase": {
-    //     const resultTest = normalize(obj.test);
-    //     const resultConsequent = mapReduce(obj.consequent);
+    //     const resultTest = normalize(obj.test, obj);
+    //     const resultConsequent = mapReduce(obj.consequent, obj);
 
     //     resultConsequent.unshift(resultTest);
     //     const resultData = resultConsequent;
@@ -564,30 +602,30 @@ function normalize(obj) {
 
     case "VariableDeclaration": {
         const unpatternedDeclarations = unpattern(obj.declarations);
-        const resultData = mapReduce(unpatternedDeclarations);
+        const resultData = mapReduce(unpatternedDeclarations, obj);
         return normVariableDeclaration(obj, resultData);
     }
 
     case "VariableDeclarator": {
-        const resultId = normalize(obj.id);
-        const resultInit = normalize(obj.init);
+        const resultId = normalize(obj.id, obj);
+        const resultInit = normalize(obj.init, obj);
 
         const resultData = [resultId, resultInit];
         return normVariableDeclarator(obj, resultData);
     }
 
     // case "WithStatement": {
-    //     const resultObject = normalize(obj.object);
-    //     const resultBody = normalize(obj.body);
+    //     const resultObject = normalize(obj.object, obj);
+    //     const resultBody = normalize(obj.body, obj);
 
     //     const resultData = [resultObject, resultBody];
     //     break;
     // }
 
     // case "TryStatement": {
-    //     const resultBlock = normalize(obj.block);
-    //     const resultHandler = normalize(obj.handler);
-    //     const resultFinalizer = normalize(obj.finalizer);
+    //     const resultBlock = normalize(obj.block, obj);
+    //     const resultHandler = normalize(obj.handler, obj);
+    //     const resultFinalizer = normalize(obj.finalizer, obj);
 
     //     const resultData = [
     //     resultBlock,
@@ -598,8 +636,8 @@ function normalize(obj) {
     // }
 
     // case "CatchClause": {
-    //     const resultParam = normalize(obj.param);
-    //     const resultBlock = normalize(obj.body);
+    //     const resultParam = normalize(obj.param, obj);
+    //     const resultBlock = normalize(obj.body, obj);
 
     //     const resultData = [resultParam, resultBlock];
     //     break;

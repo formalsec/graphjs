@@ -23,11 +23,17 @@ function getNodeLabel(n, showCode) {
             const { init } = n.obj;
             label = `#${n.id} Variable (${n.identifier})`;
 
-            if (init && init.type !== "FunctionExpression") {
+            if (init) {
                 if (showCode) {
-                    const code = escodegen.generate(n.obj);
-                    // label = `#${n.id} ${n.type} \n\n${code}`;
-                    label = `#${n.id}» ${code}`;
+                    if (init.type === "FunctionExpression"
+                    || init.type === "ArrowFunctionExpression") {
+                        const { namespace } = n.edges[0].nodes[1];
+                        label = `#${n.id}» ${n.identifier} = Function (${namespace})`;
+                    } else {
+                        const code = escodegen.generate(n.obj);
+                        // label = `#${n.id} ${n.type} \n\n${code}`;
+                        label = `#${n.id}» ${code}`;
+                    }
                 }
             }
             break;
@@ -183,7 +189,7 @@ class DotOutput {
             if (this.showCode && n.type === "VariableDeclarator") {
                 const { init } = n.obj;
 
-                if (init && init.type !== "FunctionExpression") {
+                if (init && init.type !== "FunctionExpression" && init.type !== "ArrowFunctionExpression") {
                     edges = n.edges.filter((e) => e.type !== "AST");
                 }
             }

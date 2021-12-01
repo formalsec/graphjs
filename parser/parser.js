@@ -10,18 +10,24 @@ const { buildPDG } = require("./traverse/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
+// eslint-disable-next-line no-unused-vars
+const { printJSON } = require("./utils/utils");
 
 // Returns a graph object
 function parse(file) {
     try {
         const data = fs.readFileSync(file, "utf8");
-        const ast = esprima.parse(data, { loc: true });
+        // const ast = esprima.parse(data, { loc: true });
+        const ast = esprima.parse(data);
 
+        // printJSON(ast);
         const normalizedAst = normalize(ast).stmts[0];
-        // console.log(JSON.stringify(normalizedAst, null, 2));
+        // printJSON(normalizedAst);
+        // console.log("===============");
 
         const code = escodegen.generate(normalizedAst);
         console.log(code);
+        // console.log("===============");
 
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
@@ -57,7 +63,7 @@ if (fs.existsSync(filename)) {
             graph.outputManager = new OutputManager(graphOptions, new DotOutput());
         }
 
-        graph.output("graph");
+        graph.output("graphs/graph");
     }
 } else {
     console.error(`${filename} is not a valid file.`);
