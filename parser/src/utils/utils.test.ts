@@ -1,13 +1,5 @@
 /* eslint-disable no-undef */
-const {
-    copyObj,
-    getNextNodeId,
-    resetNodeId,
-    resetVariableCount,
-    getNextVariableName,
-    getNextObjectName,
-    resetObjectCount,
-} = require("./utils");
+import { copyObj, getNextNodeId, resetNodeId, resetVariableCount, getNextVariableName, getNextObjectName, resetObjectCount } from "./utils";
 
 test("create immutable copy of object", () => {
     const inputObj = {

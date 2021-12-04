@@ -2,10 +2,14 @@
   "name": "parser",
   "version": "0.0.1",
   "description": "",
-  "main": "parser.js",
   "scripts": {
-    "lint": "eslint",
-    "test": "jest --coverage"
+    "start": "ts-node-dev --transpile-only ./src/parser.ts",
+    "docs": "typedoc --tsconfig tsconfig.json",
+    "lint": "eslint . --ext .ts",
+    "test": "jest --coverage",
+    "build": "tsc",
+    "prod": "tsc && node ./built/src/parser.js",
+    "debug": "tsc && node --inspect ./built/src/parser.js"
   },
   "author": "",
   "license": "ISC",
@@ -14,12 +18,23 @@
     "esprima": "^4.0.1",
     "graphviz": "0.0.9",
     "object-hash": "^2.1.1",
+    "typedoc": "^0.22.10",
     "yargs": "^17.2.1"
   },
   "devDependencies": {
+    "@types/escodegen": "^0.0.7",
+    "@types/esprima": "^4.0.3",
+    "@types/estree": "^0.0.50",
+    "@types/jest": "^27.0.3",
+    "@types/node": "^16.11.11",
+    "@typescript-eslint/eslint-plugin": "^5.5.0",
+    "@typescript-eslint/parser": "^5.5.0",
     "eslint": "^8.3.0",
     "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-airbnb-typescript": "^16.1.0",
     "eslint-plugin-import": "^2.25.3",
-    "jest": "^26.6.3"
+    "ts-jest": "^27.0.7",
+    "ts-node": "^10.4.0",
+    "ts-node-dev": "^1.1.8"
   }
 }

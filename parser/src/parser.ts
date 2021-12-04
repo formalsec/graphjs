@@ -1,0 +1,72 @@
+import yargs = require("yargs/yargs");
+import fs = require("fs");
+import esprima = require("esprima");
+import escodegen from "escodegen";
+// const { Graph } = require("./traverse/graph/graph");
+import { normalizeScript } from "./traverse/normalizer";
+// const { buildAST } = require("./traverse/ast_builder");
+// const { buildCFG } = require("./traverse/cfg_builder");
+// const { buildPDG } = require("./traverse/dep_builder");
+// const { OutputManager } = require("./output/output_strategy");
+// const { DotOutput } = require("./output/dot_output");
+// const { CSVOutput } = require("./output/csv_output");
+
+// eslint-disable-next-line no-unused-vars
+import { printJSON } from "./utils/utils";
+
+// Returns a graph object
+function parse(filename: string) {
+    try {
+        const data = fs.readFileSync(filename, "utf8");
+        const ast = esprima.parseScript(data);
+        // const ast = esprima.parseScript(data, { loc: true });
+
+        printJSON(ast);
+        console.log("===============");
+        const normalizedAst = normalizeScript(ast);
+        printJSON(normalizedAst);
+        console.log("===============");
+
+        const code = escodegen.generate(normalizedAst);
+        console.log(code);
+        // // console.log("===============");
+
+        // const astGraph = buildAST(normalizedAst);
+        // const cfgGraph = buildCFG(astGraph);
+
+        // const pdgGraph = buildPDG(cfgGraph);
+
+        // return pdgGraph;
+    } catch (e) {
+        console.log("Error:", e.stack);
+    }
+
+    // return new Graph();
+}
+
+const { argv } = yargs(process.argv.slice(3))
+    .boolean("csv")
+    .array("ignore")
+    .boolean("show_code");
+
+const filename = process.argv[2];
+if (fs.existsSync(filename)) {
+    const graphOptions = {
+        ignore: argv.ignore || [],
+        show_code: argv.show_code || false,
+    };
+
+    const graph = parse(filename);
+
+    // if (graph) {
+    //     if (argv.csv) {
+    //         graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
+    //     } else {
+    //         graph.outputManager = new OutputManager(graphOptions, new DotOutput());
+    //     }
+
+    //     graph.output("graphs/graph");
+    // }
+} else {
+    console.error(`${filename} is not a valid file.`);
+}

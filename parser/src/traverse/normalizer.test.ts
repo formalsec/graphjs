@@ -1,9 +1,29 @@
 /* eslint-disable no-undef */
-const esprima = require("esprima");
-const escodegen = require("escodegen");
+import esprima from "esprima";
+import type {
+    Node,
+    Program,
+    Identifier,
+    VariableDeclaration,
+    VariableDeclarator,
+    BinaryExpression,
+    Expression,
+    AssignmentExpression,
+    MemberExpression,
+    LogicalExpression,
+    ExpressionStatement,
+    Property,
+    ArrayExpression,
+    ObjectExpression,
+    UpdateExpression,
+    UnaryExpression,
+    Literal,
+} from "estree";
+import escodegen from "escodegen";
 
-const { resetVariableCount } = require("../utils/utils");
-const {
+import { resetVariableCount } from "../utils/utils";
+import {
+    Normalization,
     createVariableDeclaration,
     flatStmts,
     flatExprs,
@@ -11,22 +31,22 @@ const {
     normBinaryExpression,
     normVariableDeclaration,
     normVariableDeclarator,
-    normBlockStatement,
-    normIfStatement,
-    normConditionalExpression,
-    normWhileStatement,
+    // normBlockStatement,
+    // normIfStatement,
+    // normConditionalExpression,
+    // normWhileStatement,
     normAssignmentExpressions,
     normExpressionStatement,
     normUpdateExpression,
-    normFunctionDeclaration,
-    normReturnStatement,
-    normFunctionExpression,
-    normCallExpression,
+    // normFunctionDeclaration,
+    // normReturnStatement,
+    // normFunctionExpression,
+    // normCallExpression,
     normMemberExpression,
     normObjectExpression,
     normProperty,
-    normalize,
-} = require("./normalizer");
+    normalizeScript,
+} from "./normalizer";
 
 test("create a new variable statement", () => {
     const variableName = "v1";
@@ -38,8 +58,8 @@ test("create a new variable statement", () => {
     const oldObject = {};
 
     const expectedReturn = {
-        varObj: variableId,
-        newStmt: {
+        id: variableId,
+        decl: {
             type: "VariableDeclaration",
             declarations: [
                 {
@@ -52,12 +72,12 @@ test("create a new variable statement", () => {
         },
     };
 
-    expect(createVariableDeclaration(oldObject, variableName)).toMatchObject(expectedReturn);
+    expect(createVariableDeclaration(oldObject as Expression)).toMatchObject(expectedReturn);
 });
 
 test("flat statements of children array", () => {
     const children = [{ stmts: [1, 2, 3] }, { stmts: [4, 5, 6] }];
-    expect(flatStmts(children)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(flatStmts(children as Normalization)).toEqual([1, 2, 3, 4, 5, 6]);
 });
 
 test("flat expressions of children array", () => {
