@@ -209,11 +209,19 @@ function buildPDG(cfgGraph) {
         }
 
         case "ObjectExpression": {
+            expr.obj.properties.forEach(
+                (prop) => handleExpressionDependencies(expr, prop, currentNamespace),
+            );
             const { name } = parent.obj.id;
             const nodeObj = createObjectDependencyNode(name);
             addObjectToDependencies(name, nodeObj);
             createObjectEdge(parent, nodeObj, "CREATE", name);
             addObjectDependencyRo(parent.id, expr.id, name);
+            break;
+        }
+
+        case "Property": {
+            // console.log(expr);
             break;
         }
 
@@ -311,7 +319,7 @@ function buildPDG(cfgGraph) {
         }
 
         default:
-            throw new Error(`Oops, this is not implemented for ${expr.type} nodes`);
+            //  throw new Error(`Oops, this is not implemented for ${expr.type} nodes`);
         }
     }
 

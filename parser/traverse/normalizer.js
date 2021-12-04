@@ -1,11 +1,18 @@
 // eslint-disable-next-line no-unused-vars
 const { getNextVariableName, copyObj, printJSON } = require("../utils/utils");
 
+const createIdentifierObject = (variableName) => ({
+    type: "Identifier",
+    name: variableName,
+});
+
+const createEmptyObject = () => ({
+    type: "ObjectExpression",
+    properties: [],
+});
+
 const createVariableDeclaration = (obj, variableName) => {
-    const varObj = {
-        type: "Identifier",
-        name: variableName,
-    };
+    const varObj = createIdentifierObject(variableName);
 
     const newStmt = {
         type: "VariableDeclaration",
@@ -22,7 +29,19 @@ const createVariableDeclaration = (obj, variableName) => {
     return { varObj: copyObj(varObj), newStmt: copyObj(newStmt) };
 };
 
-const createVariableDeclarator = (key, propertyValue, objectValue) => {
+const createVariableDeclarator = (variableName, newInit) => {
+    const varObj = createIdentifierObject(variableName);
+
+    const newStmt = {
+        type: "VariableDeclarator",
+        id: copyObj(varObj),
+        init: copyObj(newInit),
+    };
+
+    return { varObj: copyObj(varObj), newStmt: copyObj(newStmt) };
+};
+
+const createObjectLookupDeclarator = (key, propertyValue, objectValue) => {
     const memExpr = {
         type: "MemberExpression",
         computed: false,
@@ -37,20 +56,20 @@ const createVariableDeclarator = (key, propertyValue, objectValue) => {
     };
 };
 
-const createVariableDeclaratorStmt = (variableName, newInit) => {
-    const varObj = {
-        type: "Identifier",
-        name: variableName,
-    };
-
-    const newStmt = {
-        type: "VariableDeclarator",
-        id: copyObj(varObj),
-        init: copyObj(newInit),
-    };
-
-    return { varObj: copyObj(varObj), newStmt: copyObj(newStmt) };
-};
+const createPropertyAssignment = (objectIdentifier, propertyName, propertyValue) => ({
+    type: "ExpressionStatement",
+    expression: {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: {
+            type: "MemberExpression",
+            computed: false,
+            object: copyObj(objectIdentifier),
+            property: createIdentifierObject(propertyName),
+        },
+        right: copyObj(propertyValue),
+    },
+});
 
 const unpattern = (declarations) => {
     const unpatternedDeclarations = [];
@@ -58,9 +77,8 @@ const unpattern = (declarations) => {
     declarations.forEach((decl) => {
         if (decl.id.type === "ObjectPattern") {
             const originalInit = decl.init;
-
             const variable = getNextVariableName();
-            const { varObj, newStmt } = createVariableDeclaratorStmt(variable, originalInit);
+            const { varObj, newStmt } = createVariableDeclarator(variable, originalInit);
 
             // push a new variable with the member expression
             unpatternedDeclarations.push(newStmt);
@@ -68,7 +86,7 @@ const unpattern = (declarations) => {
             // push declarations for each property using accesses to new variable
             decl.id.properties.forEach(
                 (prop) => unpatternedDeclarations.push(
-                    createVariableDeclarator(prop.key, prop.value, varObj),
+                    createObjectLookupDeclarator(prop.key, prop.value, varObj),
                 ),
             );
         } else {
@@ -82,6 +100,13 @@ const unpattern = (declarations) => {
 const flatStmts = (children) => children.map((child) => child.stmts).flat();
 const flatExprs = (children) => children.map((child) => child.expr).flat();
 const isNotLiteral = (obj) => obj.type !== "Literal" && obj.type !== "Identifier";
+const isNotEmpty = (obj) => {
+    if (obj.type === "ArrayExpression") {
+        return obj.elements.length > 0;
+    }
+
+    return true;
+};
 
 const normProgram = (obj, children) => {
     const newObj = copyObj(obj);
@@ -105,11 +130,15 @@ const normBinaryExpression = (obj, children) => {
 
 const normVariableDeclaration = (obj, children) => {
     const newStmts = flatStmts(children);
-    const exprs = flatExprs(children).map((expr) => {
-        const newObj = copyObj(obj);
-        newObj.declarations = [expr];
-        return newObj;
-    });
+    const exprs = flatExprs(children)
+        // remove expr === null which happens in some cases when
+        // the declarator has no expression due to normalization
+        .filter((expr) => expr)
+        .map((expr) => {
+            const newObj = copyObj(obj);
+            newObj.declarations = [expr];
+            return newObj;
+        });
 
     return {
         stmts: [...newStmts, ...exprs],
@@ -121,11 +150,34 @@ const normVariableDeclarator = (obj, children) => {
     const newObj = copyObj(obj);
     let stmts = [];
 
+    // children 0 is identifier
     newObj.id = children[0].expr;
-    if (children[1]) {
-        stmts = [...children[1].stmts];
-        const initExpression = children[1].expr;
-        newObj.init = initExpression;
+
+    // children 1 is init
+    const newInit = children[1];
+    if (newInit) {
+        if (newInit.expr.type === "ObjectExpression") {
+            const objExpr = newInit.expr;
+            // push empty object for this identifier
+            newObj.init = createEmptyObject();
+
+            const newAssignments = [];
+            // push declarations for each property using accesses to new variable
+            objExpr.properties.forEach((prop) => {
+                const propertyName = prop.key.name;
+                newAssignments.push(createPropertyAssignment(newObj.id, propertyName, prop.value));
+            });
+            stmts = [...newInit.stmts, newObj, ...newAssignments];
+            return {
+                stmts,
+                expr: null,
+            };
+        }
+
+        // all other init types
+        stmts = [...newInit.stmts];
+        const newInitExpression = newInit.expr;
+        newObj.init = newInitExpression;
     }
 
     return {
@@ -238,10 +290,19 @@ const normFunctionDeclaration = (obj, children) => {
 
 const normReturnStatement = (obj, children) => {
     const newObj = copyObj(obj);
-    newObj.argument = children[0].expr;
+
+    // check if there are any arguments
+    if (children[0]) {
+        newObj.argument = children[0].expr;
+
+        return {
+            stmts: [...children[0].stmts, newObj],
+            expr: null,
+        };
+    }
 
     return {
-        stmts: [...children[0].stmts, newObj],
+        stmts: [newObj],
         expr: null,
     };
 };
@@ -330,9 +391,16 @@ function normMemberExpression(obj, children, parent) {
     };
 }
 
-function normObjectExpression(obj, children) {
+function normObjectExpression(obj, children, parent) {
     const newObj = copyObj(obj);
-    newObj.properties = children.map((child) => child.expr).flat();
+    newObj.properties = [...flatExprs(children)];
+
+    if (parent && (parent.type === "VariableDeclarator" || parent.type === "ExpressionStatement")) {
+        return {
+            stmts: [...flatStmts(children)],
+            expr: newObj,
+        };
+    }
 
     const variable = getNextVariableName(); // Change this to a function so it is cleaner
     const { varObj, newStmt } = createVariableDeclaration(newObj, variable);
@@ -349,26 +417,38 @@ function normProperty(obj, children) {
     const keyStmts = [...children[0].stmts];
     const valueStmts = [...children[1].stmts];
 
-    if (isNotLiteral(children[0].expr)) {
+    const childZeroExpr = children[0].expr;
+    if (isNotLiteral(childZeroExpr)) {
         const variable = getNextVariableName();
-        const { varObj, newStmt } = createVariableDeclaration(children[0].expr, variable);
+        const { varObj, newStmt } = createVariableDeclaration(childZeroExpr, variable);
         newObj.key = varObj;
         keyStmts.push(newStmt);
     } else {
-        newObj.key = children[0].expr;
+        newObj.key = childZeroExpr;
     }
 
-    if (isNotLiteral(children[1].expr)) {
+    const childOneExpr = children[1].expr;
+    if (isNotLiteral(childOneExpr) && isNotEmpty(childOneExpr)) {
         const variable = getNextVariableName();
-        const { varObj, newStmt } = createVariableDeclaration(children[1].expr, variable);
+        const { varObj, newStmt } = createVariableDeclaration(childOneExpr, variable);
         newObj.value = varObj;
         valueStmts.push(newStmt);
     } else {
-        newObj.value = children[1].expr;
+        newObj.value = childOneExpr;
     }
 
     return {
         stmts: [...keyStmts, ...valueStmts],
+        expr: newObj,
+    };
+}
+
+function normArrayExpression(obj, children) {
+    const newObj = copyObj(obj);
+    newObj.elements = [...flatExprs(children)];
+
+    return {
+        stmts: [...flatStmts(children)],
         expr: newObj,
     };
 }
@@ -402,9 +482,10 @@ function normalize(obj, parent) {
     //
     // Expressions
     //
-    // case "ArrayExpression":
-    //     resultData = mapReduce(obj.elements, obj);
-    //     break;
+    case "ArrayExpression": {
+        const resultData = mapReduce(obj.elements, obj);
+        return normArrayExpression(obj, resultData, parent);
+    }
 
     case "ObjectExpression": {
         const resultData = mapReduce(obj.properties, obj);
