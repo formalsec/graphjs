@@ -327,8 +327,6 @@ export function normWhileStatement(obj: Node, children: Normalization[]): Normal
 export function normAssignmentExpressions (obj: AssignmentExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
 
-    printJSON(children);
-
     const leftExpr = children[0].expr;
     const rightExpr = children[1].expr;
 
@@ -491,7 +489,7 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
             || parent.type === "ExpressionStatement"
             || parent.type === "AssignmentExpression")) {
         return {
-            stmts: [],
+            stmts,
             expr: newObj,
         };
     }
