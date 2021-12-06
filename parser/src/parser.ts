@@ -2,14 +2,14 @@ import yargs = require("yargs/yargs");
 import fs = require("fs");
 import esprima = require("esprima");
 import escodegen from "escodegen";
-// const { Graph } = require("./traverse/graph/graph");
+const { Graph } = require("./traverse/graph/graph");
 import { normalizeScript } from "./traverse/normalizer";
-// const { buildAST } = require("./traverse/ast_builder");
-// const { buildCFG } = require("./traverse/cfg_builder");
-// const { buildPDG } = require("./traverse/dep_builder");
-// const { OutputManager } = require("./output/output_strategy");
-// const { DotOutput } = require("./output/dot_output");
-// const { CSVOutput } = require("./output/csv_output");
+const { buildAST } = require("./traverse/ast_builder");
+const { buildCFG } = require("./traverse/cfg_builder");
+const { buildPDG } = require("./traverse/dep_builder");
+const { OutputManager } = require("./output/output_strategy");
+const { DotOutput } = require("./output/dot_output");
+const { CSVOutput } = require("./output/csv_output");
 
 // eslint-disable-next-line no-unused-vars
 import { printJSON } from "./utils/utils";
@@ -21,23 +21,23 @@ function parse(filename: string) {
         const ast = esprima.parseScript(data);
         // const ast = esprima.parseScript(data, { loc: true });
 
-        printJSON(ast);
-        console.log("===============");
+        // printJSON(ast);
+        // console.log("===============");
         const normalizedAst = normalizeScript(ast);
-        printJSON(normalizedAst);
-        console.log("===============");
+        // printJSON(normalizedAst);
+        // console.log("===============");
 
         const code = escodegen.generate(normalizedAst);
         console.log(code);
-        // // console.log("===============");
+        // console.log("===============");
 
-        // const astGraph = buildAST(normalizedAst);
-        // const cfgGraph = buildCFG(astGraph);
+        const astGraph = buildAST(normalizedAst);
+        const cfgGraph = buildCFG(astGraph);
 
-        // const pdgGraph = buildPDG(cfgGraph);
+        const pdgGraph = buildPDG(cfgGraph);
 
-        // return pdgGraph;
-    } catch (e) {
+        return pdgGraph;
+    } catch (e: any) {
         console.log("Error:", e.stack);
     }
 
@@ -58,15 +58,15 @@ if (fs.existsSync(filename)) {
 
     const graph = parse(filename);
 
-    // if (graph) {
-    //     if (argv.csv) {
-    //         graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
-    //     } else {
-    //         graph.outputManager = new OutputManager(graphOptions, new DotOutput());
-    //     }
+    if (graph) {
+        if (argv.csv) {
+            graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
+        } else {
+            graph.outputManager = new OutputManager(graphOptions, new DotOutput());
+        }
 
-    //     graph.output("graphs/graph");
-    // }
+        graph.output("src/graphs/graph");
+    }
 } else {
     console.error(`${filename} is not a valid file.`);
 }
