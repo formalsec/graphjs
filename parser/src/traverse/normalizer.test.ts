@@ -1146,48 +1146,26 @@ test("testing normalize - check that normalization retains same behaviour (8) - 
     testNormalization("./test-inputs/normalization/if-statements");
 });
 
-// test("testing normalize - check that normalization retains same behaviour (9) - unary expressions", () => {
-    // const code1 = "+false;";
-    // testNormalization(code1);
-//
-    // const code2 = "!false;";
-    // testNormalization(code2);
-//
-    // const code3 = "let x = 0;x++;";
-    // testNormalization(code3);
-// });
-//
-// test("testing normalize - check that normalization retains same behaviour (10) - object expressions", () => {
-    // const code1 = "let x = {};";
-    // testNormalization(code1);
-//
-    // const code2 = "let x = { p: \"p\" };";
-    // testNormalization(code2);
-// });
-//
-// test("testing normalize - check that normalization retains same behaviour (11) - member expressions", () => {
-    // const code1 = "let x = {}; x.p = \"p\"";
-    // testNormalization(code1);
-//
-    // const code2 = "let x = { p: \"p\" }; let y = x.p;";
-    // testNormalization(code2);
-// });
-//
-// test("testing normalize - check that normalization retains same behaviour (12) - call and new expressions", () => {
-    // const code1 = "let x = eval(\"1+2\");";
-    // testNormalization(code1);
-//
-    // const code2 = "let x = new Object();";
-    // testNormalization(code2);
-// });
-//
-// test("testing normalize - check that normalization retains same behaviour (13) - do and dowhile statements", () => {
-    // const code1 = "while (false) { 1; }";
-    // testNormalization(code1);
-// //
-//     const code2 = "let x = 0; while (x < 1) { x++; }";
-//     testNormalization(code2);
-// //
-//     const code3 = "let x = 0; do { x++ } while (x < 1);";
-//     testNormalization(code3);
-// // });
+test("testing normalize - check that normalization retains same behaviour (9) - unary expressions", () => {
+    testNormalization("./test-inputs/normalization/unary-expressions");
+});
+
+test("testing normalize - check that normalization retains same behaviour (10) - object expressions", () => {
+    testNormalization("./test-inputs/normalization/object-expressions");
+});
+
+test("testing normalize - check that normalization retains same behaviour (11) - member expressions", () => {
+    testNormalization("./test-inputs/normalization/member-expressions");
+});
+
+test("testing normalize - check that normalization retains same behaviour (12) - call expressions", () => {
+    testNormalization("./test-inputs/normalization/call-expressions");
+});
+
+test("testing normalize - check that normalization retains same behaviour (13) - new expressions", () => {
+    testNormalization("./test-inputs/normalization/new-expressions");
+});
+
+test("testing normalize - check that normalization retains same behaviour (14) - do and dowhile statements", () => {
+    testNormalization("./test-inputs/normalization/while-expressions");
+});
