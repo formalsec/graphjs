@@ -4,632 +4,37 @@ import { getNextVariableName, copyObj, printJSON } from "../utils/utils";
 import type {
     Node,
     Program,
-    Identifier,
-    VariableDeclaration,
-    VariableDeclarator,
-    BinaryExpression,
-    Expression,
-    AssignmentExpression,
-    MemberExpression,
-    LogicalExpression,
-    ExpressionStatement,
-    Property,
-    ArrayExpression,
-    ObjectExpression,
-    UpdateExpression,
-    UnaryExpression,
-    CallExpression,
-    FunctionDeclaration,
-    ArrowFunctionExpression,
-    FunctionExpression,
-    LabeledStatement,
 } from "estree";
 
-export interface Normalization {
-    stmts: Node[],
-    expr: Node | null,
-};
-
-export function createRandomIdentifier(): Identifier {
-    const variableName = getNextVariableName();
-    return {
-        type: "Identifier",
-        name: variableName,
-    };
-}
-
-export function createIdentifierWithName(name: string): Identifier {
-    return {
-        type: "Identifier",
-        name,
-    };
-};
-
-export function createIdentifierFromExpression(expr: Expression): Identifier | null {
-    switch(expr.type) {
-        case "Identifier": {
-            return expr;
-        }
-
-        case "Literal": {
-            return createIdentifierWithName(expr?.value as string);
-        }
-
-    }
-
-    return null;
-}
-
-export function createEmptyObject(): ObjectExpression {
-    return {
-        type: "ObjectExpression",
-        properties: [],
-    };
-};
-
-interface CreatedDeclaration {
-    id: Identifier,
-    decl: VariableDeclaration,
-};
-
-interface CreatedDeclarator {
-    id: Identifier,
-    decl: VariableDeclarator,
-};
-
-export function createVariableDeclaration(obj: Expression | null | undefined): CreatedDeclaration {
-    const id = createRandomIdentifier();
-
-    const decl: VariableDeclaration = {
-        type: "VariableDeclaration",
-        declarations: [
-            {
-                type: "VariableDeclarator",
-                id,
-                init: obj,
-            },
-        ],
-        kind: "const",
-    };
-
-    return { id, decl };
-};
-
-export function createVariableDeclarator(newInit: Expression | null | undefined): CreatedDeclarator {
-    const id = createRandomIdentifier();
-
-    const decl: VariableDeclarator = {
-        type: "VariableDeclarator",
-        id,
-        init: newInit,
-    };
-
-    return { id, decl };
-};
-
-export function createObjectLookupDeclarator(prop: Property, objectValue: Expression): VariableDeclarator {
-    const propValue = prop.value as Expression;
-    const propKey = prop.key as Identifier;
-    const memExpr: MemberExpression = {
-        type: "MemberExpression",
-        computed: false,
-        optional: false,
-        object: objectValue,
-        property: propValue,
-    };
-
-    return {
-        type: "VariableDeclarator",
-        id: propKey,
-        init: memExpr,
-    };
-};
-
-export function createPropertyAssignment(objId: Identifier, propKey: Identifier, propValue: Expression): ExpressionStatement {
-    return {
-        type: "ExpressionStatement",
-        expression: {
-            type: "AssignmentExpression",
-            operator: "=",
-            left: {
-                type: "MemberExpression",
-                computed: false,
-                object: objId,
-                property: propKey,
-                optional: false,
-            },
-            right: propValue,
-        },
-    };
-};
-
-export function unpattern(declarations: VariableDeclarator[]): VariableDeclarator[] {
-    const unpatternedDeclarations: VariableDeclarator[] = [];
-
-    declarations.forEach((d) => {
-        if (d.id.type === "ObjectPattern") {
-            const originalInit = d.init;
-            const { id, decl } = createVariableDeclarator(originalInit);
-
-            // push a new variable with the member expression
-            unpatternedDeclarations.push(decl);
-
-            // push declarations for each property using accesses to new variable
-            d.id.properties.forEach((prop) => {
-                if (prop.type === "Property")
-                    unpatternedDeclarations.push(createObjectLookupDeclarator(prop as Property, id));
-            });
-        } else {
-            unpatternedDeclarations.push(d);
-        }
-    });
-
-    return unpatternedDeclarations;
-};
-
-export const flatStmts = (children: Normalization[]): Node[] => children.map((child) => child.stmts).flat();
-export const flatExprs = (children: Normalization[]): (Node | null)[] => children.map((child) => child.expr).flat();
-export const isNotLiteral = (obj: Node): boolean => obj.type !== "Literal" && obj.type !== "Identifier";
-export function isNotEmpty (obj: Node): boolean {
-    if (obj.type === "ArrayExpression") {
-        return obj.elements.length > 0;
-    }
-    return true;
-};
-
-export function normProgram(obj: Program, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    newObj.body = flatStmts(children);
-    return { stmts: [newObj], expr: null };
-};
-
-export function normBinaryExpression(obj: BinaryExpression|LogicalExpression, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    const leftExpr = children[0].expr;
-    const rightExpr = children[1].expr;
-
-    // if both left and right expression were not normalized we just ignore
-    if (leftExpr && rightExpr) {
-        newObj.left = children[0].expr;
-        newObj.right = children[1].expr;
-
-        const { id, decl } = createVariableDeclaration(newObj);
-
-        return {
-            stmts: [...children[0].stmts, ...children[1].stmts, decl],
-            expr: id,
-        };
-    }
-
-    return { stmts: [], expr: newObj };
-};
-
-export function normVariableDeclaration(obj: VariableDeclaration, children: Normalization[]): Normalization {
-    const childStmts = flatStmts(children);
-
-    // remove expr === null which happens in some cases when
-    // the declarator has no expression due to normalization
-    const newStmts = flatExprs(children)
-        .filter((expr) => expr !== null)
-        .map((expr) => {
-            const newObj = copyObj(obj);
-            newObj.declarations = [expr];
-            return newObj;
-    });
-
-    return {
-        stmts: [...childStmts, ...newStmts],
-        expr: null,
-    };
-};
-
-export function normVariableDeclarator(obj: VariableDeclarator, children: Normalization[], parent: VariableDeclaration): Normalization {
-    const newObj = copyObj(obj);
-    let stmts: Node[] = [];
-
-    // children 0 is identifier
-    // newObj.id = children[0].expr;
-
-    // children 1 is init
-    const newInit = children[1];
-    if (newInit) {
-        if (newInit.expr && newInit.expr.type === "ObjectExpression") {
-            const objExpr = newInit.expr;
-            // push empty object for this identifier
-            newObj.init = createEmptyObject();
-
-            const newAssignments: Array<ExpressionStatement> = [];
-            // push declarations for each property using accesses to new variable
-            objExpr.properties.forEach((prop) => {
-                if (prop.type === "Property") {
-                    const propKey = createIdentifierFromExpression(prop.key as Expression);
-                    const propValue = prop.value as Expression;
-                    if (propKey && propValue)
-                        newAssignments.push(createPropertyAssignment(newObj.id, propKey, propValue));
-                }
-            });
-
-            const newDecl: VariableDeclaration = copyObj(parent);
-            newDecl.declarations = [newObj];
-            stmts = [...newInit.stmts, newDecl, ...newAssignments];
-
-            return {
-                stmts,
-                expr: null,
-            };
-        }
-
-        // all other init types
-        stmts = [...newInit.stmts];
-        const newInitExpression = newInit.expr;
-        newObj.init = newInitExpression;
-    }
-
-    return {
-        stmts,
-        expr: newObj,
-    };
-};
-
-export function normBlockStatement(obj: Node, children: Normalization[]): Normalization {
-    const stmts = flatStmts(children);
-
-    // shouldn't really be anything here
-    const exprs = flatExprs(children).filter((elem) => elem != null);
-
-    const newObj = copyObj(obj);
-    newObj.body = [...stmts, ...exprs];
-    return {
-        stmts: [newObj],
-        expr: null,
-    };
-};
-
-export function normIfStatement(obj: Node, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    newObj.test = children[0].expr;
-
-    [newObj.consequent] = children[1].stmts;
-
-    if (newObj.alternate) {
-        [newObj.alternate] = children[2].stmts;
-    }
-
-    return {
-        stmts: [...children[0].stmts, newObj],
-        expr: null,
-    };
-};
-
-export function normConditionalExpression(obj: Node, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    newObj.test = children[0].expr;
-    newObj.consequent = children[1].expr;
-    newObj.alternate = children[2].expr;
-
-    return {
-        stmts: [...children[0].stmts, ...children[1].stmts, ...children[2].stmts],
-        expr: newObj,
-    };
-};
-
-export function normWhileStatement(obj: Node, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    newObj.test = children[0].expr;
-    [newObj.body] = children[1].stmts;
-
-    return {
-        stmts: [...children[0].stmts, newObj],
-        expr: null,
-    };
-};
-
-export function normAssignmentExpressions (obj: AssignmentExpression, children: Normalization[], parent: Node | null): Normalization {
-    const newObj = copyObj(obj);
-
-    const leftExpr = children[0].expr;
-    const rightExpr = children[1].expr;
-
-    // if both left and right expression were not normalized we just ignore
-    if (leftExpr && rightExpr) {
-        newObj.left = leftExpr;
-
-        if (rightExpr.type === "ObjectExpression") {
-            // push empty object for this identifier
-            newObj.right = createEmptyObject();
-
-            const newAssignments: Array<ExpressionStatement> = [];
-            // push declarations for each property using accesses to new variable
-            rightExpr.properties.forEach((prop) => {
-                if (prop.type === "Property") {
-                    const propKey = createIdentifierFromExpression(prop.key as Expression);
-                    const propValue = prop.value as Expression;
-                    if (propKey && propValue)
-                        newAssignments.push(createPropertyAssignment(newObj.left, propKey, propValue));
-                }
-            });
-
-            const newExprStmt: ExpressionStatement = copyObj(parent);
-            newExprStmt.expression = newObj;
-
-            return {
-                stmts: [...children[1].stmts, newExprStmt, ...newAssignments],
-                expr: null,
-            };
-        }
-
-        newObj.right = rightExpr;
-
-        return {
-            stmts: [...children[0].stmts, ...children[1].stmts],
-            expr: newObj,
-        };
-    }
-
-    return { stmts: [], expr: newObj };
-};
-
-export function normExpressionStatement(obj: ExpressionStatement, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    const expression = children[0].expr;
-
-    // if the expression was not normalization we just ignore
-    if (expression) {
-        newObj.expression = expression;
-        return {
-            stmts: [...children[0].stmts, newObj],
-            expr: null,
-        };
-    }
-
-    return {
-        stmts: [...flatStmts(children)],
-        expr: null,
-    };
-};
-
-export function normUpdateExpression(obj: UpdateExpression | UnaryExpression, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    const argument = children[0].expr;
-
-    // if the argument was not normalization we just ignore
-    if (argument) {
-        newObj.argument = argument;
-
-        const { id, decl } = createVariableDeclaration(newObj);
-
-        return {
-            stmts: [...children[0].stmts, decl],
-            expr: id,
-        };
-    }
-
-    return { stmts: [], expr: newObj };
-};
-
-export function normFunctionDeclaration(obj: FunctionDeclaration, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-
-    const funcId = children[0];
-    const funcBody = children[1];
-
-    if (funcId) {
-        newObj.id = funcId.expr;
-    }
-
-    [newObj.body] = funcBody.stmts;
-
-    return {
-        stmts: [newObj],
-        expr: null,
-    };
-};
-
-export function normReturnStatement(obj: Node, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-
-    // check if there are any arguments
-    if (children[0]) {
-        newObj.argument = children[0].expr;
-
-        return {
-            stmts: [...children[0].stmts, newObj],
-            expr: null,
-        };
-    }
-
-    return {
-        stmts: [newObj],
-        expr: null,
-    };
-};
-
-export function normFunctionExpression(obj: FunctionExpression, children: Normalization[], parent: Node | null): Normalization {
-    const newObj = copyObj(obj);
-    let stmts: Node[] = [];
-
-    if (children[0]) {
-        newObj.id = children[0].expr;
-    }
-
-    [newObj.body] = children[1].stmts;
-
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression")) {
-        return {
-            stmts: [],
-            expr: newObj,
-        };
-    }
-
-    const { id, decl } = createVariableDeclaration(newObj);
-    stmts.push(decl);
-
-    return {
-        stmts,
-        expr: id,
-    };
-};
-
-export function normArrowFunctionExpression(obj: ArrowFunctionExpression, children: Normalization[], parent: Node | null): Normalization {
-    const newObj = copyObj(obj);
-    let stmts: Node[] = [];
-
-    if (children[0].expr) { // body is an expression
-        newObj.body = children[0].expr;
-        stmts = children[0].stmts;
-    } else { // body is a block statement
-        [newObj.body] = children[0].stmts;
-    }
-
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression")) {
-        return {
-            stmts,
-            expr: newObj,
-        };
-    }
-
-    const { id, decl } = createVariableDeclaration(newObj);
-    stmts.push(decl);
-
-    return {
-        stmts,
-        expr: id,
-    };
-};
-
-// TODO: Ask Prof. José what should be done in this case
-// IDEA: change it to a while??
-// function normForStatement(obj, children, parent) {
-//     const stmts = children[0].stmts.concat(children[2].stmts);
-
-//     const newObj = copyObj(obj);
-//     newObj.init = children[0].expr;
-//     //newObj.test = children[1].expr;
-//     newObj.update = children[2].expr;
-//     newObj.body = children[3].stmts[0];
-
-//     return {
-//         stmts: stmts.concat(newObj),
-//         expr: null,
-//     };
-// }
-
-export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
-    const newObj = copyObj(obj);
-    newObj.callee = children[0].expr;
-    newObj.arguments = flatExprs(children.slice(1));
-
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression")) {
-        return {
-            stmts: [...flatStmts(children)],
-            expr: newObj,
-        };
-    }
-
-    const { id, decl } = createVariableDeclaration(newObj);
-
-    return {
-        stmts: [...flatStmts(children), decl],
-        expr: id,
-    };
-};
-
-export function normMemberExpression(obj: MemberExpression, children: Normalization[], parent: Node | null): Normalization {
-    const newObj = copyObj(obj);
-    newObj.object = children[0].expr;
-    newObj.property = children[1].expr;
-
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression")) {
-        return {
-            stmts: [...children[0].stmts, ...children[1].stmts],
-            expr: newObj,
-        };
-    }
-
-    const { id, decl } = createVariableDeclaration(newObj);
-
-    return {
-        stmts: [...children[0].stmts, ...children[1].stmts, decl],
-        expr: id,
-    };
-}
-
-export function normObjectExpression(obj: ObjectExpression, children: Normalization[], parent: Node | null): Normalization {
-    const newObj = copyObj(obj);
-    newObj.properties = [...flatExprs(children)];
-
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression")) {
-        return {
-            stmts: [...flatStmts(children)],
-            expr: newObj,
-        };
-    }
-
-    const { id, decl } = createVariableDeclaration(newObj);
-
-    return {
-        stmts: [...flatStmts(children), decl],
-        expr: id,
-    };
-};
-
-export function normProperty(obj: Property, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-
-    const normalizedKey = children[0];
-    const normalizedValue = children[1];
-
-    const keyStmts = [...normalizedKey.stmts];
-    const valueStmts = [...normalizedValue.stmts];
-
-    const keyExpr = normalizedKey.expr;
-    if (keyExpr && isNotLiteral(keyExpr)) {
-        const { id, decl } = createVariableDeclaration(keyExpr as Expression);
-        newObj.key = id;
-        keyStmts.push(decl);
-    } else {
-        newObj.key = keyExpr;
-    }
-
-    const valueExpr = normalizedValue.expr;
-    if (valueExpr && isNotLiteral(valueExpr) && isNotEmpty(valueExpr)) {
-        const { id, decl } = createVariableDeclaration(valueExpr as Expression);
-        newObj.value = id;
-        valueStmts.push(decl);
-    } else {
-        newObj.value = valueExpr;
-    }
-
-    return {
-        stmts: [...keyStmts, ...valueStmts],
-        expr: newObj,
-    };
-}
-
-export function normArrayExpression(obj: ArrayExpression, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    newObj.elements = [...flatExprs(children)];
-
-    return {
-        stmts: [...flatStmts(children)],
-        expr: newObj,
-    };
-}
+import {
+    Normalization,
+    normProgram,
+    normArrayExpression,
+    normObjectExpression,
+    normProperty,
+    normFunctionExpression,
+    normArrowFunctionExpression,
+    normClassExpression,
+    normClassBody,
+    normMethodDefinition,
+    normMemberExpression,
+    normCallExpression,
+    normUpdateExpression,
+    normAwaitYieldExpression,
+    normBinaryExpression,
+    normConditionalExpression,
+    normAssignmentExpressions,
+    normBlockStatement,
+    normWhileStatement,
+    normExpressionStatement,
+    normFunctionDeclaration,
+    normIfStatement,
+    normReturnStatement,
+    unpattern,
+    normVariableDeclaration,
+    normVariableDeclarator,
+    normSequenceExpression
+} from "./normalizerUtils";
 
 function mapReduce(arr: (Node | null)[], p: Node): Normalization[] {
     return arr.map((item) => normalize(item, p));
@@ -651,13 +56,30 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
 
     switch (obj.type) {
     //
-    // Scripts
+    // Scripts and Modules
     //
     case "Program": {
         const resultData = mapReduce(obj.body, obj);
         return normProgram(obj, resultData);
     }
 
+    // case "ImportDeclaration": {}
+
+    // case "ImportSpecifier": {}
+
+    // case "ExportAllDeclaration": {}
+
+    // case "ExportDefaultDeclaration": {}
+
+    // case "ExportNamedDeclaration": {}
+
+    // case "ExportSpecifier": {}
+
+    //
+    // Expressions
+    //
+    case "ThisExpression":
+    case "Super":
     case "Identifier":
     case "Literal": {
         return {
@@ -666,9 +88,6 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         };
     }
 
-    //
-    // Expressions
-    //
     case "ArrayExpression": {
         const resultData = mapReduce(obj.elements, obj);
         return normArrayExpression(obj, resultData);
@@ -682,13 +101,54 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     case "Property": {
         const resultKey = normalize(obj.key, obj);
         const resultValue = normalize(obj.value, obj);
-
-        const resultData = [
-            resultKey,
-            resultValue,
-        ];
+        const resultData = [resultKey,resultValue];
         return normProperty(obj, resultData);
     }
+
+    case "FunctionExpression": {
+        const resultId = normalize(obj.id, obj);
+        const resultBody = normalize(obj.body, obj);
+        const resultData = [resultId, resultBody];
+        return normFunctionExpression(obj, resultData, parent);
+    }
+
+    case "ArrowFunctionExpression": {
+        const resultBody = normalize(obj.body, obj);
+        const resultData = [resultBody];
+        return normArrowFunctionExpression(obj, resultData, parent);
+    }
+
+    case "ClassExpression": {
+        const resultId = normalize(obj.id, obj);
+        const resultSuperClass = normalize(obj.superClass, obj);
+        const resultClassBody = normalize(obj.body, obj);
+        const resultData = [resultId, resultSuperClass, resultClassBody];
+        return normClassExpression(obj, resultData);
+    }
+
+    case "ClassBody": {
+        const resultData = mapReduce(obj.body, obj);
+        return normClassBody(obj, resultData)
+    }
+
+    case "MethodDefinition": {
+        const resultKey = normalize(obj.key, obj);
+        const resultValue = normalize(obj.value, obj);
+        const resultData = [resultKey, resultValue];
+        return normMethodDefinition(obj, resultData);
+    }
+
+    // case "TaggedTemplateExpression": {
+
+    // }
+
+    // case "TemplateLiteral": {
+
+    // }
+
+    // case "TemplateElement": {
+
+    // }
 
     case "MemberExpression": {
         const resultObject = normalize(obj.object, obj);
@@ -701,8 +161,15 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normMemberExpression(obj, resultData, parent);
     }
 
-    case "CallExpression":
-    case "NewExpression": {
+    // case "MetaProperty": {
+    //     const resultMeta = normalize(obj.meta, obj);
+    //     const resultProperty = normalize(obj.property, obj);
+    //     const resultData = [resultMeta, resultProperty];
+    //     return normMetaProperty(obj, resultData);
+    // }
+
+    case "NewExpression":
+    case "CallExpression": {
         const resultCallee = normalize(obj.callee, obj);
         const resultArguments = mapReduce(obj.arguments, obj);
 
@@ -717,6 +184,13 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normUpdateExpression(obj, resultData);
     }
 
+    case "AwaitExpression":
+    case "SpreadElement":
+    case "YieldExpression": {
+            const resultData = [normalize(obj.argument, obj)];
+            return normAwaitYieldExpression(obj, resultData);
+    }
+
     case "BinaryExpression":
     case "LogicalExpression": {
         const resultLeft = normalize(obj.left, obj);
@@ -727,6 +201,19 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
             resultRight,
         ];
         return normBinaryExpression(obj, resultData);
+    }
+
+    case "ConditionalExpression": {
+        const resultTest = normalize(obj.test, obj);
+        const resultConsequent = normalize(obj.consequent, obj);
+        const resultAlternate = normalize(obj.alternate, obj);
+
+        const resultData = [
+            resultTest,
+            resultConsequent,
+            resultAlternate,
+        ];
+        return normConditionalExpression(obj, resultData);
     }
 
     case "AssignmentExpression": {
@@ -740,9 +227,18 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normAssignmentExpressions(obj, resultData, parent);
     }
 
-    // case "SequenceExpression":
-    //     const resultData = mapReduce(obj.expressions, obj);
-    //     break;
+    case "SequenceExpression": {
+        const resultData = mapReduce(obj.expressions, obj);
+        return normSequenceExpression(obj, resultData);
+    }
+
+    // case "ArrayPattern": {}
+
+    // case "RestElement": {}
+
+    // case "AssignmentPattern": {}
+
+    // case "ObjectPattern": {}
 
     //
     // Statements and Declarations
@@ -751,6 +247,16 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     case "BlockStatement": {
         const resultData = mapReduce(obj.body, obj);
         return normBlockStatement(obj, resultData);
+    }
+
+    case "BreakStatement":
+    case "ContinueStatement":
+    case "DebuggerStatement":
+    case "EmptyStatement": {
+        return {
+            stmts: [copyObj(obj)],
+            expr: null,
+        };
     }
 
     case "DoWhileStatement":
@@ -798,25 +304,13 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     //     break;
     // }
 
+    // case "ForOfStatement": {}
+
     case "FunctionDeclaration": {
         const resultId = normalize(obj.id, obj);
         const resultBody = normalize(obj.body, obj);
         const resultData = [resultId, resultBody];
         return normFunctionDeclaration(obj, resultData);
-    }
-
-    // case "LabeledStatement": {
-    case "FunctionExpression": {
-        const resultId = normalize(obj.id, obj);
-        const resultBody = normalize(obj.body, obj);
-        const resultData = [resultId, resultBody];
-        return normFunctionExpression(obj, resultData, parent);
-    }
-
-    case "ArrowFunctionExpression": {
-        const resultBody = normalize(obj.body, obj);
-        const resultData = [resultBody];
-        return normArrowFunctionExpression(obj, resultData, parent);
     }
 
     case "IfStatement": {
@@ -832,18 +326,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normIfStatement(obj, resultData);
     }
 
-    case "ConditionalExpression": {
-        const resultTest = normalize(obj.test, obj);
-        const resultConsequent = normalize(obj.consequent, obj);
-        const resultAlternate = normalize(obj.alternate, obj);
-
-        const resultData = [
-            resultTest,
-            resultConsequent,
-            resultAlternate,
-        ];
-        return normConditionalExpression(obj, resultData);
-    }
+    // case "LabeledStatement": {}
 
     case "ReturnStatement":
     case "ThrowStatement": {
@@ -869,28 +352,6 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     //     break;
     // }
 
-    case "VariableDeclaration": {
-        const unpatternedDeclarations = unpattern(obj.declarations);
-        const resultData = mapReduce(unpatternedDeclarations, obj);
-        return normVariableDeclaration(obj, resultData);
-    }
-
-    case "VariableDeclarator": {
-        const resultId = normalize(obj.id, obj);
-        const resultInit = normalize(obj.init, obj);
-
-        const resultData = [resultId, resultInit];
-        return normVariableDeclarator(obj, resultData, parent as VariableDeclaration);
-    }
-
-    // case "WithStatement": {
-    //     const resultObject = normalize(obj.object, obj);
-    //     const resultBody = normalize(obj.body, obj);
-
-    //     const resultData = [resultObject, resultBody];
-    //     break;
-    // }
-
     // case "TryStatement": {
     //     const resultBlock = normalize(obj.block, obj);
     //     const resultHandler = normalize(obj.handler, obj);
@@ -912,10 +373,36 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     //     break;
     // }
 
+    case "VariableDeclaration": {
+        const unpatternedDeclarations = unpattern(obj.declarations);
+        const resultData = mapReduce(unpatternedDeclarations, obj);
+        return normVariableDeclaration(obj, resultData);
+    }
+
+    case "VariableDeclarator": {
+        const resultId = normalize(obj.id, obj);
+        const resultInit = normalize(obj.init, obj);
+
+        const resultData = [resultId, resultInit];
+        return normVariableDeclarator(obj, resultData, parent);
+    }
+
+    // case "WithStatement": {
+    //     const resultObject = normalize(obj.object, obj);
+    //     const resultBody = normalize(obj.body, obj);
+
+    //     const resultData = [resultObject, resultBody];
+    //     break;
+    // }
+
+    // case "ClassDeclaration": {}
+
     default:
-        return {
-            stmts: [],
-            expr: null,
-        };
+        throw Error(`Unknown type ${obj.type} to normalize.`);
+        // console.log(`Normalization Error: Unknown type ${obj.type} to normalize.`);
+        // return {
+        //     stmts: [],
+        //     expr: null,
+        // };
     }
 }
