@@ -1,13 +1,22 @@
-const { Node } = require("./node");
-const { Edge } = require("./edge");
+import { Node } from "./node";
+import { Edge } from "./edge";
+import { OutputManager } from "../../output/output_strategy";
 
-class Graph {
-    constructor(outputManager) {
+export class Graph {
+    private nodeCounter: number;
+    private edgeCounter: number;
+    private _nodes: Map<number, Node>;
+    private _edges: Map<number, Edge>;
+    private _outputManager: OutputManager | null;
+    private _startNodes: any; // Change this to a custom type
+
+    constructor(outputManager: OutputManager | null) {
         this.nodeCounter = 0;
         this.edgeCounter = 0;
 
         this._nodes = new Map();
         this._edges = new Map();
+
         this._outputManager = outputManager;
         this._startNodes = {};
     }
@@ -35,11 +44,11 @@ class Graph {
     /**
      * @param {OutputManager} outputManager
      */
-    set outputManager(outputManager) {
+    set outputManager(outputManager: OutputManager) {
         this._outputManager = outputManager;
     }
 
-    addNode(label, obj) {
+    addNode(label: string, obj: any) {
         // eslint-disable-next-line no-plusplus
         const id = this.nodeCounter++;
         const node = new Node(id, label, obj);
@@ -47,20 +56,20 @@ class Graph {
         return node;
     }
 
-    addEdge(nodeId1, nodeId2, edgeInfo) {
+    addEdge(nodeId1: number, nodeId2: number, edgeInfo: any): Edge | undefined {
         const node1 = this.nodes.get(nodeId1);
         const node2 = this.nodes.get(nodeId2);
 
-        // eslint-disable-next-line no-plusplus
-        const id = this.edgeCounter++;
-        const edge = new Edge(id, node1, node2, edgeInfo);
-        this.edges.set(id, edge);
-
-        node1.addEdge(edge);
-        return edge;
+        if (node1 && node2) {
+            const id = this.edgeCounter++;
+            const edge = new Edge(id, node1, node2, edgeInfo);
+            this.edges.set(id, edge);
+            node1.addEdge(edge);
+            return edge;
+        }
     }
 
-    addStartNodes(nodeType, startNode) {
+    addStartNodes(nodeType: string, startNode: Node) {
         if (Object.prototype.hasOwnProperty.call(this.startNodes, nodeType)) {
             this.startNodes[nodeType].push(startNode);
         } else {
@@ -68,9 +77,8 @@ class Graph {
         }
     }
 
-    output(filename) {
-        this._outputManager.output(this, filename);
+    output(filename: string) {
+        if (this._outputManager) this._outputManager.output(this, filename);
+        else console.log("Output Manager is null");
     }
 }
-
-module.exports = { Graph };

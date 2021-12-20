@@ -1,19 +1,28 @@
+import { Edge } from "./graph/edge";
+import { Graph } from "./graph/graph";
+import { Node } from "./graph/node";
+
+interface CFGReturnObject {
+    root: Node,
+    exit: Node
+};
+
 /* eslint-disable consistent-return */
-function buildCFG(astGraph) {
+function buildCFG(astGraph: Graph) {
     const graph = astGraph;
 
-    function traverse(node) {
-        function defaultNode(defNode) {
-            defNode.edges.map((edge) => traverse(edge.nodes[1]));
+    function traverse(node: Node): CFGReturnObject {
+        function defaultNode(defNode: Node) {
+            defNode.edges.map((edge: Edge) => traverse(edge.nodes[1]));
             return {
                 root: defNode,
                 exit: defNode,
             };
         }
 
-        if (node === null) {
-            return;
-        }
+        // if (node === null) {
+        //     return null;
+        // }
 
         switch (node.type) {
         //
@@ -119,7 +128,7 @@ function buildCFG(astGraph) {
             const [test, consequent, alternate] = node.edges.map((edge) => traverse(edge.nodes[1]));
 
             const _endIf = graph.addNode("CFG_IF_END", { type: "CFG" });
-            _endIf.identifier = node.id;
+            _endIf.identifier = node.id.toString();
 
             graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test" });
             graph.addEdge(test.exit.id, consequent.root.id, { type: "CFG", label: "TRUE" });

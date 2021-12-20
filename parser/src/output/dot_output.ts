@@ -1,7 +1,12 @@
-const graphviz = require("graphviz");
-const escodegen = require("escodegen");
+import { OutputWriter } from "./output_writer";
+import { Graph } from "../traverse/graph/graph";
+import { Node } from "../traverse/graph/node";
+import { Edge } from "../traverse/graph/edge";
 
-function getNodeLabel(n, showCode) {
+import graphviz from "graphviz";
+import escodegen from "escodegen";
+
+function getNodeLabel(n: Node, showCode: any) {
     let label = `#${n.id} ${n.type}`;
     if (n.obj) {
         switch (n.type) {
@@ -75,7 +80,7 @@ function getNodeLabel(n, showCode) {
     return label;
 }
 
-function getEdgeLabel(e) {
+function getEdgeLabel(e: Edge) {
     let label;
 
     switch (e.label) {
@@ -108,7 +113,7 @@ function getEdgeLabel(e) {
     return label;
 }
 
-function getEdgeColor(e) {
+function getEdgeColor(e: Edge) {
     let color;
     switch (e.type) {
     case "AST":
@@ -127,7 +132,7 @@ function getEdgeColor(e) {
     return color;
 }
 
-function getNodeColor(n) {
+function getNodeColor(n: Node) {
     let color;
     if (n.obj) {
         switch (n.obj.type) {
@@ -148,12 +153,14 @@ function getNodeColor(n) {
     return color;
 }
 
-class DotOutput {
-    output(graph, options, filename) {
+export class DotOutput extends OutputWriter {
+    private showCode: any;
+
+    output(graph: Graph, options: any, filename: string) {
         const gDot = graphviz.digraph("G");
         this.showCode = options.show_code || false;
 
-        const nodesVisited = [];
+        const nodesVisited: Node[]= [];
         const nodesToPrint = Object.keys(graph.startNodes)
             .filter((type) => !options.ignore.includes(type))
             .map((type) => graph.startNodes[type]).flat();
@@ -175,7 +182,7 @@ class DotOutput {
             let { edges } = n;
 
             if (options.ignore) {
-                edges = n.edges.filter((e) => !options.ignore.includes(e.type));
+                edges = n.edges.filter((e: Edge) => !options.ignore.includes(e.type));
             }
 
             const nodeLabel = getNodeLabel(n, this.showCode);
@@ -183,18 +190,18 @@ class DotOutput {
             gDot.addNode(nodeLabel, { fontcolor: nodeColor, color: nodeColor });
 
             if (this.showCode && n.type === "ExpressionStatement") {
-                edges = n.edges.filter((e) => e.type !== "AST");
+                edges = n.edges.filter((e: Edge) => e.type !== "AST");
             }
 
             if (this.showCode && n.type === "VariableDeclarator") {
                 const { init } = n.obj;
 
                 if (init && init.type !== "FunctionExpression" && init.type !== "ArrowFunctionExpression") {
-                    edges = n.edges.filter((e) => e.type !== "AST");
+                    edges = n.edges.filter((e: Edge) => e.type !== "AST");
                 }
             }
 
-            edges.forEach((e) => {
+            edges.forEach((e: Edge) => {
                 const [n1, n2] = e.nodes;
                 nodesToPrint.push(n2);
 
@@ -219,7 +226,3 @@ class DotOutput {
         gDot.output("svg", `${filename}.svg`);
     }
 }
-
-module.exports = {
-    DotOutput,
-};

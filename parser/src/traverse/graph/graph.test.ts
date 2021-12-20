@@ -1,11 +1,14 @@
 /* eslint-disable no-undef */
-const { Graph } = require("./graph");
+import { OutputWriter } from "../../output/output_writer";
+import { DotOutput } from "../../output/dot_output";
+import { OutputManager } from "../../output/output_strategy";
+import { Graph } from "./graph";
 
 describe("Testing graph class", () => {
-    let graph;
+    let graph: Graph;
 
     beforeEach(() => {
-        graph = new Graph({});
+        graph = new Graph(null);
     });
 
     test("create a graph instance", () => {
@@ -37,7 +40,7 @@ describe("Testing graph class", () => {
 
         const localEdges = new Map();
         const edge = graph.addEdge(n1.id, n2.id, edgeInfo);
-        localEdges.set(edge.id, edge);
+        if (edge) localEdges.set(edge.id, edge);
 
         expect(graph.edges.size).toBe(1);
         expect(graph.edges).toEqual(localEdges);
@@ -94,11 +97,14 @@ describe("Testing graph class", () => {
 
     test("check if output manager matches", () => {
         let testNumber = 0;
-        const outputManager = {
-            // eslint-disable-next-line no-unused-vars
-            output: (ctx, filename) => { testNumber = 1; },
+        class LocalOutput extends OutputWriter {
+            output(graph: Graph, options: any, filename: string) {
+                testNumber = 1;
+                return testNumber;
+            }
         };
 
+        const outputManager = new OutputManager({}, new LocalOutput());
         graph.outputManager = outputManager;
         graph.output("");
         expect(testNumber).toBe(1);

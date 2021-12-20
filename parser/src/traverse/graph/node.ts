@@ -1,10 +1,19 @@
-class Node {
-    constructor(id, type, obj = {}) {
+import { Edge } from "./edge";
+
+export class Node {
+    private _id: number;
+    private _type: string;
+    private _obj: any;
+    private _edges: Edge[];
+    private _identifier: string | null;
+    private _namespace: string | null;
+
+    constructor(id: number, type: string, obj = {}) {
         this._id = id;
         this._type = type;
         this._obj = obj;
         this._edges = [];
-        this.identifier = null;
+        this._identifier = null;
         this._namespace = null;
     }
 
@@ -44,13 +53,11 @@ class Node {
         this._namespace = namespace;
     }
 
-    addEdge(edge) {
+    addEdge(edge: Edge) {
         this._edges.push(edge);
     }
 
-    accept(visitor) {
+    accept(visitor: any) {
         visitor.visit(this);
     }
 }
-
-module.exports = { Node };

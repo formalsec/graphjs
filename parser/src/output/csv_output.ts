@@ -1,8 +1,13 @@
-const fs = require("fs");
+import fs from "fs";
+import { OutputWriter } from "./output_writer";
 
-class CSVOutput {
+import { Graph } from "../traverse/graph/graph";
+import { Node } from "../traverse/graph/node";
+import { Edge } from "../traverse/graph/edge";
+
+export class CSVOutput extends OutputWriter {
     // eslint-disable-next-line class-methods-use-this
-    output(graph, options, filename) {
+    output(graph: Graph, options: any, filename: string) {
         // NODES
         // Id:ID¿Type¿Raw¿Location¿Label:LABEL
 
@@ -10,7 +15,7 @@ class CSVOutput {
         // nodesWriteStream.write('Id:ID¿Type¿Raw¿Location¿Label:LABEL\n');
         nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n");
 
-        graph.nodes.forEach((node) => {
+        graph.nodes.forEach((node: Node) => {
             const n = [];
 
             // node id
@@ -51,7 +56,7 @@ class CSVOutput {
         const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
         edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex\n");
 
-        graph.edges.forEach((edge) => {
+        graph.edges.forEach((edge: Edge) => {
             const e = [];
             const [n1, n2] = edge.nodes;
 
@@ -78,7 +83,3 @@ class CSVOutput {
         edgesWriteStream.close();
     }
 }
-
-module.exports = {
-    CSVOutput,
-};

@@ -25,6 +25,7 @@
     "@types/escodegen": "^0.0.7",
     "@types/esprima": "^4.0.3",
     "@types/estree": "^0.0.50",
+    "@types/graphviz": "^0.0.34",
     "@types/jest": "^27.0.3",
     "@types/node": "^16.11.11",
     "@typescript-eslint/eslint-plugin": "^5.5.0",

@@ -1,12 +1,13 @@
 /* eslint-disable no-undef */
-const { Edge } = require("./edge");
-const { Node } = require("./node");
+import { Edge } from "./edge";
+import { Node } from "./node";
 
 describe("Testing edge class", () => {
-    let edge;
-    let edgeId;
-    let node1;
-    let node2;
+    let edge: Edge;
+    let edgeId: number;
+    let edgeInfo: any;
+    let node1: Node;
+    let node2: Node;
 
     beforeEach(() => {
         edgeId = 3;

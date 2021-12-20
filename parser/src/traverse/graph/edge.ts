@@ -1,5 +1,16 @@
-class Edge {
-    constructor(id, node1, node2, edgeInfo) {
+import { Node } from "./node";
+
+export class Edge {
+    private _id: number;
+    private _nodes: Node[];
+    private _type: string;
+    private _label: string;
+    private _obj_name: string;
+    private _argument_index: number;
+    private _param_index: number;
+    private _stmt_index: number;
+
+    constructor(id: number, node1: Node, node2: Node, edgeInfo: any) {
         this._id = id;
         this._nodes = [node1, node2];
 
@@ -43,5 +54,3 @@ class Edge {
         return this._stmt_index;
     }
 }
-
-module.exports = { Edge };

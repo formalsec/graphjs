@@ -1,13 +1,13 @@
-/* eslint-disable no-undef */
-const { Node } = require("./node");
+import { Edge } from "./edge";
+import { Node } from "./node";
 
 describe("Testing node class", () => {
-    let node;
-    let nodeId;
-    let nodeType;
-    let nodeObj;
-    let nodeIdentifier;
-    let nodeNamespace;
+    let node: Node;
+    let nodeId: number;
+    let nodeType: string;
+    let nodeObj: any;
+    let nodeIdentifier: string;
+    let nodeNamespace: string;
 
     beforeEach(() => {
         nodeId = 1;
@@ -44,8 +44,12 @@ describe("Testing node class", () => {
         expect(node.edges.length).toBe(0);
         expect(node.edges).toEqual([]);
 
-        const newEdges = ["E1", "E2", "E3"];
-        newEdges.forEach((e) => node.addEdge(e));
+        const newEdges: Edge[] = [
+            new Edge(1, node, node, {}),
+            new Edge(2, node, node, {}),
+            new Edge(3, node, node, {})
+        ];
+        newEdges.forEach((e: Edge) => node.addEdge(e));
         expect(node.edges.length).toBe(newEdges.length);
         expect(node.edges).toEqual(newEdges);
     });
