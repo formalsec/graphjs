@@ -1,8 +1,8 @@
-import { Node } from "./node";
+import { GraphNode } from "./node";
 
-export class Edge {
+export class GraphEdge {
     private _id: number;
-    private _nodes: Node[];
+    private _nodes: GraphNode[];
     private _type: string;
     private _label: string;
     private _obj_name: string;
@@ -10,7 +10,7 @@ export class Edge {
     private _param_index: number;
     private _stmt_index: number;
 
-    constructor(id: number, node1: Node, node2: Node, edgeInfo: any) {
+    constructor(id: number, node1: GraphNode, node2: GraphNode, edgeInfo: any) {
         this._id = id;
         this._nodes = [node1, node2];
 

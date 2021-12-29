@@ -1,13 +1,13 @@
 /* eslint-disable no-undef */
-import { Edge } from "./edge";
-import { Node } from "./node";
+import { GraphEdge } from "./edge";
+import { GraphNode } from "./node";
 
 describe("Testing edge class", () => {
-    let edge: Edge;
+    let edge: GraphEdge;
     let edgeId: number;
     let edgeInfo: any;
-    let node1: Node;
-    let node2: Node;
+    let node1: GraphNode;
+    let node2: GraphNode;
 
     beforeEach(() => {
         edgeId = 3;
@@ -19,14 +19,14 @@ describe("Testing edge class", () => {
             stmtIndex: 3,
         };
 
-        node1 = new Node(1, "Node1");
-        node2 = new Node(2, "Node2");
+        node1 = new GraphNode(1, "Node1");
+        node2 = new GraphNode(2, "Node2");
 
-        edge = new Edge(edgeId, node1, node2, edgeInfo);
+        edge = new GraphEdge(edgeId, node1, node2, edgeInfo);
     });
 
     test("create an edge instance", () => {
-        expect(edge).toBeInstanceOf(Edge);
+        expect(edge).toBeInstanceOf(GraphEdge);
     });
 
     test("make sure edge id matches", () => {

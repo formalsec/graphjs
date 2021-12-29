@@ -1,12 +1,12 @@
-import { Node } from "./node";
-import { Edge } from "./edge";
+import { GraphNode } from "./node";
+import { GraphEdge } from "./edge";
 import { OutputManager } from "../../output/output_strategy";
 
 export class Graph {
     private nodeCounter: number;
     private edgeCounter: number;
-    private _nodes: Map<number, Node>;
-    private _edges: Map<number, Edge>;
+    private _nodes: Map<number, GraphNode>;
+    private _edges: Map<number, GraphEdge>;
     private _outputManager: OutputManager | null;
     private _startNodes: any; // Change this to a custom type
 
@@ -51,25 +51,25 @@ export class Graph {
     addNode(label: string, obj: any) {
         // eslint-disable-next-line no-plusplus
         const id = this.nodeCounter++;
-        const node = new Node(id, label, obj);
+        const node = new GraphNode(id, label, obj);
         this.nodes.set(id, node);
         return node;
     }
 
-    addEdge(nodeId1: number, nodeId2: number, edgeInfo: any): Edge | undefined {
+    addEdge(nodeId1: number, nodeId2: number, edgeInfo: any): GraphEdge | undefined {
         const node1 = this.nodes.get(nodeId1);
         const node2 = this.nodes.get(nodeId2);
 
         if (node1 && node2) {
             const id = this.edgeCounter++;
-            const edge = new Edge(id, node1, node2, edgeInfo);
+            const edge = new GraphEdge(id, node1, node2, edgeInfo);
             this.edges.set(id, edge);
             node1.addEdge(edge);
             return edge;
         }
     }
 
-    addStartNodes(nodeType: string, startNode: Node) {
+    addStartNodes(nodeType: string, startNode: GraphNode) {
         if (Object.prototype.hasOwnProperty.call(this.startNodes, nodeType)) {
             this.startNodes[nodeType].push(startNode);
         } else {

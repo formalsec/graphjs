@@ -33,9 +33,9 @@ function parse(filename: string) {
 
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
+        // return cfgGraph;
 
         const pdgGraph = buildPDG(cfgGraph);
-
         return pdgGraph;
     } catch (e: any) {
         console.log("Error:", e.stack);

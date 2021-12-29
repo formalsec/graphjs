@@ -1,12 +1,13 @@
-import { Edge } from "./edge";
+import { GraphEdge } from "./edge";
 
-export class Node {
+export class GraphNode {
     private _id: number;
     private _type: string;
     private _obj: any;
-    private _edges: Edge[];
+    private _edges: GraphEdge[];
     private _identifier: string | null;
     private _namespace: string | null;
+    private _variableName: string | null;
 
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
@@ -15,6 +16,7 @@ export class Node {
         this._edges = [];
         this._identifier = null;
         this._namespace = null;
+        this._variableName = null;
     }
 
     get id() {
@@ -53,7 +55,15 @@ export class Node {
         this._namespace = namespace;
     }
 
-    addEdge(edge: Edge) {
+    get variableName() {
+        return this._variableName;
+    }
+
+    set variableName(variableName) {
+        this._variableName = variableName;
+    }
+
+    addEdge(edge: GraphEdge) {
         this._edges.push(edge);
     }
 

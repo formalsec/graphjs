@@ -1,19 +1,19 @@
-import { Edge } from "./graph/edge";
+import { GraphEdge } from "./graph/edge";
 import { Graph } from "./graph/graph";
-import { Node } from "./graph/node";
+import { GraphNode } from "./graph/node";
 
 interface CFGReturnObject {
-    root: Node,
-    exit: Node
+    root: GraphNode,
+    exit: GraphNode
 };
 
 /* eslint-disable consistent-return */
 function buildCFG(astGraph: Graph) {
     const graph = astGraph;
 
-    function traverse(node: Node): CFGReturnObject {
-        function defaultNode(defNode: Node) {
-            defNode.edges.map((edge: Edge) => traverse(edge.nodes[1]));
+    function traverse(node: GraphNode): CFGReturnObject {
+        function defaultNode(defNode: GraphNode) {
+            defNode.edges.map((edge: GraphEdge) => traverse(edge.nodes[1]));
             return {
                 root: defNode,
                 exit: defNode,

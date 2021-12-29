@@ -1,8 +1,8 @@
-import { Edge } from "./edge";
-import { Node } from "./node";
+import { GraphEdge } from "./edge";
+import { GraphNode } from "./node";
 
 describe("Testing node class", () => {
-    let node: Node;
+    let node: GraphNode;
     let nodeId: number;
     let nodeType: string;
     let nodeObj: any;
@@ -15,13 +15,13 @@ describe("Testing node class", () => {
         nodeObj = { t: "test" };
         nodeIdentifier = "identifier";
         nodeNamespace = "namespace";
-        node = new Node(nodeId, nodeType, nodeObj);
+        node = new GraphNode(nodeId, nodeType, nodeObj);
         node.identifier = nodeIdentifier;
         node.namespace = nodeNamespace;
     });
 
     test("create a node instance", () => {
-        expect(node).toBeInstanceOf(Node);
+        expect(node).toBeInstanceOf(GraphNode);
     });
 
     test("make sure node id matches", () => {
@@ -44,12 +44,12 @@ describe("Testing node class", () => {
         expect(node.edges.length).toBe(0);
         expect(node.edges).toEqual([]);
 
-        const newEdges: Edge[] = [
-            new Edge(1, node, node, {}),
-            new Edge(2, node, node, {}),
-            new Edge(3, node, node, {})
+        const newEdges: GraphEdge[] = [
+            new GraphEdge(1, node, node, {}),
+            new GraphEdge(2, node, node, {}),
+            new GraphEdge(3, node, node, {})
         ];
-        newEdges.forEach((e: Edge) => node.addEdge(e));
+        newEdges.forEach((e: GraphEdge) => node.addEdge(e));
         expect(node.edges.length).toBe(newEdges.length);
         expect(node.edges).toEqual(newEdges);
     });
