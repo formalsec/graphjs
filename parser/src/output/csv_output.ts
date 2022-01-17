@@ -2,8 +2,8 @@ import fs from "fs";
 import { OutputWriter } from "./output_writer";
 
 import { Graph } from "../traverse/graph/graph";
-import { Node } from "../traverse/graph/node";
-import { Edge } from "../traverse/graph/edge";
+import { GraphNode } from "../traverse/graph/node";
+import { GraphEdge } from "../traverse/graph/edge";
 
 export class CSVOutput extends OutputWriter {
     // eslint-disable-next-line class-methods-use-this
@@ -15,7 +15,7 @@ export class CSVOutput extends OutputWriter {
         // nodesWriteStream.write('Id:ID¿Type¿Raw¿Location¿Label:LABEL\n');
         nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n");
 
-        graph.nodes.forEach((node: Node) => {
+        graph.nodes.forEach((node: GraphNode) => {
             const n = [];
 
             // node id
@@ -56,7 +56,7 @@ export class CSVOutput extends OutputWriter {
         const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
         edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex\n");
 
-        graph.edges.forEach((edge: Edge) => {
+        graph.edges.forEach((edge: GraphEdge) => {
             const e = [];
             const [n1, n2] = edge.nodes;
 

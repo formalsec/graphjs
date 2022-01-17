@@ -1,6 +1,7 @@
 import { GraphNode } from "./node";
 import { GraphEdge } from "./edge";
 import { OutputManager } from "../../output/output_strategy";
+import { start } from "repl";
 
 export class Graph {
     private nodeCounter: number;
@@ -8,7 +9,7 @@ export class Graph {
     private _nodes: Map<number, GraphNode>;
     private _edges: Map<number, GraphEdge>;
     private _outputManager: OutputManager | null;
-    private _startNodes: any; // Change this to a custom type
+    private _startNodes: Map<string, GraphNode[]>; // Change this to a custom type
 
     constructor(outputManager: OutputManager | null) {
         this.nodeCounter = 0;
@@ -18,7 +19,7 @@ export class Graph {
         this._edges = new Map();
 
         this._outputManager = outputManager;
-        this._startNodes = {};
+        this._startNodes = new Map();
     }
 
     get nodes() {
@@ -70,10 +71,12 @@ export class Graph {
     }
 
     addStartNodes(nodeType: string, startNode: GraphNode) {
-        if (Object.prototype.hasOwnProperty.call(this.startNodes, nodeType)) {
-            this.startNodes[nodeType].push(startNode);
+        const oldNodeArray = this.startNodes.get(nodeType);
+        if (oldNodeArray) {
+            oldNodeArray.push(startNode);
+            this.startNodes.set(nodeType, oldNodeArray);
         } else {
-            this.startNodes[nodeType] = [startNode];
+            this.startNodes.set(nodeType, [startNode]);
         }
     }
 

@@ -2,7 +2,6 @@ import yargs = require("yargs/yargs");
 import fs = require("fs");
 import esprima = require("esprima");
 import escodegen from "escodegen";
-const { Graph } = require("./traverse/graph/graph");
 import { normalizeScript } from "./traverse/normalizer";
 const { buildAST } = require("./traverse/ast_builder");
 const { buildCFG } = require("./traverse/cfg_builder");
@@ -13,9 +12,10 @@ const { CSVOutput } = require("./output/csv_output");
 
 // eslint-disable-next-line no-unused-vars
 import { printJSON } from "./utils/utils";
+import { Graph } from "./traverse/graph/graph";
 
 // Returns a graph object
-function parse(filename: string) {
+function parse(filename: string) : Graph {
     try {
         const data = fs.readFileSync(filename, "utf8");
         const ast = esprima.parseScript(data);
@@ -41,7 +41,7 @@ function parse(filename: string) {
         console.log("Error:", e.stack);
     }
 
-    // return new Graph();
+    return new Graph(null);
 }
 
 const { argv } = yargs(process.argv.slice(3))

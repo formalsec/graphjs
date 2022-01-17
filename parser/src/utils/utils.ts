@@ -21,3 +21,7 @@ export const getNextObjectName = () => `o${OBJ_COUNT++}`;
 export const resetObjectCount = () => OBJ_COUNT = 1;
 
 export const printJSON = (json: any) => console.log(JSON.stringify(json, null, 2));
+
+export function clone<T>(a: T): T {
+    return JSON.parse(JSON.stringify(a));
+}

@@ -151,7 +151,8 @@ function buildCFG(astGraph: Graph) {
         }
     }
 
-    traverse(graph.startNodes.AST[0]);
+    const startASTNodes = graph.startNodes.get("AST");
+    if (startASTNodes) traverse(startASTNodes[0]);
     return graph;
 }
 

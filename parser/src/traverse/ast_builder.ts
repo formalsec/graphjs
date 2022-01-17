@@ -1,12 +1,12 @@
 import * as estree from "estree";
 import { Graph } from "./graph/graph";
-import { Node } from "./graph/node";
+import { GraphNode } from "./graph/node";
 
 function buildAST(originalObj: estree.Program) {
     const graph = new Graph(null);
 
-    function traverse(obj: estree.Node, parentNode: Node | null): Node {
-        function mapReduce(arr: estree.Node[], anotherParentNode: Node | null): Node[] {
+    function traverse(obj: estree.Node, parentNode: GraphNode | null): GraphNode {
+        function mapReduce(arr: estree.Node[], anotherParentNode: GraphNode | null): GraphNode[] {
             return arr.map((item) => traverse(item, anotherParentNode));
         }
 

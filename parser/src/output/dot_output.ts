@@ -1,12 +1,12 @@
 import { OutputWriter } from "./output_writer";
 import { Graph } from "../traverse/graph/graph";
-import { Node } from "../traverse/graph/node";
-import { Edge } from "../traverse/graph/edge";
+import { GraphNode } from "../traverse/graph/node";
+import { GraphEdge } from "../traverse/graph/edge";
 
 import graphviz from "graphviz";
 import escodegen from "escodegen";
 
-function getNodeLabel(n: Node, showCode: any) {
+function getNodeLabel(n: GraphNode, showCode: any) {
     let label = `#${n.id} ${n.type}`;
     if (n.obj) {
         switch (n.type) {
@@ -80,7 +80,7 @@ function getNodeLabel(n: Node, showCode: any) {
     return label;
 }
 
-function getEdgeLabel(e: Edge) {
+function getEdgeLabel(e: GraphEdge) {
     let label;
 
     switch (e.label) {
@@ -113,7 +113,7 @@ function getEdgeLabel(e: Edge) {
     return label;
 }
 
-function getEdgeColor(e: Edge) {
+function getEdgeColor(e: GraphEdge) {
     let color;
     switch (e.type) {
     case "AST":
@@ -132,7 +132,7 @@ function getEdgeColor(e: Edge) {
     return color;
 }
 
-function getNodeColor(n: Node) {
+function getNodeColor(n: GraphNode) {
     let color;
     if (n.obj) {
         switch (n.obj.type) {
@@ -160,66 +160,67 @@ export class DotOutput extends OutputWriter {
         const gDot = graphviz.digraph("G");
         this.showCode = options.show_code || false;
 
-        const nodesVisited: Node[]= [];
-        const nodesToPrint = Object.keys(graph.startNodes)
-            .filter((type) => !options.ignore.includes(type))
-            .map((type) => graph.startNodes[type]).flat();
+        const nodesVisited: number[] = [];
+        const nodesToPrint = [...graph.startNodes.entries()]
+            .filter((entry) => !options.ignore.includes(entry[0]))
+            .map((entry) => graph.startNodes.get(entry[0])).flat();
 
         while (nodesToPrint.length > 0) {
             const n = nodesToPrint.shift();
-
-            if (nodesVisited.includes(n.id)) {
-                // eslint-disable-next-line no-continue
-                continue;
-            }
-
-            if (options.ignore && options.ignore.includes(n.obj.type)) {
-                // eslint-disable-next-line no-continue
-                continue;
-            }
-
-            nodesVisited.push(n.id);
-            let { edges } = n;
-
-            if (options.ignore) {
-                edges = n.edges.filter((e: Edge) => !options.ignore.includes(e.type));
-            }
-
-            const nodeLabel = getNodeLabel(n, this.showCode);
-            const nodeColor = getNodeColor(n);
-            gDot.addNode(nodeLabel, { fontcolor: nodeColor, color: nodeColor });
-
-            if (this.showCode && n.type === "ExpressionStatement") {
-                edges = n.edges.filter((e: Edge) => e.type !== "AST");
-            }
-
-            if (this.showCode && n.type === "VariableDeclarator") {
-                const { init } = n.obj;
-
-                if (init && init.type !== "FunctionExpression" && init.type !== "ArrowFunctionExpression") {
-                    edges = n.edges.filter((e: Edge) => e.type !== "AST");
+            if (n) {
+                if (nodesVisited.includes(n.id)) {
+                    // eslint-disable-next-line no-continue
+                    continue;
                 }
-            }
 
-            edges.forEach((e: Edge) => {
-                const [n1, n2] = e.nodes;
-                nodesToPrint.push(n2);
-
-                const edgeLabel = getEdgeLabel(e);
-
-                if (!options.ignore.includes(e.type)) {
-                    const edgeColor = getEdgeColor(e);
-                    gDot.addEdge(
-                        getNodeLabel(n1, this.showCode),
-                        getNodeLabel(n2, this.showCode),
-                        {
-                            label: edgeLabel,
-                            fontcolor: edgeColor,
-                            color: edgeColor,
-                        },
-                    );
+                if (options.ignore && options.ignore.includes(n.obj.type)) {
+                    // eslint-disable-next-line no-continue
+                    continue;
                 }
-            });
+
+                nodesVisited.push(n.id);
+                let edges = n.edges;
+
+                if (options.ignore) {
+                    edges = n.edges.filter((e: GraphEdge) => !options.ignore.includes(e.type));
+                }
+
+                const nodeLabel = getNodeLabel(n, this.showCode);
+                const nodeColor = getNodeColor(n);
+                gDot.addNode(nodeLabel, { fontcolor: nodeColor, color: nodeColor });
+
+                if (this.showCode && n.type === "ExpressionStatement") {
+                    edges = n.edges.filter((e: GraphEdge) => e.type !== "AST");
+                }
+
+                if (this.showCode && n.type === "VariableDeclarator") {
+                    const { init } = n.obj;
+
+                    if (init && init.type !== "FunctionExpression" && init.type !== "ArrowFunctionExpression") {
+                        edges = n.edges.filter((e: GraphEdge) => e.type !== "AST");
+                    }
+                }
+
+                edges.forEach((e: GraphEdge) => {
+                    const [n1, n2] = e.nodes;
+                    nodesToPrint.push(n2);
+
+                    const edgeLabel = getEdgeLabel(e);
+
+                    if (!options.ignore.includes(e.type)) {
+                        const edgeColor = getEdgeColor(e);
+                        gDot.addEdge(
+                            getNodeLabel(n1, this.showCode),
+                            getNodeLabel(n2, this.showCode),
+                            {
+                                label: edgeLabel,
+                                fontcolor: edgeColor,
+                                color: edgeColor,
+                            },
+                        );
+                    }
+                });
+            }
         }
 
         // console.log(gDot.to_dot());
