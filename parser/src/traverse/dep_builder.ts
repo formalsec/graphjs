@@ -1,35 +1,90 @@
 import { GraphEdge } from "./graph/edge";
 import { Graph } from "./graph/graph";
 import { GraphNode } from "./graph/node";
-import { clone } from "../utils/utils";
+import { clone, getNextObjectName } from "../utils/utils";
+
+interface GraphOperation {
+    op: string,
+    name: string,
+    source: number,
+    destination?: number,
+};
 
 type Heap = Map<string, Object>;
 type Store = Map<string, Object>;
 type Phi = Map<string, number>;
-
-interface DepAnalysisStepReturn {
-    heap: Heap,
-    store: Store,
-    phi: Phi,
+type Dependencytrackers = {
+    "heap": Heap,
+    "store": Store,
+    "phi": Phi,
+    "gChanges": Array<GraphOperation>,
 };
 
-function printAuxiliaryStructures(heap: Heap, store: Store, phi: Phi) {
-    console.log(heap);
-    console.log(store);
-    console.log(phi);
+function printAuxiliaryStructures(trackers: Dependencytrackers) {
+    console.log("Heap:", trackers.heap);
+    console.log("Store:", trackers.store);
+    console.log("Phi:", trackers.phi);
+    console.log("Graph:", trackers.gChanges);
 }
 
-function handleExpressionStatement(node: GraphNode, oldHeap: Heap, oldStore: Store, oldPhi: Phi): DepAnalysisStepReturn {
-    const heap = clone(oldHeap);
-    const store = clone(oldStore);
-    const phi = clone(oldPhi);
+function getASTNode(parent: GraphNode, childLabel: string): GraphNode {
+    return parent.edges.filter(e => e.type === "AST" && e.label === childLabel)[0].nodes[1];
+}
 
-    return { heap, store, phi };
+function handleAssignmentRight(stmtId: number, parent: GraphNode, left: GraphNode, right: GraphNode, trackers: Dependencytrackers): Dependencytrackers {
+
+    switch (right.type) {
+        case "ObjectExpression": {
+            const leftIdentifier = left.obj.name;
+            const newObjName = getNextObjectName();
+            trackers.heap.set(newObjName, {});
+            trackers.store.set(leftIdentifier, newObjName);
+            trackers.phi.set(leftIdentifier, stmtId);
+            trackers.gChanges = [
+                {
+                    op: "OBJECT",
+                    source: stmtId,
+                    name: newObjName,
+                }
+            ];
+        }
+    }
+
+    return trackers;
+}
+
+function handleAssignmentExpression(stmtId: number, parent: GraphNode, left: GraphNode, right: GraphNode, trackers: Dependencytrackers): Dependencytrackers {
+
+    switch (left.type) {
+        // simple assignment / lookup
+        case "Identifier": {
+            return handleAssignmentRight(stmtId, parent, left, right, trackers);
+        }
+
+        // object write
+        case "MemberExpression": {
+            break;
+        }
+    }
+
+    return trackers
+}
+
+function handleExpressionStatement(stmtId: number, node: GraphNode, trackers: Dependencytrackers): Dependencytrackers {
+
+    switch (node.type) {
+        case "AssignmentExpression": {
+            const left = getASTNode(node, "left");
+            const right = getASTNode(node, "right");
+            return handleAssignmentExpression(stmtId, node, left, right, trackers);
+        }
+    }
+
+    return trackers;
 }
 
 export function buildPDG(cfgGraph: Graph): Graph {
     const graph = cfgGraph;
-    const startNodes = graph.startNodes.get("CFG");
 
     // Heap - Locations -> Objects
     let heap: Heap = new Map();
@@ -39,6 +94,13 @@ export function buildPDG(cfgGraph: Graph): Graph {
 
     // Phi - Variable -> Statement Node Id
     let phi: Phi = new Map();
+
+    let trackers: Dependencytrackers = {
+        "heap": heap,
+        "store": store,
+        "phi": phi,
+        "gChanges": [],
+    };
 
     const visitedNodes: number[] = [];
 
@@ -51,9 +113,14 @@ export function buildPDG(cfgGraph: Graph): Graph {
 
         console.log(node.id, node.type);
 
+        // check all possible statements after normalization
         switch (node.type) {
+
+            // expression statements are the majority of statements
             case "ExpressionStatement": {
-                ({ heap, store, phi } = handleExpressionStatement(node, heap, store, phi));
+                const expressionNode = getASTNode(node, "expression");
+                if (expressionNode)
+                    trackers = handleExpressionStatement(node.id, expressionNode, trackers);
                 break;
             }
 
@@ -61,6 +128,19 @@ export function buildPDG(cfgGraph: Graph): Graph {
                 break;
         }
 
+        // perform graph changes according to log gChnages object
+        trackers.gChanges.forEach(change => {
+            switch (change.op) {
+                case "OBJECT": {
+                    const nodeObj = graph.addNode("PDG_OBJECT", { type: "PDG" });
+                    nodeObj.identifier = change.name;
+                    graph.addEdge(change.source, nodeObj.id, { type: "PDG", label: "CREATE", objName: change.name });
+                }
+            }
+        });
+        trackers.gChanges = [];
+
+        // traverse all child CFG nodes
         node.edges
             .filter((edge: GraphEdge) => edge.type === "CFG")
             .forEach((edge: GraphEdge) => {
@@ -69,11 +149,13 @@ export function buildPDG(cfgGraph: Graph): Graph {
             });
     }
 
+    // traverse CFG nodes
+    const startNodes = graph.startNodes.get("CFG");
     startNodes?.forEach((node: GraphNode) => {
         traverse(node);
     });
 
 
-    printAuxiliaryStructures(heap, store, phi);
+    printAuxiliaryStructures(trackers);
     return graph;
 }
