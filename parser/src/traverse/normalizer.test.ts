@@ -148,3 +148,7 @@ test("testing normalize - check that normalization retains same behaviour (18) -
 test("testing normalize - check that normalization retains same behaviour (19) - sequence expressions", () => {
     testNormalization("./test-inputs/normalization/sequence-expressions");
 });
+
+test("testing normalize - check that normalization retains same behaviour (20) - js-wala tests", () => {
+    testNormalization("./test-inputs/normalization/js-wala");
+});
