@@ -26,6 +26,8 @@ import {
     normAssignmentExpressions,
     normBlockStatement,
     normWhileStatement,
+    normDoWhileStatement,
+    normForStatement,
     normExpressionStatement,
     normFunctionDeclaration,
     normIfStatement,
@@ -259,7 +261,6 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         };
     }
 
-    case "DoWhileStatement":
     case "WhileStatement": {
         const resultTest = normalize(obj.test, obj);
         const resultBody = normalize(obj.body, obj);
@@ -271,25 +272,35 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normWhileStatement(obj, resultData);
     }
 
+    case "DoWhileStatement":
+        const resultTest = normalize(obj.test, obj);
+        const resultBody = normalize(obj.body, obj);
+
+        const resultData = [
+            resultTest,
+            resultBody,
+        ];
+        return normDoWhileStatement(obj, resultData);
+
     case "ExpressionStatement": {
         const resultData = [normalize(obj.expression, obj)];
         return normExpressionStatement(obj, resultData);
     }
 
-    // case "ForStatement": {
-    //     const resultInit = normalize(obj.init, obj);
-    //     const resultTest = normalize(obj.test, obj);
-    //     const resultUpdate = normalize(obj.update, obj);
-    //     const resultBody = normalize(obj.body, obj);
+    case "ForStatement": {
+         const resultInit = normalize(obj.init, obj);
+         const resultTest = normalize(obj.test, obj);
+         const resultUpdate = normalize(obj.update, obj);
+         const resultBody = normalize(obj.body, obj);
 
-    //     const resultData = [
-    //     resultInit,
-    //     resultTest,
-    //     resultUpdate,
-    //     resultBody
-    //     ];
-    //     break;
-    // }
+         const resultData = [
+            resultInit,
+            resultTest,
+            resultUpdate,
+            resultBody
+         ];
+         return normForStatement(obj, resultData);
+    }
 
     // case "ForInStatement": {
     //     const resultLeft = normalize(obj.left, obj);

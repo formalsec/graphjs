@@ -28,6 +28,9 @@ import type {
     YieldExpression,
     SpreadElement,
     SequenceExpression,
+    SimpleLiteral,
+    BlockStatement,
+    Statement,
 } from "estree";
 
 export interface Normalization {
@@ -72,6 +75,14 @@ export function createEmptyObject(): ObjectExpression {
     };
 };
 
+export function createBooleanLiteral(value: boolean): SimpleLiteral {
+    return {
+        type: "Literal",
+        value,
+        raw: value?.toString()
+    };
+}
+
 interface CreatedDeclaration {
     id: Identifier,
     decl: VariableDeclaration,
@@ -82,8 +93,8 @@ interface CreatedDeclarator {
     decl: VariableDeclarator,
 };
 
-export function createVariableDeclaration(obj: Expression | null | undefined): CreatedDeclaration {
-    const id = createRandomIdentifier();
+export function createVariableDeclaration(obj: Expression | null | undefined, objId?: string, constant: boolean = true): CreatedDeclaration {
+    const id = (objId)? createIdentifierWithName(objId) : createRandomIdentifier();
 
     const decl: VariableDeclaration = {
         type: "VariableDeclaration",
@@ -94,7 +105,7 @@ export function createVariableDeclaration(obj: Expression | null | undefined): C
                 init: obj,
             },
         ],
-        kind: "const",
+        kind: (constant)? "const" : "let",
     };
 
     return { id, decl };
@@ -144,6 +155,21 @@ export function createPropertyAssignment(objId: Identifier, propKey: Identifier,
                 optional: false,
             },
             right: propValue,
+        },
+    };
+};
+
+export function createExpressionAssignment(objId: string, objValue: Expression): ExpressionStatement {
+    return {
+        type: "ExpressionStatement",
+        expression: {
+            type: "AssignmentExpression",
+            operator: "=",
+            left: {
+                type: "Identifier",
+                name: objId,
+            },
+            right: objValue,
         },
     };
 };
@@ -318,16 +344,109 @@ export function normConditionalExpression(obj: Node, children: Normalization[]):
     };
 };
 
+export function appendToWhileBody(body: Statement, stmt: ExpressionStatement): Node | undefined {
+    // If it does not contain {}
+    if (body && body.type != "BlockStatement") {
+        const newBody: Node = { type: "BlockStatement", body: [body, stmt]}
+        return newBody; 
+    }
+    else if (body && body.type == "BlockStatement" && body.body) {
+        body.body = body.body.concat(stmt)
+        return body;
+    }
+}
+
+
 export function normWhileStatement(obj: Node, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.test = children[0].expr;
     [newObj.body] = children[1].stmts;
+
+    const objId = newObj.test.name;
+    children[0].stmts.forEach((stmt) => {
+        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator" 
+            && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
+                stmt.kind = "let";
+                const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
+                newObj.body = appendToWhileBody(newObj.body, newAssignment);
+        }
+    });
 
     return {
         stmts: [...children[0].stmts, newObj],
         expr: null,
     };
 };
+
+export function normDoWhileStatement(obj: Node, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+    newObj.type = "WhileStatement";
+    newObj.test = children[0].expr;
+    [newObj.body] = children[1].stmts;
+
+    // First create test condition = true
+    const boolObj: SimpleLiteral = createBooleanLiteral(true);
+    const objId: string = (children[0].expr as Identifier).name;
+    const { id, decl } = createVariableDeclaration(boolObj, objId, false);
+
+    // Change test declaration to assignment (if exists)
+    children[0].stmts.forEach((stmt) => {
+        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator" 
+            && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
+                const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
+                // Append condition statement to the end of body
+                newObj.body = appendToWhileBody(newObj.body, newAssignment);
+        }
+    });
+    
+    return {
+        stmts: [decl, newObj],
+        expr: null,
+    };
+};
+
+export function normForStatement(obj: Node, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+    newObj.type = "WhileStatement";
+    newObj.test = children[1].expr;
+    [newObj.body] = children[3].stmts;
+
+    // Append update
+    children[2].stmts.forEach((stmt) => newObj.body = appendToWhileBody(newObj.body, stmt as ExpressionStatement)); // Can I do this?
+
+    const objId = newObj.test.name;
+    children[1].stmts.forEach((stmt) => {
+        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator" 
+            && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
+                // Append test condition
+                stmt.kind = "let";
+                const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
+                newObj.body = appendToWhileBody(newObj.body, newAssignment);
+        }
+    }); 
+
+    return {
+        stmts: [...children[0].stmts, ...children[1].stmts, newObj],
+        expr: null,
+    };
+};
+
+// TODO: Ask Prof. José what should be done in this case
+// IDEA: change it to a while??
+// function normForStatement(obj, children, parent) {
+//     const stmts = children[0].stmts.concat(children[2].stmts);
+
+//     const newObj = copyObj(obj);
+//     newObj.init = children[0].expr;
+//     //newObj.test = children[1].expr;
+//     newObj.update = children[2].expr;
+//     newObj.body = children[3].stmts[0];
+
+//     return {
+//         stmts: stmts.concat(newObj),
+//         expr: null,
+//     };
+// }
 
 export function normAssignmentExpressions (obj: AssignmentExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
@@ -509,22 +628,6 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
     };
 };
 
-// TODO: Ask Prof. José what should be done in this case
-// IDEA: change it to a while??
-// function normForStatement(obj, children, parent) {
-//     const stmts = children[0].stmts.concat(children[2].stmts);
-
-//     const newObj = copyObj(obj);
-//     newObj.init = children[0].expr;
-//     //newObj.test = children[1].expr;
-//     newObj.update = children[2].expr;
-//     newObj.body = children[3].stmts[0];
-
-//     return {
-//         stmts: stmts.concat(newObj),
-//         expr: null,
-//     };
-// }
 
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
