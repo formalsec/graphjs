@@ -84,6 +84,8 @@ function getEdgeLabel(e: GraphEdge) {
     let label;
 
     switch (e.label) {
+    case "VAR":
+    case "NEW_VERSION":
     case "WRITE":
     case "LOOKUP":
     case "CREATE": {

@@ -29,7 +29,7 @@ function parse(filename: string) : Graph {
 
         const code = escodegen.generate(normalizedAst);
         console.log(code);
-        // // console.log("===============");
+        console.log("===============");
 
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
