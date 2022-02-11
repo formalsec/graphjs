@@ -21,17 +21,19 @@ function parse(filename: string) : Graph {
         const ast = esprima.parseScript(data);
         // const ast = esprima.parseScript(data, { loc: true });
 
-        // printJSON(ast);
-        // console.log("===============");
-        const normalizedAst = normalizeScript(ast);
-        // printJSON(normalizedAst);
-        // console.log("===============");
+        // // printJSON(ast);
+        // // console.log("===============");
+        // const normalizedAst = normalizeScript(ast);
+        // // printJSON(normalizedAst);
+        // // console.log("===============");
 
-        const code = escodegen.generate(normalizedAst);
+        // const code = escodegen.generate(normalizedAst);
+        const code = escodegen.generate(ast);
         console.log(code);
         console.log("===============");
 
-        const astGraph = buildAST(normalizedAst);
+        // const astGraph = buildAST(normalizedAst);
+        const astGraph = buildAST(ast);
         const cfgGraph = buildCFG(astGraph);
         // return cfgGraph;
 

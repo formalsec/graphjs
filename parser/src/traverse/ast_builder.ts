@@ -66,10 +66,10 @@ function buildAST(originalObj: estree.Program) {
             const objNode = graph.addNode(obj.type, obj);
 
             const key = traverse(obj.key, objNode);
-            const computed = traverse(obj.value, objNode);
+            const value = traverse(obj.value, objNode);
 
             graph.addEdge(objNode.id, key.id, { type: "AST", label: "key" });
-            graph.addEdge(objNode.id, computed.id, { type: "AST", label: "computed" });
+            graph.addEdge(objNode.id, value.id, { type: "AST", label: "value" });
             return objNode;
         }
 
