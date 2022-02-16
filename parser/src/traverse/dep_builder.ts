@@ -1,49 +1,31 @@
 import { GraphEdge } from "./graph/edge";
 import { Graph } from "./graph/graph";
 import { GraphNode } from "./graph/node";
-import { getNextObjectName } from "../utils/utils";
-import { Property } from "estree";
-import { DependencyTracker } from "./dependency_trackers";
+import { getASTNode, getNextObjectName } from "../utils/utils";
+import { DependencyTracker, evalDep, evalSto, ValLattice, StorageObject } from "./dependency_trackers";
 
-// enum ValLattice {
-//     NoObject,
-//     Unknown,
-// };
+function handleSimpleAssignment(stmtId: number, variable: string, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    const newTrackers = trackers.clone();
 
-// interface GraphOperation {
-//     op: string,
-//     name: string,
-//     source?: number,
-//     destination?: number,
-//     previousObjectName?: string,
-//     propertyName?: string,
-// };
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
 
-// interface HeapObjectValue {
-//     [key: string]: ValLattice | Object,
-// };
+    // check if this expression is already in storage
+    const storageValue = evalSto(trackers, expNode);
 
-// type Heap = Map<string, HeapObjectValue>;
-// type Store = Map<string, string>;
-// type Phi = Map<string, number>;
-// type Dependencytrackers = {
-//     "heap": Heap,
-//     "store": Store,
-//     "phi": Phi,
-//     "gChanges": Array<GraphOperation>,
-//     "gNodes": Map<string, number>,
-// };
+    // store the identifier of the location
+    newTrackers.addToStore(variable, storageValue);
 
-// function printAuxiliaryStructures(trackers: Dependencytrackers) {
-//     console.log("Heap:", trackers.heap);
-//     console.log("Store:", trackers.store);
-//     console.log("Phi:", trackers.phi);
-//     console.log("Graph Nodes:", trackers.gNodes);
-// }
+    // store the stmtid
+    newTrackers.addToPhi(variable, stmtId);
 
-function getASTNode(parent: GraphNode, childLabel: string): GraphNode {
-    return parent.edges.filter(e => e.type === "AST" && e.label === childLabel)[0].nodes[1];
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
 }
+
 
 function handleObjectExpression(stmtId: number, variable: string, objExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // clone trackers
@@ -52,14 +34,14 @@ function handleObjectExpression(stmtId: number, variable: string, objExpNode: Gr
     // create new name for pdg object
     const pdgObjName = getNextObjectName();
 
-    // TODO: avaliar as dependendias das propriedades
-    // propDeps = evalDep(objExpNode)
-
     // add to heap
-    newTrackers.addToHeap(pdgObjName, objExpNode.obj.properties as Property[]);
+    newTrackers.addNewObjectToHeap(pdgObjName);
 
     // store the identifier of the new object
-    newTrackers.addToStore(variable, pdgObjName);
+    newTrackers.addToStore(variable, {
+        location: pdgObjName,
+        value: ValLattice.Object
+    });
 
     // store the stmtid
     newTrackers.addToPhi(variable, stmtId);
@@ -70,6 +52,27 @@ function handleObjectExpression(stmtId: number, variable: string, objExpNode: Gr
     return newTrackers;
 }
 
+function handleMemberExpression(stmtId: number, variable: string, memExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, memExpNode);
+
+    // check if this expression is already in storage
+    const storageValue = evalSto(trackers, memExpNode);
+
+    // store the identifier of the location
+    newTrackers.addToStore(variable, storageValue);
+
+    // store the stmtid
+    newTrackers.addToPhi(variable, stmtId);
+
+    // set changes as lookup from object
+    newTrackers.graphLookupObject(deps);
+
+    return newTrackers;
+}
 
 function handleVariableAssignment(stmtId: number, parent: GraphNode, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const leftIdentifier = left.obj.name;
@@ -78,43 +81,9 @@ function handleVariableAssignment(stmtId: number, parent: GraphNode, left: Graph
             return handleObjectExpression(stmtId, leftIdentifier, right, trackers);
         }
 
-    //     case "MemberExpression": {
-    //         const objectName = right.obj.object.name;
-    //         const propertyName = right.obj.property.name;
-
-    //         // get name of object node from store
-    //         const objectLocation = trackers.store.get(objectName);
-    //         if (objectLocation) {
-    //             // get value of the object
-    //             const heapObject = trackers.heap.get(objectLocation);
-
-    //             if (heapObject) {
-    //                 // get value of the property of this property (eg. __NO__)
-    //                 let assignmentValue = heapObject[propertyName];
-
-    //                 // add to the heap if this value is not known (__?__)
-    //                 if (!assignmentValue) {
-    //                     heapObject[propertyName] = ValLattice.Unknown;
-    //                     trackers.heap.set(objectLocation, heapObject);
-    //                     assignmentValue = heapObject[propertyName];
-    //                 }
-
-    //                 // store new variable using the value of the property
-    //                 trackers.store.set(leftIdentifier, assignmentValue);
-    //                 // store the stmtid
-    //                 trackers.phi.set(leftIdentifier, stmtId);
-    //                 // set changes as lookup of property
-    //                 trackers.gChanges.push({
-    //                     op: "LOOKUP",
-    //                     name: objectName,
-    //                     destination: stmtId,
-    //                     previousObjectName: objectLocation,
-    //                     propertyName: propertyName,
-    //                 });
-    //             }
-    //         }
-    //         break;
-    //     }
+        case "MemberExpression": {
+            return handleMemberExpression(stmtId, leftIdentifier, right, trackers);
+        }
 
     //     case "CallExpression": {
     //         // apply var dependency for every argument
@@ -170,49 +139,38 @@ function handleVariableAssignment(stmtId: number, parent: GraphNode, left: Graph
     //         trackers.phi.set(leftIdentifier, stmtId);
     //         break;
     //     }
+
+        default: {
+            return handleSimpleAssignment(stmtId, leftIdentifier, right, trackers);
+        }
     }
 
-    return trackers.clone();
+    // return trackers.clone();
 }
 
-// function handleObjectWrite(stmtId: number, parent: GraphNode, left: GraphNode, right: GraphNode, trackers: Dependencytrackers): Dependencytrackers {
-//     const objectName = left.obj.object.name;
-//     const propertyName = left.obj.property.name;
+function handleObjectWrite(stmtId: number, parent: GraphNode, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // get child nodes for the member expression
+    const obj = getASTNode(left, "object");
+    const prop = getASTNode(left, "property");
 
-//     // if object already in store
-//     if (trackers.store.has(objectName)) {
-//         // we have to create a new object (new version)
-//         const newObjName = getNextObjectName();
-//         // value for this object is NO
-//         let newObjValue: HeapObjectValue = {};
+    // get location stored for this object
+    const objStorage = evalSto(trackers, obj);
 
-//         if (right.type === "Literal") {
-//             newObjValue[propertyName] = ValLattice.NoObject;
-//         } else {
-//             // We should actually check for var dependencies here
-//             newObjValue[propertyName] = ValLattice.Unknown;
-//         }
+    if (!DependencyTracker.isStorageObject(objStorage)) return trackers.clone();
+    const objLocation = (<StorageObject>objStorage).location;
 
-//         // add new object to heap
-//         const previousObjectName = trackers.store.get(objectName);
-//         trackers.heap.set(newObjName, newObjValue);
-//         // change store to point to new object
-//         trackers.store.set(objectName, newObjName);
+    // evaluate storage and dependency of right-hand side expression
+    const rightStorageValue = evalSto(trackers, right);
+    const deps = evalDep(trackers, stmtId, right);
 
-//         // create new object
-//         // add write edge from this statement
-//         // add new version edge from previous version
-//         trackers.gChanges.push({
-//             op: "CREATE_NEW_VERSION",
-//             source: stmtId,
-//             name: newObjName,
-//             previousObjectName: previousObjectName,
-//             propertyName: propertyName,
-//         });
-//     }
+    // replicate object
+    const { newTrackers, newObjLocation } = trackers.createNewObjectVersion(obj.obj.name, prop.obj.name, rightStorageValue);
 
-//     return trackers;
-// }
+    // set changes as creation of new object and write of property
+    newTrackers.graphCreateNewObjectVersion(stmtId, objLocation, newObjLocation, deps, prop.obj.name);
+
+    return newTrackers;
+}
 
 function handleAssignmentExpression(stmtId: number, parent: GraphNode, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
 
@@ -222,10 +180,10 @@ function handleAssignmentExpression(stmtId: number, parent: GraphNode, left: Gra
             return handleVariableAssignment(stmtId, parent, left, right, trackers);
         }
 
-        // // object write
-        // case "MemberExpression": {
-        //     return handleObjectWrite(stmtId, parent, left, right, trackers);
-        // }
+        // object write
+        case "MemberExpression": {
+            return handleObjectWrite(stmtId, parent, left, right, trackers);
+        }
     }
 
     return trackers.clone();
