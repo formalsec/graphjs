@@ -10,70 +10,70 @@ function getNodeLabel(n: GraphNode, showCode: any) {
     let label = `#${n.id} ${n.type}`;
     if (n.obj) {
         switch (n.type) {
-        case "PDG_OBJECT":
-            label = `#${n.id} ${n.type} ${n.identifier}`;
-            break;
+            case "PDG_OBJECT":
+                label = `#${n.id} ${n.type} ${n.identifier}`;
+                break;
 
-        case "CFG_F_START":
-        case "CFG_F_END":
-            label = `#${n.id} ${n.type} ${n.identifier}`;
-            break;
+            case "CFG_F_START":
+            case "CFG_F_END":
+                label = `#${n.id} ${n.type} ${n.identifier}`;
+                break;
 
-        case "Identifier": {
-            label = `#${n.id} ${n.type} (${n.identifier})`;
-            break;
-        }
+            case "Identifier": {
+                label = `#${n.id} ${n.type} (${n.identifier})`;
+                break;
+            }
 
-        case "VariableDeclarator": {
-            const { init } = n.obj;
-            label = `#${n.id} Variable (${n.identifier})`;
+            case "VariableDeclarator": {
+                const { init } = n.obj;
+                label = `#${n.id} Variable (${n.identifier})`;
 
-            if (init) {
-                if (showCode) {
-                    if (init.type === "FunctionExpression"
-                    || init.type === "ArrowFunctionExpression") {
-                        const { namespace } = n.edges[0].nodes[1];
-                        label = `#${n.id}» ${n.identifier} = Function (${namespace})`;
-                    } else {
-                        const code = escodegen.generate(n.obj);
-                        // label = `#${n.id} ${n.type} \n\n${code}`;
-                        label = `#${n.id}» ${code}`;
+                if (init) {
+                    if (showCode) {
+                        if (init.type === "FunctionExpression"
+                        || init.type === "ArrowFunctionExpression") {
+                            const { namespace } = n.edges[0].nodes[1];
+                            label = `#${n.id}» ${n.identifier} = Function (${namespace})`;
+                        } else {
+                            const code = escodegen.generate(n.obj);
+                            // label = `#${n.id} ${n.type} \n\n${code}`;
+                            label = `#${n.id}» ${code}`;
+                        }
                     }
                 }
+                break;
             }
-            break;
-        }
 
-        case "ExpressionStatement": {
-            if (showCode) {
-                const code = escodegen.generate(n.obj);
-                // label = `#${n.id} ${n.type} \n\n${code}`;
-                label = `#${n.id}» ${code}`;
+            case "ExpressionStatement": {
+                if (showCode) {
+                    const code = escodegen.generate(n.obj);
+                    // label = `#${n.id} ${n.type} \n\n${code}`;
+                    label = `#${n.id}» ${code}`;
+                }
+                break;
             }
-            break;
-        }
 
-        // case 'Literal':
-        //     label = `#${n.id} ${n.type} (${n.obj.raw})`;
-        //     break;
+            // case 'Literal':
+            //     label = `#${n.id} ${n.type} (${n.obj.raw})`;
+            //     break;
 
-        case "UpdateExpression":
-        case "UnaryExpression":
-        case "BinaryExpression": {
-            label = `#${n.id} ${n.type} (${n.obj.operator})`;
-            break;
-        }
+            case "UpdateExpression":
+            case "UnaryExpression":
+            case "BinaryExpression": {
+                label = `#${n.id} ${n.type} (${n.obj.operator})`;
+                break;
+            }
 
-        case "ArrowFunctionExpression":
-        case "FunctionDeclaration":
-        case "FunctionExpression":
-        case "LabeledStatement": {
-            label = `#${n.id} Function (${n.identifier})`;
-            break;
-        }
+            case "ArrowFunctionExpression":
+            case "FunctionDeclaration":
+            case "FunctionExpression":
+            case "LabeledStatement": {
+                label = `#${n.id} Function (${n.identifier})`;
+                break;
+            }
 
-        default:
-            break;
+            default:
+                break;
         }
     }
 
@@ -84,32 +84,33 @@ function getEdgeLabel(e: GraphEdge) {
     let label;
 
     switch (e.label) {
-    case "VAR":
-    case "NEW_VERSION":
-    case "WRITE":
-    case "LOOKUP":
-    case "CREATE": {
-        label = `${e.label} ${e.objName}`;
-        break;
-    }
+        case "VAR":
+        case "NEW_VERSION":
+        case "SUB_OBJECT":
+        case "WRITE":
+        case "LOOKUP":
+        case "CREATE": {
+            label = `${e.label} ${e.objName}`;
+            break;
+        }
 
-    case "arg": {
-        label = `${e.label} ${e.argumentIndex}`;
-        break;
-    }
+        case "arg": {
+            label = `${e.label} ${e.argumentIndex}`;
+            break;
+        }
 
-    case "param": {
-        label = `${e.label} ${e.paramIndex}`;
-        break;
-    }
+        case "param": {
+            label = `${e.label} ${e.paramIndex}`;
+            break;
+        }
 
-    case "stmt": {
-        label = e.stmtIndex;
-        break;
-    }
+        case "stmt": {
+            label = e.stmtIndex;
+            break;
+        }
 
-    default:
-        label = e.label;
+        default:
+            label = e.label;
     }
 
     return label;
@@ -118,26 +119,6 @@ function getEdgeLabel(e: GraphEdge) {
 function getEdgeColor(e: GraphEdge) {
     let color;
     switch (e.type) {
-    case "AST":
-        color = "blue";
-        break;
-    case "CFG":
-        color = "red";
-        break;
-    case "PDG":
-        color = "darkgreen";
-        break;
-    default:
-        color = "black";
-    }
-
-    return color;
-}
-
-function getNodeColor(n: GraphNode) {
-    let color;
-    if (n.obj) {
-        switch (n.obj.type) {
         case "AST":
             color = "blue";
             break;
@@ -149,6 +130,26 @@ function getNodeColor(n: GraphNode) {
             break;
         default:
             color = "black";
+    }
+
+    return color;
+}
+
+function getNodeColor(n: GraphNode) {
+    let color;
+    if (n.obj) {
+        switch (n.obj.type) {
+            case "AST":
+                color = "blue";
+                break;
+            case "CFG":
+                color = "red";
+                break;
+            case "PDG":
+                color = "darkgreen";
+                break;
+            default:
+                color = "black";
         }
     }
 

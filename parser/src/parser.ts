@@ -5,7 +5,7 @@ import escodegen from "escodegen";
 import { normalizeScript } from "./traverse/normalizer";
 const { buildAST } = require("./traverse/ast_builder");
 const { buildCFG } = require("./traverse/cfg_builder");
-const { buildPDG } = require("./traverse/dep_builder");
+const { buildPDG } = require("./traverse/dependency/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
