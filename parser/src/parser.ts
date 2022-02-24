@@ -5,7 +5,7 @@ import escodegen from "escodegen";
 import { normalizeScript } from "./traverse/normalizer";
 const { buildAST } = require("./traverse/ast_builder");
 const { buildCFG } = require("./traverse/cfg_builder");
-const { buildPDG } = require("./traverse/dep_builder");
+const { buildPDG } = require("./traverse/dependency/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
@@ -21,17 +21,19 @@ function parse(filename: string) : Graph {
         const ast = esprima.parseScript(data);
         // const ast = esprima.parseScript(data, { loc: true });
 
-        // printJSON(ast);
-        // console.log("===============");
-        const normalizedAst = normalizeScript(ast);
-        // printJSON(normalizedAst);
-        // console.log("===============");
+        // // printJSON(ast);
+        // // console.log("===============");
+        // const normalizedAst = normalizeScript(ast);
+        // // printJSON(normalizedAst);
+        // // console.log("===============");
 
-        const code = escodegen.generate(normalizedAst);
+        // const code = escodegen.generate(normalizedAst);
+        const code = escodegen.generate(ast);
         console.log(code);
-        // console.log("===============");
+        console.log("===============");
 
-        const astGraph = buildAST(normalizedAst);
+        // const astGraph = buildAST(normalizedAst);
+        const astGraph = buildAST(ast);
         const cfgGraph = buildCFG(astGraph);
         // return cfgGraph;
 
