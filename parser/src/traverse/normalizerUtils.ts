@@ -236,20 +236,19 @@ export function normBinaryExpression(obj: BinaryExpression|LogicalExpression, ch
 };
 
 export function normVariableDeclaration(obj: VariableDeclaration, children: Normalization[]): Normalization {
-    const childStmts = flatStmts(children);
-
-    // remove expr === null which happens in some cases when
-    // the declarator has no expression due to normalization
-    const newStmts = flatExprs(children)
-        .filter((expr) => expr !== null)
-        .map((expr) => {
-            const newObj = copyObj(obj);
-            newObj.declarations = [expr];
-            return newObj;
-    });
+    let stmts: Node[] = [];
+    
+    for (const child of children.flat()) {
+        const newObj = copyObj(obj);
+        if (child.stmts) { stmts.push(...child.stmts); }
+        // expr === null which happens in some cases when the declarator has no expression due to normalization
+        if (child.expr == null) continue;
+        newObj.declarations = [child.expr];
+        stmts.push(newObj)
+    }
 
     return {
-        stmts: [...childStmts, ...newStmts],
+        stmts: [...stmts],
         expr: null,
     };
 };
