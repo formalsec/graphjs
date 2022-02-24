@@ -92,7 +92,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
 
     case "ArrayExpression": {
         const resultData = mapReduce(obj.elements, obj);
-        return normArrayExpression(obj, resultData);
+        return normArrayExpression(obj, resultData, parent);
     }
 
     case "ObjectExpression": {

@@ -732,14 +732,22 @@ export function normProperty(obj: Property, children: Normalization[]): Normaliz
     };
 }
 
-export function normArrayExpression(obj: ArrayExpression, children: Normalization[]): Normalization {
+export function normArrayExpression(obj: ArrayExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     newObj.elements = [...flatExprs(children)];
 
-    return {
-        stmts: [...flatStmts(children)],
-        expr: newObj,
-    };
+    if ((parent && (parent.type === "ExpressionStatement" || parent.type === "VariableDeclarator" ||  parent.type === "AssignmentExpression" )) || !isNotEmpty(obj))
+        return {
+            stmts: [...flatStmts(children)],
+            expr: newObj,
+        };
+    else {
+        const { id, decl } = createVariableDeclaration(newObj);
+        return {
+            stmts: [...flatStmts(children), decl],
+            expr: id,
+        };
+    }
 }
 
 export function normClassExpression(obj: ClassExpression, children: Normalization[]): Normalization {
