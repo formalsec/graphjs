@@ -200,6 +200,7 @@ export function unpattern(declarations: VariableDeclarator[]): VariableDeclarato
 
 export const flatStmts = (children: Normalization[]): Node[] => children.map((child) => child.stmts).flat();
 export const flatExprs = (children: Normalization[]): (Node | null)[] => children.map((child) => child.expr).flat();
+export const isNotPropertyMethod = (obj: Node): boolean => obj.type !== "Property";
 export const isNotLiteral = (obj: Node): boolean => obj.type !== "Literal" && obj.type !== "Identifier";
 export function isNotEmpty (obj: Node): boolean {
     if (obj.type === "ArrayExpression") {
@@ -581,7 +582,8 @@ export function normFunctionExpression(obj: FunctionExpression, children: Normal
         && (parent.type === "VariableDeclarator"
             || parent.type === "ExpressionStatement"
             || parent.type === "AssignmentExpression"
-            || parent.type === "MethodDefinition")) {
+            || parent.type === "MethodDefinition"
+            || (parent.type === "Property" && (parent.kind === "set" || parent.kind === "get")))) {
         return {
             stmts: [],
             expr: newObj,
@@ -716,7 +718,7 @@ export function normProperty(obj: Property, children: Normalization[]): Normaliz
     }
 
     const valueExpr = normalizedValue.expr;
-    if (valueExpr && isNotLiteral(valueExpr) && isNotEmpty(valueExpr)) {
+    if (valueExpr && isNotLiteral(valueExpr) && isNotEmpty(valueExpr) && isNotPropertyMethod(obj)) {
         const { id, decl } = createVariableDeclaration(valueExpr as Expression);
         newObj.value = id;
         valueStmts.push(decl);
