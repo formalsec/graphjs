@@ -1,1 +1,0 @@
-new String("x" + 1);
