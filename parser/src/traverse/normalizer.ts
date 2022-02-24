@@ -30,6 +30,7 @@ import {
     normForStatement,
     normExpressionStatement,
     normFunctionDeclaration,
+    normLabeledStatement,
     normIfStatement,
     normReturnStatement,
     unpattern,
@@ -337,7 +338,12 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normIfStatement(obj, resultData);
     }
 
-    // case "LabeledStatement": {}
+    case "LabeledStatement": {
+        const resultLabel = normalize(obj.label, obj);
+        const resultBody = normalize(obj.body, obj);
+        const resultData = [resultLabel, resultBody];
+        return normLabeledStatement(obj, resultData);
+    }
 
     case "ReturnStatement":
     case "ThrowStatement": {

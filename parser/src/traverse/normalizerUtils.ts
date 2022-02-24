@@ -30,7 +30,7 @@ import type {
     SequenceExpression,
     SimpleLiteral,
     BlockStatement,
-    Statement,
+    Statement, LabeledStatement,
 } from "estree";
 
 export interface Normalization {
@@ -542,6 +542,18 @@ export function normFunctionDeclaration(obj: FunctionDeclaration, children: Norm
     }
 
     [newObj.body] = funcBody.stmts;
+
+    return {
+        stmts: [newObj],
+        expr: null,
+    };
+};
+
+export function normLabeledStatement(obj: LabeledStatement, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+    newObj.id = children[0].expr;
+
+    [newObj.body] = children[1].stmts;
 
     return {
         stmts: [newObj],
