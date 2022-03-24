@@ -22,6 +22,7 @@ import {
     normUpdateExpression,
     normAwaitYieldExpression,
     normBinaryExpression,
+    normLogicalExpression,
     normConditionalExpression,
     normAssignmentExpressions,
     normBlockStatement,
@@ -194,8 +195,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
             return normAwaitYieldExpression(obj, resultData);
     }
 
-    case "BinaryExpression":
-    case "LogicalExpression": {
+    case "BinaryExpression": {
         const resultLeft = normalize(obj.left, obj);
         const resultRight = normalize(obj.right, obj);
 
@@ -204,6 +204,17 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
             resultRight,
         ];
         return normBinaryExpression(obj, resultData);
+    }
+
+    case "LogicalExpression": {
+        const resultLeft = normalize(obj.left, obj);
+        const resultRight = normalize(obj.right, obj);
+
+        const resultData = [
+            resultLeft,
+            resultRight,
+        ];
+        return normLogicalExpression(obj, resultData, parent);
     }
 
     case "ConditionalExpression": {

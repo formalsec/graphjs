@@ -30,7 +30,7 @@ import type {
     SequenceExpression,
     SimpleLiteral,
     BlockStatement,
-    Statement, LabeledStatement,
+    Statement, LabeledStatement, IfStatement,
 } from "estree";
 
 export interface Normalization {
@@ -215,7 +215,7 @@ export function normProgram(obj: Program, children: Normalization[]): Normalizat
     return { stmts: [newObj], expr: null };
 };
 
-export function normBinaryExpression(obj: BinaryExpression|LogicalExpression, children: Normalization[]): Normalization {
+export function normBinaryExpression(obj: BinaryExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     const leftExpr = children[0].expr;
     const rightExpr = children[1].expr;
@@ -234,6 +234,40 @@ export function normBinaryExpression(obj: BinaryExpression|LogicalExpression, ch
     }
 
     return { stmts: [], expr: newObj };
+};
+
+export function normLogicalExpression(obj: LogicalExpression, children: Normalization[], parent: Node | null): Normalization {
+    const leftExpr: Expression = children[0].expr as Expression;
+    let newStmts: Node[] = []
+
+    let ifConditionId: Identifier;
+    // If left expression is already an identifier (already normalized)
+    if (leftExpr && leftExpr.type === "Identifier") {
+        ifConditionId = leftExpr;
+        newStmts.push(...children[0].stmts)
+        // If left expression is a literal
+    } else if (leftExpr && leftExpr.type === "Literal") {
+        const {id, decl} = createVariableDeclaration(leftExpr);
+        ifConditionId = id;
+        newStmts.push(decl)
+    } else return { stmts: [...children[0].stmts, ...children[1].stmts], expr: obj };
+
+    // Create the variable to return the result
+    const { id, decl } = createVariableDeclaration(undefined, undefined, false);
+    newStmts.push(decl)
+
+    // Consequent Block (right normalization + update result variable)
+    let newResult = createExpressionAssignment(id.name, children[1].expr as Expression);
+    const newConsequentBlock: BlockStatement = { type: "BlockStatement", body: [...children[1].stmts as Statement[], newResult] }
+
+    // Alternate Block (update result variable)
+    newResult = createExpressionAssignment(id.name, ifConditionId);
+    const newAlternateBlock: BlockStatement = { type: "BlockStatement", body: [newResult] }
+
+    const newObj: IfStatement = { type: "IfStatement", test: ifConditionId, consequent: newConsequentBlock, alternate: newAlternateBlock }
+    newStmts.push(newObj)
+
+    return { stmts: newStmts, expr: (parent?.type == "ExpressionStatement")? null : id };
 };
 
 export function normVariableDeclaration(obj: VariableDeclaration, children: Normalization[]): Normalization {

@@ -1,23 +1,3 @@
-## Test 26
-**Input**:
-```
-lbl: {
-    break lbl;
-}
-```
-**js-wala**:
-```
-lbl: {
-        break lbl;
-    }
-```
-**js-cpg**:
-```
-Error: Error: Unknown type LabeledStatement to normalize.
-```
-Test 27 is similar (double label).
-
-
 ## Test 30
 **Input**:
 ```
