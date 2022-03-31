@@ -8,4 +8,5 @@ function f(o) {
         aux5 = aux3 + aux4;
         y = eval(aux5);
     }
+    // z = o.g;
 }

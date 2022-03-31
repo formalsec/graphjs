@@ -44,7 +44,7 @@ function handleObjectExpression(stmtId: number, variable: string, trackers: Depe
     newTrackers.addToPhi(variable, stmtId);
 
     // set changes as creation of new object
-    newTrackers.graphCreateNewObject(stmtId, pdgObjName);
+    newTrackers.graphCreateNewObject(stmtId, variable, pdgObjName);
 
     return newTrackers;
 }
