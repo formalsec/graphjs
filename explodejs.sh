@@ -39,32 +39,32 @@ if test -f "$FILEPATH"; then
     else
         npm start --prefix ./parser -- $ABS_INPUT_FILE --csv
     fi
+
+    # get csv output to import dir in neo4j-custom dir
+    NEO4J_DIR=$(realpath ./neo4j-custom)
+    CPG_ORIGINAL_DIR=$(realpath ./parser/src/graphs)
+    NEO4J_IMPORT_DIR=$(realpath ./neo4j-custom/import-files)
+    cp $CPG_ORIGINAL_DIR/graph_nodes.csv $NEO4J_IMPORT_DIR/nodes.csv
+    cp $CPG_ORIGINAL_DIR/graph_rels.csv $NEO4J_IMPORT_DIR/rels.csv
+
+    # import cpg to neo4j
+    NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
+    cd $NEO4J_DIR
+    if [ $SILENT_OP = true ]; then
+        $NEO4J_DIR/run_neo4j.sh $NEO4J_IMPORT_DIR
+    else
+        $NEO4J_DIR/run_neo4j.sh $NEO4J_IMPORT_DIR
+    fi
+    cd $(dirname $THIS_DIR)
+
+    # run all queries
+    echo "[INFO] - Running queries"
+    QUERIES=$(realpath ./queries)
+    python3 $QUERIES/query.py
+
+    # stop Neo4J container
+    echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
+    docker stop $NEO4J_EXPLODEJS_CONTAINER
+
+    # output result to command line and serialize results
 fi
-
-# get csv output to import dir in neo4j-custom dir
-NEO4J_DIR=$(realpath ./neo4j-custom)
-CPG_ORIGINAL_DIR=$(realpath ./parser/src/graphs)
-NEO4J_IMPORT_DIR=$(realpath ./neo4j-custom/import-files)
-cp $CPG_ORIGINAL_DIR/graph_nodes.csv $NEO4J_IMPORT_DIR/nodes.csv
-cp $CPG_ORIGINAL_DIR/graph_rels.csv $NEO4J_IMPORT_DIR/rels.csv
-
-# import cpg to neo4j
-NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
-cd $NEO4J_DIR
-if [ $SILENT_OP = true ]; then
-    $NEO4J_DIR/run_neo4j.sh $NEO4J_IMPORT_DIR
-else
-    $NEO4J_DIR/run_neo4j.sh $NEO4J_IMPORT_DIR
-fi
-cd $(dirname $THIS_DIR)
-
-# run all queries
-echo "[INFO] - Running queries"
-QUERIES=$(realpath ./queries)
-python $QUERIES/query.py
-
-# stop Neo4J container
-echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
-docker stop $NEO4J_EXPLODEJS_CONTAINER
-
-# output result to command line and serialize results
