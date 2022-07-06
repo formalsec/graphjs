@@ -71,12 +71,12 @@ export class Graph {
     }
 
     addStartNodes(nodeType: string, startNode: GraphNode) {
-        const oldNodeArray = this.startNodes.get(nodeType);
+        const oldNodeArray = this._startNodes.get(nodeType);
         if (oldNodeArray) {
             oldNodeArray.push(startNode);
-            this.startNodes.set(nodeType, oldNodeArray);
+            this._startNodes.set(nodeType, oldNodeArray);
         } else {
-            this.startNodes.set(nodeType, [startNode]);
+            this._startNodes.set(nodeType, [startNode]);
         }
     }
 

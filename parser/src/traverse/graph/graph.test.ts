@@ -3,6 +3,7 @@ import { OutputWriter } from "../../output/output_writer";
 import { DotOutput } from "../../output/dot_output";
 import { OutputManager } from "../../output/output_strategy";
 import { Graph } from "./graph";
+import { GraphNode } from "./node";
 
 describe("Testing graph class", () => {
     let graph: Graph;
@@ -47,29 +48,27 @@ describe("Testing graph class", () => {
     });
 
     test("add nodes to start nodes of graph instance", () => {
-        expect(Object.keys(graph.startNodes).length).toBe(0);
+        const nodes = new Map<string, GraphNode[]>();
+
+        expect(graph.startNodes.size).toBe(0);
 
         const n1 = graph.addNode("Node1", {});
         graph.addStartNodes("nodeType1", n1);
-        expect(Object.keys(graph.startNodes).length).toBe(1);
-        expect(graph.startNodes).toEqual({
-            nodeType1: [n1],
-        });
+        expect(graph.startNodes.size).toBe(1);
+        nodes.set("nodeType1", [n1]);
+        expect(graph.startNodes).toEqual(nodes);
 
         const n2 = graph.addNode("Node2", {});
         graph.addStartNodes("nodeType1", n2);
-        expect(Object.keys(graph.startNodes).length).toBe(1);
-        expect(graph.startNodes).toEqual({
-            nodeType1: [n1, n2],
-        });
+        expect(graph.startNodes.size).toBe(1);
+        nodes.set("nodeType1", [n1, n2]);
+        expect(graph.startNodes).toEqual(nodes);
 
         const n3 = graph.addNode("Node3", {});
         graph.addStartNodes("nodeType2", n3);
-        expect(Object.keys(graph.startNodes).length).toBe(2);
-        expect(graph.startNodes).toEqual({
-            nodeType1: [n1, n2],
-            nodeType2: [n3],
-        });
+        expect(graph.startNodes.size).toBe(2);
+        nodes.set("nodeType2", [n3]);
+        expect(graph.startNodes).toEqual(nodes);
     });
 
     test("check if number of nodes matches", () => {

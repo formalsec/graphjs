@@ -100,6 +100,22 @@ export function createVariableDeclaration(obj: Expression | null | undefined): C
     return { id, decl };
 };
 
+export function createVariableDeclarationWithIdentifier(identifier: Identifier, obj: Expression | null | undefined): CreatedDeclaration {
+    const decl: VariableDeclaration = {
+        type: "VariableDeclaration",
+        declarations: [
+            {
+                type: "VariableDeclarator",
+                id: identifier,
+                init: obj,
+            },
+        ],
+        kind: "const",
+    };
+
+    return { id: identifier, decl };
+};
+
 export function createVariableDeclarator(newInit: Expression | null | undefined): CreatedDeclarator {
     const id = createRandomIdentifier();
 
@@ -360,6 +376,27 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             return {
                 stmts: [...children[1].stmts, newExprStmt, ...newAssignments],
                 expr: null,
+            };
+        } else if (rightExpr.type === "FunctionExpression") {
+
+            let functionIdentifier;
+            if (rightExpr.id) {
+                // create variable with the same name as function
+                functionIdentifier = createIdentifierWithName(rightExpr.id.name);
+            } else {
+                // create new random identifier
+                functionIdentifier = createRandomIdentifier();
+            }
+
+            let newRightExpr = copyObj(rightExpr);
+            delete newRightExpr.id;
+            const { id, decl } = createVariableDeclarationWithIdentifier(functionIdentifier, newRightExpr);
+
+            newObj.right = functionIdentifier;
+
+            return {
+                stmts: [...children[1].stmts, decl],
+                expr: newObj,
             };
         }
 

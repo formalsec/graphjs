@@ -23,17 +23,17 @@ function parse(filename: string) : Graph {
 
         // // printJSON(ast);
         // // console.log("===============");
-        // const normalizedAst = normalizeScript(ast);
+        const normalizedAst = normalizeScript(ast);
         // // printJSON(normalizedAst);
         // // console.log("===============");
 
-        // const code = escodegen.generate(normalizedAst);
-        const code = escodegen.generate(ast);
+        const code = escodegen.generate(normalizedAst);
+        // const code = escodegen.generate(ast);
         console.log(code);
         console.log("===============");
 
-        // const astGraph = buildAST(normalizedAst);
-        const astGraph = buildAST(ast);
+        const astGraph = buildAST(normalizedAst);
+        // const astGraph = buildAST(ast);
         const cfgGraph = buildCFG(astGraph);
         // return cfgGraph;
 
