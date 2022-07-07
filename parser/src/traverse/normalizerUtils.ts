@@ -570,7 +570,6 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
 
     if (parent
         && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
             || parent.type === "AssignmentExpression"
             || parent.type === "AwaitExpression")) {
         return {

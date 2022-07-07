@@ -27,6 +27,19 @@ function handleSimpleAssignment(stmtId: number, variable: string, expNode: Graph
     return newTrackers;
 }
 
+function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
 function handleObjectExpression(stmtId: number, variable: string, trackers: DependencyTracker): DependencyTracker {
     // clone trackers
     const newTrackers = trackers.clone();
@@ -92,6 +105,15 @@ function handleVariableAssignment(stmtId: number, leftIdentifier: string, right:
 
         case "MemberExpression": {
             return handleMemberExpression(stmtId, leftIdentifier, right, trackers);
+        }
+
+        case "FunctionExpression": {
+            // track all parameters of this function
+            const params = getAllASTNodes(right, "param");
+            params.forEach(p => {
+                trackers = handleObjectExpression(right.id, p.obj.name, trackers);
+            });
+            return trackers;
         }
 
         default: {
@@ -261,6 +283,15 @@ export function buildPDG(cfgGraph: Graph): Graph {
                 params.forEach(p => {
                     trackers = handleObjectExpression(node.id, p.obj.name, trackers);
                 });
+                break;
+            }
+
+            case "ReturnStatement": {
+                const argument = getASTNode(node, "argument");
+                console.log(argument);
+                if (argument) {
+                    trackers = handleReturnArgument(node.id, argument, trackers);
+                }
                 break;
             }
 
