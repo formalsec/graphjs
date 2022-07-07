@@ -8,7 +8,7 @@ def find_sink_function_calls(session, sink):
 		query = f"""
 			MATCH
 				(f:FunctionDeclaration)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]-(c:CallExpression)-[callee:AST]->(e:Identifier)
-			WHERE 
+			WHERE
 				init.RelationType = 'init' AND
 				callee.RelationType = 'callee' AND
 				e.IdentifierName = '{sink}'
@@ -20,7 +20,7 @@ def find_sink_function_calls(session, sink):
 				'function': record['f'],
 				'sink': record['stmt'],
 			})
-	
+
 	return sink_calls
 
 
@@ -32,7 +32,7 @@ def find_source_objects_and_variables(session):
 		query = f"""
 			MATCH
 				(f:FunctionDeclaration)-[param:AST]-(p:Identifier)
-			WHERE 
+			WHERE
 				param.RelationType = 'param'
 			RETURN *
 		"""
@@ -60,7 +60,7 @@ def find_source_objects_and_variables(session):
 				RETURN *
 			"""
 			results = tx.run(query)
-					
+
 			if results.peek():
 				for record in results:
 					param_objects.append({
@@ -69,7 +69,7 @@ def find_source_objects_and_variables(session):
 					})
 			else:
 				param_objects.append(param)
-	
+
 	return param_objects
 
 
@@ -82,14 +82,14 @@ def check_if_exists_pdg_write_to_source(session, source, node):
 		# get (function, parameter) pairs that we consider source
 		query = f"""
 			MATCH (node)-[pdg_edge:PDG]->(source)
-			WHERE 
+			WHERE
 				node.Id = '{node_id}' AND
 				source.Id = '{source_id}' AND
 				pdg_edge.RelationType = 'WRITE'
 			RETURN *
 		"""
 		results = tx.run(query)
-		
+
 		return bool(results.peek())
 
 
@@ -102,7 +102,7 @@ def check_if_tainted(session, sources, node, func):
 		# Check if node is also source
 		if s['function'].get('Id') == func.get('Id') and source_id == node_id:
 			return True
-		else:check_if_exists_pdg_write_to_source(session, s['param'], node)
+		else: check_if_exists_pdg_write_to_source(session, s['param'], node)
 
 	return False
 
@@ -122,7 +122,7 @@ def find_var_deps(session, sources, sink_call):
 			query = f"""
 				MATCH
 					(x)-[pdg_edge:PDG]->(sink_call)
-				WHERE 
+				WHERE
 					sink_call.Id = '{sink_id}' AND
 					pdg_edge.RelationType = 'VAR'
 				RETURN *
@@ -143,7 +143,7 @@ def find_pdg_dependencies(session, sources, sinks):
 		var_deps = find_var_deps(session, sources, sink_call)
 		for node in var_deps:
 			check_if_tainted(session, sources, node, func)
-		
+
 
 def find_pdg_paths(session, sources, sinks):
 	tainted_paths = []
@@ -165,7 +165,7 @@ def find_pdg_paths(session, sources, sinks):
 					query = f"""
 						MATCH
 							(source)-[:PDG*1..]->(sink)
-						WHERE 
+						WHERE
 							source.Id = '{source_id}' AND
 							sink.Id = '{sink_id}'
 						RETURN *

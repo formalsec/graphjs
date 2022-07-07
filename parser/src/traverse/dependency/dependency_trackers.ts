@@ -13,17 +13,70 @@ enum GraphOperationType {
     LOOKUP_PROPERTY,
 };
 
-interface GraphOperation {
-    op: GraphOperationType,
+// interface GraphOperationBase {
+//     op: GraphOperationType,
+//     name: string,
+//     pdgObjName?: string,
+//     source?: number,
+//     destination?: number,
+//     destinationNode?: string,
+//     depType?: string,
+//     depValue?: string
+//     previousObjectName?: string,
+//     propertyName?: string,
+// };
+
+interface OpCreateNewObject {
+    op: GraphOperationType.CREATE_NEW_OBJECT,
+    objName: string,
+    pdgObjName: string,
+    source: number,
+}
+
+interface OpWriteProperty {
+    op: GraphOperationType.WRITE_PROPERTY,
+    propName: string,
+    source: number,
+    destination: string,
+}
+
+interface OpCreateNewVersion {
+    op: GraphOperationType.CREATE_NEW_VERSION,
     name: string,
-    source?: number,
-    destination?: number,
-    destinationNode?: string,
-    depType?: string,
-    depValue?: string
-    previousObjectName?: string,
-    propertyName?: string,
-};
+    previousObjName: string,
+    propName: string,
+}
+
+interface OpCreateDependencyEdge {
+    op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
+    name: string,
+    depType: string,
+    depValue: string | undefined,
+    source: number | undefined,
+    destination: number | undefined
+}
+
+interface OpLookupProperty {
+    op: GraphOperationType.LOOKUP_PROPERTY,
+    propName: string,
+    source: number | undefined,
+    destination: number | undefined
+}
+
+interface OpCreateSubObject {
+    op: GraphOperationType.CREATE_SUB_OBJECT,
+    name: string,
+    previousObjName: string,
+    propName: string
+}
+
+type GraphOperation =
+    OpCreateNewObject |
+    OpWriteProperty |
+    OpCreateNewVersion |
+    OpCreateDependencyEdge |
+    OpLookupProperty |
+    OpCreateSubObject;
 
 export interface HeapObject {
     [key: string]: StorageValue,
@@ -117,11 +170,12 @@ export class DependencyTracker {
         this.phi.set(name, id);
     }
 
-    graphCreateNewObject(sourceId: number, objName: string) {
+    graphCreateNewObject(sourceId: number, objName: string, pdgObjName: string) {
         this.gChanges.push({
             op: GraphOperationType.CREATE_NEW_OBJECT,
             source: sourceId,
-            name: objName,
+            objName: objName,
+            pdgObjName: pdgObjName,
         });
     }
 
@@ -129,15 +183,15 @@ export class DependencyTracker {
         this.gChanges.push({
             op: GraphOperationType.WRITE_PROPERTY,
             source: sourceId,
-            destinationNode: destinationLocation,
-            name: propName,
+            destination: destinationLocation,
+            propName: propName,
         });
 
         this.gChanges.push({
             op: GraphOperationType.CREATE_NEW_VERSION,
             name: destinationLocation,
-            previousObjectName: sourceLocation,
-            propertyName: propName
+            previousObjName: sourceLocation,
+            propName: propName
         });
 
         deps.forEach(dep => {
@@ -157,15 +211,15 @@ export class DependencyTracker {
         this.gChanges.push({
             op: GraphOperationType.WRITE_PROPERTY,
             source: sourceId,
-            destinationNode: destinationLocation,
-            name: propName,
+            destination: destinationLocation,
+            propName: propName,
         });
 
         this.gChanges.push({
             op: GraphOperationType.CREATE_SUB_OBJECT,
             name: destinationLocation,
-            previousObjectName: sourceLocation,
-            propertyName: susProp
+            previousObjName: sourceLocation,
+            propName: susProp
         });
 
         deps.forEach(dep => {
@@ -197,10 +251,10 @@ export class DependencyTracker {
 
     graphLookupObject(deps: Dependency[]) {
         deps.forEach(dep => {
-            const name = dep.name || "";
+            const propName = dep.name || "";
             this.gChanges.push({
                 op: GraphOperationType.LOOKUP_PROPERTY,
-                name: name,
+                propName: propName,
                 source: dep.source,
                 destination: dep.destination
             });
@@ -212,30 +266,30 @@ export class DependencyTracker {
         while (change = this.gChanges.pop()) {
             switch (change.op) {
                 case GraphOperationType.CREATE_NEW_OBJECT: {
+                    const specChange = <OpCreateNewObject>change;
                     // create node
                     const nodeObj = graph.addNode("PDG_OBJECT", { type: "PDG" });
-                    this.gNodes.set(change.name, nodeObj.id);
-                    nodeObj.identifier = change.name;
+                    this.gNodes.set(specChange.pdgObjName, nodeObj.id);
+                    nodeObj.identifier = specChange.pdgObjName;
 
                     // add create edge
-                    const source = change.source;
-                    if (source) graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: change.name });
+                    const source = specChange.source;
+                    if (source) graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: specChange.objName });
                     break;
                 }
 
                 case GraphOperationType.CREATE_NEW_VERSION: {
+                    const specChange = <OpCreateNewVersion>change;
                     // create new version node
                     const nodeObj = graph.addNode("PDG_OBJECT", { type: "PDG" });
                     this.gNodes.set(change.name, nodeObj.id);
                     nodeObj.identifier = change.name;
 
                     // add new version edge
-                    if (change.previousObjectName) {
-                        const previousVersionId = this.gNodes.get(change.previousObjectName);
+                    const previousVersionId = this.gNodes.get(change.previousObjName);
                         if (previousVersionId) {
-                            graph.addEdge(previousVersionId, nodeObj.id, { type: "PDG", label: "NEW_VERSION", objName: change.propertyName });
+                            graph.addEdge(previousVersionId, nodeObj.id, { type: "PDG", label: "NEW_VERSION", objName: change.propName });
                         }
-                    }
                     break;
                 }
 
@@ -246,26 +300,21 @@ export class DependencyTracker {
                     nodeObj.identifier = change.name;
 
                     // add new version edge
-                    if (change.previousObjectName) {
-                        const previousVersionId = this.gNodes.get(change.previousObjectName);
-                        if (previousVersionId) {
-                            graph.addEdge(previousVersionId, nodeObj.id, { type: "PDG", label: "SUB_OBJECT", objName: change.propertyName });
-                        }
+                    const previousVersionId = this.gNodes.get(change.previousObjName);
+                    if (previousVersionId) {
+                        graph.addEdge(previousVersionId, nodeObj.id, { type: "PDG", label: "SUB_OBJECT", objName: change.propName });
                     }
                     break;
                 }
 
                 case GraphOperationType.WRITE_PROPERTY: {
-                    const destinationNode = change.destinationNode;
-
-                    if (destinationNode) {
-                        // get id of object node (destination)
-                        const destinationNodeId = this.gNodes.get(destinationNode);
-                        const source = change.source;
-                        // add write edge
-                        if (source && destinationNodeId) {
-                            graph.addEdge(source, destinationNodeId, { type: "PDG", label: "WRITE", objName: change.name });
-                        }
+                    const specChange = <OpWriteProperty>change;
+                    // get id of object node (destination)
+                    const destinationNodeId = this.gNodes.get(specChange.destination);
+                    const source = specChange.source;
+                    // add write edge
+                    if (source && destinationNodeId) {
+                        graph.addEdge(source, destinationNodeId, { type: "PDG", label: "WRITE", objName: specChange.propName });
                     }
                     break;
                 }
@@ -277,7 +326,7 @@ export class DependencyTracker {
                     const destination = change.destination;
                     // add lookup edge
                     if (source && destination) {
-                        graph.addEdge(source, destination, { type: "PDG", label: "LOOKUP", objName: change.name });
+                        graph.addEdge(source, destination, { type: "PDG", label: "LOOKUP", objName: change.propName });
                     }
                     break;
                 }

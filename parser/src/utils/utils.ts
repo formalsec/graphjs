@@ -29,7 +29,7 @@ export function clone<T>(a: T): T {
 }
 
 export function getASTNode(parent: GraphNode, childLabel: string): GraphNode {
-    return parent.edges.filter(e => e.type === "AST" && e.label === childLabel)[0].nodes[1];
+    return parent.edges.filter(e => e.type === "AST" && e.label === childLabel)[0]?.nodes[1];
 }
 
 export function getASTChildren(parent: GraphNode): GraphNode[] {
