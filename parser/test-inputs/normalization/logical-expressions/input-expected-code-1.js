@@ -3,7 +3,6 @@ let v3;
 if (v2) {
     const v1 = 2 + 1;
     v3 = v1;
-}
-else {
+} else {
     v3 = v2;
 }
