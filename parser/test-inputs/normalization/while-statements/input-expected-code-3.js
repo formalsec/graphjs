@@ -1,6 +1,7 @@
 let x = 0;
-const v1 = x < 1;
-do {
+let v1 = true;
+while (v1) {
     const v2 = x++;
     v2;
-} while (v1);
+    v1 = x < 1;
+}
