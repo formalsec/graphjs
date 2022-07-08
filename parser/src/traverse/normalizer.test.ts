@@ -148,3 +148,23 @@ test("testing normalize - check that normalization retains same behaviour (18) -
 test("testing normalize - check that normalization retains same behaviour (19) - sequence expressions", () => {
     testNormalization("./test-inputs/normalization/sequence-expressions");
 });
+
+test("testing normalize - check that normalization retains same behaviour (20) - js-wala tests", () => {
+    testNormalization("./test-inputs/normalization/js-wala");
+});
+
+test("testing normalize - check that normalization retains same behaviour (21) - array expressions", () => {
+    testNormalization("./test-inputs/normalization/array-expressions");
+});
+
+test("testing normalize - check that normalization retains same behaviour (22) - logical expressions", () => {
+    testNormalization("./test-inputs/normalization/logical-expressions");
+});
+
+test("testing normalize - check that normalization retains same behaviour (23) - labeled statements", () => {
+    testNormalization("./test-inputs/normalization/labeled-statements");
+});
+
+test("testing normalize - check that normalization retains same behaviour (24) - literals", () => {
+    testNormalization("./test-inputs/normalization/literals");
+});
