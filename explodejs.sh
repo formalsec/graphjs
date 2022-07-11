@@ -67,4 +67,6 @@ if test -f "$FILEPATH"; then
     docker stop $NEO4J_EXPLODEJS_CONTAINER
 
     # output result to command line and serialize results
+else
+    Help
 fi

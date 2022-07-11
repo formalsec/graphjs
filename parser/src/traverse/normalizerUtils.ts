@@ -288,7 +288,7 @@ export function normLogicalExpression(obj: LogicalExpression, children: Normaliz
 
 export function normVariableDeclaration(obj: VariableDeclaration, children: Normalization[]): Normalization {
     let stmts: Node[] = [];
-    
+
     for (const child of children.flat()) {
         const newObj = copyObj(obj);
         if (child.stmts) { stmts.push(...child.stmts); }
@@ -398,7 +398,7 @@ export function appendToWhileBody(body: Statement, stmt: ExpressionStatement): N
     // If it does not contain {}
     if (body && body.type != "BlockStatement") {
         const newBody: Node = { type: "BlockStatement", body: [body, stmt]}
-        return newBody; 
+        return newBody;
     }
     else if (body && body.type == "BlockStatement" && body.body) {
         body.body = body.body.concat(stmt)
@@ -414,7 +414,7 @@ export function normWhileStatement(obj: Node, children: Normalization[]): Normal
 
     const objId = newObj.test.name;
     children[0].stmts.forEach((stmt) => {
-        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator" 
+        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator"
             && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
                 stmt.kind = "let";
                 const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
@@ -441,14 +441,14 @@ export function normDoWhileStatement(obj: Node, children: Normalization[]): Norm
 
     // Change test declaration to assignment (if exists)
     children[0].stmts.forEach((stmt) => {
-        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator" 
+        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator"
             && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
                 const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
                 // Append condition statement to the end of body
                 newObj.body = appendToWhileBody(newObj.body, newAssignment);
         }
     });
-    
+
     return {
         stmts: [decl, newObj],
         expr: null,
@@ -466,14 +466,14 @@ export function normForStatement(obj: Node, children: Normalization[]): Normaliz
 
     const objId = newObj.test.name;
     children[1].stmts.forEach((stmt) => {
-        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator" 
+        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator"
             && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
                 // Append test condition
                 stmt.kind = "let";
                 const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
                 newObj.body = appendToWhileBody(newObj.body, newAssignment);
         }
-    }); 
+    });
 
     return {
         stmts: [...children[0].stmts, ...children[1].stmts, newObj],
@@ -604,18 +604,29 @@ export function normUpdateExpression(obj: UpdateExpression | UnaryExpression, ch
 
 export function normFunctionDeclaration(obj: FunctionDeclaration, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
+    newObj.type = "FunctionExpression";
 
     const funcId = children[0];
     const funcBody = children[1];
 
-    if (funcId) {
-        newObj.id = funcId.expr;
-    }
-
     [newObj.body] = funcBody.stmts;
 
+    if (funcId) {
+        const funcIdentifier: Identifier = <Identifier> funcId.expr;
+        newObj.id = null;
+
+        const { id, decl } = createVariableDeclarationWithIdentifier(funcIdentifier, newObj);
+
+        return {
+            stmts: [decl],
+            expr: null,
+        };
+    }
+
+    const { id, decl } = createVariableDeclaration(newObj);
+
     return {
-        stmts: [newObj],
+        stmts: [decl],
         expr: null,
     };
 };

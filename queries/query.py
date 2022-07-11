@@ -7,7 +7,7 @@ def find_sink_function_calls(session, sink):
 		# get (function, sink statement) pair that holds the call to a sink
 		query = f"""
 			MATCH
-				(f:FunctionDeclaration)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]-(c:CallExpression)-[callee:AST]->(e:Identifier)
+				(f:FunctionExpression)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]-(c:CallExpression)-[callee:AST]->(e:Identifier)
 			WHERE
 				init.RelationType = 'init' AND
 				callee.RelationType = 'callee' AND
@@ -31,7 +31,7 @@ def find_source_objects_and_variables(session):
 		# get (function, parameter) pairs that we consider source
 		query = f"""
 			MATCH
-				(f:FunctionDeclaration)-[param:AST]-(p:Identifier)
+				(f:FunctionExpression)-[param:AST]-(p:Identifier)
 			WHERE
 				param.RelationType = 'param'
 			RETURN *
@@ -52,7 +52,7 @@ def find_source_objects_and_variables(session):
 			# get (function, pdg_object) pairs that we consider source
 			query = f"""
 				MATCH
-					(f:FunctionDeclaration)-[c:OBJECT]->(obj:PDG_OBJECT)
+					(f:FunctionExpression)-[c:OBJECT]->(obj:PDG_OBJECT)
 				WHERE
 					f.Id = '{p_function}' AND
 					c.RelationType = 'CREATE' AND
@@ -164,7 +164,7 @@ def find_pdg_paths(session, sources, sinks):
 					# get (function, parameter) pairs that we consider source
 					query = f"""
 						MATCH
-							(source)-[:PDG*1..]->(sink)
+							(source)<-[:AST]-(f:FunctionExpression)-[:PDG*1..]->(sink)
 						WHERE
 							source.Id = '{source_id}' AND
 							sink.Id = '{sink_id}'

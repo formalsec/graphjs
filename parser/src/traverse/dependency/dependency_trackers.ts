@@ -410,7 +410,7 @@ export class DependencyTracker {
                     const value = this.getHeapValue(o);
                     if (value) {
                         // value[propName] = ValLattice.Unknown;
-                        value[propName] =StorageFactory.StoMaybeObject(objName, propName);
+                        value[propName] = StorageFactory.StoMaybeObject(objName, propName);
                     }
                 });
 
@@ -507,7 +507,9 @@ export class DependencyTracker {
                     susLocationHeapValue[susProp] = propValue;
 
                     newTrackers.addPropInHeap(newObjName, propName, propValue);
-                    newTrackers.replacePropInHeap(susLocationName, susProp, StorageFactory.StoObject(newObjName));
+                    const newStore = StorageFactory.StoObject(newObjName);
+                    newTrackers.replacePropInHeap(susLocationName, susProp, newStore);
+                    newTrackers.addToStore(objName, newStore);
                     return {
                         newTrackers,
                         newObjLocation: newObjName,
@@ -571,6 +573,8 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
         case "MemberExpression": {
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
+
+            // console.log(obj.obj.name, prop.obj.name);
 
             const objIds = trackers.getObjectVersionsWithProp(obj.obj.name, prop.obj.name);
             return objIds.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId));

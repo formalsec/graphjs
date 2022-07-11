@@ -329,6 +329,9 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
 
     // case "ForOfStatement": {}
 
+    // TODO: change so that all function declarations become function expressions
+    // this can be done and allows less things to consider down the line
+    // and will allow more specific queries as well
     case "FunctionDeclaration": {
         const resultId = normalize(obj.id, obj);
         const resultBody = normalize(obj.body, obj);

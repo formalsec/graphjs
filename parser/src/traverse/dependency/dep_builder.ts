@@ -80,7 +80,7 @@ function handleMemberExpression(stmtId: number, variable: string, memExpNode: Gr
 
     // set changes as lookup from object
     newTrackers.graphLookupObject(deps);
-
+    // newTrackers.print();
     return newTrackers;
 }
 
@@ -107,7 +107,8 @@ function handleVariableAssignment(stmtId: number, leftIdentifier: string, right:
             return handleMemberExpression(stmtId, leftIdentifier, right, trackers);
         }
 
-        case "FunctionExpression": {
+        case "FunctionExpression":
+        case "FunctionDeclaration": {
             // track all parameters of this function
             const params = getAllASTNodes(right, "param");
             params.forEach(p => {
@@ -152,6 +153,7 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
 
     // if maybe an object, then we have to create the subobject
     // because initially it didnt seem to be an object, but it is
+    // and we have to change the storage of the maybe object to object
     if (StorageFactory.checkMaybeObject(objStorage)) {
         const susObjStorage = <StorageMaybeObject>objStorage;
         const susProp = susObjStorage.susProp;
@@ -288,7 +290,6 @@ export function buildPDG(cfgGraph: Graph): Graph {
 
             case "ReturnStatement": {
                 const argument = getASTNode(node, "argument");
-                console.log(argument);
                 if (argument) {
                     trackers = handleReturnArgument(node.id, argument, trackers);
                 }
