@@ -1,9 +1,10 @@
 let v = class Foo extends Bar {
     constructor() {
-        super();
+        const v1 = super();
+        v1;
     }
     foo() {
-        const v1 = 1 + 2;
-        v1;
+        const v2 = 1 + 2;
+        v2;
     }
 };

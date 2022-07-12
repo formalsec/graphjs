@@ -1,2 +1,3 @@
 const v1 = f();
-v1();
+const v2 = v1();
+v2;

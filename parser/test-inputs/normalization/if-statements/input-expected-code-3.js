@@ -1,3 +1,5 @@
 const v1 = x === y;
-if (v1)
-    alert('They are the same!');
+if (v1) {
+    const v2 = alert('They are the same!');
+    v2;
+}

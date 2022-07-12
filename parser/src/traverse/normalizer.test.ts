@@ -1,52 +1,12 @@
 /* eslint-disable no-undef */
 import esprima = require("esprima");
 import fs = require("fs");
-import type {
-    Expression,
-} from "estree";
 import escodegen from "escodegen";
 
-import { printJSON, resetVariableCount } from "../utils/utils";
+import { resetVariableCount } from "../utils/utils";
 import {
     normalizeScript,
 } from "./normalizer";
-
-// test("create a new variable statement", () => {
-//     const variableName = "v1";
-//     const variableId = {
-//         type: "Identifier",
-//         name: variableName,
-//     };
-
-//     const oldObject = {};
-
-//     const expectedReturn = {
-//         id: variableId,
-//         decl: {
-//             type: "VariableDeclaration",
-//             declarations: [
-//                 {
-//                     type: "VariableDeclarator",
-//                     id: variableId,
-//                     init: oldObject,
-//                 },
-//             ],
-//             kind: "const",
-//         },
-//     };
-
-//     expect(createVariableDeclaration(oldObject as Expression)).toMatchObject(expectedReturn);
-// });
-
-// test("flat statements of children array", () => {
-//     const children = [{ stmts: [1, 2, 3], expr: null }, { stmts: [4, 5, 6], expr: null }];
-//     expect(flatStmts(children)).toEqual([1, 2, 3, 4, 5, 6]);
-// });
-
-// test("flat expressions of children array", () => {
-//     const children = [{ expr: 1 }, { expr: 2 }, { expr: 3 }, { expr: 4 }];
-//     expect(flatExprs(children)).toEqual([1, 2, 3, 4]);
-// });
 
 function testNormalization(testInputPath: string) {
     let testInputId = 1;

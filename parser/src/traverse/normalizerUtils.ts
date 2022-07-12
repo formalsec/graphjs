@@ -399,23 +399,25 @@ export function normConditionalExpression(obj: Node, children: Normalization[]):
     };
 };
 
-export function appendToWhileBody(body: Statement, stmt: ExpressionStatement): Node | undefined {
-    // If it does not contain {}
-    if (body && body.type != "BlockStatement") {
-        const newBody: Node = { type: "BlockStatement", body: [body, stmt]}
-        return newBody;
+export function createBlockStatement(stmts: Statement[]): Node {
+    if (stmts.length == 1 && stmts[0].type == "BlockStatement") {
+        return stmts[0];
     }
-    else if (body && body.type == "BlockStatement" && body.body) {
-        body.body = body.body.concat(stmt)
-        return body;
-    }
+
+    return { type: "BlockStatement", body: stmts};
 }
 
+export function concatToBody(body: BlockStatement, stmt: Statement): BlockStatement {
+    const newBlock = copyObj(body);
+    newBlock.body = newBlock.body.concat(stmt);
+    return newBlock;
+}
 
 export function normWhileStatement(obj: Node, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.test = children[0].expr;
-    [newObj.body] = children[1].stmts;
+    // console.log("children", JSON.stringify(children, null, 2));
+    newObj.body = createBlockStatement([...children[1].stmts] as Statement[]);
 
     const objId = newObj.test.name;
     children[0].stmts.forEach((stmt) => {
@@ -423,7 +425,7 @@ export function normWhileStatement(obj: Node, children: Normalization[]): Normal
             && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
                 stmt.kind = "let";
                 const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
-                newObj.body = appendToWhileBody(newObj.body, newAssignment);
+                newObj.body = concatToBody(newObj.body, newAssignment);
         }
     });
 
@@ -437,7 +439,7 @@ export function normDoWhileStatement(obj: Node, children: Normalization[]): Norm
     const newObj = copyObj(obj);
     newObj.type = "WhileStatement";
     newObj.test = children[0].expr;
-    [newObj.body] = children[1].stmts;
+    newObj.body = createBlockStatement([...children[1].stmts] as Statement[]);
 
     // First create test condition = true
     const boolObj: SimpleLiteral = createBooleanLiteral(true);
@@ -450,7 +452,7 @@ export function normDoWhileStatement(obj: Node, children: Normalization[]): Norm
             && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
                 const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
                 // Append condition statement to the end of body
-                newObj.body = appendToWhileBody(newObj.body, newAssignment);
+                newObj.body = concatToBody(newObj.body, newAssignment);
         }
     });
 
@@ -464,10 +466,7 @@ export function normForStatement(obj: Node, children: Normalization[]): Normaliz
     const newObj = copyObj(obj);
     newObj.type = "WhileStatement";
     newObj.test = children[1].expr;
-    [newObj.body] = children[3].stmts;
-
-    // Append update
-    children[2].stmts.forEach((stmt) => newObj.body = appendToWhileBody(newObj.body, stmt as ExpressionStatement)); // Can I do this?
+    newObj.body = createBlockStatement([...children[3].stmts, ...children[2].stmts] as Statement[]);
 
     const objId = newObj.test.name;
     children[1].stmts.forEach((stmt) => {
@@ -476,7 +475,7 @@ export function normForStatement(obj: Node, children: Normalization[]): Normaliz
                 // Append test condition
                 stmt.kind = "let";
                 const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
-                newObj.body = appendToWhileBody(newObj.body, newAssignment);
+                newObj.body = concatToBody(newObj.body, newAssignment);
         }
     });
 
