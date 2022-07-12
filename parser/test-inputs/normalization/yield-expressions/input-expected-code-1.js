@@ -1,3 +1,3 @@
-function* foo(index) {
+const foo = function* (index) {
     yield index;
-}
+};
