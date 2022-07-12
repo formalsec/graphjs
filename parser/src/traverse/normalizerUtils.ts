@@ -370,7 +370,12 @@ export function normIfStatement(obj: Node, children: Normalization[]): Normaliza
     const newObj = copyObj(obj);
     newObj.test = children[0].expr;
 
-    [newObj.consequent] = children[1].stmts;
+    if (children[1].stmts && children[1].stmts.length > 1) {
+        const newConsequentBlock: BlockStatement = { type: "BlockStatement", body: children[1].stmts as Statement[] }
+        newObj.consequent = newConsequentBlock;
+    } else {
+        [newObj.consequent] = children[1].stmts;
+    }
 
     if (newObj.alternate) {
         [newObj.alternate] = children[2].stmts;
