@@ -1,1 +1,0 @@
-oldTick = window.tick++;

@@ -1,1 +1,0 @@
-const x = new Object(1 + 2);
