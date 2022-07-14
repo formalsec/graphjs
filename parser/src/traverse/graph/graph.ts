@@ -80,6 +80,11 @@ export class Graph {
         }
     }
 
+    clearUnusedObjectNodes() {
+        this._nodes = new Map([...this._nodes].filter((n) => n[1].used));
+        this._edges = new Map([...this._edges].filter((e) => e[1].nodes[0].used && e[1].nodes[1].used));
+    }
+
     output(filename: string) {
         if (this._outputManager) this._outputManager.output(this, filename);
         else console.log("Output Manager is null");

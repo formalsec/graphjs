@@ -109,6 +109,11 @@ function getEdgeLabel(e: GraphEdge) {
             break;
         }
 
+        case "element": {
+            label = e.elementIndex;
+            break;
+        }
+
         default:
             label = e.label;
     }
@@ -206,22 +211,41 @@ export class DotOutput extends OutputWriter {
 
                 edges.forEach((e: GraphEdge) => {
                     const [n1, n2] = e.nodes;
-                    nodesToPrint.push(n2);
+                    if (n2.used) {
+                        nodesToPrint.push(n2);
 
-                    const edgeLabel = getEdgeLabel(e);
+                        const edgeLabel = getEdgeLabel(e);
 
-                    if (!options.ignore.includes(e.type)) {
-                        const edgeColor = getEdgeColor(e);
-                        gDot.addEdge(
-                            getNodeLabel(n1, this.showCode),
-                            getNodeLabel(n2, this.showCode),
-                            {
-                                label: edgeLabel,
-                                fontcolor: edgeColor,
-                                color: edgeColor,
-                            },
-                        );
+                        if (!options.ignore.includes(e.type)) {
+                            const edgeColor = getEdgeColor(e);
+                            gDot.addEdge(
+                                getNodeLabel(n1, this.showCode),
+                                getNodeLabel(n2, this.showCode),
+                                {
+                                    label: edgeLabel,
+                                    fontcolor: edgeColor,
+                                    color: edgeColor,
+                                },
+                            );
+                        }
                     }
+
+                    // nodesToPrint.push(n2);
+
+                    // const edgeLabel = getEdgeLabel(e);
+
+                    // if (!options.ignore.includes(e.type)) {
+                    //     const edgeColor = getEdgeColor(e);
+                    //     gDot.addEdge(
+                    //         getNodeLabel(n1, this.showCode),
+                    //         getNodeLabel(n2, this.showCode),
+                    //         {
+                    //             label: edgeLabel,
+                    //             fontcolor: edgeColor,
+                    //             color: edgeColor,
+                    //         },
+                    //     );
+                    // }
                 });
             }
         }

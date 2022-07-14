@@ -1,4 +1,5 @@
 import * as estree from "estree";
+import { copyObj } from "../utils/utils";
 import { Graph } from "./graph/graph";
 import { GraphNode } from "./graph/node";
 
@@ -46,9 +47,22 @@ function buildAST(originalObj: estree.Program) {
         //
         // Expressions
         //
-        // case "ArrayExpression":
-        //     const resultData = mapReduce(obj.elements);
-        //     return objNode;
+        case "ArrayExpression": {
+            const objNode = graph.addNode(obj.type, obj);
+            const elements: (estree.Expression | estree.SpreadElement)[] = [];
+            obj.elements.forEach((e) => {
+                if (e !== null) elements.push(e);
+            });
+
+            const resultData = mapReduce(elements, objNode);
+
+            // eslint-disable-next-line no-plusplus
+            for (let i = 0; i < resultData.length; i++) {
+                graph.addEdge(objNode.id, resultData[i].id, { type: "AST", label: "element", elementIndex: i });
+            }
+
+            return objNode;
+        }
 
         case "ObjectExpression": {
             const objNode = graph.addNode(obj.type, obj);
@@ -179,6 +193,15 @@ function buildAST(originalObj: estree.Program) {
         case "Identifier": {
             const objNode = graph.addNode(obj.type, obj);
             objNode.identifier = obj.name;
+            return objNode;
+        }
+
+        case "Literal": {
+            const rawObj = copyObj(obj);
+            if (obj.raw) {
+                rawObj.name = obj.raw;
+            }
+            const objNode = graph.addNode(obj.type, rawObj);
             return objNode;
         }
 

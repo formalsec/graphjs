@@ -9,17 +9,24 @@ export class GraphEdge {
     private _argument_index: number;
     private _param_index: number;
     private _stmt_index: number;
+    private _element_index: number;
 
     constructor(id: number, node1: GraphNode, node2: GraphNode, edgeInfo: any) {
         this._id = id;
         this._nodes = [node1, node2];
-
         this._type = edgeInfo.type;
+
         this._label = edgeInfo.label;
+        if (this.label !== "CREATE") {
+            node1.setUsed();
+            node2.setUsed();
+        }
+
         this._obj_name = edgeInfo.objName || "";
         this._argument_index = edgeInfo.argumentIndex;
         this._param_index = edgeInfo.paramIndex;
         this._stmt_index = edgeInfo.stmtIndex;
+        this._element_index = edgeInfo.elementIndex;
     }
 
     get id() {
@@ -52,5 +59,9 @@ export class GraphEdge {
 
     get stmtIndex() {
         return this._stmt_index;
+    }
+
+    get elementIndex() {
+        return this._element_index;
     }
 }

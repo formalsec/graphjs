@@ -8,23 +8,9 @@ enum GraphOperationType {
     CREATE_NEW_OBJECT,
     CREATE_DEPENDENCY_EDGE,
     CREATE_NEW_VERSION,
-    CREATE_SUB_OBJECT,
     WRITE_PROPERTY,
     LOOKUP_PROPERTY,
 };
-
-// interface GraphOperationBase {
-//     op: GraphOperationType,
-//     name: string,
-//     pdgObjName?: string,
-//     source?: number,
-//     destination?: number,
-//     destinationNode?: string,
-//     depType?: string,
-//     depValue?: string
-//     previousObjectName?: string,
-//     propertyName?: string,
-// };
 
 interface OpCreateNewObject {
     op: GraphOperationType.CREATE_NEW_OBJECT,
@@ -63,28 +49,16 @@ interface OpLookupProperty {
     destination: number | undefined
 }
 
-interface OpCreateSubObject {
-    op: GraphOperationType.CREATE_SUB_OBJECT,
-    name: string,
-    previousObjName: string,
-    propName: string
-}
-
 type GraphOperation =
     OpCreateNewObject |
     OpWriteProperty |
     OpCreateNewVersion |
     OpCreateDependencyEdge |
-    OpLookupProperty |
-    OpCreateSubObject;
+    OpLookupProperty;
 
 export interface HeapObject {
     [key: string]: StorageValue,
 };
-
-// export interface HeapObject {
-//     [key: string]: ValLattice,
-// };
 
 type Heap = Map<string, HeapObject>;
 type Store = Map<string, StorageValue[]>;
@@ -166,6 +140,18 @@ export class DependencyTracker {
         this.store.set(name, [ location ]);
     }
 
+    getLastObjectLocation(objName: string): string | undefined {
+        const objLocations = this.getStorage(objName);
+
+        if (objLocations) {
+            const lastObjLocation = objLocations[objLocations.length - 1];
+            if (StorageFactory.isStorageObject(lastObjLocation)) {
+                const stoObj = lastObjLocation as StorageObject;
+                return stoObj.location;
+            }
+        }
+    }
+
     addToPhi(name: string, id: number) {
         this.phi.set(name, id);
     }
@@ -192,34 +178,6 @@ export class DependencyTracker {
             name: destinationLocation,
             previousObjName: sourceLocation,
             propName: propName
-        });
-
-        deps.forEach(dep => {
-            const name = dep.name || "";
-            this.gChanges.push({
-                op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
-                name: name,
-                depType: dep.type,
-                depValue: dep.value,
-                source: dep.source,
-                destination: dep.destination
-            });
-        });
-    }
-
-    graphCreateSubObject(sourceId:number, sourceLocation: string, destinationLocation: string, susProp: string, deps: Dependency[], propName: string) {
-        this.gChanges.push({
-            op: GraphOperationType.WRITE_PROPERTY,
-            source: sourceId,
-            destination: destinationLocation,
-            propName: propName,
-        });
-
-        this.gChanges.push({
-            op: GraphOperationType.CREATE_SUB_OBJECT,
-            name: destinationLocation,
-            previousObjName: sourceLocation,
-            propName: susProp
         });
 
         deps.forEach(dep => {
@@ -290,20 +248,6 @@ export class DependencyTracker {
                         if (previousVersionId) {
                             graph.addEdge(previousVersionId, nodeObj.id, { type: "PDG", label: "NEW_VERSION", objName: change.propName });
                         }
-                    break;
-                }
-
-                case GraphOperationType.CREATE_SUB_OBJECT: {
-                    // create new version node
-                    const nodeObj = graph.addNode("PDG_OBJECT", { type: "PDG" });
-                    this.gNodes.set(change.name, nodeObj.id);
-                    nodeObj.identifier = change.name;
-
-                    // add new version edge
-                    const previousVersionId = this.gNodes.get(change.previousObjName);
-                    if (previousVersionId) {
-                        graph.addEdge(previousVersionId, nodeObj.id, { type: "PDG", label: "SUB_OBJECT", objName: change.propName });
-                    }
                     break;
                 }
 
@@ -393,33 +337,49 @@ export class DependencyTracker {
         if (objStorage) {
             // filter those versions that are not objects
             const objects = objStorage.filter(sto => StorageFactory.isStorageObject(sto)).map(sto => (<StorageObject>sto).location);
-            const objValues = objects.filter(o => {
-                const value = this.getHeapValue(o);
-                if (value) {
-                    return propName in value;
-                }
-
-                return false;
-            }) as string[];
-
-            // if this property is not in the heap
-            // we have to add it with Unknown value
-            // for all stored objects
-            if (objValues.length === 0) {
-                objects.forEach(o => {
+            if (objects.length > 0) {
+                const objValues = objects.filter(o => {
                     const value = this.getHeapValue(o);
                     if (value) {
-                        // value[propName] = ValLattice.Unknown;
-                        value[propName] = StorageFactory.StoMaybeObject(objName, propName);
+                        return propName in value;
                     }
-                });
 
-                // run this function again
-                // now with the property in the heap
-                return this.getObjectVersionsWithProp(objName, propName);
+                    return false;
+                }) as string[];
+
+                // if this property is not in the heap
+                // we have to add it with Unknown value
+                // for all stored objects
+                if (objValues.length === 0) {
+                    objects.forEach(o => {
+                        const value = this.getHeapValue(o);
+                        if (value) {
+                            // value[propName] = ValLattice.Unknown;
+                            value[propName] = StorageFactory.StoMaybeObject(objName, propName);
+                        }
+                    });
+
+                    // run this function again
+                    // now with the property in the heap
+                    return this.getObjectVersionsWithProp(objName, propName);
+                }
+
+                const objIds = objValues.map(o => this.getObjectId(o)) as number[];
+                return objIds;
             }
+        }
 
-            const objIds = objValues.map(o => this.getObjectId(o)) as number[];
+        return [];
+    }
+
+    getObjectVersions(objName: string): number[] {
+        // get version of object in storage
+        const objStorage = this.getStorage(objName);
+
+        if (objStorage) {
+            // filter those versions that are not objects
+            const objects = objStorage.filter(sto => StorageFactory.isStorageObject(sto)).map(sto => (<StorageObject>sto).location);
+            const objIds = objects.map(o => this.getObjectId(o)) as number[];
             return objIds;
         }
 
@@ -488,41 +448,17 @@ export class DependencyTracker {
         };
     }
 
-    createSubObject(objName: string, propName: string, objStorage: StorageMaybeObject, propValue: StorageValue) {
-        const newTrackers = this.clone();
-        // get name and property name of original object
-        const { susObj, susProp } = objStorage;
+    createArrayElementInHeap(objName: string, elementIndex: number, propValue: StorageValue) {
+        const lastLocation = this.getLastObjectLocation(objName);
 
-        const susObjLocations = this.getStorage(susObj);
+        if (lastLocation) {
+            const locationHeapValue = clone(this.getHeapValue(lastLocation));
 
-        if (susObjLocations) {
-            const lastSusObjLocation = susObjLocations[susObjLocations.length - 1];
-
-            if (StorageFactory.isStorageObject(lastSusObjLocation)) {
-                const susLocationName = (<StorageObject>lastSusObjLocation).location;
-                const susLocationHeapValue = clone(this.getHeapValue(susLocationName));
-
-                if (susLocationHeapValue) {
-                    const newObjName = getNextObjectName();
-                    susLocationHeapValue[susProp] = propValue;
-
-                    newTrackers.addPropInHeap(newObjName, propName, propValue);
-                    const newStore = StorageFactory.StoObject(newObjName);
-                    newTrackers.replacePropInHeap(susLocationName, susProp, newStore);
-                    newTrackers.addToStore(objName, newStore);
-                    return {
-                        newTrackers,
-                        newObjLocation: newObjName,
-                        oldObjLocation: susLocationName,
-                    };
-                }
+            if (locationHeapValue) {
+                locationHeapValue[elementIndex] = propValue;
+                this.addToHeap(lastLocation, locationHeapValue);
             }
         }
-
-        return {
-            newTrackers,
-            newObjLocation: objName
-        };
     }
 
     clone(): DependencyTracker {
@@ -552,8 +488,9 @@ export class DependencyTracker {
 export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode): Dependency[] {
 	switch (node.type) {
 		case "Identifier": {
-            const depStmtId = trackers.getStatementId(node.obj.name);
-			return depStmtId ? [ DependencyFactory.DVar(node.obj.name, stmtId, depStmtId) ] : [ DependencyFactory.DEmpty() ];
+            // const depStmtId = trackers.getStatementId(node.obj.name);
+            const depObjIds = trackers.getObjectVersions(node.obj.name);
+			return depObjIds.length > 0 ? [ DependencyFactory.DVar(node.obj.name, stmtId, depObjIds[0]) ] : [ DependencyFactory.DEmpty() ];
 		}
 
 		case "Literal": {
@@ -573,8 +510,6 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
         case "MemberExpression": {
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
-
-            // console.log(obj.obj.name, prop.obj.name);
 
             const objIds = trackers.getObjectVersionsWithProp(obj.obj.name, prop.obj.name);
             return objIds.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId));
@@ -625,10 +560,6 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
                StorageFactory.StoMaybeObject(obj.obj.name, prop.obj.name),
             );
         }
-
-        // case "ObjectExpression": {
-        //     return StorageFactory.StoObject()
-        // }
 
         default: {
             return StorageFactory.StoUnknown();

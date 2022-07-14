@@ -9,7 +9,7 @@
     "test": "jest --coverage",
     "build": "tsc",
     "prod": "tsc && node ./built/src/parser.js",
-    "debug": "tsc && node --inspect ./built/src/parser.js"
+    "debug": "ts-node-dev --inspect --transpile-only ./src/parser.ts"
   },
   "author": "",
   "license": "ISC",

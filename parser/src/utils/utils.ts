@@ -1,3 +1,4 @@
+import { GraphEdge } from "../traverse/graph/edge";
 import { GraphNode } from "../traverse/graph/node";
 
 /* eslint-disable no-plusplus */
@@ -38,4 +39,8 @@ export function getASTChildren(parent: GraphNode): GraphNode[] {
 
 export function getAllASTNodes(parent: GraphNode, childLabel: string): GraphNode[] {
     return parent.edges.filter(e => e.type === "AST" && e.label === childLabel).map(e => e.nodes[1]);
+}
+
+export function getAllASTEdges(parent: GraphNode, childLabel: string): GraphEdge[] {
+    return parent.edges.filter(e => e.type === "AST" && e.label === childLabel);
 }
