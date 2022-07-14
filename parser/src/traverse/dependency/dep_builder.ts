@@ -1,0 +1,346 @@
+import { GraphEdge } from "../graph/edge";
+import { Graph } from "../graph/graph";
+import { GraphNode } from "../graph/node";
+import { getAllASTEdges, getAllASTNodes, getASTNode, getNextObjectName } from "../../utils/utils";
+import { DependencyTracker, evalDep, evalSto } from "./dependency_trackers";
+import { StorageFactory, StorageObject } from "./sto_factory";
+import { Identifier } from "estree";
+
+function handleSimpleAssignment(stmtId: number, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    const variableName = variable.name;
+
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
+
+    // check if this expression is already in storage
+    const storageValue = evalSto(trackers, expNode);
+
+    // store the identifier of the location
+    newTrackers.addToStore(variableName, storageValue);
+
+    // store the stmtid
+    newTrackers.addToPhi(variableName, stmtId);
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
+function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
+function createNewObjectNode(stmtId: number, variable: Identifier, trackers: DependencyTracker): DependencyTracker {
+    const variableName = variable.name;
+
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // create new name for pdg object
+    const pdgObjName = getNextObjectName();
+
+    // add to heap
+    newTrackers.addNewObjectToHeap(pdgObjName);
+
+    // store the identifier of the new object
+    newTrackers.addToStore(variableName, StorageFactory.StoObject(pdgObjName));
+
+    // store the stmtid
+    newTrackers.addToPhi(variableName, stmtId);
+
+    // set changes as creation of new object
+    newTrackers.graphCreateNewObject(stmtId, variableName, pdgObjName);
+
+    return newTrackers;
+}
+
+function handleMemberExpression(stmtId: number, variable: Identifier, memExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    const variableName = variable.name;
+
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, memExpNode);
+
+    // check if this expression is already in storage
+    const storageValue = evalSto(trackers, memExpNode);
+
+    // store the identifier of the location
+    newTrackers.addToStore(variableName, storageValue);
+
+    // store the stmtid
+    newTrackers.addToPhi(variableName, stmtId);
+
+    // set changes as lookup from object
+    newTrackers.graphLookupObject(deps);
+
+    return newTrackers;
+}
+
+function handleArrayExpressionElement(stmtId: number, variable: Identifier, elemNode: GraphNode, elementIndex: number, trackers: DependencyTracker): DependencyTracker {
+    const variableName = variable.name;
+
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, elemNode);
+
+    // check if this expression is already in storage
+    const storageValue = evalSto(trackers, elemNode);
+
+    newTrackers.createArrayElementInHeap(variableName, elementIndex, storageValue);
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
+function handleArrayExpression(stmtId: number, variable: Identifier, arrExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    let newTrackers = trackers.clone();
+
+    const arrElementEdges = getAllASTEdges(arrExpNode, "element");
+    arrElementEdges.forEach((edge) => {
+        const elementIndex = edge.elementIndex;
+        const element = edge.nodes[1];
+        newTrackers = handleArrayExpressionElement(stmtId, variable, element, elementIndex, newTrackers);
+    });
+
+    // newTrackers.print();
+    return newTrackers;
+}
+
+function handleIfStatementTest(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
+function handleVariableAssignment(stmtId: number, left: Identifier, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // always create new object node for every variable
+    trackers = createNewObjectNode(stmtId, left, trackers);
+
+    switch (right.type) {
+        case "ArrayExpression": {
+            return handleArrayExpression(stmtId, left, right, trackers);
+        }
+
+        case "ObjectExpression": {
+            return trackers;
+        }
+
+        case "MemberExpression": {
+            return handleMemberExpression(stmtId, left, right, trackers);
+        }
+
+        case "FunctionExpression":
+        case "FunctionDeclaration": {
+            // track all parameters of this function
+            const params = getAllASTNodes(right, "param");
+            params.forEach(p => {
+                trackers = createNewObjectNode(p.id, p.obj, trackers);
+            });
+            return trackers;
+        }
+
+        default: {
+            return handleSimpleAssignment(stmtId, left, right, trackers);
+        }
+    }
+}
+
+function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // get child nodes for the member expression
+    const obj = getASTNode(left, "object");
+    const prop = getASTNode(left, "property");
+
+    const objName = obj.obj.name;
+    const propName = prop.obj.name;
+
+    // get location stored for this object
+    const objStorage = evalSto(trackers, obj);
+
+    // if it is an object just evaluate and create new object version
+    if (StorageFactory.isStorageObject(objStorage)) {
+        const objLocation = (<StorageObject>objStorage).location;
+
+        // evaluate storage and dependency of right-hand side expression
+        const rightStorageValue = evalSto(trackers, right);
+        const deps = evalDep(trackers, stmtId, right);
+
+        // replicate object
+        const { newTrackers, newObjLocation } = trackers.createNewObjectVersion(objName, propName, rightStorageValue);
+
+        // set changes as creation of new object and write of property
+        newTrackers.graphCreateNewObjectVersion(stmtId, objLocation, newObjLocation, deps, propName);
+
+        return newTrackers;
+    }
+
+    // ignore by cloning original values
+    return trackers.clone();
+}
+
+function handleAssignmentExpression(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    switch (left.type) {
+        // simple assignment / lookup
+        case "Identifier": {
+            return handleVariableAssignment(stmtId, left.obj.id, right, trackers);
+        }
+
+        // object write
+        case "MemberExpression": {
+            return handleObjectWrite(stmtId, left, right, trackers);
+        }
+    }
+
+    return trackers.clone();
+}
+
+function handleExpressionStatement(stmtId: number, node: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    switch (node.type) {
+        case "AssignmentExpression": {
+            const left = getASTNode(node, "left");
+            const right = getASTNode(node, "right");
+            return handleAssignmentExpression(stmtId, left, right, trackers);
+        }
+    }
+
+    return trackers.clone();
+}
+
+function pushContext(trackers: DependencyTracker, namespace: string): DependencyTracker {
+    const newTrackers = trackers.clone();
+    newTrackers.pushContext(namespace);
+    return newTrackers;
+}
+
+function popContext(trackers: DependencyTracker): DependencyTracker {
+    const newTrackers = trackers.clone();
+    newTrackers.popContext();
+    return newTrackers;
+}
+
+export function buildPDG(cfgGraph: Graph): Graph {
+    const graph = cfgGraph;
+
+    let trackers = new DependencyTracker();
+
+    const visitedNodes: number[] = [];
+
+    function traverse(node: GraphNode, currentNamespace: string | null) {
+        if (node === null) return;
+
+        // to avoid duplicate traversal of a node with more than one "from" CFG edge
+        if (visitedNodes.includes(node.id)) return;
+        visitedNodes.push(node.id);
+
+        // check all possible statements after normalization
+        switch (node.type) {
+            case "CFG_F_START": {
+                if (node.namespace) {
+                    trackers = pushContext(trackers, node.namespace);
+                }
+                break;
+            }
+
+            case "IfStatement": {
+                trackers = pushContext(trackers, node.id.toString());
+                const ifTest = getASTNode(node, "test");
+
+                // in this case we use the id of the test (identifier) node because
+                // the CFG "extracts" this node from the AST and inlines it in the
+                // control flow
+                trackers = handleIfStatementTest(ifTest.id, ifTest, trackers);
+                break;
+            }
+
+            case "CFG_F_END":
+            case "CFG_IF_END": {
+                trackers = popContext(trackers);
+                break;
+            }
+
+            // expression statements are the majority of statements
+            case "ExpressionStatement": {
+                const expressionNode = getASTNode(node, "expression");
+                if (expressionNode) {
+                    trackers = handleExpressionStatement(node.id, expressionNode, trackers);
+                }
+                break;
+            }
+
+            case "VariableDeclarator": {
+                const identifierNode = node.obj.id;
+                const initNode = getASTNode(node, "init");
+                if (initNode) {
+                    trackers = handleVariableAssignment(node.id, identifierNode, initNode, trackers);
+                }
+                break;
+            }
+
+            case "FunctionDeclaration": {
+                const params = getAllASTNodes(node, "param");
+                params.forEach(p => {
+                    trackers = createNewObjectNode(p.id, p.obj.id, trackers);
+                });
+                break;
+            }
+
+            case "ReturnStatement": {
+                const argument = getASTNode(node, "argument");
+                if (argument) {
+                    trackers = handleReturnArgument(node.id, argument, trackers);
+                }
+                break;
+            }
+
+
+            default:
+                break;
+        }
+
+        trackers.updateGraph(graph);
+
+        // traverse all child CFG nodes
+        node.edges
+            .filter((edge: GraphEdge) => edge.type === "CFG")
+            .forEach((edge: GraphEdge) => {
+                const n = edge.nodes[1];
+                traverse(n, currentNamespace);
+            });
+    }
+
+    // traverse CFG nodes
+    const startNodes = graph.startNodes.get("CFG");
+    startNodes?.forEach((node: GraphNode) => {
+        traverse(node, node.namespace);
+    });
+
+    trackers.print();
+    graph.clearUnusedObjectNodes();
+    return graph;
+}
