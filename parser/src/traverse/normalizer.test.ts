@@ -128,3 +128,7 @@ test("testing normalize - check that normalization retains same behaviour (23) -
 test("testing normalize - check that normalization retains same behaviour (24) - literals", () => {
     testNormalization("./test-inputs/normalization/literals");
 });
+
+test("testing normalize - check that normalization retains same behaviour (25) - templates", () => {
+    testNormalization("./test-inputs/normalization/template-expressions");
+});

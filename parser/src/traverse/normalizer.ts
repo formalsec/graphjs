@@ -37,7 +37,9 @@ import {
     unpattern,
     normVariableDeclaration,
     normVariableDeclarator,
-    normSequenceExpression
+    normSequenceExpression,
+    normTemplateLiteral,
+    normTaggedTemplateExpression
 } from "./normalizerUtils";
 
 function mapReduce(arr: (Node | null)[], p: Node): Normalization[] {
@@ -82,6 +84,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     //
     // Expressions
     //
+    case "TemplateElement":
     case "ThisExpression":
     case "Super":
     case "Identifier":
@@ -142,17 +145,17 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normMethodDefinition(obj, resultData);
     }
 
-    // case "TaggedTemplateExpression": {
+    case "TaggedTemplateExpression": {
+        const resultTag = normalize(obj.tag, obj);
+        const resultQuasi = normalize(obj.quasi, obj);
+        const resultData = [resultTag, resultQuasi]
+        return normTaggedTemplateExpression(obj, resultData);
+    }
 
-    // }
-
-    // case "TemplateLiteral": {
-
-    // }
-
-    // case "TemplateElement": {
-
-    // }
+    case "TemplateLiteral": {
+        const resultExpressions = mapReduce(obj.expressions, obj);
+        return normTemplateLiteral(obj, resultExpressions);
+    }
 
     case "MemberExpression": {
         const resultObject = normalize(obj.object, obj);

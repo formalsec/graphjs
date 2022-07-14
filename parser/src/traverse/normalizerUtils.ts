@@ -30,7 +30,7 @@ import type {
     SequenceExpression,
     SimpleLiteral,
     BlockStatement,
-    Statement, LabeledStatement, IfStatement,
+    Statement, LabeledStatement, IfStatement, TemplateLiteral, TaggedTemplateExpression,
 } from "estree";
 
 export interface Normalization {
@@ -350,6 +350,32 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
         stmts,
         expr: newObj,
     };
+};
+
+export function normTaggedTemplateExpression(obj: TaggedTemplateExpression, children: Normalization[]): Normalization {
+    const stmts = flatStmts(children);
+
+    const newObj = copyObj(obj);
+    newObj.tag = children[0].expr;
+    newObj.quasi = children[1].expr;
+
+    return {
+        stmts: [...stmts],
+        expr: newObj,
+    }
+};
+
+export function normTemplateLiteral(obj: TemplateLiteral, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+
+    const stmts = flatStmts(children);
+    newObj.expressions = flatExprs(children);
+
+    return {
+        stmts: [...stmts],
+        expr: newObj,
+    };
+
 };
 
 export function normBlockStatement(obj: Node, children: Normalization[]): Normalization {
