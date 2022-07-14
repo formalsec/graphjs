@@ -1,3 +1,0 @@
-lbl: {
-    break lbl;
-}

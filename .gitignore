@@ -1,6 +1,4 @@
 parser/node_modules/*
 parser/if.json
 parser/coverage/*
-parser/built/*
 virtual_py/*
-neo4j-custom/.config

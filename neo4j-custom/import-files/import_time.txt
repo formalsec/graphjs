@@ -1,0 +1,4 @@
+Command exited with non-zero status 2
+real 1.13
+user 2.58
+sys 0.12
