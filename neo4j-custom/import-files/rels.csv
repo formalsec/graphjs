@@ -21,6 +21,7 @@ FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿
 17¿1¿CFG¿¿¿
 1¿11¿CFG¿¿¿
 11¿18¿CFG¿¿¿
-2¿21¿PDG¿CREATE¿x¿
-2¿4¿PDG¿VAR¿x¿
-4¿8¿PDG¿VAR¿v1¿
+3¿21¿PDG¿CREATE¿x¿
+21¿4¿PDG¿VAR¿x¿
+4¿23¿PDG¿CREATE¿v1¿
+23¿8¿PDG¿VAR¿v1¿
