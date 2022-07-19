@@ -784,7 +784,7 @@ export function normMemberExpression(obj: MemberExpression, children: Normalizat
 
     if (parent
         && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
+            // || parent.type === "ExpressionStatement"
             || parent.type === "AssignmentExpression")) {
         return {
             stmts: [...children[0].stmts, ...children[1].stmts],

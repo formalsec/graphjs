@@ -10,13 +10,20 @@ function handleSimpleAssignment(stmtId: number, variable: Identifier, expNode: G
     const variableName = variable.name;
 
     // clone trackers
-    const newTrackers = trackers.clone();
+    let newTrackers = trackers.clone();
 
     // evaluate dependency of expression
     const deps = evalDep(trackers, stmtId, expNode);
 
     // check if this expression is already in storage
     const storageValue = evalSto(trackers, expNode);
+
+    // if the expression corresponds to an object then
+    // we are referencing this object and dont need to
+    // create a new one, otherwise we need a new object
+    if (!StorageFactory.isStorageObject(storageValue)) {
+        newTrackers = createNewObjectNode(stmtId, variable, trackers);
+    }
 
     // store the identifier of the location
     newTrackers.addToStore(variableName, storageValue);
@@ -49,11 +56,8 @@ function createNewObjectNode(stmtId: number, variable: Identifier, trackers: Dep
     // clone trackers
     const newTrackers = trackers.clone();
 
-    // create new name for pdg object
-    const pdgObjName = getNextObjectName();
-
     // add to heap
-    newTrackers.addNewObjectToHeap(pdgObjName);
+    const pdgObjName = newTrackers.addNewObjectToHeap();
 
     // store the identifier of the new object
     newTrackers.addToStore(variableName, StorageFactory.StoObject(pdgObjName));
@@ -71,13 +75,20 @@ function handleMemberExpression(stmtId: number, variable: Identifier, memExpNode
     const variableName = variable.name;
 
     // clone trackers
-    const newTrackers = trackers.clone();
+    let newTrackers = trackers.clone();
 
     // evaluate dependency of expression
     const deps = evalDep(trackers, stmtId, memExpNode);
 
     // check if this expression is already in storage
     const storageValue = evalSto(trackers, memExpNode);
+
+    // if the expression corresponds to an object then
+    // we are referencing this object and dont need to
+    // create a new one, otherwise we need a new object
+    if (!StorageFactory.isStorageObject(storageValue)) {
+        newTrackers = createNewObjectNode(stmtId, variable, trackers);
+    }
 
     // store the identifier of the location
     newTrackers.addToStore(variableName, storageValue);
@@ -111,9 +122,26 @@ function handleArrayExpressionElement(stmtId: number, variable: Identifier, elem
     return newTrackers;
 }
 
+function handleCallExpression(stmtId: number, variable: Identifier, argNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    const variableName = variable.name;
+
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, argNode);
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
 function handleArrayExpression(stmtId: number, variable: Identifier, arrExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // clone trackers
     let newTrackers = trackers.clone();
+
+    newTrackers = createNewObjectNode(stmtId, variable, newTrackers);
 
     const arrElementEdges = getAllASTEdges(arrExpNode, "element");
     arrElementEdges.forEach((edge) => {
@@ -140,16 +168,23 @@ function handleIfStatementTest(stmtId: number, expNode: GraphNode, trackers: Dep
 }
 
 function handleVariableAssignment(stmtId: number, left: Identifier, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // always create new object node for every variable
-    trackers = createNewObjectNode(stmtId, left, trackers);
-
     switch (right.type) {
         case "ArrayExpression": {
             return handleArrayExpression(stmtId, left, right, trackers);
         }
 
-        case "ObjectExpression": {
+        case "CallExpression": {
+            trackers = createNewObjectNode(stmtId, left, trackers);
+            // track all parameters of this function
+            const args = getAllASTNodes(right, "arg");
+            args.forEach(a => {
+                trackers = handleCallExpression(stmtId, left, a, trackers);
+            });
             return trackers;
+        }
+
+        case "ObjectExpression": {
+            return createNewObjectNode(stmtId, left, trackers);
         }
 
         case "MemberExpression": {
@@ -208,7 +243,7 @@ function handleAssignmentExpression(stmtId: number, left: GraphNode, right: Grap
     switch (left.type) {
         // simple assignment / lookup
         case "Identifier": {
-            return handleVariableAssignment(stmtId, left.obj.id, right, trackers);
+            return handleVariableAssignment(stmtId, left.obj, right, trackers);
         }
 
         // object write

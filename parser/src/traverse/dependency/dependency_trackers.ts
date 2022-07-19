@@ -63,6 +63,7 @@ export interface HeapObject {
 type Heap = Map<string, HeapObject>;
 type Store = Map<string, StorageValue[]>;
 type Phi = Map<string, number>;
+type References = Map<string, string[]>;
 type GChanges = GraphOperation[];
 type GNodes = Map<string, number>;
 type ContextStack = string[];
@@ -71,6 +72,7 @@ export class DependencyTracker {
     private heap: Heap;
     private store: Store;
     private phi: Phi;
+    private refs: References;
     private gChanges: GChanges;
     private gNodes: GNodes;
     private intraContextStack: ContextStack;
@@ -79,6 +81,7 @@ export class DependencyTracker {
         this.heap = new Map();
         this.store = new Map();
         this.phi = new Map();
+        this.refs = new Map();
         this.gChanges = new Array<GraphOperation>();
         this.gNodes = new Map();
         this.intraContextStack = new Array<string>();
@@ -92,8 +95,11 @@ export class DependencyTracker {
         return this.intraContextStack.pop();
     }
 
-    addNewObjectToHeap(name: string) {
-        this.heap.set(name, {});
+    addNewObjectToHeap(): string {
+        // create new name for pdg object
+        const pdgObjName = getNextObjectName();
+        this.heap.set(pdgObjName, {});
+        return pdgObjName;
     }
 
     addToHeap(name: string, heapObject: HeapObject) {
@@ -127,7 +133,21 @@ export class DependencyTracker {
         }
 
         storeArray.push(location);
+
+        // if object add to refs
+        if (StorageFactory.isStorageObject(location)) {
+            this.addToRefs((<StorageObject>location).location, name);
+        }
+
         this.store.set(name, storeArray);
+    }
+
+    addToRefs(location: string, name: string) {
+        if (this.refs.has(location)) {
+            this.refs.get(location)?.push(name);
+        } else {
+            this.refs.set(location, [name]);
+        }
     }
 
     replaceInStore(name: string, location: StorageValue) {
@@ -140,6 +160,11 @@ export class DependencyTracker {
         this.store.set(name, [ location ]);
     }
 
+    replaceInStoreForAll(lastLocation: StorageObject, newLocation: StorageValue) {
+        const allRefs = this.refs.get(lastLocation.location);
+        allRefs?.forEach((name) => this.replaceInStore(name, newLocation));
+    }
+
     getLastObjectLocation(objName: string): string | undefined {
         const objLocations = this.getStorage(objName);
 
@@ -150,6 +175,10 @@ export class DependencyTracker {
                 return stoObj.location;
             }
         }
+    }
+
+    needNewObjectNode(name: string, right: GraphNode): boolean {
+        return this.getStorage(name) === undefined;
     }
 
     addToPhi(name: string, id: number) {
@@ -298,6 +327,10 @@ export class DependencyTracker {
         this.phi = new Map(newPhi);
     }
 
+    private setRefs(newRefs: References) {
+        this.refs = new Map(newRefs);
+    }
+
     private setGChanges(newGChanges: GChanges) {
         const newArray = new Array<GraphOperation>();
         newGChanges.forEach(gop => newArray.push(gop));
@@ -429,8 +462,8 @@ export class DependencyTracker {
                     const newObjName = getNextObjectName();
                     locationHeapValue[propName] = propValue;
 
-                    // newTrackers.addToStore(objName, StorageFactory.StoObject(newObjName));
-                    newTrackers.replaceInStore(objName, StorageFactory.StoObject(newObjName));
+                    newTrackers.replaceInStoreForAll(<StorageObject>lastObjLocation, StorageFactory.StoObject(newObjName));
+                    // newTrackers.replaceInStore(objName, StorageFactory.StoObject(newObjName));
 
                     newTrackers.addToHeap(newObjName, locationHeapValue);
 
@@ -466,6 +499,7 @@ export class DependencyTracker {
         clone.setHeap(this.heap);
         clone.setStore(this.store);
         clone.setPhi(this.phi);
+        clone.setRefs(this.refs);
         clone.setGChanges(this.gChanges);
         clone.setGNodes(this.gNodes);
         clone.setContext(this.intraContextStack);
@@ -476,6 +510,7 @@ export class DependencyTracker {
         console.log("Heap:", this.heap);
         console.log("Store:", this.store);
         console.log("Phi:", this.phi);
+        console.log("Refs:", this.refs);
         console.log("Graph Nodes:", this.gNodes);
     }
 
@@ -494,7 +529,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
 		}
 
 		case "Literal": {
-			return [ DependencyFactory.DConst(node.obj.value, stmtId) ];
+            return [ DependencyFactory.DConst(node.obj.value, stmtId) ];
 		}
 
         case "Property": {
