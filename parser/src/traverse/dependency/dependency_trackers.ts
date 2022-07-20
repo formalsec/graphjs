@@ -150,19 +150,19 @@ export class DependencyTracker {
         }
     }
 
-    replaceInStore(name: string, location: StorageValue) {
-        let storeArray = this.getStorage(name);
-        if (!storeArray) {
-            this.addToStore(name, location);
-            return;
-        }
+    // replaceInStore(name: string, location: StorageValue) {
+    //     let storeArray = this.getStorage(name);
+    //     if (!storeArray) {
+    //         this.addToStore(name, location);
+    //         return;
+    //     }
 
-        this.store.set(name, [ location ]);
-    }
+    //     this.store.set(name, [ location ]);
+    // }
 
-    replaceInStoreForAll(lastLocation: StorageObject, newLocation: StorageValue) {
+    addInStoreForAll(lastLocation: StorageObject, newLocation: StorageValue) {
         const allRefs = this.refs.get(lastLocation.location);
-        allRefs?.forEach((name) => this.replaceInStore(name, newLocation));
+        allRefs?.forEach((name) => this.addToStore(name, newLocation));
     }
 
     getLastObjectLocation(objName: string): string | undefined {
@@ -456,14 +456,14 @@ export class DependencyTracker {
             const lastObjLocation = objLocations[objLocations.length - 1];
 
             if (StorageFactory.isStorageObject(lastObjLocation)) {
-                const locationHeapValue = clone(this.getHeapValue((<StorageObject>lastObjLocation).location));
+                const lastObjLocationStorage = (<StorageObject>lastObjLocation);
+                const locationHeapValue = clone(this.getHeapValue(lastObjLocationStorage.location));
 
                 if (locationHeapValue) {
                     const newObjName = getNextObjectName();
                     locationHeapValue[propName] = propValue;
 
-                    newTrackers.replaceInStoreForAll(<StorageObject>lastObjLocation, StorageFactory.StoObject(newObjName));
-                    // newTrackers.replaceInStore(objName, StorageFactory.StoObject(newObjName));
+                    newTrackers.addInStoreForAll(<StorageObject>lastObjLocation, StorageFactory.StoObject(newObjName));
 
                     newTrackers.addToHeap(newObjName, locationHeapValue);
 
@@ -561,7 +561,11 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
 }
 
 function stoUnion(first: StorageValue, second: StorageValue): StorageValue {
-    if (first.value != second.value) {
+    if (StorageFactory.isStorageObject(first) && StorageFactory.isMaybeObject(second)) {
+        return first;
+    } else if (StorageFactory.isStorageObject(second) && StorageFactory.isMaybeObject(first)) {
+        return second;
+    } else if (first.value !== second.value) {
         return StorageFactory.StoNoObject();
     }
 

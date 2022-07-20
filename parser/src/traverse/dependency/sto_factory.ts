@@ -51,7 +51,7 @@ export class StorageFactory {
         return sto.value === ValLattice.Object;
     }
 
-    static checkMaybeObject(sto: StorageValue): boolean {
+    static isMaybeObject(sto: StorageValue): boolean {
         return sto.value === ValLattice.MaybeObject;
     }
 }
