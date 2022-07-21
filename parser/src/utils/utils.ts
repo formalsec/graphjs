@@ -19,7 +19,7 @@ export const getNextVariableName = () => `v${VAR_COUNT++}`;
 
 export const resetVariableCount = () => VAR_COUNT = 1;
 
-export const getNextObjectName = () => `o${OBJ_COUNT++}`;
+export const getNextObjectName = (variableName: string) => `${variableName}-o${OBJ_COUNT++}`;
 
 export const resetObjectCount = () => OBJ_COUNT = 1;
 

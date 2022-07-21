@@ -1,7 +1,7 @@
 import { GraphEdge } from "../graph/edge";
 import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
-import { getAllASTEdges, getAllASTNodes, getASTNode, getNextObjectName } from "../../utils/utils";
+import { getAllASTEdges, getAllASTNodes, getASTNode } from "../../utils/utils";
 import { DependencyTracker, evalDep, evalSto } from "./dependency_trackers";
 import { StorageFactory, StorageObject } from "./sto_factory";
 import { Identifier } from "estree";
@@ -16,20 +16,38 @@ function handleSimpleAssignment(stmtId: number, variable: Identifier, expNode: G
     const deps = evalDep(trackers, stmtId, expNode);
 
     // check if this expression is already in storage
-    const storageValue = evalSto(trackers, expNode);
+    // we only need the first because we know this is
+    // not a binary expression or member expression
+    let storageValue = evalSto(trackers, expNode)[0];
 
     // if the expression corresponds to an object then
     // we are referencing this object and dont need to
     // create a new one, otherwise we need a new object
     if (!StorageFactory.isStorageObject(storageValue)) {
         newTrackers = createNewObjectNode(stmtId, variable, trackers);
+    } else {
+        // store the identifier of the location
+        newTrackers.addToStore(variableName, storageValue);
+
+        // store the stmtid
+        newTrackers.addToPhi(variableName, stmtId);
     }
 
-    // store the identifier of the location
-    newTrackers.addToStore(variableName, storageValue);
 
-    // store the stmtid
-    newTrackers.addToPhi(variableName, stmtId);
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
+function handleBinaryExpression(stmtId: number, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    let newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, BinExpNode);
+
+    newTrackers = createNewObjectNode(stmtId, variable, trackers);
 
     // apply dependencies to graph (var edges)
     newTrackers.graphBuildEdge(deps);
@@ -57,7 +75,7 @@ function createNewObjectNode(stmtId: number, variable: Identifier, trackers: Dep
     const newTrackers = trackers.clone();
 
     // add to heap
-    const pdgObjName = newTrackers.addNewObjectToHeap();
+    const pdgObjName = newTrackers.addNewObjectToHeap(variableName);
 
     // store the identifier of the new object
     newTrackers.addToStore(variableName, StorageFactory.StoObject(pdgObjName));
@@ -78,23 +96,35 @@ function handleMemberExpression(stmtId: number, variable: Identifier, memExpNode
     let newTrackers = trackers.clone();
 
     // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, memExpNode);
+    let deps = evalDep(newTrackers, stmtId, memExpNode);
+
+    // if there are no dependencies then we have to create
+    // the objects corresponding to the properties in the
+    // memExpNode and re-run evalDep
+    if (deps.length === 0) {
+        const obj = getASTNode(memExpNode, "object");
+        const prop = getASTNode(memExpNode, "property");
+        newTrackers.createObjectProperties(stmtId, obj, prop);
+        deps = evalDep(newTrackers, stmtId, memExpNode);
+    }
 
     // check if this expression is already in storage
-    const storageValue = evalSto(trackers, memExpNode);
+    // TODO: this is not right, we should check if there are more
+    const storageValue = evalSto(trackers, memExpNode)[0];
 
     // if the expression corresponds to an object then
     // we are referencing this object and dont need to
     // create a new one, otherwise we need a new object
     if (!StorageFactory.isStorageObject(storageValue)) {
         newTrackers = createNewObjectNode(stmtId, variable, trackers);
+    } else {
+        // store the identifier of the location
+        newTrackers.addToStore(variableName, storageValue);
+
+        // store the stmtid
+        newTrackers.addToPhi(variableName, stmtId);
     }
 
-    // store the identifier of the location
-    newTrackers.addToStore(variableName, storageValue);
-
-    // store the stmtid
-    newTrackers.addToPhi(variableName, stmtId);
 
     // set changes as lookup from object
     newTrackers.graphLookupObject(deps);
@@ -112,7 +142,9 @@ function handleArrayExpressionElement(stmtId: number, variable: Identifier, elem
     const deps = evalDep(trackers, stmtId, elemNode);
 
     // check if this expression is already in storage
-    const storageValue = evalSto(trackers, elemNode);
+    // we only need the first because we know this is
+    // not a binary expression or member expression
+    const storageValue = evalSto(trackers, elemNode)[0];
 
     newTrackers.createArrayElementInHeap(variableName, elementIndex, storageValue);
 
@@ -201,6 +233,10 @@ function handleVariableAssignment(stmtId: number, left: Identifier, right: Graph
             return trackers;
         }
 
+        case "BinaryExpression": {
+            return handleBinaryExpression(stmtId, left, right, trackers);
+        }
+
         default: {
             return handleSimpleAssignment(stmtId, left, right, trackers);
         }
@@ -216,18 +252,23 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
     const propName = prop.obj.name;
 
     // get location stored for this object
-    const objStorage = evalSto(trackers, obj);
+    // we only need the first because we know this is
+    // not a binary expression or member expression
+    const objStorage = evalSto(trackers, obj)[0];
 
     // if it is an object just evaluate and create new object version
     if (StorageFactory.isStorageObject(objStorage)) {
         const objLocation = (<StorageObject>objStorage).location;
 
-        // evaluate storage and dependency of right-hand side expression
-        const rightStorageValue = evalSto(trackers, right);
         const deps = evalDep(trackers, stmtId, right);
 
+        // evaluate storage and dependency of right-hand side expression
+        // we only need the first because we know this is
+        // not a binary expression or member expression
+        const rightStorageValue = evalSto(trackers, right)[0];
+
         // replicate object
-        const { newTrackers, newObjLocation } = trackers.createNewObjectVersion(objName, propName, rightStorageValue);
+        let { newTrackers, newObjLocation } = trackers.createNewObjectVersion(stmtId, obj, prop, rightStorageValue);
 
         // set changes as creation of new object and write of property
         newTrackers.graphCreateNewObjectVersion(stmtId, objLocation, newObjLocation, deps, propName);

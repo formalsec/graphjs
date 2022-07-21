@@ -11,7 +11,8 @@ function getNodeLabel(n: GraphNode, showCode: any) {
     if (n.obj) {
         switch (n.type) {
             case "PDG_OBJECT":
-                label = `#${n.id} ${n.type} ${n.identifier}`;
+                // label = `#${n.id} ${n.type} ${n.identifier}`;
+                label = `#${n.id} ${n.identifier}`;
                 break;
 
             case "CFG_F_START":

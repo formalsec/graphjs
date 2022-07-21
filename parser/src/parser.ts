@@ -32,6 +32,7 @@ function parse(filename: string) : Graph {
         console.log(code);
         console.log("===============");
 
+        // const normalizedAst = esprima.parseScript(code, { loc: true });
         const astGraph = buildAST(normalizedAst);
         // const astGraph = buildAST(ast);
         const cfgGraph = buildCFG(astGraph);

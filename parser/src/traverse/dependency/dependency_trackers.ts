@@ -2,7 +2,7 @@ import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
 import { clone, getASTNode, getAllASTNodes, getNextObjectName } from "../../utils/utils";
 import { Dependency, DependencyFactory } from "./dep_factory";
-import { StorageObject, StorageValue, StorageFactory, StorageMaybeObject } from "./sto_factory";
+import { StorageObject, StorageValue, StorageFactory } from "./sto_factory";
 
 enum GraphOperationType {
     CREATE_NEW_OBJECT,
@@ -95,10 +95,15 @@ export class DependencyTracker {
         return this.intraContextStack.pop();
     }
 
-    addNewObjectToHeap(): string {
+    addNewObjectToHeap(name: string, heapObject?: HeapObject): string {
         // create new name for pdg object
-        const pdgObjName = getNextObjectName();
-        this.heap.set(pdgObjName, {});
+        const pdgObjName = getNextObjectName(name);
+        // console.log("Added Object", pdgObjName, "to Heap (", name, ")");
+        if (heapObject) {
+            this.addToHeap(pdgObjName, heapObject);
+        } else {
+            this.addToHeap(pdgObjName, {});
+        }
         return pdgObjName;
     }
 
@@ -363,7 +368,7 @@ export class DependencyTracker {
         return this.gNodes.get(key);
     }
 
-    getObjectVersionsWithProp(objName: string, propName: string): number[] {
+    getObjectVersionsWithProp(stmtId: number, objName: string, propName: string): number[] {
         // get version of object in storage
         const objStorage = this.getStorage(objName);
 
@@ -379,23 +384,6 @@ export class DependencyTracker {
 
                     return false;
                 }) as string[];
-
-                // if this property is not in the heap
-                // we have to add it with Unknown value
-                // for all stored objects
-                if (objValues.length === 0) {
-                    objects.forEach(o => {
-                        const value = this.getHeapValue(o);
-                        if (value) {
-                            // value[propName] = ValLattice.Unknown;
-                            value[propName] = StorageFactory.StoMaybeObject(objName, propName);
-                        }
-                    });
-
-                    // run this function again
-                    // now with the property in the heap
-                    return this.getObjectVersionsWithProp(objName, propName);
-                }
 
                 const objIds = objValues.map(o => this.getObjectId(o)) as number[];
                 return objIds;
@@ -426,29 +414,29 @@ export class DependencyTracker {
         if (objStorage) {
             // filter those versions that are not objects
             const objects = objStorage.filter(sto => StorageFactory.isStorageObject(sto));
-            const objValues = objects.filter(o => {
+
+            // get those that have the property in the name
+            const objValues: StorageValue[] = [];
+            objects.forEach(o => {
                 const sto = <StorageObject> o;
 
                 const value = this.getHeapValue(sto.location);
-                if (value) {
-                    return propName in value;
+                if (value && propName in value) {
+                    objValues.push(value[propName]);
                 }
-
-                return false;
-            }) as StorageObject[];
-
-            return objValues.map(ov => {
-                const value = this.getHeapValue(ov.location);
-                if (value) return value[propName];
-                return StorageFactory.StoMaybeObject(objName, propName);
             });
+
+            return objValues;
         }
 
         return [];
     }
 
-    createNewObjectVersion(objName: string, propName: string, propValue: StorageValue) {
+    createNewObjectVersion(stmtId: number, obj: GraphNode, prop: GraphNode, propValue: StorageValue) {
         const newTrackers = this.clone();
+
+        const objName = obj.obj.name;
+        const propName = prop.obj.name;
 
         const objLocations = this.getStorage(objName);
 
@@ -460,12 +448,18 @@ export class DependencyTracker {
                 const locationHeapValue = clone(this.getHeapValue(lastObjLocationStorage.location));
 
                 if (locationHeapValue) {
-                    const newObjName = getNextObjectName();
-                    locationHeapValue[propName] = propValue;
+                    const newObjName = newTrackers.addNewObjectToHeap(objName, locationHeapValue);
+                    const newSto = StorageFactory.StoObject(newObjName);
 
-                    newTrackers.addInStoreForAll(<StorageObject>lastObjLocation, StorageFactory.StoObject(newObjName));
+                    let newPropValue = propValue;
+                    if (!StorageFactory.isStorageObject(propValue)) {
+                        newPropValue = newTrackers.createObjectProperties(stmtId, obj, prop);
+                    }
 
-                    newTrackers.addToHeap(newObjName, locationHeapValue);
+                    locationHeapValue[propName] = newPropValue;
+
+                    newTrackers.addInStoreForAll(<StorageObject>lastObjLocation, newSto);
+
 
                     return {
                         newTrackers,
@@ -492,6 +486,31 @@ export class DependencyTracker {
                 this.addToHeap(lastLocation, locationHeapValue);
             }
         }
+    }
+
+    createObjectProperties(stmtId: number, obj: GraphNode, prop: GraphNode): StorageValue {
+        const objName = obj.obj.name;
+        const propName = prop.obj.name;
+        // get version of object in storage
+        const objStorage = this.getStorage(objName);
+
+        if (objStorage) {
+            const objects = objStorage.filter(sto => StorageFactory.isStorageObject(sto)).map(sto => (<StorageObject>sto).location);
+            const pdgObjName = this.addNewObjectToHeap(`${objName}.${propName}`);
+            this.graphCreateNewObject(stmtId, `${objName}.${propName}`, pdgObjName);
+
+            const propStorage = StorageFactory.StoObject(pdgObjName);
+            objects.forEach(o => {
+                const value = this.getHeapValue(o);
+                if (value) {
+                    // set changes as creation of new object
+                    value[propName] = propStorage;
+                }
+            });
+            return propStorage;
+        }
+
+        return StorageFactory.StoUnknown();
     }
 
     clone(): DependencyTracker {
@@ -546,7 +565,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
 
-            const objIds = trackers.getObjectVersionsWithProp(obj.obj.name, prop.obj.name);
+            const objIds = trackers.getObjectVersionsWithProp(stmtId, obj.obj.name, prop.obj.name);
             return objIds.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId));
         }
 
@@ -560,48 +579,46 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
 	}
 }
 
-function stoUnion(first: StorageValue, second: StorageValue): StorageValue {
-    if (StorageFactory.isStorageObject(first) && StorageFactory.isMaybeObject(second)) {
-        return first;
-    } else if (StorageFactory.isStorageObject(second) && StorageFactory.isMaybeObject(first)) {
-        return second;
-    } else if (first.value !== second.value) {
-        return StorageFactory.StoNoObject();
-    }
+// function stoUnion(first: StorageValue, second: StorageValue): StorageValue {
+//     if (StorageFactory.isStorageObject(first)) {
+//         return first;
+//     } else if (StorageFactory.isStorageObject(second)) {
+//         return second;
+//     } else if (first.value !== second.value) {
+//         return StorageFactory.StoNoObject();
+//     }
 
-    return first;
-}
+//     return first;
+// }
 
-export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageValue {
+export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageValue[] {
 	switch (node.type) {
 		case "Identifier": {
-			const location = trackers.getStorage(node.obj.name);
-            return location ? location[0] : StorageFactory.StoNoObject();
+			const locations = trackers.getStorage(node.obj.name);
+            return locations ? locations.slice(-1) : [ StorageFactory.StoNoObject() ];
 		}
 
 		case "Literal": {
-			return StorageFactory.StoNoObject();
+			// return [ StorageFactory.StoNoObject() ];
+            return [ StorageFactory.StoNoObject() ];
 		}
 
         case "BinaryExpression": {
             const leftSto = evalSto(trackers, getASTNode(node, "left"));
             const rightSto = evalSto(trackers, getASTNode(node, "right"))
-            return stoUnion(leftSto, rightSto);
+            return [ ...leftSto, ...rightSto ];
         }
 
         case "MemberExpression": {
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
 
-            const objectsStorage = trackers.getPropStorage(obj.obj.name, prop.obj.name);
-            return objectsStorage.reduce(
-                (first, second) => stoUnion(first, second),
-               StorageFactory.StoMaybeObject(obj.obj.name, prop.obj.name),
-            );
+            const stos = trackers.getPropStorage(obj.obj.name, prop.obj.name);
+            return stos.length > 0 ? stos : [ StorageFactory.StoUnknown() ];
         }
 
         default: {
-            return StorageFactory.StoUnknown();
+            return [ StorageFactory.StoUnknown() ];
         }
 	}
 }
