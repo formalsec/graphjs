@@ -86,6 +86,7 @@ function getEdgeLabel(e: GraphEdge) {
 
     switch (e.label) {
         case "VAR":
+        case "REF":
         case "NEW_VERSION":
         case "SUB_OBJECT":
         case "WRITE":

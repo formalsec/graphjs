@@ -24,7 +24,7 @@ function handleSimpleAssignment(stmtId: number, variable: Identifier, expNode: G
     // we are referencing this object and dont need to
     // create a new one, otherwise we need a new object
     if (!StorageFactory.isStorageObject(storageValue)) {
-        newTrackers = createNewObjectNode(stmtId, variable, trackers);
+        newTrackers = createAndStoreNewObjectNode(stmtId, variable, trackers);
     } else {
         // store the identifier of the location
         newTrackers.addToStore(variableName, storageValue);
@@ -47,7 +47,7 @@ function handleBinaryExpression(stmtId: number, variable: Identifier, BinExpNode
     // evaluate dependency of expression
     const deps = evalDep(trackers, stmtId, BinExpNode);
 
-    newTrackers = createNewObjectNode(stmtId, variable, trackers);
+    newTrackers = createAndStoreNewObjectNode(stmtId, variable, trackers);
 
     // apply dependencies to graph (var edges)
     newTrackers.graphBuildEdge(deps);
@@ -68,7 +68,7 @@ function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: Depe
     return newTrackers;
 }
 
-function createNewObjectNode(stmtId: number, variable: Identifier, trackers: DependencyTracker): DependencyTracker {
+function createAndStoreNewObjectNode(stmtId: number, variable: Identifier, trackers: DependencyTracker): DependencyTracker {
     const variableName = variable.name;
 
     // clone trackers
@@ -104,27 +104,30 @@ function handleMemberExpression(stmtId: number, variable: Identifier, memExpNode
     if (deps.length === 0) {
         const obj = getASTNode(memExpNode, "object");
         const prop = getASTNode(memExpNode, "property");
-        newTrackers.createObjectProperties(stmtId, obj, prop);
+        newTrackers.createObjectProperties(stmtId, obj.obj.name, prop.obj.name);
         deps = evalDep(newTrackers, stmtId, memExpNode);
     }
 
     // check if this expression is already in storage
-    // TODO: this is not right, we should check if there are more
-    const storageValue = evalSto(trackers, memExpNode)[0];
+    // we just check the last value in storage because
+    // it is the most recent
+    const storageValue = evalSto(trackers, memExpNode).slice(-1)[0];
 
-    // if the expression corresponds to an object then
-    // we are referencing this object and dont need to
-    // create a new one, otherwise we need a new object
     if (!StorageFactory.isStorageObject(storageValue)) {
-        newTrackers = createNewObjectNode(stmtId, variable, trackers);
+        // if the expression corresponds to an object then
+        // we are referencing this object and dont need to
+        // create a new one, otherwise we need a new object
+        newTrackers = createAndStoreNewObjectNode(stmtId, variable, trackers);
     } else {
         // store the identifier of the location
         newTrackers.addToStore(variableName, storageValue);
 
         // store the stmtid
         newTrackers.addToPhi(variableName, stmtId);
-    }
 
+        const location = (<StorageObject> storageValue).location;
+        newTrackers.graphBuildReferenceEdge(stmtId, variableName, location);
+    }
 
     // set changes as lookup from object
     newTrackers.graphLookupObject(deps);
@@ -146,7 +149,7 @@ function handleArrayExpressionElement(stmtId: number, variable: Identifier, elem
     // not a binary expression or member expression
     const storageValue = evalSto(trackers, elemNode)[0];
 
-    newTrackers.createArrayElementInHeap(variableName, elementIndex, storageValue);
+    newTrackers.createArrayElementInHeap(stmtId, variableName, elementIndex, storageValue);
 
     // apply dependencies to graph (var edges)
     newTrackers.graphBuildEdge(deps);
@@ -155,8 +158,6 @@ function handleArrayExpressionElement(stmtId: number, variable: Identifier, elem
 }
 
 function handleCallExpression(stmtId: number, variable: Identifier, argNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    const variableName = variable.name;
-
     // clone trackers
     const newTrackers = trackers.clone();
 
@@ -173,7 +174,7 @@ function handleArrayExpression(stmtId: number, variable: Identifier, arrExpNode:
     // clone trackers
     let newTrackers = trackers.clone();
 
-    newTrackers = createNewObjectNode(stmtId, variable, newTrackers);
+    newTrackers = createAndStoreNewObjectNode(stmtId, variable, newTrackers);
 
     const arrElementEdges = getAllASTEdges(arrExpNode, "element");
     arrElementEdges.forEach((edge) => {
@@ -206,7 +207,7 @@ function handleVariableAssignment(stmtId: number, left: Identifier, right: Graph
         }
 
         case "CallExpression": {
-            trackers = createNewObjectNode(stmtId, left, trackers);
+            trackers = createAndStoreNewObjectNode(stmtId, left, trackers);
             // track all parameters of this function
             const args = getAllASTNodes(right, "arg");
             args.forEach(a => {
@@ -216,7 +217,7 @@ function handleVariableAssignment(stmtId: number, left: Identifier, right: Graph
         }
 
         case "ObjectExpression": {
-            return createNewObjectNode(stmtId, left, trackers);
+            return createAndStoreNewObjectNode(stmtId, left, trackers);
         }
 
         case "MemberExpression": {
@@ -228,7 +229,7 @@ function handleVariableAssignment(stmtId: number, left: Identifier, right: Graph
             // track all parameters of this function
             const params = getAllASTNodes(right, "param");
             params.forEach(p => {
-                trackers = createNewObjectNode(p.id, p.obj, trackers);
+                trackers = createAndStoreNewObjectNode(p.id, p.obj, trackers);
             });
             return trackers;
         }
@@ -248,7 +249,6 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
     const obj = getASTNode(left, "object");
     const prop = getASTNode(left, "property");
 
-    const objName = obj.obj.name;
     const propName = prop.obj.name;
 
     // get location stored for this object
@@ -381,7 +381,7 @@ export function buildPDG(cfgGraph: Graph): Graph {
             case "FunctionDeclaration": {
                 const params = getAllASTNodes(node, "param");
                 params.forEach(p => {
-                    trackers = createNewObjectNode(p.id, p.obj.id, trackers);
+                    trackers = createAndStoreNewObjectNode(p.id, p.obj.id, trackers);
                 });
                 break;
             }

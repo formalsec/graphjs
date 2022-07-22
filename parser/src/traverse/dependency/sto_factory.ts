@@ -1,7 +1,7 @@
 export enum ValLattice {
     Object,
     NoObject,
-    MaybeObject,
+    // MaybeObject,
     Unknown,
 };
 

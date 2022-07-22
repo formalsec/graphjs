@@ -10,6 +10,7 @@ enum GraphOperationType {
     CREATE_NEW_VERSION,
     WRITE_PROPERTY,
     LOOKUP_PROPERTY,
+    CREATE_REFERENCE_EDGE,
 };
 
 interface OpCreateNewObject {
@@ -42,6 +43,13 @@ interface OpCreateDependencyEdge {
     destination: number | undefined
 }
 
+interface OpCreateReferenceEdge {
+    op: GraphOperationType.CREATE_REFERENCE_EDGE,
+    name: string,
+    source: number | undefined,
+    destination: number | undefined
+}
+
 interface OpLookupProperty {
     op: GraphOperationType.LOOKUP_PROPERTY,
     propName: string,
@@ -54,7 +62,8 @@ type GraphOperation =
     OpWriteProperty |
     OpCreateNewVersion |
     OpCreateDependencyEdge |
-    OpLookupProperty;
+    OpLookupProperty |
+    OpCreateReferenceEdge;
 
 export interface HeapObject {
     [key: string]: StorageValue,
@@ -165,8 +174,8 @@ export class DependencyTracker {
     //     this.store.set(name, [ location ]);
     // }
 
-    addInStoreForAll(lastLocation: StorageObject, newLocation: StorageValue) {
-        const allRefs = this.refs.get(lastLocation.location);
+    addInStoreForAll(lastLocation: string, newLocation: StorageValue) {
+        const allRefs = this.refs.get(lastLocation);
         allRefs?.forEach((name) => this.addToStore(name, newLocation));
     }
 
@@ -238,6 +247,16 @@ export class DependencyTracker {
                 source: dep.source,
                 destination: dep.destination
             });
+        });
+    }
+
+    graphBuildReferenceEdge(sourceId: number, variableName: string, location: string) {
+        const locationId = this.gNodes.get(location);
+        this.gChanges.push({
+            op: GraphOperationType.CREATE_REFERENCE_EDGE,
+            name: variableName,
+            source: sourceId,
+            destination: locationId,
         });
     }
 
@@ -313,6 +332,14 @@ export class DependencyTracker {
                     // add var dependency edge
                     if (change.source && change.destination && change.source !== change.destination) {
                         graph.addEdge(change.source, change.destination, { type: "PDG", label: "VAR", objName: change.name });
+                    }
+                    break;
+                }
+
+                case GraphOperationType.CREATE_REFERENCE_EDGE: {
+                    // add var dependency edge
+                    if (change.source && change.destination && change.source !== change.destination) {
+                        graph.addEdge(change.source, change.destination, { type: "REF", label: "REF", objName: change.name });
                     }
                     break;
                 }
@@ -438,34 +465,28 @@ export class DependencyTracker {
         const objName = obj.obj.name;
         const propName = prop.obj.name;
 
-        const objLocations = this.getStorage(objName);
+        const lastObjLocation = this.getLastObjectLocation(objName);
 
-        if (objLocations) {
-            const lastObjLocation = objLocations[objLocations.length - 1];
+        if (lastObjLocation) {
+            const locationHeapValue = clone(this.getHeapValue(lastObjLocation));
 
-            if (StorageFactory.isStorageObject(lastObjLocation)) {
-                const lastObjLocationStorage = (<StorageObject>lastObjLocation);
-                const locationHeapValue = clone(this.getHeapValue(lastObjLocationStorage.location));
+            if (locationHeapValue) {
+                const newObjName = newTrackers.addNewObjectToHeap(objName, locationHeapValue);
 
-                if (locationHeapValue) {
-                    const newObjName = newTrackers.addNewObjectToHeap(objName, locationHeapValue);
-                    const newSto = StorageFactory.StoObject(newObjName);
-
-                    let newPropValue = propValue;
-                    if (!StorageFactory.isStorageObject(propValue)) {
-                        newPropValue = newTrackers.createObjectProperties(stmtId, obj, prop);
-                    }
-
-                    locationHeapValue[propName] = newPropValue;
-
-                    newTrackers.addInStoreForAll(<StorageObject>lastObjLocation, newSto);
-
-
-                    return {
-                        newTrackers,
-                        newObjLocation: newObjName
-                    };
+                let newPropValue = propValue;
+                if (!StorageFactory.isStorageObject(propValue)) {
+                    newPropValue = newTrackers.createObjectProperties(stmtId, objName, propName);
                 }
+
+                locationHeapValue[propName] = newPropValue;
+
+                newTrackers.addInStoreForAll(lastObjLocation, StorageFactory.StoObject(newObjName));
+
+
+                return {
+                    newTrackers,
+                    newObjLocation: newObjName
+                };
             }
         }
 
@@ -475,22 +496,25 @@ export class DependencyTracker {
         };
     }
 
-    createArrayElementInHeap(objName: string, elementIndex: number, propValue: StorageValue) {
+    createArrayElementInHeap(stmtId: number, objName: string, elementIndex: number, propValue: StorageValue) {
         const lastLocation = this.getLastObjectLocation(objName);
 
         if (lastLocation) {
             const locationHeapValue = clone(this.getHeapValue(lastLocation));
 
             if (locationHeapValue) {
-                locationHeapValue[elementIndex] = propValue;
+                let newPropValue = propValue;
+                if (!StorageFactory.isStorageObject(propValue)) {
+                    newPropValue = this.createObjectProperties(stmtId, objName, elementIndex.toString());
+                }
+
+                locationHeapValue[elementIndex] = newPropValue;
                 this.addToHeap(lastLocation, locationHeapValue);
             }
         }
     }
 
-    createObjectProperties(stmtId: number, obj: GraphNode, prop: GraphNode): StorageValue {
-        const objName = obj.obj.name;
-        const propName = prop.obj.name;
+    createObjectProperties(stmtId: number, objName: string, propName: string): StorageValue {
         // get version of object in storage
         const objStorage = this.getStorage(objName);
 
@@ -599,7 +623,6 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
 		}
 
 		case "Literal": {
-			// return [ StorageFactory.StoNoObject() ];
             return [ StorageFactory.StoNoObject() ];
 		}
 
