@@ -226,6 +226,7 @@ function handleVariableAssignment(stmtId: number, left: Identifier, right: Graph
 
         case "FunctionExpression":
         case "FunctionDeclaration": {
+            trackers = createAndStoreNewObjectNode(stmtId, left, trackers);
             // track all parameters of this function
             const params = getAllASTNodes(right, "param");
             params.forEach(p => {
@@ -249,18 +250,35 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
     const obj = getASTNode(left, "object");
     const prop = getASTNode(left, "property");
 
-    const propName = prop.obj.name;
-
     // get location stored for this object
     // we only need the first because we know this is
     // not a binary expression or member expression
     const objStorage = evalSto(trackers, obj)[0];
 
+    const objName = obj.obj.name;
+    let propName = prop.obj.name;
+
     // if it is an object just evaluate and create new object version
     if (StorageFactory.isStorageObject(objStorage)) {
         const objLocation = (<StorageObject>objStorage).location;
 
-        const deps = evalDep(trackers, stmtId, right);
+        let deps;
+        // if the member expression is computed  and is not a
+        // Literal then we have to evaluate the dependencies
+        // of the property as it is a variable,  because it
+        // influences the object otherwise treat it is a Literal
+        if (left.obj.computed && prop.type !== "Literal") {
+            deps = evalDep(trackers, stmtId, prop);
+            deps = [ ...deps, ...evalDep(trackers, stmtId, right) ];
+
+            // change propName to be '*' since the property is dynamic
+            propName = '*';
+        } else {
+            // if the prop is a Literal or the member expression is not
+            // computed then we just evaluate the dependencies for the
+            // right side
+            deps = evalDep(trackers, stmtId, right);
+        }
 
         // evaluate storage and dependency of right-hand side expression
         // we only need the first because we know this is
@@ -268,7 +286,7 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
         const rightStorageValue = evalSto(trackers, right)[0];
 
         // replicate object
-        let { newTrackers, newObjLocation } = trackers.createNewObjectVersion(stmtId, obj, prop, rightStorageValue);
+        let { newTrackers, newObjLocation } = trackers.createNewObjectVersion(stmtId, objName, propName, rightStorageValue);
 
         // set changes as creation of new object and write of property
         newTrackers.graphCreateNewObjectVersion(stmtId, objLocation, newObjLocation, deps, propName);

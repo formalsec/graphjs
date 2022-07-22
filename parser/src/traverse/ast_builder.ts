@@ -205,6 +205,18 @@ function buildAST(originalObj: estree.Program) {
             return objNode;
         }
 
+        case "TemplateLiteral": {
+            const objNode = graph.addNode(obj.type, obj);
+
+            const args = mapReduce(obj.expressions, objNode);
+
+            // eslint-disable-next-line no-plusplus
+            for (let i = 0; i < args.length; i++) {
+                graph.addEdge(objNode.id, args[i].id, { type: "AST", label: "expression", expressionIndex: i + 1 });
+            }
+            return objNode;
+        }
+
         case "LabeledStatement": {
             const objNode = graph.addNode(obj.type, obj);
             objNode.identifier = obj.label.name;

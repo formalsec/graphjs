@@ -459,11 +459,8 @@ export class DependencyTracker {
         return [];
     }
 
-    createNewObjectVersion(stmtId: number, obj: GraphNode, prop: GraphNode, propValue: StorageValue) {
+    createNewObjectVersion(stmtId: number, objName: string, propName: string, propValue: StorageValue) {
         const newTrackers = this.clone();
-
-        const objName = obj.obj.name;
-        const propName = prop.obj.name;
 
         const lastObjLocation = this.getLastObjectLocation(objName);
 
@@ -595,6 +592,10 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
 
         case "CallExpression": {
             return getAllASTNodes(node, "arg").map(arg => evalDep(trackers, stmtId, arg)).flat();
+        }
+
+        case "TemplateLiteral": {
+            return getAllASTNodes(node, "expression").map(exp => evalDep(trackers, stmtId, exp)).flat();
         }
 
 		default: {

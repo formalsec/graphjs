@@ -1,5 +1,16 @@
 import { GraphNode } from "./node";
 
+interface EdgeInfo {
+    type: string,
+    label: string,
+    objName: string,
+    argumentIndex: number,
+    paramIndex: number,
+    stmtIndex: number,
+    elementIndex: number,
+    expressionIndex: number,
+};
+
 export class GraphEdge {
     private _id: number;
     private _nodes: GraphNode[];
@@ -10,8 +21,9 @@ export class GraphEdge {
     private _param_index: number;
     private _stmt_index: number;
     private _element_index: number;
+    private _expression_index: number;
 
-    constructor(id: number, node1: GraphNode, node2: GraphNode, edgeInfo: any) {
+    constructor(id: number, node1: GraphNode, node2: GraphNode, edgeInfo: EdgeInfo) {
         this._id = id;
         this._nodes = [node1, node2];
         this._type = edgeInfo.type;
@@ -27,6 +39,7 @@ export class GraphEdge {
         this._param_index = edgeInfo.paramIndex;
         this._stmt_index = edgeInfo.stmtIndex;
         this._element_index = edgeInfo.elementIndex;
+        this._expression_index = edgeInfo.expressionIndex;
     }
 
     get id() {
@@ -63,5 +76,9 @@ export class GraphEdge {
 
     get elementIndex() {
         return this._element_index;
+    }
+
+    get expressionIndex() {
+        return this._expression_index;
     }
 }
