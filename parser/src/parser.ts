@@ -1,5 +1,6 @@
 import yargs = require("yargs/yargs");
 import fs = require("fs");
+import path = require("path");
 import esprima = require("esprima");
 import escodegen from "escodegen";
 import { normalizeScript } from "./traverse/normalizer";
@@ -23,16 +24,21 @@ function parse(filename: string) : Graph {
 
         // // printJSON(ast);
         // // console.log("===============");
-        const normalizedAst = normalizeScript(ast);
+        let normalizedAst = normalizeScript(ast);
         // // printJSON(normalizedAst);
         // // console.log("===============");
 
         const code = escodegen.generate(normalizedAst);
         // const code = escodegen.generate(ast);
         console.log(code);
+
+        const normalizedFilename = path.basename(filename).slice(0, -path.extname(filename).length) + "-normalized";
+        const normalizedFilepath = path.join(path.dirname(filename), normalizedFilename + path.extname(filename));
+        // console.log(normalizedFilepath);
+        fs.writeFileSync(normalizedFilepath, code);
         console.log("===============");
 
-        // const normalizedAst = esprima.parseScript(code, { loc: true });
+        normalizedAst = esprima.parseScript(code, { loc: true });
         const astGraph = buildAST(normalizedAst);
         // const astGraph = buildAST(ast);
         const cfgGraph = buildCFG(astGraph);

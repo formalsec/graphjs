@@ -9,6 +9,7 @@ interface EdgeInfo {
     stmtIndex: number,
     elementIndex: number,
     expressionIndex: number,
+    sourceObjName: string,
 };
 
 export class GraphEdge {
@@ -22,6 +23,7 @@ export class GraphEdge {
     private _stmt_index: number;
     private _element_index: number;
     private _expression_index: number;
+    private _source_obj_name: string;
 
     constructor(id: number, node1: GraphNode, node2: GraphNode, edgeInfo: EdgeInfo) {
         this._id = id;
@@ -35,6 +37,7 @@ export class GraphEdge {
         }
 
         this._obj_name = edgeInfo.objName || "";
+        this._source_obj_name = edgeInfo.sourceObjName || "";
         this._argument_index = edgeInfo.argumentIndex;
         this._param_index = edgeInfo.paramIndex;
         this._stmt_index = edgeInfo.stmtIndex;
@@ -80,5 +83,13 @@ export class GraphEdge {
 
     get expressionIndex() {
         return this._expression_index;
+    }
+
+    get sourceObjName() {
+        return this._source_obj_name;
+    }
+
+    set sourceObjName(name: string) {
+        this._source_obj_name = name;
     }
 }

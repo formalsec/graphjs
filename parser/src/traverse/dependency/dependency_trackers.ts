@@ -25,6 +25,7 @@ interface OpWriteProperty {
     propName: string,
     source: number,
     destination: string,
+    sourceObjName: string | undefined,
 }
 
 interface OpCreateNewVersion {
@@ -32,6 +33,7 @@ interface OpCreateNewVersion {
     name: string,
     previousObjName: string,
     propName: string,
+    sourceObjName: string | undefined,
 }
 
 interface OpCreateDependencyEdge {
@@ -208,19 +210,22 @@ export class DependencyTracker {
         });
     }
 
-    graphCreateNewObjectVersion(sourceId:number, sourceLocation: string, destinationLocation: string, deps: Dependency[], propName: string) {
+    graphCreateNewObjectVersion(sourceId:number, sourceLocation: string, destinationLocation: string, deps: Dependency[], propName: string, sourceObjName?: string) {
+        console.log(propName, sourceObjName);
         this.gChanges.push({
             op: GraphOperationType.WRITE_PROPERTY,
             source: sourceId,
             destination: destinationLocation,
             propName: propName,
+            sourceObjName,
         });
 
         this.gChanges.push({
             op: GraphOperationType.CREATE_NEW_VERSION,
             name: destinationLocation,
             previousObjName: sourceLocation,
-            propName: propName
+            propName: propName,
+            sourceObjName,
         });
 
         deps.forEach(dep => {
@@ -293,13 +298,18 @@ export class DependencyTracker {
                     const specChange = <OpCreateNewVersion>change;
                     // create new version node
                     const nodeObj = graph.addNode("PDG_OBJECT", { type: "PDG" });
-                    this.gNodes.set(change.name, nodeObj.id);
-                    nodeObj.identifier = change.name;
+                    this.gNodes.set(specChange.name, nodeObj.id);
+                    nodeObj.identifier = specChange.name;
 
                     // add new version edge
-                    const previousVersionId = this.gNodes.get(change.previousObjName);
+                    const previousVersionId = this.gNodes.get(specChange.previousObjName);
                         if (previousVersionId) {
-                            graph.addEdge(previousVersionId, nodeObj.id, { type: "PDG", label: "NEW_VERSION", objName: change.propName });
+                            graph.addEdge(previousVersionId, nodeObj.id, {
+                                type: "PDG",
+                                label: "NEW_VERSION",
+                                objName: specChange.propName,
+                                sourceObjName: specChange.sourceObjName,
+                            });
                         }
                     break;
                 }
@@ -311,7 +321,12 @@ export class DependencyTracker {
                     const source = specChange.source;
                     // add write edge
                     if (source && destinationNodeId) {
-                        graph.addEdge(source, destinationNodeId, { type: "PDG", label: "WRITE", objName: specChange.propName });
+                        graph.addEdge(source, destinationNodeId, {
+                            type: "PDG",
+                            label: "WRITE",
+                            objName: specChange.propName,
+                            sourceObjName: specChange.sourceObjName
+                        });
                     }
                     break;
                 }

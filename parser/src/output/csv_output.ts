@@ -54,7 +54,7 @@ export class CSVOutput extends OutputWriter {
         // FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿ArgumentIndex
 
         const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
-        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex\n");
+        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex¿ParamIndex¿StmtIndex¿ElementIndex¿ExpressionIndex¿SourceObjName\n");
 
         graph.edges.forEach((edge: GraphEdge) => {
             const e = [];
@@ -76,6 +76,26 @@ export class CSVOutput extends OutputWriter {
 
             // argument index
             if (edge.argumentIndex) e.push(edge.argumentIndex);
+            else e.push("");
+
+            // param index
+            if (edge.paramIndex) e.push(edge.paramIndex);
+            else e.push("");
+
+            // stmt index
+            if (edge.stmtIndex) e.push(edge.stmtIndex);
+            else e.push("");
+
+            // element index
+            if (edge.elementIndex) e.push(edge.elementIndex);
+            else e.push("");
+
+            // expression index
+            if (edge.expressionIndex) e.push(edge.expressionIndex);
+            else e.push("");
+
+            // source obj name
+            if (edge.sourceObjName) e.push(edge.sourceObjName);
             else e.push("");
 
             edgesWriteStream.write(`${e.join("¿")}\n`);

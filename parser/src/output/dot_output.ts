@@ -92,7 +92,11 @@ function getEdgeLabel(e: GraphEdge) {
         case "WRITE":
         case "LOOKUP":
         case "CREATE": {
-            label = `${e.label} ${e.objName}`;
+            if (e.sourceObjName !== "") {
+                label = `${e.label} ${e.objName} (${e.sourceObjName})`;
+            } else {
+                label = `${e.label} ${e.objName}`;
+            }
             break;
         }
 
@@ -231,23 +235,6 @@ export class DotOutput extends OutputWriter {
                             );
                         }
                     }
-
-                    // nodesToPrint.push(n2);
-
-                    // const edgeLabel = getEdgeLabel(e);
-
-                    // if (!options.ignore.includes(e.type)) {
-                    //     const edgeColor = getEdgeColor(e);
-                    //     gDot.addEdge(
-                    //         getNodeLabel(n1, this.showCode),
-                    //         getNodeLabel(n2, this.showCode),
-                    //         {
-                    //             label: edgeLabel,
-                    //             fontcolor: edgeColor,
-                    //             color: edgeColor,
-                    //         },
-                    //     );
-                    // }
                 });
             }
         }

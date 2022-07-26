@@ -257,6 +257,7 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
 
     const objName = obj.obj.name;
     let propName = prop.obj.name;
+    let sourceObjName = undefined;
 
     // if it is an object just evaluate and create new object version
     if (StorageFactory.isStorageObject(objStorage)) {
@@ -273,6 +274,7 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
 
             // change propName to be '*' since the property is dynamic
             propName = '*';
+            sourceObjName = prop.obj.name;
         } else {
             // if the prop is a Literal or the member expression is not
             // computed then we just evaluate the dependencies for the
@@ -289,7 +291,7 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
         let { newTrackers, newObjLocation } = trackers.createNewObjectVersion(stmtId, objName, propName, rightStorageValue);
 
         // set changes as creation of new object and write of property
-        newTrackers.graphCreateNewObjectVersion(stmtId, objLocation, newObjLocation, deps, propName);
+        newTrackers.graphCreateNewObjectVersion(stmtId, objLocation, newObjLocation, deps, propName, sourceObjName);
 
         return newTrackers;
     }
