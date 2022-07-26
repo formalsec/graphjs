@@ -1,4 +1,6 @@
+import re
 from neo4j import GraphDatabase
+import json
 
 def find_sink_function_calls(session, sink):
 	sink_calls = []
@@ -19,6 +21,7 @@ def find_sink_function_calls(session, sink):
 			sink_calls.append({
 				'function': record['f'],
 				'sink': record['stmt'],
+				'sinkName': sink,
 			})
 
 	return sink_calls
@@ -66,7 +69,8 @@ def find_pdg_paths(session, sources, sinks):
 					# get (function, parameter) pairs that we consider source
 					query = f"""
 						MATCH
-							(f:FunctionExpression)-[:AST]->(param)-[create:PDG]->(source)-[:PDG*1..]->(sink)
+							(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST]->(param),
+							path=(param)-[create:PDG]->(source)-[:PDG*1..]->(sink)
 						WHERE
 							f.Id = '{source_func}' AND
 							create.RelationType = 'CREATE' AND
@@ -77,7 +81,15 @@ def find_pdg_paths(session, sources, sinks):
 					results = tx.run(query)
 
 					if results.peek():
-						tainted_paths.append((source_obj_id, sink_id))
+						record = results.single()
+						path = record["path"]
+						func = record["v"]["IdentifierName"]
+						tainted_paths.append({
+							"path": path,
+							"func": func,
+							"sink": sink['sinkName'],
+							"ends": (source_obj_id, sink_id)
+						})
 
 	return tainted_paths
 
@@ -99,6 +111,26 @@ with neo_driver.session() as session:
 	if len(paths) > 0:
 		# detected vulnerability
 		for p in paths:
-			print("Detected vulnerability in the following (source, sink) pair nodes: ", p)
+			path = p["path"]
+			ends = p["ends"]
+			locs = set()
+			for edge in path:
+				firstNode = edge.nodes[0]
+				if firstNode["Location"]:
+					location = json.loads(firstNode["Location"])
+					locs.add(location["start"]["line"])
+
+				secondNode = edge.nodes[1]
+				if secondNode["Location"]:
+					location = json.loads(secondNode["Location"])
+					locs.add(location["start"]["line"])
+			print("Detected vulnerability in the following (source, sink) pair nodes: ", ends)
+
+			pResult = {}
+			pResult["sink"] = p["sink"]
+			pResult["function"] = p["func"]
+			pResult["params"] = []
+			pResult["lines"] = list(locs)
+			print(pResult)
 	else:
 		print("No vulnerability detected for that source and sink")
