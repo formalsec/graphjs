@@ -92,19 +92,25 @@ function createAndStoreNewObjectNode(stmtId: number, variable: Identifier, track
 function handleMemberExpression(stmtId: number, variable: Identifier, memExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const variableName = variable.name;
 
+    // get child nodes for the member expression
+    const obj = getASTNode(memExpNode, "object");
+    const prop = getASTNode(memExpNode, "property");
+
+    const objName = obj.obj.name;
+    let propName = prop.obj.name;
+
     // clone trackers
     let newTrackers = trackers.clone();
 
     // evaluate dependency of expression
     let deps = evalDep(newTrackers, stmtId, memExpNode);
+    console.log(deps);
 
     // if there are no dependencies then we have to create
     // the objects corresponding to the properties in the
     // memExpNode and re-run evalDep
     if (deps.length === 0) {
-        const obj = getASTNode(memExpNode, "object");
-        const prop = getASTNode(memExpNode, "property");
-        newTrackers.createObjectProperties(stmtId, obj.obj.name, prop.obj.name);
+        newTrackers.createObjectProperties(stmtId, objName, propName);
         deps = evalDep(newTrackers, stmtId, memExpNode);
     }
 

@@ -1,6 +1,5 @@
 from neo4j import GraphDatabase
 import json
-import hashlib
 
 def find_sink_function_calls(session, sink):
 	sink_calls = []

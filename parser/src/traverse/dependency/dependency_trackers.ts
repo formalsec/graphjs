@@ -39,7 +39,6 @@ interface OpCreateNewVersion {
 interface OpCreateDependencyEdge {
     op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
     name: string,
-    depType: string,
     depValue: string | undefined,
     source: number | undefined,
     destination: number | undefined
@@ -56,7 +55,8 @@ interface OpLookupProperty {
     op: GraphOperationType.LOOKUP_PROPERTY,
     propName: string,
     source: number | undefined,
-    destination: number | undefined
+    destination: number | undefined,
+    sourceObjName: string | undefined,
 }
 
 type GraphOperation =
@@ -211,7 +211,6 @@ export class DependencyTracker {
     }
 
     graphCreateNewObjectVersion(sourceId:number, sourceLocation: string, destinationLocation: string, deps: Dependency[], propName: string, sourceObjName?: string) {
-        console.log(propName, sourceObjName);
         this.gChanges.push({
             op: GraphOperationType.WRITE_PROPERTY,
             source: sourceId,
@@ -233,7 +232,6 @@ export class DependencyTracker {
             this.gChanges.push({
                 op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
                 name: name,
-                depType: dep.type,
                 depValue: dep.value,
                 source: dep.source,
                 destination: dep.destination
@@ -247,7 +245,6 @@ export class DependencyTracker {
             this.gChanges.push({
                 op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
                 name: name,
-                depType: dep.type,
                 depValue: dep.value,
                 source: dep.source,
                 destination: dep.destination
@@ -268,12 +265,25 @@ export class DependencyTracker {
     graphLookupObject(deps: Dependency[]) {
         deps.forEach(dep => {
             const propName = dep.name || "";
-            this.gChanges.push({
-                op: GraphOperationType.LOOKUP_PROPERTY,
-                propName: propName,
-                source: dep.source,
-                destination: dep.destination
-            });
+
+            if (DependencyFactory.isDVar(dep.type)) {
+                const name = dep.name || "";
+                this.gChanges.push({
+                    op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
+                    name: name,
+                    depValue: dep.value,
+                    source: dep.source,
+                    destination: dep.destination
+                });
+            } else {
+                this.gChanges.push({
+                    op: GraphOperationType.LOOKUP_PROPERTY,
+                    propName: propName,
+                    source: dep.source,
+                    destination: dep.destination,
+                    sourceObjName: dep.sourceObjName,
+                });
+            }
         });
     }
 
@@ -338,7 +348,12 @@ export class DependencyTracker {
                     const destination = change.destination;
                     // add lookup edge
                     if (source && destination) {
-                        graph.addEdge(source, destination, { type: "PDG", label: "LOOKUP", objName: change.propName });
+                        graph.addEdge(source, destination, {
+                            type: "PDG",
+                            label: "LOOKUP",
+                            objName: change.propName,
+                            sourceObjName: change.sourceObjName,
+                        });
                     }
                     break;
                 }
@@ -601,8 +616,27 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
 
-            const objIds = trackers.getObjectVersionsWithProp(stmtId, obj.obj.name, prop.obj.name);
-            return objIds.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId));
+            // if the member expression is computed  and is not a
+            // Literal then we have to evaluate the dependencies
+            // of the property as it is a variable,  because it
+            // influences the object otherwise treat it is a Literal
+            if (node.obj.computed && prop.type !== "Literal") {
+                let deps = evalDep(trackers, stmtId, prop);
+                let objIds = trackers.getObjectVersions(obj.obj.name);
+                deps = [
+                    ...deps,
+                    ...objIds.map(objId => DependencyFactory.DObject("*", stmtId, objId, prop.obj.name))
+                ];
+                return deps;
+                // // change propName to be '*' since the property is dynamic
+                // propName = '*';
+                // sourceObjName = prop.obj.name;
+            } else {
+                // if the prop is a Literal or the member expression is not
+                // computed then we just evaluate the dependencies for the object
+                const objIds = trackers.getObjectVersionsWithProp(stmtId, obj.obj.name, prop.obj.name);
+                return objIds.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId));
+            }
         }
 
         case "CallExpression": {

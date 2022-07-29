@@ -10,7 +10,8 @@ export interface Dependency {
     name?: string,
     value?: string,
     source?: number,
-    destination?: number
+    destination?: number,
+    sourceObjName?: string
 };
 
 export class DependencyFactory {
@@ -38,12 +39,17 @@ export class DependencyFactory {
         };
     }
 
-    static DObject(propName: string, destination: number, sourceObjId: number): Dependency {
+    static isDVar(dep: string) {
+        return dep === DependencyType[DependencyType.DVar];
+    }
+
+    static DObject(propName: string, destination: number, sourceObjId: number, sourceObjName?: string): Dependency {
         return {
             type: DependencyType[DependencyType.DObject],
             name: propName,
             source: sourceObjId,
-            destination: destination,
+            destination,
+            sourceObjName,
         };
     }
 }
