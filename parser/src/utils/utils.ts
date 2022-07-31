@@ -33,6 +33,10 @@ export function getASTNode(parent: GraphNode, childLabel: string): GraphNode {
     return parent.edges.filter(e => e.type === "AST" && e.label === childLabel)[0]?.nodes[1];
 }
 
+export function getFDNode(parent: GraphNode): GraphNode {
+    return parent.edges.filter(e => e.type === "FD")[0]?.nodes[1];
+}
+
 export function getASTChildren(parent: GraphNode): GraphNode[] {
     return parent.edges.filter(e => e.type === "AST").map(e => e.nodes[1]);
 }

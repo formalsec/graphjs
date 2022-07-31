@@ -8,6 +8,7 @@ export class GraphNode {
     private _identifier: string | null;
     private _namespace: string | null;
     private _variableName: string | null;
+    private _functionName: string | null;
     private _used: boolean;
 
     constructor(id: number, type: string, obj = {}) {
@@ -18,6 +19,7 @@ export class GraphNode {
         this._identifier = null;
         this._namespace = null;
         this._variableName = null;
+        this._functionName = null;
         this._used = false;
     }
 
@@ -63,6 +65,14 @@ export class GraphNode {
 
     set variableName(variableName) {
         this._variableName = variableName;
+    }
+
+    get functionName() {
+        return this._functionName;
+    }
+
+    set functionName(name) {
+        this._functionName = name;
     }
 
     get used() {

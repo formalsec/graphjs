@@ -11,9 +11,9 @@ interface CFGReturnObject {
 function buildCFG(astGraph: Graph) {
     const graph = astGraph;
 
-    function traverse(node: GraphNode): CFGReturnObject {
+    function traverse(node: GraphNode, parentNode?: GraphNode): CFGReturnObject {
         function defaultNode(defNode: GraphNode) {
-            defNode.edges.map((edge: GraphEdge) => traverse(edge.nodes[1]));
+            defNode.edges.map((edge: GraphEdge) => traverse(edge.nodes[1], defNode));
             return {
                 root: defNode,
                 exit: defNode,
@@ -104,6 +104,7 @@ function buildCFG(astGraph: Graph) {
             const _start = graph.addNode("CFG_F_START", { type: "CFG" });
             _start.identifier = name;
             _start.namespace = cfgNamespace;
+            _start.functionName = node.functionName;
 
             graph.addStartNodes("CFG", _start);
             // eslint-disable-next-line no-param-reassign
@@ -117,6 +118,11 @@ function buildCFG(astGraph: Graph) {
             const { root, exit } = traverse(blockNode);
             graph.addEdge(_start.id, root.id, { type: "CFG" });
             graph.addEdge(exit.id, _end.id, { type: "CFG" });
+
+            const parentNodeId = parentNode?.id;
+            if (parentNodeId) {
+                graph.addEdge(parentNodeId, _start.id, { type: "FD", label: "FD" });
+            }
             return {
                 root: node,
                 exit: node,

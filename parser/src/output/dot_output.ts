@@ -139,6 +139,9 @@ function getEdgeColor(e: GraphEdge) {
         case "PDG":
             color = "darkgreen";
             break;
+        case "FD":
+            color = "goldenrod3";
+            break;
         default:
             color = "black";
     }

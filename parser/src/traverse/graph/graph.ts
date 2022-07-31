@@ -1,7 +1,6 @@
 import { GraphNode } from "./node";
 import { GraphEdge } from "./edge";
 import { OutputManager } from "../../output/output_strategy";
-import { start } from "repl";
 
 export class Graph {
     private nodeCounter: number;
@@ -79,6 +78,8 @@ export class Graph {
             this._startNodes.set(nodeType, [startNode]);
         }
     }
+
+
 
     clearUnusedObjectNodes() {
         this._nodes = new Map([...this._nodes].filter((n) => n[1].used));

@@ -230,6 +230,11 @@ function buildAST(originalObj: estree.Program) {
         case "FunctionDeclaration":
         case "FunctionExpression": {
             const objNode = graph.addNode(obj.type, obj);
+
+            if (parentNode?.identifier) {
+                objNode.functionName = parentNode?.identifier;
+            }
+
             if (obj.type === "ArrowFunctionExpression") {
                 objNode.identifier = "anon";
             } else {

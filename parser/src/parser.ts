@@ -6,6 +6,7 @@ import escodegen from "escodegen";
 import { normalizeScript } from "./traverse/normalizer";
 const { buildAST } = require("./traverse/ast_builder");
 const { buildCFG } = require("./traverse/cfg_builder");
+const { buildCallGraph } = require("./traverse/cg_builder");
 const { buildPDG } = require("./traverse/dependency/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
@@ -40,12 +41,10 @@ function parse(filename: string) : Graph {
 
         normalizedAst = esprima.parseScript(code, { loc: true });
         const astGraph = buildAST(normalizedAst);
-        // const astGraph = buildAST(ast);
         const cfgGraph = buildCFG(astGraph);
-        // return cfgGraph;
-
         const pdgGraph = buildPDG(cfgGraph);
-        return pdgGraph;
+        const callGraph = buildCallGraph(pdgGraph);
+        return callGraph;
     } catch (e: any) {
         console.log("Error:", e.stack);
     }

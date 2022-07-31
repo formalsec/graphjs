@@ -1,6 +1,6 @@
 import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
-import { clone, getASTNode, getAllASTNodes, getNextObjectName } from "../../utils/utils";
+import { clone, getASTNode, getAllASTNodes, getNextObjectName, resetNodeId } from "../../utils/utils";
 import { Dependency, DependencyFactory } from "./dep_factory";
 import { StorageObject, StorageValue, StorageFactory } from "./sto_factory";
 
@@ -11,6 +11,7 @@ enum GraphOperationType {
     WRITE_PROPERTY,
     LOOKUP_PROPERTY,
     CREATE_REFERENCE_EDGE,
+    // ADD_FUNCTION_DECLARATION,
 };
 
 interface OpCreateNewObject {
@@ -59,13 +60,21 @@ interface OpLookupProperty {
     sourceObjName: string | undefined,
 }
 
+// interface OpAddFunctionDeclaration {
+//     op: GraphOperationType.ADD_FUNCTION_DECLARATION,
+//     context: string,
+//     functionName: string,
+//     nodeId: number,
+// }
+
 type GraphOperation =
     OpCreateNewObject |
     OpWriteProperty |
     OpCreateNewVersion |
     OpCreateDependencyEdge |
     OpLookupProperty |
-    OpCreateReferenceEdge;
+    OpCreateReferenceEdge; // |
+    // OpAddFunctionDeclaration ;
 
 export interface HeapObject {
     [key: string]: StorageValue,
@@ -77,7 +86,7 @@ type Phi = Map<string, number>;
 type References = Map<string, string[]>;
 type GChanges = GraphOperation[];
 type GNodes = Map<string, number>;
-type ContextStack = string[];
+// type GFunctions = Map<string, Map<string, number>>;
 
 export class DependencyTracker {
     private heap: Heap;
@@ -86,7 +95,8 @@ export class DependencyTracker {
     private refs: References;
     private gChanges: GChanges;
     private gNodes: GNodes;
-    private intraContextStack: ContextStack;
+    // private gFunctions: GFunctions;
+    private intraContextStack: string[];
 
     constructor() {
         this.heap = new Map();
@@ -95,6 +105,7 @@ export class DependencyTracker {
         this.refs = new Map();
         this.gChanges = new Array<GraphOperation>();
         this.gNodes = new Map();
+        // this.gFunctions = new Map();
         this.intraContextStack = new Array<string>();
     }
 
@@ -105,6 +116,39 @@ export class DependencyTracker {
     popContext(): string | undefined {
         return this.intraContextStack.pop();
     }
+
+    // getRecentContext(): string {
+    //     return this.intraContextStack[0];
+    // }
+
+    // getParentContext(): string {
+    //     console.log(this.intraContextStack);
+    //     return this.intraContextStack[1];
+    // }
+
+    // addFunctionToContext(functionNode: GraphNode) {
+    //     if (functionNode.functionName) {
+    //         const context = this.getRecentContext();
+    //         let contextMap = this.gFunctions.get(context);
+    //         if (!contextMap) {
+    //             contextMap = new Map();
+    //         }
+    //         contextMap.set(functionNode.functionName, functionNode.id);
+    //         this.gFunctions.set(context, contextMap);
+    //     }
+    // }
+
+    // addFunctionCall(stmtId: number, callee: GraphNode) {
+    //     const functionName = callee.identifier;
+    //     const context = this.getParentContext();
+    //     const contextMap = this.gFunctions.get(context);
+    //     console.log("Hello", context, contextMap, functionName)
+    //     console.log(this.gFunctions);
+
+    //     if (contextMap && functionName) {
+    //         console.log(stmtId, functionName, contextMap.get(functionName));
+    //     }
+    // }
 
     addNewObjectToHeap(name: string, heapObject?: HeapObject): string {
         // create new name for pdg object
@@ -165,16 +209,6 @@ export class DependencyTracker {
             this.refs.set(location, [name]);
         }
     }
-
-    // replaceInStore(name: string, location: StorageValue) {
-    //     let storeArray = this.getStorage(name);
-    //     if (!storeArray) {
-    //         this.addToStore(name, location);
-    //         return;
-    //     }
-
-    //     this.store.set(name, [ location ]);
-    // }
 
     addInStoreForAll(lastLocation: string, newLocation: StorageValue) {
         const allRefs = this.refs.get(lastLocation);
@@ -377,6 +411,10 @@ export class DependencyTracker {
         }
     }
 
+    // createCallGraphEdges(graph: Graph) {
+    //     console.log(this.gFunctions);
+    // }
+
     private setHeap(newHeap: Heap) {
         this.heap = new Map(newHeap);
     }
@@ -403,7 +441,11 @@ export class DependencyTracker {
         this.gNodes = new Map(newGNodes);
     }
 
-    private setContext(newContext: ContextStack) {
+    // private setGFunctions(newGFunctions: GFunctions) {
+    //     this.gFunctions = new Map(newGFunctions);
+    // }
+
+    private setContext(newContext: string[]) {
         const newContextArray = new Array<string>();
         newContext.forEach(c => newContextArray.push(c));
         this.intraContextStack = newContextArray;
@@ -573,6 +615,7 @@ export class DependencyTracker {
         clone.setGChanges(this.gChanges);
         clone.setGNodes(this.gNodes);
         clone.setContext(this.intraContextStack);
+        // clone.setGFunctions(this.gFunctions);
         return clone;
     }
 
@@ -582,6 +625,7 @@ export class DependencyTracker {
         console.log("Phi:", this.phi);
         console.log("Refs:", this.refs);
         console.log("Graph Nodes:", this.gNodes);
+        // console.log("Graph Functions:", this.gFunctions);
     }
 
     printContext() {

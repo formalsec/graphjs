@@ -1,7 +1,7 @@
 import { GraphEdge } from "../graph/edge";
 import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
-import { getAllASTEdges, getAllASTNodes, getASTNode } from "../../utils/utils";
+import { getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
 import { DependencyTracker, evalDep, evalSto } from "./dependency_trackers";
 import { StorageFactory, StorageObject } from "./sto_factory";
 import { Identifier } from "estree";
@@ -104,7 +104,6 @@ function handleMemberExpression(stmtId: number, variable: Identifier, memExpNode
 
     // evaluate dependency of expression
     let deps = evalDep(newTrackers, stmtId, memExpNode);
-    console.log(deps);
 
     // if there are no dependencies then we have to create
     // the objects corresponding to the properties in the
@@ -206,33 +205,40 @@ function handleIfStatementTest(stmtId: number, expNode: GraphNode, trackers: Dep
     return newTrackers;
 }
 
-function handleVariableAssignment(stmtId: number, left: Identifier, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleVariableAssignment(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    const leftIdentifier = left.obj.id;
     switch (right.type) {
         case "ArrayExpression": {
-            return handleArrayExpression(stmtId, left, right, trackers);
+            return handleArrayExpression(stmtId, leftIdentifier, right, trackers);
         }
 
         case "CallExpression": {
-            trackers = createAndStoreNewObjectNode(stmtId, left, trackers);
+            // const callee = getASTNode(right, "callee");
+            // trackers.addFunctionCall(stmtId, callee);
+
+            trackers = createAndStoreNewObjectNode(stmtId, leftIdentifier, trackers);
             // track all parameters of this function
             const args = getAllASTNodes(right, "arg");
             args.forEach(a => {
-                trackers = handleCallExpression(stmtId, left, a, trackers);
+                trackers = handleCallExpression(stmtId, leftIdentifier, a, trackers);
             });
             return trackers;
         }
 
         case "ObjectExpression": {
-            return createAndStoreNewObjectNode(stmtId, left, trackers);
+            return createAndStoreNewObjectNode(stmtId, leftIdentifier, trackers);
         }
 
         case "MemberExpression": {
-            return handleMemberExpression(stmtId, left, right, trackers);
+            return handleMemberExpression(stmtId, leftIdentifier, right, trackers);
         }
 
         case "FunctionExpression":
         case "FunctionDeclaration": {
-            trackers = createAndStoreNewObjectNode(stmtId, left, trackers);
+            // const functionStartNode = getFDNode(right);
+            // trackers.addFunctionToContext(functionStartNode);
+
+            trackers = createAndStoreNewObjectNode(stmtId, leftIdentifier, trackers);
             // track all parameters of this function
             const params = getAllASTNodes(right, "param");
             params.forEach(p => {
@@ -242,11 +248,11 @@ function handleVariableAssignment(stmtId: number, left: Identifier, right: Graph
         }
 
         case "BinaryExpression": {
-            return handleBinaryExpression(stmtId, left, right, trackers);
+            return handleBinaryExpression(stmtId, leftIdentifier, right, trackers);
         }
 
         default: {
-            return handleSimpleAssignment(stmtId, left, right, trackers);
+            return handleSimpleAssignment(stmtId, leftIdentifier, right, trackers);
         }
     }
 }
@@ -310,7 +316,7 @@ function handleAssignmentExpression(stmtId: number, left: GraphNode, right: Grap
     switch (left.type) {
         // simple assignment / lookup
         case "Identifier": {
-            return handleVariableAssignment(stmtId, left.obj, right, trackers);
+            return handleVariableAssignment(stmtId, left, right, trackers);
         }
 
         // object write
@@ -396,10 +402,9 @@ export function buildPDG(cfgGraph: Graph): Graph {
             }
 
             case "VariableDeclarator": {
-                const identifierNode = node.obj.id;
                 const initNode = getASTNode(node, "init");
                 if (initNode) {
-                    trackers = handleVariableAssignment(node.id, identifierNode, initNode, trackers);
+                    trackers = handleVariableAssignment(node.id, node, initNode, trackers);
                 }
                 break;
             }
@@ -442,6 +447,7 @@ export function buildPDG(cfgGraph: Graph): Graph {
         traverse(node, node.namespace);
     });
 
+    // trackers.createCallGraphEdges(graph);
     trackers.print();
     graph.clearUnusedObjectNodes();
     return graph;
