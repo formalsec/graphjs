@@ -188,7 +188,6 @@ function handleArrayExpression(stmtId: number, variable: Identifier, arrExpNode:
         newTrackers = handleArrayExpressionElement(stmtId, variable, element, elementIndex, newTrackers);
     });
 
-    // newTrackers.print();
     return newTrackers;
 }
 
@@ -213,9 +212,6 @@ function handleVariableAssignment(stmtId: number, left: GraphNode, right: GraphN
         }
 
         case "CallExpression": {
-            // const callee = getASTNode(right, "callee");
-            // trackers.addFunctionCall(stmtId, callee);
-
             trackers = createAndStoreNewObjectNode(stmtId, leftIdentifier, trackers);
             // track all parameters of this function
             const args = getAllASTNodes(right, "arg");
@@ -235,9 +231,6 @@ function handleVariableAssignment(stmtId: number, left: GraphNode, right: GraphN
 
         case "FunctionExpression":
         case "FunctionDeclaration": {
-            // const functionStartNode = getFDNode(right);
-            // trackers.addFunctionToContext(functionStartNode);
-
             trackers = createAndStoreNewObjectNode(stmtId, leftIdentifier, trackers);
             // track all parameters of this function
             const params = getAllASTNodes(right, "param");
@@ -447,8 +440,7 @@ export function buildPDG(cfgGraph: Graph): Graph {
         traverse(node, node.namespace);
     });
 
-    // trackers.createCallGraphEdges(graph);
     trackers.print();
-    graph.clearUnusedObjectNodes();
+    // graph.clearUnusedObjectNodes();
     return graph;
 }

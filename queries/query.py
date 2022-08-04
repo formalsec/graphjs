@@ -1,5 +1,7 @@
+from os import path
 from neo4j import GraphDatabase
 import json
+from pprint import pprint
 
 def find_sink_function_calls(session, sink):
 	sink_calls = []
@@ -27,6 +29,49 @@ def find_sink_function_calls(session, sink):
 	return sink_calls
 
 
+def find_source_objects_and_types(params, session):
+	paramTypes = {}
+
+	for p in params:
+		funcName = p['functionName']
+		paramName = p['param'].get('IdentifierName')
+		paramObjId = p['param_obj'].get('Id')
+		paramProperties = []
+
+		with session.begin_transaction() as tx:
+			# QUERY 2
+			# get (function, parameter) pairs that we consider source
+			query = f"""
+				MATCH
+					(obj:PDG_OBJECT)-[lookup:PDG]->(s)
+				WHERE
+					obj.Id = '{paramObjId}' AND
+					lookup.RelationType = 'LOOKUP'
+				RETURN *
+			"""
+			results = tx.run(query)
+			for record in results:
+				paramProperties.append({
+					'prop_name': record['lookup'].get('IdentifierName')
+				})
+
+		if not funcName in paramTypes:
+			paramTypes[funcName] = []
+
+		if len(paramProperties) > 0:
+			data = {
+				'var': paramName,
+				'properties': paramProperties,
+			}
+		else:
+			data = {
+				'var': paramName
+			}
+		paramTypes[funcName].append(data)
+
+	return paramTypes
+
+
 def find_source_objects_and_variables(session):
 	params = []
 	with session.begin_transaction() as tx:
@@ -34,7 +79,7 @@ def find_source_objects_and_variables(session):
 		# get (function, parameter) pairs that we consider source
 		query = f"""
 			MATCH
-				(f:FunctionExpression)-[param:AST]-(p:Identifier)-[create:PDG]->(obj:PDG_OBJECT)
+				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[param:AST]-(p:Identifier)-[create:PDG]->(obj:PDG_OBJECT)
 			WHERE
 				param.RelationType = 'param' AND
 				create.IdentifierName = p.IdentifierName
@@ -43,6 +88,7 @@ def find_source_objects_and_variables(session):
 		results = tx.run(query)
 		for record in results:
 			params.append({
+				'functionName': record['v'].get('IdentifierName'),
 				'function': record['f'],
 				'param': record['p'],
 				'param_obj': record['obj']
@@ -51,7 +97,7 @@ def find_source_objects_and_variables(session):
 
 
 def find_pdg_paths(session, sources, sinks):
-	tainted_paths = []
+	tainted_paths = {}
 
 	for source in sources:
 		source_func = source['function'].get('Id')
@@ -85,14 +131,20 @@ def find_pdg_paths(session, sources, sinks):
 
 					if results.peek():
 						record = list(results)[0]
-						tainted_paths.append({
+
+						data = {
 							"pdg_path": record["pdg_path"],
 							"cfg_path": record["cfg_path"],
 							"func": funcName,
 							"param": param,
 							"sink": sink['sinkName'],
 							"ends": (source_obj_id, sink_id)
-						})
+						}
+
+						if source_func in tainted_paths:
+							tainted_paths[source_func].append(data)
+						else:
+							tainted_paths[source_func] = [data]
 
 	return tainted_paths
 
@@ -100,38 +152,43 @@ def find_pdg_paths(session, sources, sinks):
 def validate_pdg_paths(paths):
 	results = []
     # detected vulnerability
-	for p in paths:
-		pdg_path = p["pdg_path"]
-		cfg_path = p["cfg_path"]
-		locs = set()
-
-		for edge in cfg_path:
-			firstNode = edge.nodes[0]
-			if firstNode["Location"]:
-				location = json.loads(firstNode["Location"])
-				locs.add(location["start"]["line"])
-
-			secondNode = edge.nodes[1]
-			if secondNode["Location"]:
-				location = json.loads(secondNode["Location"])
-				locs.add(location["start"]["line"])
-
-		param = p["param"]["var"]
+	for f in paths:
+		params = []
 		valid_path = False
-		# verify that param is in pdg path
+		locs = set()
+		sink = None
+		for p in paths[f]:
+			pdg_path = p["pdg_path"]
+			cfg_path = p["cfg_path"]
+			sink = p['sink']
 
-		for edge in pdg_path:
-			firstNodeName = edge.nodes[0]["IdentifierName"]
-			secondNodeName = edge.nodes[1]["IdentifierName"]
+			for edge in cfg_path:
+				firstNode = edge.nodes[0]
+				if firstNode["Location"]:
+					location = json.loads(firstNode["Location"])
+					locs.add(location["start"]["line"])
 
-			if firstNodeName == param or secondNodeName == param:
-				valid_path = True
+				secondNode = edge.nodes[1]
+				if secondNode["Location"]:
+					location = json.loads(secondNode["Location"])
+					locs.add(location["start"]["line"])
+
+			param = p["param"]["var"]
+			params.append(param)
+			# verify that param is in pdg path
+
+			for edge in pdg_path:
+				firstNodeName = edge.nodes[0]["IdentifierName"]
+				secondNodeName = edge.nodes[1]["IdentifierName"]
+
+				if firstNodeName == param or secondNodeName == param:
+					valid_path = True
 
 		if valid_path:
 			pResult = {}
 			pResult["function"] = p["func"]
-			pResult["param"] = param
-			pResult["sink"] = p["sink"]
+			pResult["param"] = params
+			pResult["sink"] = sink
 			pResult["lines"] = list(locs)
 			results.append(pResult)
 
@@ -149,12 +206,18 @@ with neo_driver.session() as session:
 
 	params = find_source_objects_and_variables(session)
 	# for p in params:
-	# 	print(p)
+	# 	pprint(p)
+
+	param_types = find_source_objects_and_types(params, session)
+	# for p in param_types:
+	# 	print(json.dumps(param_types[p], indent=4))
 
 	paths = find_pdg_paths(session, params, calls)
+	# for p in paths:
+	# 	pprint(paths[p])
 
-	if len(paths) > 0:
-		results = validate_pdg_paths(paths)
-		print(json.dumps(results, indent=4))
-	else:
-		print("No vulnerability detected for that source and sink")
+	# if len(paths) > 0:
+	# 	results = validate_pdg_paths(paths)
+	# 	print(json.dumps(results, indent=4))
+	# else:
+	# 	print("No vulnerability detected for that source and sink")

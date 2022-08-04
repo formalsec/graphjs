@@ -334,7 +334,9 @@ export class DependencyTracker {
 
                     // add create edge
                     const source = specChange.source;
-                    if (source) graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: specChange.objName });
+                    if (source) {
+                        graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: specChange.objName });
+                    }
                     break;
                 }
 
