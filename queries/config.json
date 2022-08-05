@@ -1,0 +1,13 @@
+{
+    "sinks": {
+        "code-injection": [
+            "eval"
+        ],
+        "command-injection": [
+            "exec"
+        ]
+    },
+    "sources": [
+        "read"
+    ]
+}

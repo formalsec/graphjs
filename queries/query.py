@@ -3,27 +3,28 @@ from neo4j import GraphDatabase
 import json
 from pprint import pprint
 
-def find_sink_function_calls(session, sink):
+def find_sink_function_calls(session, sinks):
 	sink_calls = []
 	with session.begin_transaction() as tx:
 		# QUERY 1
 		# get (function, sink statement) pair that holds the call to a sink
 		query = f"""
+			WITH {sinks} as SINKS
 			MATCH
 				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]-(c:CallExpression)-[callee:AST]->(e:Identifier)
 			WHERE
 				init.RelationType = 'init' AND
 				callee.RelationType = 'callee' AND
-				e.IdentifierName = '{sink}'
+				e.IdentifierName in SINKS
 			RETURN *
 		"""
 		results = tx.run(query)
 		for record in results:
 			sink_calls.append({
 				'function': record['f'],
-				'functionName': record['v']['IdentifierName'],
+				'functionName': record['v'].get('IdentifierName'),
 				'sink': record['stmt'],
-				'sinkName': sink,
+				'sinkName': record['e'].get('IdentifierName'),
 			})
 
 	return sink_calls
@@ -72,7 +73,7 @@ def find_source_objects_and_types(params, session):
 	return paramTypes
 
 
-def find_source_objects_and_variables(session):
+def find_params(session):
 	params = []
 	with session.begin_transaction() as tx:
 		# QUERY 2
@@ -96,8 +97,42 @@ def find_source_objects_and_variables(session):
 	return params
 
 
+def find_other_sources(session, sources):
+	sources_list = []
+	with session.begin_transaction() as tx:
+		# QUERY 2
+		# get (function, parameter) pairs that we consider source
+		query = f"""
+			WITH {sources} as SOURCES
+			MATCH
+				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]-(c:CallExpression)-[callee:AST]->(e:Identifier),
+				(stmt)-[create:PDG]->(obj:PDG_OBJECT)
+			WHERE
+				init.RelationType = 'init' AND
+				callee.RelationType = 'callee' AND
+				e.IdentifierName in SOURCES
+			RETURN *
+		"""
+		results = tx.run(query)
+		for record in results:
+			sources_list.append({
+				'functionName': record['v'].get('IdentifierName'),
+				'function': record['f'],
+				'param': record['stmt'],
+				'param_obj': record['obj']
+			})
+	return sources_list
+
+
+def find_source_objects_variables_and_functions(session, sources):
+	params = find_params(session)
+	other_sources = find_other_sources(session, sources)
+	params.extend(other_sources)
+	return params
+
+
 def find_pdg_paths(session, sources, sinks):
-	tainted_paths = {}
+	tainted_paths = []
 
 	for source in sources:
 		source_func = source['function'].get('Id')
@@ -132,92 +167,126 @@ def find_pdg_paths(session, sources, sinks):
 					if results.peek():
 						record = list(results)[0]
 
-						data = {
+						tainted_paths.append({
 							"pdg_path": record["pdg_path"],
 							"cfg_path": record["cfg_path"],
 							"func": funcName,
 							"param": param,
 							"sink": sink['sinkName'],
 							"ends": (source_obj_id, sink_id)
-						}
-
-						if source_func in tainted_paths:
-							tainted_paths[source_func].append(data)
-						else:
-							tainted_paths[source_func] = [data]
+						})
 
 	return tainted_paths
 
 
-def validate_pdg_paths(paths):
+def validate_pdg_paths(paths, param_types):
 	results = []
     # detected vulnerability
-	for f in paths:
-		params = []
-		valid_path = False
+	valid_paths = {}
+	for p in paths:
 		locs = set()
-		sink = None
-		for p in paths[f]:
-			pdg_path = p["pdg_path"]
-			cfg_path = p["cfg_path"]
-			sink = p['sink']
+		func = p['func']
+		sink = p['sink']
+		pdg_path = p["pdg_path"]
+		cfg_path = p["cfg_path"]
 
-			for edge in cfg_path:
-				firstNode = edge.nodes[0]
-				if firstNode["Location"]:
-					location = json.loads(firstNode["Location"])
-					locs.add(location["start"]["line"])
+		for edge in cfg_path:
+			firstNode = edge.nodes[0]
+			if firstNode["Location"]:
+				location = json.loads(firstNode["Location"])
+				locs.add(location["start"]["line"])
 
-				secondNode = edge.nodes[1]
-				if secondNode["Location"]:
-					location = json.loads(secondNode["Location"])
-					locs.add(location["start"]["line"])
+			secondNode = edge.nodes[1]
+			if secondNode["Location"]:
+				location = json.loads(secondNode["Location"])
+				locs.add(location["start"]["line"])
 
-			param = p["param"]["var"]
-			params.append(param)
-			# verify that param is in pdg path
+		param = p["param"]["var"]
+		params.append(param)
+		# verify that param is in pdg path
 
-			for edge in pdg_path:
-				firstNodeName = edge.nodes[0]["IdentifierName"]
-				secondNodeName = edge.nodes[1]["IdentifierName"]
+		for edge in pdg_path:
+			firstNodeName = edge.nodes[0]["IdentifierName"]
+			secondNodeName = edge.nodes[1]["IdentifierName"]
 
-				if firstNodeName == param or secondNodeName == param:
-					valid_path = True
+			if firstNodeName == param or secondNodeName == param:
 
-		if valid_path:
-			pResult = {}
-			pResult["function"] = p["func"]
-			pResult["param"] = params
-			pResult["sink"] = sink
-			pResult["lines"] = list(locs)
-			results.append(pResult)
+				flow = {
+					"sink": sink,
+					"lines": list(locs),
+				}
 
-	return results
+				if func in valid_paths:
+					valid_paths[func]["flow"].append(flow)
+				else:
+					pResult = {}
+					pResult["function"] = func
+					pResult["params"] = param_types[func]
+					pResult["flows"] = [ flow ]
+					valid_paths[func] = pResult
+
+	return list(valid_paths.values())
+
+
+def console(s, debug=True):
+	if debug:
+		try:
+			print(json.dumps(s, indent=4))
+		except:
+			pprint(s)
+
+
+def read_config():
+	file_path = path.realpath(path.dirname(__file__))
+	config_path = path.join(file_path, "config.json")
+	with open(config_path, "r") as configFile:
+		return json.load(configFile)
+
+
+def get_all_sinks_from_config(config):
+	sinks = []
+	if "sinks" in config:
+		vuln_types = config["sinks"]
+		for vuln in vuln_types:
+			sinks.extend(vuln_types[vuln])
+	else:
+		raise Exception("Config file is missing the sinks")
+	return sinks
+
+
+def get_all_sources_from_config(config):
+	if "sources" in config:
+		return config["sources"]
+	else:
+		raise Exception("Config file is missing the sources")
 
 
 NEO4J_CONN_STRING="bolt://127.0.0.1:7687"
 
+config = read_config()
 neo_driver = GraphDatabase.driver(NEO4J_CONN_STRING, auth=('', ''))
 
 with neo_driver.session() as session:
-	calls = find_sink_function_calls(session, 'eval')
-	# for c in calls:
-	# 	print(c)
+	all_sinks = get_all_sinks_from_config(config)
+	console(all_sinks, debug=False)
 
-	params = find_source_objects_and_variables(session)
-	# for p in params:
-	# 	pprint(p)
+	calls = find_sink_function_calls(session, all_sinks)
+	console(calls, debug=False)
+
+	all_sources = get_all_sources_from_config(config)
+	console(all_sources, debug=False)
+
+	params = find_source_objects_variables_and_functions(session, all_sources)
+	console(params, debug=True)
 
 	param_types = find_source_objects_and_types(params, session)
-	# for p in param_types:
-	# 	print(json.dumps(param_types[p], indent=4))
+	console(param_types, debug=False)
 
 	paths = find_pdg_paths(session, params, calls)
-	# for p in paths:
-	# 	pprint(paths[p])
+	console(paths, debug=False)
 
-	# if len(paths) > 0:
-	# 	results = validate_pdg_paths(paths)
-	# 	print(json.dumps(results, indent=4))
-	# else:
-	# 	print("No vulnerability detected for that source and sink")
+	if len(paths) > 0:
+		results = validate_pdg_paths(paths, param_types)
+		console(results)
+	else:
+		print("No vulnerability detected for that source and sink")
