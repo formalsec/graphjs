@@ -59,8 +59,8 @@ if test -f "$FILEPATH"; then
 
     # run all queries
     echo "[INFO] - Running queries"
-    QUERIES=$(realpath ./queries)
-    python3 $QUERIES/query.py
+    QUERIES=$(realpath ./detection)
+    python3 $QUERIES/run.py
 
     # stop Neo4J container
     echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
