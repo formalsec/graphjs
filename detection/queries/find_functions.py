@@ -1,6 +1,6 @@
 import my_utils.utils as my_utils
 
-def find_sink_function_calls(session, sinks):
+def find_explicit_sink_calls(session, sinks):
 	sink_calls = []
 	with session.begin_transaction() as tx:
 		# QUERY 1
@@ -24,6 +24,67 @@ def find_sink_function_calls(session, sinks):
 				'sinkName': record['e'].get('IdentifierName'),
 			})
 
+	return sink_calls
+
+
+def find_implicit_sink_calls(session, sinks):
+	assignments = []
+	with session.begin_transaction() as tx:
+		# QUERY 1
+		# get (function, sink statement) pair that holds the call to a sink
+		query = f"""
+			WITH {sinks} as SINKS
+			MATCH
+				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]->(e:Identifier)
+			WHERE
+				init.RelationType = 'init' AND
+				e.IdentifierName in SINKS
+			RETURN *
+		"""
+		results = tx.run(query)
+		for record in results:
+			assignments.append({
+				'function': record['f'],
+				'functionName': record['v'].get('IdentifierName'),
+				'sinkName': record['stmt'].get('IdentifierName'),
+				'originalSinkName': record['e'].get('IdentifierName')
+			})
+
+	sink_calls = []
+	for assignment in assignments:
+		funcId = assignment["function"].get('Id')
+		funcName = assignment["functionName"]
+		sinkName = assignment["sinkName"]
+		originalSinkName = assignment["originalSinkName"]
+		with session.begin_transaction() as tx:
+			# QUERY 1
+			# get (function, sink statement) pair that holds the call to a sink
+			query = f"""
+				MATCH
+					(f:FunctionExpression)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]-(c:CallExpression)-[callee:AST]->(e:Identifier)
+				WHERE
+					f.Id = '{funcId}' AND
+					init.RelationType = 'init' AND
+					callee.RelationType = 'callee' AND
+					e.IdentifierName = '{sinkName}'
+				RETURN *
+			"""
+			results = tx.run(query)
+			for record in results:
+				sink_calls.append({
+					'function': record['f'],
+					'functionName': funcName,
+					'sink': record['stmt'],
+					'sinkName': sinkName,
+					'originalSinkName': originalSinkName
+				})
+
+	return sink_calls
+
+
+def find_sink_function_calls(session, sinks):
+	sink_calls = find_explicit_sink_calls(session, sinks)
+	sink_calls.extend(find_implicit_sink_calls(session, sinks))
 	return sink_calls
 
 

@@ -20,6 +20,10 @@ class Injection(QueryType):
 				funcName = sink["functionName"]
 				sink_func = sink['function'].get('Id')
 				sink_id = sink['sink'].get('Id')
+				sinkName = sink['sinkName']
+
+				if "originalSinkName" in sink:
+					sinkName = sink["originalSinkName"]
 
 				if source_func == sink_func:
 					# print("Testing path between:")
@@ -50,14 +54,13 @@ class Injection(QueryType):
 								"function": source["function"],
 								"func": funcName,
 								"source": source_dict,
-								"sink": sink['sinkName'],
+								"sink": sinkName,
 								"ends": (source_obj_id, sink_id)
 							})
 		return tainted_paths
 
 
 	def validate_pdg_paths(self, paths, param_types, session):
-		results = []
 		# detected vulnerability
 		valid_paths = {}
 		for p in paths:
