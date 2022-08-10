@@ -1,9 +1,11 @@
+from pydoc import source_synopsis
 from queries.query_type import QueryType
+import my_utils.utils as my_utils
 import json
 
 class Injection(QueryType):
 	def __init__(self):
-		QueryType.__init__(self)
+		QueryType.__init__(self, "Injection")
 
 
 	def find_pdg_paths(self, session, sources, sinks):
@@ -11,8 +13,8 @@ class Injection(QueryType):
 
 		for source in sources:
 			source_func = source['function'].get('Id')
-			source_obj_id = source['param_obj'].get('Id')
-			param = { "var": source["param"]["IdentifierName"] }
+			source_obj_id = source['source_obj'].get('Id')
+			source_dict = { "var": source["source"]["IdentifierName"] }
 
 			for sink in sinks:
 				funcName = sink["functionName"]
@@ -27,8 +29,8 @@ class Injection(QueryType):
 						# get (function, parameter) pairs that we consider source
 						query = f"""
 							MATCH
-								(f:FunctionExpression)-[:AST]->(param),
-								pdg_path=(param)-[create:PDG]->(source)-[:PDG*1..]->(sink),
+								(f:FunctionExpression)-[:AST*1..]->(source_stmt),
+								pdg_path=(source_stmt)-[create:PDG]->(source)-[:PDG*1..]->(sink),
 								cfg_path=(s:CFG_F_START)-[:CFG*1..]->(sink)
 							WHERE
 								f.Id = '{source_func}' AND
@@ -45,37 +47,29 @@ class Injection(QueryType):
 							tainted_paths.append({
 								"pdg_path": record["pdg_path"],
 								"cfg_path": record["cfg_path"],
+								"function": source["function"],
 								"func": funcName,
-								"param": param,
+								"source": source_dict,
 								"sink": sink['sinkName'],
 								"ends": (source_obj_id, sink_id)
 							})
 		return tainted_paths
 
 
-	def validate_pdg_paths(self, paths, param_types):
+	def validate_pdg_paths(self, paths, param_types, session):
 		results = []
 		# detected vulnerability
 		valid_paths = {}
 		for p in paths:
-			locs = set()
+			funcId = p['function'].get('Id')
 			func = p['func']
 			sink = p['sink']
 			pdg_path = p["pdg_path"]
 			cfg_path = p["cfg_path"]
 
-			for edge in cfg_path:
-				firstNode = edge.nodes[0]
-				if firstNode["Location"]:
-					location = json.loads(firstNode["Location"])
-					locs.add(location["start"]["line"])
+			locs = self.get_locs(funcId, cfg_path, session)
 
-				secondNode = edge.nodes[1]
-				if secondNode["Location"]:
-					location = json.loads(secondNode["Location"])
-					locs.add(location["start"]["line"])
-
-			param = p["param"]["var"]
+			param = p["source"]["var"]
 			# verify that param is in pdg path
 
 			for edge in pdg_path:
@@ -86,7 +80,8 @@ class Injection(QueryType):
 
 					flow = {
 						"sink": sink,
-						"lines": list(locs),
+						"source": param,
+						"lines": locs,
 					}
 
 					if func in valid_paths:

@@ -11,6 +11,7 @@ enum GraphOperationType {
     WRITE_PROPERTY,
     LOOKUP_PROPERTY,
     CREATE_REFERENCE_EDGE,
+    CREATE_SUB_OBJECT_EDGE,
     // ADD_FUNCTION_DECLARATION,
 };
 
@@ -60,6 +61,13 @@ interface OpLookupProperty {
     sourceObjName: string | undefined,
 }
 
+interface OpCreateSubObjectEdge {
+    op: GraphOperationType.CREATE_SUB_OBJECT_EDGE,
+    objName: string,
+    source: number | undefined,
+    pdgObjName: string,
+}
+
 // interface OpAddFunctionDeclaration {
 //     op: GraphOperationType.ADD_FUNCTION_DECLARATION,
 //     context: string,
@@ -73,7 +81,8 @@ type GraphOperation =
     OpCreateNewVersion |
     OpCreateDependencyEdge |
     OpLookupProperty |
-    OpCreateReferenceEdge; // |
+    OpCreateReferenceEdge |
+    OpCreateSubObjectEdge;
     // OpAddFunctionDeclaration ;
 
 export interface HeapObject {
@@ -244,6 +253,26 @@ export class DependencyTracker {
         });
     }
 
+    graphCreateNewSubObject(sourceId: number, objects: string[], objName: string, propName: string, pdgObjName: string) {
+        // this op must be written to gChanges first
+        objects.forEach(obj => {
+            const sourceObjId = this.gNodes.get(obj);
+            this.gChanges.push({
+                op: GraphOperationType.CREATE_SUB_OBJECT_EDGE,
+                source: sourceObjId,
+                objName: propName,
+                pdgObjName: pdgObjName,
+            });
+        });
+
+        this.gChanges.push({
+            op: GraphOperationType.CREATE_NEW_OBJECT,
+            source: sourceId,
+            objName: objName,
+            pdgObjName: pdgObjName,
+        });
+    }
+
     graphCreateNewObjectVersion(sourceId:number, sourceLocation: string, destinationLocation: string, deps: Dependency[], propName: string, sourceObjName?: string) {
         this.gChanges.push({
             op: GraphOperationType.WRITE_PROPERTY,
@@ -336,6 +365,18 @@ export class DependencyTracker {
                     const source = specChange.source;
                     if (source) {
                         graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: specChange.objName });
+                    }
+                    break;
+                }
+
+                case GraphOperationType.CREATE_SUB_OBJECT_EDGE: {
+                    const specChange = <OpCreateSubObjectEdge>change;
+                    const destinationObjId = this.gNodes.get(specChange.pdgObjName);
+                    // add create edge
+                    const source = specChange.source;
+                    console.log(source, destinationObjId);
+                    if (source && destinationObjId) {
+                        graph.addEdge(source, destinationObjId, { type: "SUB", label: "SUB_OBJECT", objName: specChange.objName });
                     }
                     break;
                 }
@@ -592,7 +633,7 @@ export class DependencyTracker {
         if (objStorage) {
             const objects = objStorage.filter(sto => StorageFactory.isStorageObject(sto)).map(sto => (<StorageObject>sto).location);
             const pdgObjName = this.addNewObjectToHeap(`${objName}.${propName}`);
-            this.graphCreateNewObject(stmtId, `${objName}.${propName}`, pdgObjName);
+            this.graphCreateNewSubObject(stmtId, objects, `${objName}.${propName}`, propName, pdgObjName);
 
             const propStorage = StorageFactory.StoObject(pdgObjName);
             objects.forEach(o => {
