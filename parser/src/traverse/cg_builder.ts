@@ -98,7 +98,7 @@ function buildCallGraph(pdgGraph: Graph) {
                 // if function add to context for future processing
                 const init = getASTNode(node, "init");
 
-                if (init.type == "CallExpression") {
+                if (init && init.type == "CallExpression") {
                     const callee = getASTNode(init, "callee");
                     gFunctions.addFunctionCall(node.id, callee, graph);
                 } else {

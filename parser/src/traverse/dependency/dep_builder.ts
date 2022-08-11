@@ -205,7 +205,8 @@ function handleIfStatementTest(stmtId: number, expNode: GraphNode, trackers: Dep
 }
 
 function handleVariableAssignment(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    const leftIdentifier = left.obj.id;
+    const leftIdentifier = left.obj.id ? left.obj.id : left.obj;
+
     switch (right.type) {
         case "ArrayExpression": {
             return handleArrayExpression(stmtId, leftIdentifier, right, trackers);
