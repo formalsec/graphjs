@@ -1,6 +1,20 @@
 import { GraphEdge } from "./edge";
 import { GraphNode } from "./node";
 
+function createEmptyEdgeInfo() {
+    return {
+        type: "",
+        label: "",
+        objName: "",
+        argumentIndex: 0,
+        paramIndex: 0,
+        stmtIndex: 0,
+        elementIndex: 0,
+        expressionIndex: 0,
+        sourceObjName: "",
+    }
+}
+
 describe("Testing node class", () => {
     let node: GraphNode;
     let nodeId: number;
@@ -45,9 +59,9 @@ describe("Testing node class", () => {
         expect(node.edges).toEqual([]);
 
         const newEdges: GraphEdge[] = [
-            new GraphEdge(1, node, node, {}),
-            new GraphEdge(2, node, node, {}),
-            new GraphEdge(3, node, node, {})
+            new GraphEdge(1, node, node, createEmptyEdgeInfo()),
+            new GraphEdge(2, node, node, createEmptyEdgeInfo()),
+            new GraphEdge(3, node, node, createEmptyEdgeInfo())
         ];
         newEdges.forEach((e: GraphEdge) => node.addEdge(e));
         expect(node.edges.length).toBe(newEdges.length);

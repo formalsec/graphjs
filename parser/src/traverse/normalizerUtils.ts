@@ -30,7 +30,7 @@ import type {
     SequenceExpression,
     SimpleLiteral,
     BlockStatement,
-    Statement, LabeledStatement, IfStatement, TemplateLiteral, TaggedTemplateExpression, ClassDeclaration,
+    Statement, LabeledStatement, IfStatement, TemplateLiteral, TaggedTemplateExpression, ClassDeclaration, TryStatement, CatchClause, ReturnStatement, ForStatement, ForInStatement, ThrowStatement, DoWhileStatement, WhileStatement, ConditionalExpression,
 } from "estree";
 
 export interface Normalization {
@@ -378,7 +378,7 @@ export function normTemplateLiteral(obj: TemplateLiteral, children: Normalizatio
 
 };
 
-export function normBlockStatement(obj: Node, children: Normalization[]): Normalization {
+export function normBlockStatement(obj: BlockStatement, children: Normalization[]): Normalization {
     const stmts = flatStmts(children);
 
     // shouldn't really be anything here
@@ -392,7 +392,7 @@ export function normBlockStatement(obj: Node, children: Normalization[]): Normal
     };
 };
 
-export function normIfStatement(obj: Node, children: Normalization[]): Normalization {
+export function normIfStatement(obj: IfStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.test = children[0].expr;
 
@@ -408,7 +408,7 @@ export function normIfStatement(obj: Node, children: Normalization[]): Normaliza
     };
 };
 
-export function normConditionalExpression(obj: Node, children: Normalization[]): Normalization {
+export function normConditionalExpression(obj: ConditionalExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.test = children[0].expr;
     newObj.consequent = children[1].expr;
@@ -427,7 +427,7 @@ export function createBlockStatement(stmts: Statement[]): Node {
     else if (stmts.length >= 1) {
         const newStmts = stmts.map((stmt) => { if (stmt.type == "BlockStatement") return stmt.body; else return stmt }).flat()
         return { type: "BlockStatement", body: newStmts};
-    } 
+    }
     return { type: "BlockStatement", body: stmts};
 }
 
@@ -437,7 +437,7 @@ export function concatToBody(body: BlockStatement, stmt: Statement): BlockStatem
     return newBlock;
 }
 
-export function normWhileStatement(obj: Node, children: Normalization[]): Normalization {
+export function normWhileStatement(obj: WhileStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.test = children[0].expr;
     // console.log("children", JSON.stringify(children, null, 2));
@@ -459,7 +459,7 @@ export function normWhileStatement(obj: Node, children: Normalization[]): Normal
     };
 };
 
-export function normDoWhileStatement(obj: Node, children: Normalization[]): Normalization {
+export function normDoWhileStatement(obj: DoWhileStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.type = "WhileStatement";
     newObj.test = children[0].expr;
@@ -486,7 +486,7 @@ export function normDoWhileStatement(obj: Node, children: Normalization[]): Norm
     };
 };
 
-export function normForStatement(obj: Node, children: Normalization[]): Normalization {
+export function normForStatement(obj: ForStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.type = "WhileStatement";
     newObj.test = children[1].expr;
@@ -671,7 +671,7 @@ export function normLabeledStatement(obj: LabeledStatement, children: Normalizat
     };
 };
 
-export function normReturnStatement(obj: Node, children: Normalization[]): Normalization {
+export function normReturnStatement(obj: ReturnStatement | ThrowStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
 
     // check if there are any arguments
@@ -950,3 +950,29 @@ export function normSequenceExpression(obj: SequenceExpression, children: Normal
         expr: newObj,
     };
 }
+
+export function normTryStatement(obj: TryStatement, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+    newObj.block = children[0].stmts[0];
+    newObj.handler = children[1].expr;
+
+    if (children[2]) {
+        newObj.finalizer = children[2].stmts[0];
+    }
+
+    return {
+        stmts: [...children[1].stmts, newObj],
+        expr: null,
+    };
+};
+
+export function normCatchClause(obj: CatchClause, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+    newObj.param = children[0].expr;
+    newObj.body = children[1].stmts[0];
+
+    return {
+        stmts: [...children[0].stmts],
+        expr: newObj,
+    };
+};

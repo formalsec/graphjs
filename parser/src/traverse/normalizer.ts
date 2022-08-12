@@ -40,7 +40,9 @@ import {
     normSequenceExpression,
     normTemplateLiteral,
     normTaggedTemplateExpression,
-    normClassDeclaration
+    normClassDeclaration,
+    normTryStatement,
+    normCatchClause
 } from "./normalizerUtils";
 
 function mapReduce(arr: (Node | null)[], p: Node): Normalization[] {
@@ -387,26 +389,26 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     //     break;
     // }
 
-    // case "TryStatement": {
-    //     const resultBlock = normalize(obj.block, obj);
-    //     const resultHandler = normalize(obj.handler, obj);
-    //     const resultFinalizer = normalize(obj.finalizer, obj);
+    case "TryStatement": {
+        const resultBlock = normalize(obj.block, obj);
+        const resultHandler = normalize(obj.handler, obj);
+        const resultFinalizer = normalize(obj.finalizer, obj);
 
-    //     const resultData = [
-    //     resultBlock,
-    //     resultHandler,
-    //     resultFinalizer
-    //     ];
-    //     break;
-    // }
+        const resultData = [
+            resultBlock,
+            resultHandler,
+            resultFinalizer
+        ];
+        return normTryStatement(obj, resultData);
+    }
 
-    // case "CatchClause": {
-    //     const resultParam = normalize(obj.param, obj);
-    //     const resultBlock = normalize(obj.body, obj);
+    case "CatchClause": {
+        const resultParam = normalize(obj.param, obj);
+        const resultBlock = normalize(obj.body, obj);
 
-    //     const resultData = [resultParam, resultBlock];
-    //     break;
-    // }
+        const resultData = [resultParam, resultBlock];
+        return normCatchClause(obj, resultData);
+    }
 
     case "VariableDeclaration": {
         const unpatternedDeclarations = unpattern(obj.declarations);

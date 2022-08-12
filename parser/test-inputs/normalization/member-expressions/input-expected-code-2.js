@@ -1,2 +1,2 @@
 const v1 = f();
-x[v1];
+const y = x[v1];
