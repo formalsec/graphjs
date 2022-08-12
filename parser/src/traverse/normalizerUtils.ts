@@ -30,7 +30,7 @@ import type {
     SequenceExpression,
     SimpleLiteral,
     BlockStatement,
-    Statement, LabeledStatement, IfStatement, TemplateLiteral, TaggedTemplateExpression,
+    Statement, LabeledStatement, IfStatement, TemplateLiteral, TaggedTemplateExpression, ClassDeclaration,
 } from "estree";
 
 export interface Normalization {
@@ -884,6 +884,20 @@ export function normClassExpression(obj: ClassExpression, children: Normalizatio
     return {
         stmts: [],
         expr: newObj,
+    };
+}
+
+export function normClassDeclaration(obj: ClassDeclaration, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+    const classBodyNormalization = children[2];
+
+    if (classBodyNormalization.expr) {
+        newObj.body = classBodyNormalization.expr;
+    }
+
+    return {
+        stmts: [...flatStmts(children), newObj],
+        expr: null,
     };
 }
 
