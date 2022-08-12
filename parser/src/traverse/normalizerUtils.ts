@@ -400,6 +400,40 @@ export function normIfStatement(obj: IfStatement, children: Normalization[]): No
     };
 }
 
+// export function createEqualBinaryExpression(left: Expression, right: Expression): BinaryExpression {
+//     return {
+//         type: "BinaryExpression",
+//         operator: "===",
+//         left,
+//         right};
+// }
+
+// export function normSwitchStatement(obj: Node, children: Normalization[]): Normalization {
+//     const newObj = copyObj(obj);
+//     children = children.slice(0,2)
+//     return {
+//         stmts: flatStmts(children) as Statement[],
+//         expr: null,
+//     };
+// }
+
+// export function normSwitchCase(obj: Node, children: Normalization[], parent: Node | null ): Normalization {
+//     const parentDiscriminant = parent && parent.type == "Identifier"? parent : createRandomIdentifier();
+
+//     const caseTest = createEqualBinaryExpression(parentDiscriminant, children[0].expr as Expression);
+//     const newTest = createVariableDeclaration(caseTest);
+    
+//     children.shift();
+//     const newConsequent: BlockStatement = { type: "BlockStatement", body: flatStmts(children) as Statement[]};
+
+//     const newObj: IfStatement = { type: "IfStatement", test: newTest.id, consequent: newConsequent }
+
+//     return {
+//         stmts: [newTest.decl, newObj],
+//         expr: null,
+//     };
+// }
+
 export function normConditionalExpression(obj: ConditionalExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.test = children[0].expr;
