@@ -17,7 +17,7 @@ import { printJSON } from "./utils/utils";
 import { Graph } from "./traverse/graph/graph";
 
 // Returns a graph object
-function parse(filename: string) : Graph {
+function parse(filename: string, file_output: boolean) : Graph {
     try {
         const data = fs.readFileSync(filename, "utf8");
         const ast = esprima.parseScript(data);
@@ -35,10 +35,13 @@ function parse(filename: string) : Graph {
 
         const normalizedFilename = path.basename(filename).slice(0, -path.extname(filename).length) + "-normalized";
         const normalizedFilepath = path.join(path.dirname(filename), normalizedFilename + path.extname(filename));
-        // console.log(normalizedFilepath);
-        fs.writeFileSync(normalizedFilepath, code);
-        console.log("===============");
 
+        if (file_output) {
+            fs.writeFileSync(normalizedFilepath, code);
+            console.log("===============");
+        }
+
+        // just to get the loc of the normalized version
         normalizedAst = esprima.parseScript(code, { loc: true });
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
@@ -53,6 +56,7 @@ function parse(filename: string) : Graph {
 }
 
 const { argv } = yargs(process.argv.slice(3))
+    .boolean("file")
     .boolean("csv")
     .array("ignore")
     .boolean("show_code");
@@ -64,7 +68,12 @@ if (fs.existsSync(filename)) {
         show_code: argv.show_code || false,
     };
 
-    const graph = parse(filename);
+    let file_output = false;
+    if (argv.file) {
+        file_output = argv.file;
+    }
+
+    const graph = parse(filename, file_output);
 
     if (graph) {
         if (argv.csv) {

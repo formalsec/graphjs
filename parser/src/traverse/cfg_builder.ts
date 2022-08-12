@@ -53,26 +53,6 @@ function buildCFG(astGraph: Graph) {
             };
         }
 
-        // case "BlockStatement": {
-        //     // let previousNode = node;
-        //     let previousNode = parent_node;
-        //     // console.log(node.edges);
-        //     console.log(parent_node);
-
-        //     node.edges.forEach(edge => {
-        //         const [n, childNode] = edge.nodes;
-        //         console.log(previousNode.id);
-        //         const { root, exit } = traverse(childNode);
-        //         graph.addEdge(previousNode.id, root.id, { type: "CFG" });
-        //         previousNode = exit;
-        //     });
-
-        //     return {
-        //         root: parent_node,
-        //         exit: previousNode,
-        //     };
-        // }
-
         case "BlockStatement": {
             if (node.edges.length > 0) {
                 let previousNode = node.edges[0].nodes[1];
@@ -146,6 +126,24 @@ function buildCFG(astGraph: Graph) {
             } else {
                 graph.addEdge(test.exit.id, _endIf.id, { type: "CFG", label: "FALSE" });
             }
+            return {
+                root: node,
+                exit: _endIf,
+            };
+        }
+
+        case "WhileStatement": {
+            const [test, body] = node.edges.map((edge) => traverse(edge.nodes[1]));
+            console.log(test, body);
+
+            const _endIf = graph.addNode("CFG_WHILE_END", { type: "CFG" });
+            _endIf.identifier = node.id.toString();
+
+            graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test" });
+            graph.addEdge(test.exit.id, body.root.id, { type: "CFG", label: "TRUE" });
+            graph.addEdge(test.exit.id, _endIf.id, { type: "CFG", label: "FALSE" });
+            graph.addEdge(body.exit.id, _endIf.id, { type: "CFG" });
+
             return {
                 root: node,
                 exit: _endIf,

@@ -142,17 +142,29 @@ function buildAST(originalObj: estree.Program) {
         //
         // Statements and Declarations
         //
-        // case "DoWhileStatement":
-        // case "WhileStatement": {
-        //     const resultTest = traverse(callback, obj.test);
-        //     const resultBody = traverse(callback, obj.body);
+        case "DoWhileStatement":
+        case "WhileStatement": {
+            const objNode = graph.addNode(obj.type, obj);
 
-        //     const resultData = [
-        //     resultTest,
-        //     resultBody
-        //     ];
-        //     return objNode;
-        // }
+            const test = traverse(obj.test, objNode);
+            const body = traverse(obj.body, objNode);
+
+            graph.addEdge(objNode.id, test.id, { type: "AST", label: "test" });
+
+            if (Array.isArray(body)) {
+                const bodyNode = graph.addNode(obj.body.type, obj.body);
+                // eslint-disable-next-line no-plusplus
+                for (let i = 0; i < body.length; i++) {
+                    graph.addEdge(bodyNode.id, body[i].id, { type: "AST", label: i + 1 });
+                }
+                graph.addEdge(objNode.id, bodyNode.id, { type: "AST", label: "body" });
+            } else {
+                graph.addEdge(objNode.id, body.id, { type: "AST", label: "body" });
+            }
+
+            // graph.addEdge(objNode.id, body.id, { type: "AST", label: "body" });
+            return objNode;
+        }
 
         case "ExpressionStatement": {
             const objNode = graph.addNode(obj.type, obj);
