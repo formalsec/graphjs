@@ -42,7 +42,8 @@ import {
     normClassDeclaration,
     normTryStatement,
     normCatchClause,
-    normForInStatement
+    normForInStatement,
+    normWithStatement
 } from "./normalizerUtils";
 
 function mapReduce(arr: (Node | null)[], p: Node): Normalization[] {
@@ -87,6 +88,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     //
     // Expressions
     //
+    case "MetaProperty":
     case "TemplateElement":
     case "ThisExpression":
     case "Super":
@@ -172,13 +174,6 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         ];
         return normMemberExpression(obj, resultData, parent);
     }
-
-    // case "MetaProperty": {
-    //     const resultMeta = normalize(obj.meta, obj);
-    //     const resultProperty = normalize(obj.property, obj);
-    //     const resultData = [resultMeta, resultProperty];
-    //     return normMetaProperty(obj, resultData);
-    // }
 
     case "NewExpression":
     case "CallExpression": {
@@ -413,13 +408,13 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normVariableDeclarator(obj, resultData, parent);
     }
 
-    // case "WithStatement": {
-    //     const resultObject = normalize(obj.object, obj);
-    //     const resultBody = normalize(obj.body, obj);
+    case "WithStatement": {
+        const resultObject = normalize(obj.object, obj);
+        const resultBody = normalize(obj.body, obj);
 
-    //     const resultData = [resultObject, resultBody];
-    //     break;
-    // }
+        const resultData = [resultObject, resultBody];
+        return normWithStatement(obj, resultData);
+    }
 
     case "ClassDeclaration": {
         // not really necessary to normalize id and superclass because they are identifiers
