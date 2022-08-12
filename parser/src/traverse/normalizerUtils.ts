@@ -30,7 +30,22 @@ import type {
     SequenceExpression,
     SimpleLiteral,
     BlockStatement,
-    Statement, LabeledStatement, IfStatement, TemplateLiteral, TaggedTemplateExpression, ClassDeclaration, TryStatement, CatchClause, ReturnStatement, ForStatement, ForInStatement, ThrowStatement, DoWhileStatement, WhileStatement, ConditionalExpression,
+    Statement,
+    LabeledStatement,
+    IfStatement,
+    TemplateLiteral,
+    TaggedTemplateExpression,
+    ClassDeclaration,
+    TryStatement,
+    CatchClause,
+    ReturnStatement,
+    ForStatement,
+    ForInStatement,
+    ThrowStatement,
+    DoWhileStatement,
+    WhileStatement,
+    ConditionalExpression,
+    WithStatement,
 } from "estree";
 
 export interface Normalization {
@@ -974,5 +989,16 @@ export function normCatchClause(obj: CatchClause, children: Normalization[]): No
     return {
         stmts: [...children[0].stmts],
         expr: newObj,
+    };
+};
+
+export function normWithStatement(obj: WithStatement, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+    newObj.object = children[0].expr;
+    newObj.body = children[1].stmts[0];
+
+    return {
+        stmts: [...children[0].stmts, newObj],
+        expr: null,
     };
 };
