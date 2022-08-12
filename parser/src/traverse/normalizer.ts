@@ -41,7 +41,8 @@ import {
     normTaggedTemplateExpression,
     normClassDeclaration,
     normTryStatement,
-    normCatchClause
+    normCatchClause,
+    normForInStatement
 } from "./normalizerUtils";
 
 function mapReduce(arr: (Node | null)[], p: Node): Normalization[] {
@@ -312,20 +313,19 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
          return normForStatement(obj, resultData);
     }
 
-    // case "ForInStatement": {
-    //     const resultLeft = normalize(obj.left, obj);
-    //     const resultRight = normalize(obj.right, obj);
-    //     const resultBody = normalize(obj.body, obj);
+    case "ForInStatement": 
+    case "ForOfStatement": {
+        const resultLeft = normalize(obj.left, obj);
+        const resultRight = normalize(obj.right, obj);
+        const resultBody = normalize(obj.body, obj);
 
-    //     const resultData = [
-    //     resultLeft,
-    //     resultRight,
-    //     resultBody
-    //     ];
-    //     break;
-    // }
-
-    // case "ForOfStatement": {}
+        const resultData = [
+        resultLeft,
+        resultRight,
+        resultBody
+        ];
+        return normForInStatement(obj, resultData);
+    }
 
     case "FunctionDeclaration": {
         const resultId = normalize(obj.id, obj);

@@ -30,7 +30,7 @@ import type {
     SequenceExpression,
     SimpleLiteral,
     BlockStatement,
-    Statement, LabeledStatement, IfStatement, TemplateLiteral, TaggedTemplateExpression, ClassDeclaration, TryStatement, CatchClause, ReturnStatement, ForStatement, ForInStatement, ThrowStatement, DoWhileStatement, WhileStatement, ConditionalExpression,
+    Statement, LabeledStatement, IfStatement, TemplateLiteral, TaggedTemplateExpression, ClassDeclaration, TryStatement, CatchClause, ReturnStatement, ForStatement, ForInStatement, ThrowStatement, DoWhileStatement, WhileStatement, ConditionalExpression, ForOfStatement,
 } from "estree";
 
 export interface Normalization {
@@ -424,6 +424,25 @@ export function normWhileStatement(obj: WhileStatement, children: Normalization[
         expr: null,
     };
 };
+
+export function normForInStatement(obj: ForInStatement | ForOfStatement, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+    
+    newObj.right = children[1].expr;
+    newObj.body = createBlockStatement([...children[2].stmts] as Statement[]);
+
+    if (!children[0].expr && children[0].stmts[0].type == "VariableDeclaration" ){
+        newObj.left = children[0].stmts[0].declarations[0].id;
+    }
+    else {
+        newObj.left = children[0].expr;
+    }
+
+    return {
+        stmts: [...children[0].stmts,...children[1].stmts, newObj],
+        expr: null,
+    };
+}
 
 export function normDoWhileStatement(obj: DoWhileStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);

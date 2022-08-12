@@ -140,3 +140,7 @@ test("testing normalize - check that normalization retains same behaviour (26) -
 test("testing normalize - check that normalization retains same behaviour (26) - try statements and catch clause", () => {
     testNormalization("./test-inputs/normalization/try-statements");
 });
+
+test("testing normalize - check that normalization retains same behaviour (27) - for in/of statements", () => {
+    testNormalization("./test-inputs/normalization/for-statements");
+});
