@@ -43,7 +43,10 @@ import {
     normTryStatement,
     normCatchClause,
     normForInStatement,
-    normWithStatement
+    normWithStatement,
+    normSimpleStatement,
+    normExportDeclaration,
+    normSimpleExpression
 } from "./normalizerUtils";
 
 function mapReduce(arr: (Node | null)[], p: Node): Normalization[] {
@@ -94,10 +97,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
     case "Super":
     case "Identifier":
     case "Literal": {
-        return {
-            stmts: [],
-            expr: copyObj(obj),
-        };
+        return normSimpleExpression(obj);
     }
 
     case "ArrayExpression": {
@@ -308,7 +308,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
          return normForStatement(obj, resultData);
     }
 
-    case "ForInStatement": 
+    case "ForInStatement":
     case "ForOfStatement": {
         const resultLeft = normalize(obj.left, obj);
         const resultRight = normalize(obj.right, obj);
@@ -425,6 +425,21 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         const resultData = [resultId, resultSuperClass, resultBody];
         return normClassDeclaration(obj, resultData);
 
+    }
+
+    case "ImportDeclaration": {
+        return normSimpleStatement(obj);
+    }
+
+    case "ExportAllDeclaration": {
+        return normSimpleStatement(obj)
+    }
+
+    case "ExportDefaultDeclaration":
+    case "ExportNamedDeclaration": {
+        const resultDeclaration = normalize(obj.declaration, obj);
+
+        return normExportDeclaration(obj, [resultDeclaration]);
     }
 
     default:

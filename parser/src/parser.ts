@@ -57,6 +57,7 @@ function parse(filename: string, file_output: boolean) : Graph {
 
 const { argv } = yargs(process.argv.slice(3))
     .boolean("file")
+    .boolean("graph")
     .boolean("csv")
     .array("ignore")
     .boolean("show_code");
@@ -78,7 +79,9 @@ if (fs.existsSync(filename)) {
     if (graph) {
         if (argv.csv) {
             graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
-        } else {
+        }
+
+        if (argv.graph) {
             graph.outputManager = new OutputManager(graphOptions, new DotOutput());
         }
 

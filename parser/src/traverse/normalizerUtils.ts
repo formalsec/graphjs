@@ -47,6 +47,8 @@ import type {
     WhileStatement,
     ConditionalExpression,
     WithStatement,
+    ExportDefaultDeclaration,
+    ExportNamedDeclaration,
 } from "estree";
 
 export interface Normalization {
@@ -247,6 +249,14 @@ export function normProgram(obj: Program, children: Normalization[]): Normalizat
     return { stmts: [newObj], expr: null };
 }
 
+export function normSimpleExpression(obj: Node): Normalization {
+    return { stmts: [], expr: copyObj(obj) };
+}
+
+export function normSimpleStatement(obj: Node): Normalization {
+    return { stmts: [ copyObj(obj) ], expr: null };
+}
+
 export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     const leftExpr = children[0].expr;
@@ -443,7 +453,7 @@ export function normWhileStatement(obj: WhileStatement, children: Normalization[
 
 export function normForInStatement(obj: ForInStatement | ForOfStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
-    
+
     newObj.right = children[1].expr;
     newObj.body = createBlockStatement([...children[2].stmts] as Statement[]);
 
@@ -968,6 +978,25 @@ export function normWithStatement(obj: WithStatement, children: Normalization[])
 
     return {
         stmts: [...children[0].stmts, newObj],
+        expr: null,
+    };
+}
+
+export function normExportDeclaration(obj: ExportDefaultDeclaration | ExportNamedDeclaration, children: Normalization[]): Normalization {
+    const newObj = copyObj(obj);
+
+    if (children[0].expr) {
+        newObj.declaration = children[0].expr;
+        return {
+            stmts: [...children[0].stmts, newObj],
+            expr: null,
+        };
+    }
+
+    newObj.declaration = children[0].stmts[0];
+
+    return {
+        stmts: [newObj],
         expr: null,
     };
 }
