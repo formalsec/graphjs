@@ -43,10 +43,12 @@ import {
     normTryStatement,
     normCatchClause,
     normForInStatement,
-    normWithStatement
+    normWithStatement,
+    // normSwitchStatement,
+    // normSwitchCase
 } from "./normalizerUtils";
 
-function mapReduce(arr: (Node | null)[], p: Node): Normalization[] {
+function mapReduce(arr: (Node | null)[], p: Node | null): Normalization[] {
     return arr.map((item) => normalize(item, p));
 }
 
@@ -355,23 +357,22 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normReturnStatement(obj, resultData);
     }
 
-    // case "SwitchStatement": {
-    //     const resultDiscriminant = normalize(obj.discriminant, obj);
-    //     const resultCases = mapReduce(obj.cases, obj);
+//     case "SwitchStatement": {
+//         const resultDiscriminant = normalize(obj.discriminant, obj);
+//         const resultCases = mapReduce(obj.cases, resultDiscriminant.expr);
+//         resultCases.unshift(resultDiscriminant);
+//         return normSwitchStatement(obj, resultCases);
+//    }
 
-    //     resultCases.unshift(resultDiscriminant);
-    //     const resultData = resultCases;
-    //     break;
-    // }
 
-    // case "SwitchCase": {
-    //     const resultTest = normalize(obj.test, obj);
-    //     const resultConsequent = mapReduce(obj.consequent, obj);
+//    case "SwitchCase": {
+//        const resultTest = normalize(obj.test, obj);
+//        const resultConsequent = mapReduce(obj.consequent, obj);
 
-    //     resultConsequent.unshift(resultTest);
-    //     const resultData = resultConsequent;
-    //     break;
-    // }
+//        resultConsequent.unshift(resultTest);
+//        const resultData = resultConsequent;
+//        return normSwitchCase(obj, resultData, parent);
+//    }
 
     case "TryStatement": {
         const resultBlock = normalize(obj.block, obj);
