@@ -1,1 +1,1 @@
-const v1 = x[f()];
+const y = x[f()];
