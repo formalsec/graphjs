@@ -396,15 +396,10 @@ export function normIfStatement(obj: Node, children: Normalization[]): Normaliza
     const newObj = copyObj(obj);
     newObj.test = children[0].expr;
 
-    if (children[1].stmts && children[1].stmts.length > 1) {
-        const newConsequentBlock: BlockStatement = { type: "BlockStatement", body: children[1].stmts as Statement[] }
-        newObj.consequent = newConsequentBlock;
-    } else {
-        [newObj.consequent] = children[1].stmts;
-    }
+    newObj.consequent = createBlockStatement(children[1].stmts as Statement[])
 
     if (newObj.alternate) {
-        [newObj.alternate] = children[2].stmts;
+        newObj.alternate = createBlockStatement(children[2].stmts as Statement[])
     }
 
     return {
@@ -429,7 +424,10 @@ export function createBlockStatement(stmts: Statement[]): Node {
     if (stmts.length == 1 && stmts[0].type == "BlockStatement") {
         return stmts[0];
     }
-
+    else if (stmts.length >= 1) {
+        const newStmts = stmts.map((stmt) => { if (stmt.type == "BlockStatement") return stmt.body; else return stmt }).flat()
+        return { type: "BlockStatement", body: newStmts};
+    } 
     return { type: "BlockStatement", body: stmts};
 }
 
