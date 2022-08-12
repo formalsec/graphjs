@@ -51,7 +51,7 @@ import type {
 export interface Normalization {
     stmts: Node[],
     expr: Node | null,
-};
+}
 
 export function createRandomIdentifier(): Identifier {
     const variableName = getNextVariableName();
@@ -66,7 +66,7 @@ export function createIdentifierWithName(name: string): Identifier {
         type: "Identifier",
         name,
     };
-};
+}
 
 export function createIdentifierFromExpression(expr: Expression): Identifier | null {
     switch(expr.type) {
@@ -88,7 +88,7 @@ export function createEmptyObject(): ObjectExpression {
         type: "ObjectExpression",
         properties: [],
     };
-};
+}
 
 export function createBooleanLiteral(value: boolean): SimpleLiteral {
     return {
@@ -101,12 +101,12 @@ export function createBooleanLiteral(value: boolean): SimpleLiteral {
 interface CreatedDeclaration {
     id: Identifier,
     decl: VariableDeclaration,
-};
+}
 
 interface CreatedDeclarator {
     id: Identifier,
     decl: VariableDeclarator,
-};
+}
 
 export function createVariableDeclaration(obj: Expression | null | undefined, objId?: string, constant: boolean = true): CreatedDeclaration {
     const id = (objId)? createIdentifierWithName(objId) : createRandomIdentifier();
@@ -124,7 +124,7 @@ export function createVariableDeclaration(obj: Expression | null | undefined, ob
     };
 
     return { id, decl };
-};
+}
 
 export function createVariableDeclarationWithIdentifier(identifier: Identifier, obj: Expression | null | undefined): CreatedDeclaration {
     const decl: VariableDeclaration = {
@@ -140,7 +140,7 @@ export function createVariableDeclarationWithIdentifier(identifier: Identifier, 
     };
 
     return { id: identifier, decl };
-};
+}
 
 export function createVariableDeclarator(newInit: Expression | null | undefined): CreatedDeclarator {
     const id = createRandomIdentifier();
@@ -152,7 +152,7 @@ export function createVariableDeclarator(newInit: Expression | null | undefined)
     };
 
     return { id, decl };
-};
+}
 
 export function createObjectLookupDeclarator(prop: Property, objectValue: Expression): VariableDeclarator {
     const propValue = prop.value as Expression;
@@ -170,7 +170,7 @@ export function createObjectLookupDeclarator(prop: Property, objectValue: Expres
         id: propKey,
         init: memExpr,
     };
-};
+}
 
 export function createPropertyAssignment(objId: Identifier, propKey: Identifier, propValue: Expression): ExpressionStatement {
     return {
@@ -188,7 +188,7 @@ export function createPropertyAssignment(objId: Identifier, propKey: Identifier,
             right: propValue,
         },
     };
-};
+}
 
 export function createExpressionAssignment(objId: string, objValue: Expression): ExpressionStatement {
     return {
@@ -203,7 +203,7 @@ export function createExpressionAssignment(objId: string, objValue: Expression):
             right: objValue,
         },
     };
-};
+}
 
 export function unpattern(declarations: VariableDeclarator[]): VariableDeclarator[] {
     const unpatternedDeclarations: VariableDeclarator[] = [];
@@ -227,7 +227,7 @@ export function unpattern(declarations: VariableDeclarator[]): VariableDeclarato
     });
 
     return unpatternedDeclarations;
-};
+}
 
 export const flatStmts = (children: Normalization[]): Node[] => children.map((child) => child.stmts).flat();
 export const flatExprs = (children: Normalization[]): (Node | null)[] => children.map((child) => child.expr).flat();
@@ -238,13 +238,13 @@ export function isNotEmpty (obj: Node): boolean {
         return obj.elements.length > 0;
     }
     return true;
-};
+}
 
 export function normProgram(obj: Program, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.body = flatStmts(children);
     return { stmts: [newObj], expr: null };
-};
+}
 
 export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -265,7 +265,7 @@ export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, 
     }
 
     return { stmts: [], expr: newObj };
-};
+}
 
 export function normVariableDeclaration(obj: VariableDeclaration, children: Normalization[]): Normalization {
     let stmts: Node[] = [];
@@ -283,7 +283,7 @@ export function normVariableDeclaration(obj: VariableDeclaration, children: Norm
         stmts: [...stmts],
         expr: null,
     };
-};
+}
 
 export function normVariableDeclarator(obj: VariableDeclarator, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
@@ -331,7 +331,7 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
         stmts,
         expr: newObj,
     };
-};
+}
 
 export function normTaggedTemplateExpression(obj: TaggedTemplateExpression, children: Normalization[]): Normalization {
     const stmts = flatStmts(children);
@@ -344,7 +344,7 @@ export function normTaggedTemplateExpression(obj: TaggedTemplateExpression, chil
         stmts: [...stmts],
         expr: newObj,
     }
-};
+}
 
 export function normTemplateLiteral(obj: TemplateLiteral, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -357,7 +357,7 @@ export function normTemplateLiteral(obj: TemplateLiteral, children: Normalizatio
         expr: newObj,
     };
 
-};
+}
 
 export function normBlockStatement(obj: BlockStatement, children: Normalization[]): Normalization {
     const stmts = flatStmts(children);
@@ -371,7 +371,7 @@ export function normBlockStatement(obj: BlockStatement, children: Normalization[
         stmts: [newObj],
         expr: null,
     };
-};
+}
 
 export function normIfStatement(obj: IfStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -387,7 +387,7 @@ export function normIfStatement(obj: IfStatement, children: Normalization[]): No
         stmts: [...children[0].stmts, newObj],
         expr: null,
     };
-};
+}
 
 export function normConditionalExpression(obj: ConditionalExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -399,7 +399,7 @@ export function normConditionalExpression(obj: ConditionalExpression, children: 
         stmts: [...children[0].stmts, ...children[1].stmts, ...children[2].stmts],
         expr: newObj,
     };
-};
+}
 
 export function createBlockStatement(stmts: Statement[]): Node {
     if (stmts.length == 1 && stmts[0].type == "BlockStatement") {
@@ -438,7 +438,7 @@ export function normWhileStatement(obj: WhileStatement, children: Normalization[
         stmts: [...children[0].stmts, newObj],
         expr: null,
     };
-};
+}
 
 export function normDoWhileStatement(obj: DoWhileStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -465,7 +465,7 @@ export function normDoWhileStatement(obj: DoWhileStatement, children: Normalizat
         stmts: [decl, newObj],
         expr: null,
     };
-};
+}
 
 export function normForStatement(obj: ForStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -488,24 +488,7 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
         stmts: [...children[0].stmts, ...children[1].stmts, newObj],
         expr: null,
     };
-};
-
-// TODO: Ask Prof. José what should be done in this case
-// IDEA: change it to a while??
-// function normForStatement(obj, children, parent) {
-//     const stmts = children[0].stmts.concat(children[2].stmts);
-
-//     const newObj = copyObj(obj);
-//     newObj.init = children[0].expr;
-//     //newObj.test = children[1].expr;
-//     newObj.update = children[2].expr;
-//     newObj.body = children[3].stmts[0];
-
-//     return {
-//         stmts: stmts.concat(newObj),
-//         expr: null,
-//     };
-// }
+}
 
 export function normAssignmentExpressions (obj: AssignmentExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
@@ -571,7 +554,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
     }
 
     return { stmts: [], expr: newObj };
-};
+}
 
 export function normExpressionStatement(obj: ExpressionStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -590,7 +573,7 @@ export function normExpressionStatement(obj: ExpressionStatement, children: Norm
         stmts: [...flatStmts(children)],
         expr: null,
     };
-};
+}
 
 export function normUpdateExpression(obj: UpdateExpression | UnaryExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -609,7 +592,7 @@ export function normUpdateExpression(obj: UpdateExpression | UnaryExpression, ch
     }
 
     return { stmts: [], expr: newObj };
-};
+}
 
 export function normFunctionDeclaration(obj: FunctionDeclaration, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -638,7 +621,7 @@ export function normFunctionDeclaration(obj: FunctionDeclaration, children: Norm
         stmts: [decl],
         expr: null,
     };
-};
+}
 
 export function normLabeledStatement(obj: LabeledStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -650,7 +633,7 @@ export function normLabeledStatement(obj: LabeledStatement, children: Normalizat
         stmts: [newObj],
         expr: null,
     };
-};
+}
 
 export function normReturnStatement(obj: ReturnStatement | ThrowStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -669,7 +652,7 @@ export function normReturnStatement(obj: ReturnStatement | ThrowStatement, child
         stmts: [newObj],
         expr: null,
     };
-};
+}
 
 export function normFunctionExpression(obj: FunctionExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
@@ -700,7 +683,7 @@ export function normFunctionExpression(obj: FunctionExpression, children: Normal
         stmts,
         expr: id,
     };
-};
+}
 
 export function normArrowFunctionExpression(obj: ArrowFunctionExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
@@ -730,7 +713,7 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
         stmts,
         expr: id,
     };
-};
+}
 
 
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
@@ -754,7 +737,7 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
         stmts: [...flatStmts(children), decl],
         expr: id,
     };
-};
+}
 
 export function normMemberExpression(obj: MemberExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
@@ -799,7 +782,7 @@ export function normObjectExpression(obj: ObjectExpression, children: Normalizat
         stmts: [...flatStmts(children), decl],
         expr: id,
     };
-};
+}
 
 export function normProperty(obj: Property, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -945,7 +928,7 @@ export function normTryStatement(obj: TryStatement, children: Normalization[]): 
         stmts: [...children[1].stmts, newObj],
         expr: null,
     };
-};
+}
 
 export function normCatchClause(obj: CatchClause, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -956,7 +939,7 @@ export function normCatchClause(obj: CatchClause, children: Normalization[]): No
         stmts: [...children[0].stmts],
         expr: newObj,
     };
-};
+}
 
 export function normWithStatement(obj: WithStatement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -967,4 +950,4 @@ export function normWithStatement(obj: WithStatement, children: Normalization[])
         stmts: [...children[0].stmts, newObj],
         expr: null,
     };
-};
+}
