@@ -429,7 +429,10 @@ export function createBlockStatement(stmts: Statement[]): Node {
     if (stmts.length == 1 && stmts[0].type == "BlockStatement") {
         return stmts[0];
     }
-
+    else if (stmts.length >= 1) {
+        const newStmts = stmts.map((stmt) => { if (stmt.type == "BlockStatement") return stmt.body; else return stmt }).flat()
+        return { type: "BlockStatement", body: newStmts};
+    } 
     return { type: "BlockStatement", body: stmts};
 }
 
