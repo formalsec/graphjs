@@ -45,8 +45,8 @@ test("reset object count", () => {
 test("get variable name", () => {
     resetObjectCount();
 
-    expect(getNextObjectName()).toBe("o1");
-    expect(getNextObjectName()).toBe("o2");
-    expect(getNextObjectName()).toBe("o3");
-    expect(getNextObjectName()).toBe("o4");
+    expect(getNextObjectName("x")).toBe("x-o1");
+    expect(getNextObjectName("y")).toBe("y-o2");
+    expect(getNextObjectName("w")).toBe("w-o3");
+    expect(getNextObjectName("x")).toBe("x-o4");
 });

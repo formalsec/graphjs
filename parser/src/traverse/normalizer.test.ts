@@ -132,3 +132,11 @@ test("testing normalize - check that normalization retains same behaviour (24) -
 test("testing normalize - check that normalization retains same behaviour (25) - templates", () => {
     testNormalization("./test-inputs/normalization/template-expressions");
 });
+
+test("testing normalize - check that normalization retains same behaviour (26) - class declarations", () => {
+    testNormalization("./test-inputs/normalization/class-declarations");
+});
+
+test("testing normalize - check that normalization retains same behaviour (26) - try statements and catch clause", () => {
+    testNormalization("./test-inputs/normalization/try-statements");
+});
