@@ -47,6 +47,9 @@ import {
     normSimpleStatement,
     normExportDeclaration,
     normSimpleExpression,
+    normSwitchStatement,
+    normSwitchCases,
+    rearrangeSwitchCases,
     // normSwitchStatement,
     // normSwitchCase
 } from "./normalizerUtils";
@@ -353,26 +356,24 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
 
     case "ReturnStatement":
     case "ThrowStatement": {
-        const resultData = [normalize(obj.argument, obj)];
+        const resultData = [ normalize(obj.argument, obj) ];
         return normReturnStatement(obj, resultData);
     }
 
-//     case "SwitchStatement": {
-//         const resultDiscriminant = normalize(obj.discriminant, obj);
-//         const resultCases = mapReduce(obj.cases, resultDiscriminant.expr);
-//         resultCases.unshift(resultDiscriminant);
-//         return normSwitchStatement(obj, resultCases);
-//    }
+    case "SwitchStatement": {
+        const resultDiscriminant = normalize(obj.discriminant, obj);
+        const rearrangedCases = rearrangeSwitchCases(obj.cases);
+        const switchCaseChildren = rearrangedCases.map((switchCase) => {
+            const resultTest = normalize(switchCase.test, switchCase);
+            const resultConsequent = mapReduce(switchCase.consequent, switchCase);
 
-
-//    case "SwitchCase": {
-//        const resultTest = normalize(obj.test, obj);
-//        const resultConsequent = mapReduce(obj.consequent, obj);
-
-//        resultConsequent.unshift(resultTest);
-//        const resultData = resultConsequent;
-//        return normSwitchCase(obj, resultData, parent);
-//    }
+            resultConsequent.unshift(resultTest);
+            return resultConsequent;
+        });
+        const normResultCases = normSwitchCases(obj, rearrangedCases, switchCaseChildren, resultDiscriminant.expr);
+        const resultData = [ resultDiscriminant, normResultCases ];
+        return normSwitchStatement(obj, resultData);
+   }
 
     case "TryStatement": {
         const resultBlock = normalize(obj.block, obj);

@@ -49,7 +49,10 @@ import type {
     WithStatement,
     ExportDefaultDeclaration,
     ExportNamedDeclaration,
+    SwitchCase,
+    SwitchStatement,
 } from "estree";
+import { CANCELLED } from "dns";
 
 export interface Normalization {
     stmts: Node[],
@@ -206,6 +209,48 @@ export function createExpressionAssignment(objId: string, objValue: Expression):
             right: objValue,
         },
     };
+}
+
+export function createIfStatementForSwitchCase(test: Expression, consequent: BlockStatement, alternate?: IfStatement | BlockStatement): IfStatement {
+    if (alternate) {
+
+        if (alternate.type === "BlockStatement") {
+            return {
+                type: "IfStatement",
+                test: test,
+                consequent: consequent,
+                alternate: alternate,
+            };
+        }
+
+        return {
+            type: "IfStatement",
+            test: test,
+            consequent: consequent,
+            alternate: {
+                type: "BlockStatement",
+                body: [ alternate ]
+            },
+        };
+    }
+
+    return {
+        type: "IfStatement",
+        test: test,
+        consequent: consequent,
+    };
+}
+
+export function createBlockStatementForSwitchCase(originalBody: Statement[], hasBreak: boolean, extraStmt?: IfStatement | BlockStatement): BlockStatement {
+    if (hasBreak || !extraStmt) {
+        return { type: "BlockStatement", body: originalBody };
+    }
+
+    if (extraStmt.type === "BlockStatement") {
+        return { type: "BlockStatement", body: [ ...originalBody, ...extraStmt.body ] };
+    }
+
+    return { type: "BlockStatement", body: [ ...originalBody, extraStmt ] };
 }
 
 export function unpattern(declarations: VariableDeclarator[]): VariableDeclarator[] {
@@ -400,33 +445,83 @@ export function normIfStatement(obj: IfStatement, children: Normalization[]): No
     };
 }
 
-// export function createEqualBinaryExpression(left: Expression, right: Expression): BinaryExpression {
-//     return {
-//         type: "BinaryExpression",
-//         operator: "===",
-//         left,
-//         right};
-// }
+export function createEqualBinaryExpression(left: Expression, right: Expression): BinaryExpression {
+    return {
+        type: "BinaryExpression",
+        operator: "===",
+        left,
+        right
+    };
+}
 
-// export function normSwitchStatement(obj: Node, children: Normalization[]): Normalization {
-//     const newObj = copyObj(obj);
-//     children = children.slice(0,2)
-//     return {
-//         stmts: flatStmts(children) as Statement[],
-//         expr: null,
-//     };
-// }
+export function normSwitchStatement(obj: Node, children: Normalization[]): Normalization {
+    // children = children.slice(0,2);
+    return {
+        stmts: flatStmts(children),
+        expr: null,
+    };
+}
+
+export function rearrangeSwitchCases(cases: SwitchCase[]): SwitchCase[] {
+    const defaultCase = cases.filter(switchCase => !switchCase.test);
+    const otherCases = cases.filter(switchCase => switchCase.test);
+    return [...otherCases, ...defaultCase];
+}
+
+export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: Normalization[][], parent: Node | null ): Normalization {
+    const parentDiscriminant = parent && parent.type == "Identifier" ? parent : createRandomIdentifier();
+
+    const previousDecls: Statement[] = [];
+    let ifNode: Node | undefined = undefined;
+
+    for (let j = cases.length - 1; j >= 0; j--) {
+        const switchCase = cases[j];
+        const children = childrenList[j];
+
+        const flatChildrenStmts = flatStmts(children);
+        // console.log(flatChildrenStmts);
+        const hasBreak = flatChildrenStmts.filter(stmt => stmt.type === "BreakStatement").length > 0;
+        // console.log(hasBreak);
+        const newBody = flatChildrenStmts.filter(stmt => stmt.type != "BreakStatement") as Statement[];
+        const newConsequent = createBlockStatementForSwitchCase(newBody, hasBreak, ifNode);
+
+        if (switchCase.test) {
+            const caseTest = createEqualBinaryExpression(parentDiscriminant, children[0].expr as Expression);
+            const newTest = createVariableDeclaration(caseTest);
+
+            if (ifNode) {
+                ifNode = createIfStatementForSwitchCase(newTest.id, newConsequent, ifNode );
+                previousDecls.push(newTest.decl);
+            }
+        } else {
+            ifNode = newConsequent;
+        }
+    }
+
+    if (ifNode) {
+        return {
+            stmts: [ ...previousDecls, ifNode ],
+            expr: null,
+        };
+    }
+
+    return {
+        stmts: [ ...previousDecls ],
+        expr: null,
+    };
+}
 
 // export function normSwitchCase(obj: Node, children: Normalization[], parent: Node | null ): Normalization {
-//     const parentDiscriminant = parent && parent.type == "Identifier"? parent : createRandomIdentifier();
+//     const parentDiscriminant = parent && parent.type == "Identifier" ? parent : createRandomIdentifier();
 
 //     const caseTest = createEqualBinaryExpression(parentDiscriminant, children[0].expr as Expression);
 //     const newTest = createVariableDeclaration(caseTest);
-    
-//     children.shift();
-//     const newConsequent: BlockStatement = { type: "BlockStatement", body: flatStmts(children) as Statement[]};
 
-//     const newObj: IfStatement = { type: "IfStatement", test: newTest.id, consequent: newConsequent }
+//     children.shift();
+//     const newBody = flatStmts(children).filter(stmt => stmt.type != "BreakStatement") as Statement[];
+//     const newConsequent: BlockStatement = { type: "BlockStatement", body: newBody };
+
+//     const newObj: IfStatement = { type: "IfStatement", test: newTest.id, consequent: newConsequent };
 
 //     return {
 //         stmts: [newTest.decl, newObj],

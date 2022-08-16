@@ -79,13 +79,13 @@ if (fs.existsSync(filename)) {
     if (graph) {
         if (argv.csv) {
             graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
+            graph.output("src/graphs/graph");
         }
 
         if (argv.graph) {
             graph.outputManager = new OutputManager(graphOptions, new DotOutput());
+            graph.output("src/graphs/graph");
         }
-
-        graph.output("src/graphs/graph");
     }
 } else {
     console.error(`${filename} is not a valid file.`);

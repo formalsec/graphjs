@@ -144,3 +144,7 @@ test("testing normalize - check that normalization retains same behaviour (26) -
 test("testing normalize - check that normalization retains same behaviour (27) - for in/of statements", () => {
     testNormalization("./test-inputs/normalization/for-statements");
 });
+
+test("testing normalize - check that normalization retains same behaviour (28) - switch statements", () => {
+    testNormalization("./test-inputs/normalization/switch-statements");
+});
