@@ -19,7 +19,17 @@ export const getNextVariableName = () => `v${VAR_COUNT++}`;
 
 export const resetVariableCount = () => VAR_COUNT = 1;
 
-export const getNextObjectName = (variableName: string) => `${variableName}-o${OBJ_COUNT++}`;
+export interface ContextNames {
+    pdgObjName: string,
+    pdgObjNameContext: string,
+}
+
+export const getNextObjectName = (variableName: string, variableNameContext: string): ContextNames => {
+    const objNumber = OBJ_COUNT++;
+    const pdgObjName = `${variableName}-o${objNumber}`;
+    const pdgObjNameContext = `${variableNameContext}-o${objNumber}`;
+    return { pdgObjName, pdgObjNameContext };
+};
 
 export const resetObjectCount = () => OBJ_COUNT = 1;
 

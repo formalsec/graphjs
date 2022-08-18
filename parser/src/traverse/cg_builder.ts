@@ -55,7 +55,7 @@ class GraphFunctions {
     }
 
     print() {
-        console.log(this.gFunctions);
+        console.log("Functions:", this.gFunctions);
     }
 }
 

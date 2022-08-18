@@ -103,6 +103,7 @@ function buildCFG(astGraph: Graph) {
             if (parentNodeId) {
                 graph.addEdge(parentNodeId, _start.id, { type: "FD", label: "FD" });
             }
+            graph.addEdge(node.id, _start.id, { type: "FD", label: "FD" });
             return {
                 root: node,
                 exit: node,
