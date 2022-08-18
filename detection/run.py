@@ -28,8 +28,9 @@ with neo_driver.session() as session:
 		paths = query_type.find_pdg_paths(session, sources, sinks)
 		my_utils.console(paths, debug=False)
 
-		if len(paths) > 0:
-			results = query_type.validate_pdg_paths(paths, param_types, session)
+		results = query_type.validate_pdg_paths(paths, param_types, session)
+		if len(results) > 0:
+			print("{} vulnerability detected!".format(query_type.get_type()))
 			my_utils.console(results)
 		else:
 			print("No vulnerability detected for type - {}".format(query_type.get_type()))

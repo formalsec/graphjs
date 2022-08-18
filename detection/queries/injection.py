@@ -88,7 +88,7 @@ class Injection(QueryType):
 					}
 
 					if func in valid_paths:
-						valid_paths[func]["flow"].append(flow)
+						valid_paths[func]["flows"].append(flow)
 					else:
 						pResult = {}
 						pResult["function"] = func
