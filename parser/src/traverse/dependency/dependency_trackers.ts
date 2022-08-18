@@ -374,7 +374,7 @@ export class DependencyTracker {
                     const destinationObjId = this.gNodes.get(specChange.pdgObjName);
                     // add create edge
                     const source = specChange.source;
-                    console.log(source, destinationObjId);
+                    // console.log(source, destinationObjId);
                     if (source && destinationObjId) {
                         graph.addEdge(source, destinationObjId, { type: "SUB", label: "SUB_OBJECT", objName: specChange.objName });
                     }

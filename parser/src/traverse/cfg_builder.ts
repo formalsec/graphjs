@@ -55,8 +55,8 @@ function buildCFG(astGraph: Graph) {
 
         case "BlockStatement": {
             if (node.edges.length > 0) {
-                let previousNode = node.edges[0].nodes[1];
-                const firstNode = previousNode;
+                const firstNode = traverse(node.edges[0].nodes[1]);
+                let previousNode = firstNode.exit;
 
                 node.edges.slice(1).forEach((edge) => {
                     const [, childNode] = edge.nodes;
@@ -66,7 +66,7 @@ function buildCFG(astGraph: Graph) {
                 });
 
                 return {
-                    root: firstNode,
+                    root: firstNode.root,
                     exit: previousNode,
                 };
             }
@@ -126,6 +126,7 @@ function buildCFG(astGraph: Graph) {
             } else {
                 graph.addEdge(test.exit.id, _endIf.id, { type: "CFG", label: "FALSE" });
             }
+
             return {
                 root: node,
                 exit: _endIf,
@@ -134,7 +135,6 @@ function buildCFG(astGraph: Graph) {
 
         case "WhileStatement": {
             const [test, body] = node.edges.map((edge) => traverse(edge.nodes[1]));
-            console.log(test, body);
 
             const _endIf = graph.addNode("CFG_WHILE_END", { type: "CFG" });
             _endIf.identifier = node.id.toString();

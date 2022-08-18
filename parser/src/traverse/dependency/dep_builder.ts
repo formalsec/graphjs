@@ -40,6 +40,19 @@ function handleSimpleAssignment(stmtId: number, variable: Identifier, expNode: G
     return newTrackers;
 }
 
+function handleVariableLookup(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    let newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
 function handleBinaryExpression(stmtId: number, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // clone trackers
     let newTrackers = trackers.clone();
@@ -324,6 +337,10 @@ function handleAssignmentExpression(stmtId: number, left: GraphNode, right: Grap
 
 function handleExpressionStatement(stmtId: number, node: GraphNode, trackers: DependencyTracker): DependencyTracker {
     switch (node.type) {
+        case "Identifier": {
+            return handleVariableLookup(stmtId, node, trackers);
+        }
+
         case "AssignmentExpression": {
             const left = getASTNode(node, "left");
             const right = getASTNode(node, "right");

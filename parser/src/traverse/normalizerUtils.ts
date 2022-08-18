@@ -213,7 +213,6 @@ export function createExpressionAssignment(objId: string, objValue: Expression):
 
 export function createIfStatementForSwitchCase(test: Expression, consequent: BlockStatement, alternate?: IfStatement | BlockStatement): IfStatement {
     if (alternate) {
-
         if (alternate.type === "BlockStatement") {
             return {
                 type: "IfStatement",
@@ -469,7 +468,7 @@ export function rearrangeSwitchCases(cases: SwitchCase[]): SwitchCase[] {
 }
 
 export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: Normalization[][], parent: Node | null ): Normalization {
-    const parentDiscriminant = parent && parent.type == "Identifier" ? parent : createRandomIdentifier();
+    const parentDiscriminant = parent && (parent.type === "Identifier" || parent.type === "Literal") ? parent : createRandomIdentifier();
 
     const previousDecls: Statement[] = [];
     let ifNode: Node | undefined = undefined;
@@ -479,9 +478,7 @@ export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: No
         const children = childrenList[j];
 
         const flatChildrenStmts = flatStmts(children);
-        // console.log(flatChildrenStmts);
         const hasBreak = flatChildrenStmts.filter(stmt => stmt.type === "BreakStatement").length > 0;
-        // console.log(hasBreak);
         const newBody = flatChildrenStmts.filter(stmt => stmt.type != "BreakStatement") as Statement[];
         const newConsequent = createBlockStatementForSwitchCase(newBody, hasBreak, ifNode);
 
@@ -489,10 +486,8 @@ export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: No
             const caseTest = createEqualBinaryExpression(parentDiscriminant, children[0].expr as Expression);
             const newTest = createVariableDeclaration(caseTest);
 
-            if (ifNode) {
-                ifNode = createIfStatementForSwitchCase(newTest.id, newConsequent, ifNode );
-                previousDecls.push(newTest.decl);
-            }
+            ifNode = createIfStatementForSwitchCase(newTest.id, newConsequent, ifNode);
+            previousDecls.push(newTest.decl);
         } else {
             ifNode = newConsequent;
         }
