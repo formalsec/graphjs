@@ -4,3 +4,5 @@ parser/coverage/*
 parser/built/*
 virtual_py/*
 neo4j-custom/.config
+detection/queries/__pycache__
+detection/queries/__pycache__/*
