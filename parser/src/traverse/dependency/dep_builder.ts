@@ -74,7 +74,6 @@ function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: Depe
 
     // evaluate dependency of expression
     const deps = evalDep(trackers, stmtId, expNode);
-    console.log(deps);
 
     // apply dependencies to graph (var edges)
     newTrackers.graphBuildEdge(deps);

@@ -241,7 +241,7 @@ export class DependencyTracker {
         this.gChanges.push({
             op: GraphOperationType.WRITE_PROPERTY,
             source: sourceId,
-            destination: dstLocation,
+            destination: dstLocationContext,
             propName: propName,
             sourceObjName,
         });
@@ -539,8 +539,7 @@ export class DependencyTracker {
             const locationHeapValue = clone(this.getHeapValue(lastObjLocation));
 
             if (locationHeapValue) {
-                const { pdgObjNameContext } = newTrackers.addNewObjectToHeap(objName, objNameContext, locationHeapValue);
-                const newObjName = pdgObjNameContext;
+                const { pdgObjName, pdgObjNameContext } = newTrackers.addNewObjectToHeap(objName, objNameContext, locationHeapValue);
 
                 let newPropValue = propValue;
                 if (!StorageFactory.isStorageObject(propValue)) {
@@ -549,12 +548,12 @@ export class DependencyTracker {
 
                 locationHeapValue[propName] = newPropValue;
 
-                newTrackers.addInStoreForAll(lastObjLocation, StorageFactory.StoObject(newObjName));
+                newTrackers.addInStoreForAll(lastObjLocation, StorageFactory.StoObject(pdgObjNameContext));
 
 
                 return {
                     newTrackers,
-                    newObjLocation: newObjName,
+                    newObjLocation: pdgObjName,
                     newObjLocationContext: pdgObjNameContext,
                 };
             }
