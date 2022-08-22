@@ -257,7 +257,7 @@ function handleVariableAssignment(stmtId: number, left: GraphNode, right: GraphN
             params.forEach(p => {
                 trackers = createAndStoreNewObjectNode(p.id, p.obj, trackers);
             });
-            popContext(trackers);
+            trackers = popContext(trackers);
             return trackers;
         }
 
