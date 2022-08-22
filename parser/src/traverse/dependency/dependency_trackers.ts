@@ -567,7 +567,7 @@ export class DependencyTracker {
     }
 
     createArrayElementInHeap(stmtId: number, objName: string, objNameContext: string, elementIndex: number, propValue: StorageValue) {
-        const lastLocation = this.getLastObjectLocation(objName);
+        const lastLocation = this.getLastObjectLocation(objNameContext);
 
         if (lastLocation) {
             const locationHeapValue = clone(this.getHeapValue(lastLocation));
