@@ -250,8 +250,8 @@ function handleVariableAssignment(stmtId: number, left: GraphNode, right: GraphN
         case "FunctionExpression":
         case "FunctionDeclaration": {
             const funcNode = getFDNode(left);
-            trackers = pushContext(trackers, funcNode.id);
             trackers = createAndStoreNewObjectNode(stmtId, leftIdentifier, trackers);
+            trackers = pushContext(trackers, funcNode.id);
             // track all parameters of this function
             const params = getAllASTNodes(right, "param");
             params.forEach(p => {
