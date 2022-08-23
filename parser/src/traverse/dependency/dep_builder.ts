@@ -1,7 +1,7 @@
 import { GraphEdge } from "../graph/edge";
 import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
-import { getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
+import { createThisExpression, getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
 import { DependencyTracker, evalDep, evalSto } from "./dependency_trackers";
 import { StorageFactory, StorageObject } from "./sto_factory";
 import { Identifier } from "estree";
@@ -247,12 +247,18 @@ function handleVariableAssignment(stmtId: number, left: GraphNode, right: GraphN
             return handleMemberExpression(stmtId, leftIdentifier, right, trackers);
         }
 
+        // case "ClassDeclaration": {}
+
         case "FunctionExpression":
         case "FunctionDeclaration": {
             const funcNode = getFDNode(left);
             trackers = trackers.addFunctionContext(funcNode.id);
             trackers = createAndStoreNewObjectNode(stmtId, leftIdentifier, trackers);
             trackers = pushContext(trackers, funcNode.id);
+
+            // create the this object for all functions
+            trackers = createAndStoreNewObjectNode(stmtId, createThisExpression(), trackers);
+
             // track all parameters of this function
             const params = getAllASTNodes(right, "param");
             params.forEach(p => {

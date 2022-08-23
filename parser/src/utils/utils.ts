@@ -1,3 +1,4 @@
+import { Identifier } from "estree";
 import { GraphEdge } from "../traverse/graph/edge";
 import { GraphNode } from "../traverse/graph/node";
 
@@ -57,4 +58,11 @@ export function getAllASTNodes(parent: GraphNode, childLabel: string): GraphNode
 
 export function getAllASTEdges(parent: GraphNode, childLabel: string): GraphEdge[] {
     return parent.edges.filter(e => e.type === "AST" && e.label === childLabel);
+}
+
+export function createThisExpression(): Identifier {
+    return {
+        type: "Identifier",
+        name: "this",
+    };
 }

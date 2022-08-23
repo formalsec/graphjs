@@ -174,34 +174,6 @@ function buildAST(originalObj: estree.Program) {
             return objNode;
         }
 
-        // case "ForStatement": {
-        //     const resultInit = traverse(callback, obj.init);
-        //     const resultTest = traverse(callback, obj.test);
-        //     const resultUpdate = traverse(callback, obj.update);
-        //     const resultBody = traverse(callback, obj.body);
-
-        //     const resultData = [
-        //     resultInit,
-        //     resultTest,
-        //     resultUpdate,
-        //     resultBody
-        //     ];
-        //     return objNode;
-        // }
-
-        // case "ForInStatement": {
-        //     const resultLeft = traverse(callback, obj.left);
-        //     const resultRight = traverse(callback, obj.right);
-        //     const resultBody = traverse(callback, obj.body);
-
-        //     const resultData = [
-        //     resultLeft,
-        //     resultRight,
-        //     resultBody
-        //     ];
-        //     return objNode;
-        // }
-
         case "Identifier": {
             const objNode = graph.addNode(obj.type, obj);
             objNode.identifier = obj.name;
@@ -376,6 +348,13 @@ function buildAST(originalObj: estree.Program) {
         //     const resultData = [ resultParam, resultBlock ];
         //     return objNode;
         // }
+
+        case "ThisExpression": {
+            const newObj = copyObj(obj);
+            newObj.name = "this";
+            const objNode = graph.addNode(newObj.type, newObj);
+            return objNode
+        }
 
         default:
             const objNode = graph.addNode(obj.type, obj);

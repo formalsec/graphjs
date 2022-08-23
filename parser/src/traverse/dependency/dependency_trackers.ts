@@ -667,6 +667,7 @@ export class DependencyTracker {
 
 export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode): Dependency[] {
 	switch (node.type) {
+        case "ThisExpression":
 		case "Identifier": {
             const objNameContextList = trackers.getContextName(node.obj.name);
             const objName = node.obj.name;
@@ -745,6 +746,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
 
 export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageValue[] {
 	switch (node.type) {
+        case "ThisExpression":
 		case "Identifier": {
             const objNameContext = trackers.getContextName(node.obj.name).slice(-1)[0];
 			const locations = trackers.getStorage(objNameContext);
