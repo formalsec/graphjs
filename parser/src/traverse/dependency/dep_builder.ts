@@ -7,7 +7,7 @@ import { StorageFactory, StorageObject } from "./sto_factory";
 import { Identifier } from "estree";
 
 function handleSimpleAssignment(stmtId: number, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    const variableName = trackers.getContextName(variable.name);
+    const variableName = trackers.getContextName(variable.name).slice(-1)[0];
 
     // clone trackers
     let newTrackers = trackers.clone();
@@ -82,7 +82,7 @@ function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: Depe
 }
 
 function createAndStoreNewObjectNode(stmtId: number, variable: Identifier, trackers: DependencyTracker): DependencyTracker {
-    const variableName = trackers.getContextName(variable.name);
+    const variableName = trackers.getContextName(variable.name).slice(-1)[0];
     const simpleVariableName = variable.name;
 
     // clone trackers
@@ -105,14 +105,14 @@ function createAndStoreNewObjectNode(stmtId: number, variable: Identifier, track
 
 function handleMemberExpression(stmtId: number, variable: Identifier, memExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const variableName = variable.name;
-    const variableNameContext = trackers.getContextName(variableName);
+    const variableNameContext = trackers.getContextName(variableName).slice(-1)[0];
 
     // get child nodes for the member expression
     const obj = getASTNode(memExpNode, "object");
     const prop = getASTNode(memExpNode, "property");
 
     const objName = obj.obj.name;
-    const objNameContext = trackers.getContextName(objName);
+    const objNameContext = trackers.getContextName(objName).slice(-1)[0];
     let propName = prop.obj.name;
 
     // clone trackers
@@ -158,7 +158,7 @@ function handleMemberExpression(stmtId: number, variable: Identifier, memExpNode
 
 function handleArrayExpressionElement(stmtId: number, variable: Identifier, elemNode: GraphNode, elementIndex: number, trackers: DependencyTracker): DependencyTracker {
     const variableName = variable.name;
-    const variableNameContext = trackers.getContextName(variableName);
+    const variableNameContext = trackers.getContextName(variableName).slice(-1)[0];
 
     // clone trackers
     const newTrackers = trackers.clone();
@@ -250,11 +250,13 @@ function handleVariableAssignment(stmtId: number, left: GraphNode, right: GraphN
         case "FunctionExpression":
         case "FunctionDeclaration": {
             const funcNode = getFDNode(left);
+            trackers = trackers.addFunctionContext(funcNode.id);
             trackers = createAndStoreNewObjectNode(stmtId, leftIdentifier, trackers);
             trackers = pushContext(trackers, funcNode.id);
             // track all parameters of this function
             const params = getAllASTNodes(right, "param");
             params.forEach(p => {
+                // trackers.addVariable(p.obj.name, funcNode.id);
                 trackers = createAndStoreNewObjectNode(p.id, p.obj, trackers);
             });
             trackers = popContext(trackers);
@@ -282,7 +284,7 @@ function handleObjectWrite(stmtId: number, left: GraphNode, right: GraphNode, tr
     const objStorage = evalSto(trackers, obj)[0];
 
     const objName = obj.obj.name;
-    const objNameContext = trackers.getContextName(objName);
+    const objNameContext = trackers.getContextName(objName).slice(-1)[0];
     let propName = prop.obj.name;
     let sourceObjName = undefined;
 

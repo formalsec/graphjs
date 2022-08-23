@@ -1,6 +1,6 @@
 import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
-import { clone, getASTNode, getAllASTNodes, getNextObjectName, ContextNames } from "../../utils/utils";
+import { clone, getASTNode, getAllASTNodes, getNextObjectName, ContextNames, copyObj } from "../../utils/utils";
 import { Dependency, DependencyFactory } from "./dep_factory";
 import { StorageObject, StorageValue, StorageFactory } from "./sto_factory";
 
@@ -88,6 +88,7 @@ type Phi = Map<string, number>;
 type References = Map<string, string[]>;
 type GChanges = GraphOperation[];
 type GNodes = Map<string, number>;
+type FContexts = Map<number, number[]>;
 
 export class DependencyTracker {
     private heap: Heap;
@@ -96,6 +97,7 @@ export class DependencyTracker {
     private refs: References;
     private gChanges: GChanges;
     private gNodes: GNodes;
+    private funcContexts: FContexts;
     private intraContextStack: number[];
 
     constructor() {
@@ -105,7 +107,24 @@ export class DependencyTracker {
         this.refs = new Map();
         this.gChanges = new Array<GraphOperation>();
         this.gNodes = new Map();
+        this.funcContexts = new Map();
         this.intraContextStack = new Array<number>();
+    }
+
+    addFunctionContext(declaredFuncId: number): DependencyTracker {
+        const newTrackers = this.clone();
+        if (newTrackers.intraContextStack.length > 0) {
+            const lastFunc = newTrackers.intraContextStack.slice(-1)[0];
+            const lastFuncContexts = newTrackers.funcContexts.get(lastFunc);
+            if (lastFuncContexts) {
+                newTrackers.funcContexts.set(declaredFuncId, [...lastFuncContexts, lastFunc]);
+            } else {
+                newTrackers.funcContexts.set(declaredFuncId, [lastFunc])
+            }
+        } else {
+            newTrackers.funcContexts.set(declaredFuncId, [])
+        }
+        return newTrackers;
     }
 
     pushContext(context: number) {
@@ -116,9 +135,10 @@ export class DependencyTracker {
         return this.intraContextStack.pop();
     }
 
-    getContextName(name: string): string {
-        const nameContext = this.intraContextStack.slice(-1).toString();;
-        return `${nameContext}.${name}`;
+    getContextName(name: string): string[] {
+        const latestContext = this.intraContextStack.slice(-1)[0];
+        const contextList = this.funcContexts.get(latestContext);
+        return contextList ? [...contextList, latestContext].map(ctx => `${ctx}.${name}`) : [`${latestContext.toString()}.${name}`];
     }
 
     addNewObjectToHeap(name: string, nameContext: string, heapObject?: HeapObject): ContextNames {
@@ -444,6 +464,10 @@ export class DependencyTracker {
         this.gNodes = new Map(newGNodes);
     }
 
+    private setFuncContexts(newFuncContext: FContexts) {
+        this.funcContexts = new Map(newFuncContext);
+    }
+
     private setContext(newContext: number[]) {
         const newContextArray = new Array<number>();
         newContext.forEach(c => newContextArray.push(c));
@@ -491,9 +515,13 @@ export class DependencyTracker {
         return [];
     }
 
-    getObjectVersions(objName: string): number[] {
+    getObjectVersions(objName: string, objNameContextList: string[]): number[] {
+        let objStorage;
+        for (let i = objNameContextList.length - 1; i >= 0; i--) {
+            objStorage = this.getStorage(objNameContextList[i]);
+            if (objStorage) break;
+        }
         // get version of object in storage
-        const objStorage = this.getStorage(objName);
 
         if (objStorage) {
             // filter those versions that are not objects
@@ -617,6 +645,7 @@ export class DependencyTracker {
         clone.setRefs(this.refs);
         clone.setGChanges(this.gChanges);
         clone.setGNodes(this.gNodes);
+        clone.setFuncContexts(this.funcContexts);
         clone.setContext(this.intraContextStack);
         return clone;
     }
@@ -627,6 +656,7 @@ export class DependencyTracker {
         console.log("Phi:", this.phi);
         console.log("Refs:", this.refs);
         console.log("Graph Nodes:", this.gNodes);
+        console.log("Func Contexts:", this.funcContexts);
     }
 
     printContext() {
@@ -638,9 +668,9 @@ export class DependencyTracker {
 export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode): Dependency[] {
 	switch (node.type) {
 		case "Identifier": {
-            const objNameContext = trackers.getContextName(node.obj.name);
+            const objNameContextList = trackers.getContextName(node.obj.name);
             const objName = node.obj.name;
-            const depObjIds = trackers.getObjectVersions(objNameContext);
+            const depObjIds = trackers.getObjectVersions(objName, objNameContextList);
 
             // // this returns most recent version of object - may not be correct in every case
             // // for example if newer version is inside an if
@@ -673,7 +703,9 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
         case "MemberExpression": {
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
-            const objNameContext = trackers.getContextName(obj.obj.name);
+            const objName = obj.obj.name;
+            const objNameContextList = trackers.getContextName(objName);
+            const objNameContext = objNameContextList.slice(-1)[0];
 
             // if the member expression is computed  and is not a
             // Literal then we have to evaluate the dependencies
@@ -681,7 +713,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             // influences the object otherwise treat it is a Literal
             if (node.obj.computed && prop.type !== "Literal") {
                 let deps = evalDep(trackers, stmtId, prop);
-                let objIds = trackers.getObjectVersions(objNameContext);
+                let objIds = trackers.getObjectVersions(objName, objNameContextList);
                 deps = [
                     ...deps,
                     ...objIds.map(objId => DependencyFactory.DObject("*", stmtId, objId, prop.obj.name))
@@ -714,7 +746,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
 export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageValue[] {
 	switch (node.type) {
 		case "Identifier": {
-            const objNameContext = trackers.getContextName(node.obj.name);
+            const objNameContext = trackers.getContextName(node.obj.name).slice(-1)[0];
 			const locations = trackers.getStorage(objNameContext);
             return locations ? locations.slice(-1) : [ StorageFactory.StoNoObject() ];
 		}
@@ -732,9 +764,9 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
         case "MemberExpression": {
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
-            const objName = trackers.getContextName(obj.obj.name);
+            const objNameContext = trackers.getContextName(obj.obj.name).slice(-1)[0];
 
-            const stos = trackers.getPropStorage(objName, prop.obj.name);
+            const stos = trackers.getPropStorage(objNameContext, prop.obj.name);
             return stos.length > 0 ? stos : [ StorageFactory.StoUnknown() ];
         }
 
