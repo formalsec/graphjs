@@ -50,6 +50,7 @@ import {
     normSwitchStatement,
     normSwitchCases,
     rearrangeSwitchCases,
+    normArrayPattern,
     // normSwitchStatement,
     // normSwitchCase
 } from "./normalizerUtils";
@@ -80,18 +81,6 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         const resultData = mapReduce(obj.body, obj);
         return normProgram(obj, resultData);
     }
-
-    // case "ImportDeclaration": {}
-
-    // case "ImportSpecifier": {}
-
-    // case "ExportAllDeclaration": {}
-
-    // case "ExportDefaultDeclaration": {}
-
-    // case "ExportNamedDeclaration": {}
-
-    // case "ExportSpecifier": {}
 
     //
     // Expressions
@@ -244,7 +233,10 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normSequenceExpression(obj, resultData);
     }
 
-    // case "ArrayPattern": {}
+    case "ArrayPattern": {
+        const resultData = mapReduce(obj.elements, obj);
+        return normArrayPattern(obj, resultData, parent);
+    }
 
     // case "RestElement": {}
 

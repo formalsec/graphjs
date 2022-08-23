@@ -51,6 +51,7 @@ import type {
     ExportNamedDeclaration,
     SwitchCase,
     SwitchStatement,
+    ArrayPattern,
 } from "estree";
 import { CANCELLED } from "dns";
 
@@ -146,6 +147,20 @@ export function createVariableDeclarationWithIdentifier(identifier: Identifier, 
     };
 
     return { id: identifier, decl };
+}
+
+export function createComputedMemberExpression(obj: Expression, index: number): MemberExpression {
+    return {
+        type: "MemberExpression",
+        computed: true,
+        object: obj,
+        property: {
+            type: "Literal",
+            value: index,
+            raw: index.toString(),
+        },
+        optional: false,
+    };
 }
 
 export function createVariableDeclarator(newInit: Expression | null | undefined): CreatedDeclarator {
@@ -344,12 +359,49 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
     const newObj = copyObj(obj);
     let stmts: Node[] = [];
 
-    // children 0 is identifier
-    // newObj.id = children[0].expr;
+    // children 0 is id
+    const newId = children[0];
 
     // children 1 is init
     const newInit = children[1];
     if (newInit) {
+        if (newId.expr && newId.expr.type === "ArrayPattern") {
+            const newDeclarations: Array<VariableDeclaration> = [];
+            const patternElements = newId.expr.elements;
+
+            if (newInit.expr) {
+                if (newInit.expr.type === "ArrayExpression") {
+                    const arrayElements = newInit.expr.elements;
+
+                    if (patternElements.length === arrayElements.length) {
+                        for (let i = 0; i < patternElements.length; i++) {
+                            const patternId = patternElements[i];
+                            const arrayExpr = arrayElements[i];
+                            if (patternId && arrayExpr) {
+                                const decl = createVariableDeclarationWithIdentifier(patternId as Identifier, arrayExpr as Expression);
+                                newDeclarations.push(decl.decl);
+                            }
+                        }
+                    }
+                } else {
+                    for (let i = 0; i < patternElements.length; i++) {
+                        const patternId = patternElements[i];
+                        const arrayExpr = createComputedMemberExpression(newInit.expr as Expression, i);
+                        if (patternId && arrayExpr) {
+                            const decl = createVariableDeclarationWithIdentifier(patternId as Identifier, arrayExpr as Expression);
+                            newDeclarations.push(decl.decl);
+                        }
+                    }
+                }
+
+                stmts = [...newInit.stmts, ...newDeclarations];
+                return {
+                    stmts,
+                    expr: null,
+                };
+            }
+        }
+
         if (newInit.expr && newInit.expr.type === "ObjectExpression") {
             const objExpr = newInit.expr;
             // push empty object for this identifier
@@ -972,6 +1024,24 @@ export function normProperty(obj: Property, children: Normalization[]): Normaliz
 }
 
 export function normArrayExpression(obj: ArrayExpression, children: Normalization[], parent: Node | null): Normalization {
+    const newObj = copyObj(obj);
+    newObj.elements = [...flatExprs(children)];
+
+    if ((parent && (parent.type === "ExpressionStatement" || parent.type === "VariableDeclarator" ||  parent.type === "AssignmentExpression" )) || !isNotEmpty(obj))
+        return {
+            stmts: [...flatStmts(children)],
+            expr: newObj,
+        };
+    else {
+        const { id, decl } = createVariableDeclaration(newObj);
+        return {
+            stmts: [...flatStmts(children), decl],
+            expr: id,
+        };
+    }
+}
+
+export function normArrayPattern(obj: ArrayPattern, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     newObj.elements = [...flatExprs(children)];
 
