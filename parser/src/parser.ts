@@ -45,9 +45,9 @@ function parse(filename: string, file_output: boolean) : Graph {
         normalizedAst = esprima.parseScript(code, { loc: true });
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
-        const pdgGraph = buildPDG(cfgGraph);
-        const callGraph = buildCallGraph(pdgGraph);
-        return callGraph;
+        const callGraph = buildCallGraph(cfgGraph);
+        const pdgGraph = buildPDG(callGraph);
+        return pdgGraph;
     } catch (e: any) {
         console.log("Error:", e.stack);
     }

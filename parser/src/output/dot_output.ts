@@ -7,7 +7,7 @@ import graphviz from "graphviz";
 import escodegen from "escodegen";
 
 function getNodeLabel(n: GraphNode, showCode: any) {
-    let label = `#${n.id} ${n.type}`;
+    let label = `#${n.id} ${n.type} (${n.functionContext})`;
     if (n.obj) {
         switch (n.type) {
             case "PDG_OBJECT":
@@ -21,20 +21,20 @@ function getNodeLabel(n: GraphNode, showCode: any) {
                 break;
 
             case "Identifier": {
-                label = `#${n.id} ${n.type} (${n.identifier})`;
+                label = `#${n.id} ${n.type} (${n.identifier}) - (${n.functionContext})`;
                 break;
             }
 
             case "VariableDeclarator": {
                 const { init } = n.obj;
-                label = `#${n.id} Variable (${n.identifier})`;
+                label = `#${n.id} Variable (${n.identifier}) - (${n.functionContext})`;
 
                 if (init) {
                     if (showCode) {
                         if (init.type === "FunctionExpression"
                         || init.type === "ArrowFunctionExpression") {
                             const { namespace } = n.edges[0].nodes[1];
-                            label = `#${n.id}» ${n.identifier} = Function (${namespace})`;
+                            label = `#${n.id}» ${n.identifier} = Function (${namespace}) - (${n.functionContext})`;
                         } else {
                             const code = escodegen.generate(n.obj);
                             // label = `#${n.id} ${n.type} \n\n${code}`;
@@ -49,7 +49,7 @@ function getNodeLabel(n: GraphNode, showCode: any) {
                 if (showCode) {
                     const code = escodegen.generate(n.obj);
                     // label = `#${n.id} ${n.type} \n\n${code}`;
-                    label = `#${n.id}» ${code}`;
+                    label = `#${n.id}» ${code} - (${n.functionContext})`;
                 }
                 break;
             }
@@ -61,7 +61,7 @@ function getNodeLabel(n: GraphNode, showCode: any) {
             case "UpdateExpression":
             case "UnaryExpression":
             case "BinaryExpression": {
-                label = `#${n.id} ${n.type} (${n.obj.operator})`;
+                label = `#${n.id} ${n.type} (${n.obj.operator}) - (${n.functionContext})`;
                 break;
             }
 
@@ -69,7 +69,7 @@ function getNodeLabel(n: GraphNode, showCode: any) {
             case "FunctionDeclaration":
             case "FunctionExpression":
             case "LabeledStatement": {
-                label = `#${n.id} Function (${n.identifier})`;
+                label = `#${n.id} Function (${n.identifier}) - (${n.functionContext})`;
                 break;
             }
 

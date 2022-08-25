@@ -328,26 +328,38 @@ function buildAST(originalObj: estree.Program) {
         //     return objNode;
         // }
 
-        // case "TryStatement": {
-        //     const resultBlock = traverse(callback, obj.block);
-        //     const resultHandler = traverse(callback, obj.handler);
-        //     const resultFinalizer = traverse(callback, obj.finalizer);
+        case "TryStatement": {
+            const objNode = graph.addNode(obj.type, obj);
 
-        //     const resultData = [
-        //     resultBlock,
-        //     resultHandler,
-        //     resultFinalizer
-        //     ];
-        //     return objNode;
-        // }
+            const block = traverse(obj.block, objNode);
+            const handler = obj.handler ? traverse(obj.handler, objNode) : null;
+            const finalizer = obj.finalizer ? traverse(obj.finalizer, objNode) : null;
 
-        // case "CatchClause": {
-        //     const resultParam = traverse(callback, obj.param);
-        //     const resultBlock = traverse(callback, obj.body);
+            graph.addEdge(objNode.id, block.id, { type: "AST", label: "block" });
+            if (handler) {
+                graph.addEdge(objNode.id, handler.id, { type: "AST", label: "handler" });
+            }
 
-        //     const resultData = [ resultParam, resultBlock ];
-        //     return objNode;
-        // }
+            if (finalizer) {
+                graph.addEdge(objNode.id, finalizer.id, { type: "AST", label: "finalizer" });
+            }
+
+            return objNode;
+        }
+
+        case "CatchClause": {
+            const objNode = graph.addNode(obj.type, obj);
+
+            const body = traverse(obj.body, objNode);
+            graph.addEdge(objNode.id, body.id, { type: "AST", label: "body" });
+
+            const param = obj.param ? traverse(obj.param, objNode) : null;
+            if (param) {
+                graph.addEdge(objNode.id, param.id, { type: "AST", label: "param", paramIndex: 1});
+            }
+
+            return objNode;
+        }
 
         case "ThisExpression": {
             const newObj = copyObj(obj);

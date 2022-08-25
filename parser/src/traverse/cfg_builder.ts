@@ -34,6 +34,7 @@ function buildCFG(astGraph: Graph) {
             const _start = graph.addNode("CFG_F_START", { type: "CFG" });
             _start.identifier = "__main__";
             _start.namespace = cfgNamespace;
+            _start.functionContext = _start.id;
             graph.addStartNodes("CFG", _start);
 
             const _end = graph.addNode("CFG_F_END", { type: "CFG" });
@@ -85,6 +86,7 @@ function buildCFG(astGraph: Graph) {
             _start.identifier = name;
             _start.namespace = cfgNamespace;
             _start.functionName = node.functionName;
+            _start.functionContext = _start.id;
 
             graph.addStartNodes("CFG", _start);
             // eslint-disable-next-line no-param-reassign
@@ -148,6 +150,50 @@ function buildCFG(astGraph: Graph) {
             return {
                 root: node,
                 exit: _endIf,
+            };
+        }
+
+        case "TryStatement": {
+            const [block, handler, finalizer] = node.edges.map((edge) => traverse(edge.nodes[1]));
+
+            const _endIf = graph.addNode("CFG_TRY_STMT_END", { type: "CFG" });
+            _endIf.identifier = node.id.toString();
+
+            graph.addEdge(node.id, block.root.id, { type: "CFG" });
+
+            if (handler) {
+                graph.addEdge(node.id, handler.root.id, { type: "CFG", label: "EXCEPT" });
+                if (finalizer) {
+                    graph.addEdge(handler.exit.id, finalizer.root.id, { type: "CFG", label: "FINALLY" });
+                    graph.addEdge(block.exit.id, finalizer.root.id, { type: "CFG", label: "FINALLY" });
+                    graph.addEdge(finalizer.exit.id, _endIf.id, { type: "CFG" });
+                } else {
+                    graph.addEdge(handler.exit.id, _endIf.id, { type: "CFG" });
+                    graph.addEdge(block.exit.id, _endIf.id, { type: "CFG" });
+                }
+            } else {
+                if (finalizer) {
+                    graph.addEdge(block.exit.id, finalizer.root.id, { type: "CFG", label: "FINALLY" });
+                    graph.addEdge(finalizer.exit.id, _endIf.id, { type: "CFG" });
+                } else {
+                    graph.addEdge(block.exit.id, _endIf.id, { type: "CFG" });
+                }
+            }
+
+            return {
+                root: node,
+                exit: _endIf,
+            };
+        }
+
+        case "CatchClause": {
+            const [body] = node.edges.map((edge) => traverse(edge.nodes[1]));
+
+            graph.addEdge(node.id, body.root.id, { type: "CFG" });
+
+            return {
+                root: node,
+                exit: body.exit,
             };
         }
 

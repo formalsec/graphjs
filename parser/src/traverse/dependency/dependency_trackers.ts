@@ -80,7 +80,12 @@ type GraphOperation =
 
 export interface HeapObject {
     [key: string]: StorageValue,
-};
+}
+
+interface ValidObject {
+    name: string,
+    storage: StorageValue[],
+}
 
 type Heap = Map<string, HeapObject>;
 type Store = Map<string, StorageValue[]>;
@@ -91,6 +96,7 @@ type GNodes = Map<string, number>;
 type FContexts = Map<number, number[]>;
 
 export class DependencyTracker {
+    private graph: Graph;
     private heap: Heap;
     private store: Store;
     private phi: Phi;
@@ -100,7 +106,8 @@ export class DependencyTracker {
     private funcContexts: FContexts;
     private intraContextStack: number[];
 
-    constructor() {
+    constructor(graph: Graph) {
+        this.graph = graph;
         this.heap = new Map();
         this.store = new Map();
         this.phi = new Map();
@@ -135,8 +142,8 @@ export class DependencyTracker {
         return this.intraContextStack.pop();
     }
 
-    getContextName(name: string): string[] {
-        const latestContext = this.intraContextStack.slice(-1)[0];
+    getContextNameList(name: string, defaultContext: number): string[] {
+        let latestContext = this.intraContextStack.slice(-1)[0] || defaultContext;
         const contextList = this.funcContexts.get(latestContext);
         return contextList ? [...contextList, latestContext].map(ctx => `${ctx}.${name}`) : [`${latestContext.toString()}.${name}`];
     }
@@ -234,6 +241,8 @@ export class DependencyTracker {
             pdgObjName,
             pdgObjNameContext
         });
+
+        this.updateGraph();
     }
 
     graphCreateNewSubObject(sourceId: number, objects: string[], objName: string, propName: string, pdgObjName: string, pdgObjNameContext: string) {
@@ -255,6 +264,8 @@ export class DependencyTracker {
             pdgObjName,
             pdgObjNameContext,
         });
+
+        this.updateGraph();
     }
 
     graphCreateNewObjectVersion(sourceId: number, srcLocation: string, dstLocation: string, dstLocationContext: string, deps: Dependency[], propName: string, sourceObjName?: string) {
@@ -285,6 +296,8 @@ export class DependencyTracker {
                 destination: dep.destination
             });
         });
+
+        this.updateGraph();
     }
 
     graphBuildEdge(deps: Dependency[]) {
@@ -298,6 +311,8 @@ export class DependencyTracker {
                 destination: dep.destination
             });
         });
+
+        this.updateGraph();
     }
 
     graphBuildReferenceEdge(sourceId: number, variableName: string, location: string) {
@@ -308,6 +323,8 @@ export class DependencyTracker {
             source: sourceId,
             destination: locationId,
         });
+
+        this.updateGraph();
     }
 
     graphLookupObject(deps: Dependency[]) {
@@ -333,23 +350,25 @@ export class DependencyTracker {
                 });
             }
         });
+
+        this.updateGraph();
     }
 
-    updateGraph(graph: Graph) {
+    updateGraph() {
         let change;
         while (change = this.gChanges.pop()) {
             switch (change.op) {
                 case GraphOperationType.CREATE_NEW_OBJECT: {
                     const specChange = <OpCreateNewObject>change;
                     // create node
-                    const nodeObj = graph.addNode("PDG_OBJECT", { type: "PDG" });
+                    const nodeObj = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
                     this.gNodes.set(specChange.pdgObjNameContext, nodeObj.id);
                     nodeObj.identifier = specChange.pdgObjName;
 
                     // add create edge
                     const source = specChange.source;
                     if (source) {
-                        graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: specChange.objName });
+                        this.graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: specChange.objName });
                     }
                     break;
                 }
@@ -360,7 +379,7 @@ export class DependencyTracker {
                     // add create edge
                     const source = specChange.source;
                     if (source && destinationObjId) {
-                        graph.addEdge(source, destinationObjId, { type: "SUB", label: "SUB_OBJECT", objName: specChange.objName });
+                        this.graph.addEdge(source, destinationObjId, { type: "SUB", label: "SUB_OBJECT", objName: specChange.objName });
                     }
                     break;
                 }
@@ -368,14 +387,14 @@ export class DependencyTracker {
                 case GraphOperationType.CREATE_NEW_VERSION: {
                     const specChange = <OpCreateNewVersion>change;
                     // create new version node
-                    const nodeObj = graph.addNode("PDG_OBJECT", { type: "PDG" });
+                    const nodeObj = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
                     this.gNodes.set(specChange.nameContext, nodeObj.id);
                     nodeObj.identifier = specChange.name;
 
                     // add new version edge
                     const previousVersionId = this.gNodes.get(specChange.previousObjName);
                         if (previousVersionId) {
-                            graph.addEdge(previousVersionId, nodeObj.id, {
+                            this.graph.addEdge(previousVersionId, nodeObj.id, {
                                 type: "PDG",
                                 label: "NEW_VERSION",
                                 objName: specChange.propName,
@@ -392,7 +411,7 @@ export class DependencyTracker {
                     const source = specChange.source;
                     // add write edge
                     if (source && destinationNodeId) {
-                        graph.addEdge(source, destinationNodeId, {
+                        this.graph.addEdge(source, destinationNodeId, {
                             type: "PDG",
                             label: "WRITE",
                             objName: specChange.propName,
@@ -409,7 +428,7 @@ export class DependencyTracker {
                     const destination = change.destination;
                     // add lookup edge
                     if (source && destination) {
-                        graph.addEdge(source, destination, {
+                        this.graph.addEdge(source, destination, {
                             type: "PDG",
                             label: "LOOKUP",
                             objName: change.propName,
@@ -422,7 +441,7 @@ export class DependencyTracker {
                 case GraphOperationType.CREATE_DEPENDENCY_EDGE: {
                     // add var dependency edge
                     if (change.source && change.destination && change.source !== change.destination) {
-                        graph.addEdge(change.source, change.destination, { type: "PDG", label: "VAR", objName: change.name });
+                        this.graph.addEdge(change.source, change.destination, { type: "PDG", label: "VAR", objName: change.name });
                     }
                     break;
                 }
@@ -430,7 +449,7 @@ export class DependencyTracker {
                 case GraphOperationType.CREATE_REFERENCE_EDGE: {
                     // add var dependency edge
                     if (change.source && change.destination && change.source !== change.destination) {
-                        graph.addEdge(change.source, change.destination, { type: "REF", label: "REF", objName: change.name });
+                        this.graph.addEdge(change.source, change.destination, { type: "REF", label: "REF", objName: change.name });
                     }
                     break;
                 }
@@ -490,9 +509,10 @@ export class DependencyTracker {
         return this.gNodes.get(key);
     }
 
-    getObjectVersionsWithProp(objName: string, propName: string): number[] {
+    getObjectVersionsWithProp(objName: string, functionContext: number, propName: string): number[] {
         // get version of object in storage
-        const objStorage = this.getStorage(objName);
+        const objNameContextList = this.getContextNameList(objName, functionContext);
+        const objStorage = this.getValidObject(objNameContextList).storage;
 
         if (objStorage) {
             // filter those versions that are not objects
@@ -515,13 +535,24 @@ export class DependencyTracker {
         return [];
     }
 
-    getObjectVersions(objName: string, objNameContextList: string[]): number[] {
+    getValidObject(objNameContextList: string[]): ValidObject {
         let objStorage;
         for (let i = objNameContextList.length - 1; i >= 0; i--) {
             objStorage = this.getStorage(objNameContextList[i]);
-            if (objStorage) break;
+            if (objStorage) {
+                return {
+                    name: objNameContextList[i],
+                    storage: objStorage,
+                };
+            }
         }
-        // get version of object in storage
+
+        throw Error(`No valid object for ${objNameContextList}`);
+    }
+
+    getObjectVersions(objName: string, funcContext: number): number[] {
+        const objNameContextList = this.getContextNameList(objName, funcContext);
+        const objStorage = this.getValidObject(objNameContextList).storage;
 
         if (objStorage) {
             // filter those versions that are not objects
@@ -638,7 +669,7 @@ export class DependencyTracker {
     }
 
     clone(): DependencyTracker {
-        const clone = new DependencyTracker();
+        const clone = new DependencyTracker(this.graph);
         clone.setHeap(this.heap);
         clone.setStore(this.store);
         clone.setPhi(this.phi);
@@ -669,9 +700,8 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
 	switch (node.type) {
         case "ThisExpression":
 		case "Identifier": {
-            const objNameContextList = trackers.getContextName(node.obj.name);
             const objName = node.obj.name;
-            const depObjIds = trackers.getObjectVersions(objName, objNameContextList);
+            const depObjIds = trackers.getObjectVersions(objName, node.functionContext);
 
             // // this returns most recent version of object - may not be correct in every case
             // // for example if newer version is inside an if
@@ -705,8 +735,6 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
             const objName = obj.obj.name;
-            const objNameContextList = trackers.getContextName(objName);
-            const objNameContext = objNameContextList.slice(-1)[0];
 
             // if the member expression is computed  and is not a
             // Literal then we have to evaluate the dependencies
@@ -714,7 +742,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             // influences the object otherwise treat it is a Literal
             if (node.obj.computed && prop.type !== "Literal") {
                 let deps = evalDep(trackers, stmtId, prop);
-                let objIds = trackers.getObjectVersions(objName, objNameContextList);
+                let objIds = trackers.getObjectVersions(objName, obj.functionContext);
                 deps = [
                     ...deps,
                     ...objIds.map(objId => DependencyFactory.DObject("*", stmtId, objId, prop.obj.name))
@@ -726,7 +754,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             }
             // if the prop is a Literal or the member expression is not
             // computed then we just evaluate the dependencies for the object
-            const objIds = trackers.getObjectVersionsWithProp(objNameContext, prop.obj.name);
+            const objIds = trackers.getObjectVersionsWithProp(objName, obj.functionContext, prop.obj.name);
             return objIds.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId));
         }
 
@@ -748,7 +776,7 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
 	switch (node.type) {
         case "ThisExpression":
 		case "Identifier": {
-            const objNameContext = trackers.getContextName(node.obj.name).slice(-1)[0];
+            const objNameContext = trackers.getContextNameList(node.obj.name, node.functionContext).slice(-1)[0];
 			const locations = trackers.getStorage(objNameContext);
             return locations ? locations.slice(-1) : [ StorageFactory.StoNoObject() ];
 		}
@@ -759,14 +787,15 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
 
         case "BinaryExpression": {
             const leftSto = evalSto(trackers, getASTNode(node, "left"));
-            const rightSto = evalSto(trackers, getASTNode(node, "right"))
+            const rightSto = evalSto(trackers, getASTNode(node, "right"));
             return [ ...leftSto, ...rightSto ];
         }
 
         case "MemberExpression": {
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
-            const objNameContext = trackers.getContextName(obj.obj.name).slice(-1)[0];
+            const objNameContextList = trackers.getContextNameList(obj.obj.name, obj.functionContext);
+            const objNameContext = trackers.getValidObject(objNameContextList).name;
 
             const stos = trackers.getPropStorage(objNameContext, prop.obj.name);
             return stos.length > 0 ? stos : [ StorageFactory.StoUnknown() ];

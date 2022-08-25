@@ -52,6 +52,7 @@ import type {
     SwitchCase,
     SwitchStatement,
     ArrayPattern,
+    RestElement,
 } from "estree";
 import { CANCELLED } from "dns";
 
@@ -1058,6 +1059,14 @@ export function normArrayPattern(obj: ArrayPattern, children: Normalization[], p
         };
     }
 }
+
+// export function normRestElement(obj: RestElement, children: Normalization[]): Normalization {
+//     const newObj = copyObj(obj);
+//     return {
+//         stmts: [],
+//         expr: newObj,
+//     };
+// }
 
 export function normClassExpression(obj: ClassExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);

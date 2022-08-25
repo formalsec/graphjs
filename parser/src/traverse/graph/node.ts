@@ -9,6 +9,7 @@ export class GraphNode {
     private _namespace: string | null;
     private _variableName: string | null;
     private _functionName: string | null;
+    private _functionContext: number;
     private _used: boolean;
 
     constructor(id: number, type: string, obj = {}) {
@@ -20,6 +21,7 @@ export class GraphNode {
         this._namespace = null;
         this._variableName = null;
         this._functionName = null;
+        this._functionContext = 0;
         this._used = false;
     }
 
@@ -73,6 +75,14 @@ export class GraphNode {
 
     set functionName(name) {
         this._functionName = name;
+    }
+
+    get functionContext() {
+        return this._functionContext;
+    }
+
+    set functionContext(id) {
+        this._functionContext = id;
     }
 
     get used() {

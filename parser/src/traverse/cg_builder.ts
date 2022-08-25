@@ -65,11 +65,32 @@ function buildCallGraph(pdgGraph: Graph) {
     const gFunctions = new GraphFunctions();
     const visitedNodes: number[] = [];
 
-    function traverseCFG(defNode: GraphNode) {
-        // console.log(defNode.type, defNode.namespace);
-        defNode.edges
-            .filter((edge: GraphEdge) => edge.type == "CFG")
-            .map((edge: GraphEdge) => traverse(edge.nodes[1]));
+    const ctxVisitedNodes: number[] = [];
+
+    function traverseContext(node: GraphNode) {
+        if (ctxVisitedNodes.includes(node.id) || node.type === "CFG_F_END" || node.type === "BlockStatement") return;
+        // console.log(node.id, node.functionContext);
+        node.edges
+            .filter((edge) => edge.type === "AST")
+            .map((edge) => {
+            const n = edge.nodes[1];
+            n.functionContext = node.functionContext;
+            traverseContext(n);
+        });
+        ctxVisitedNodes.push(node.id);
+    }
+
+    function traverseCFG(node: GraphNode) {
+        if (node.type === "CFG_F_END") return;
+        // console.log(node.id, node.functionContext);
+        node.edges
+            .filter((edge) => edge.type == "CFG")
+            .map((edge) => {
+                const n = edge.nodes[1];
+                n.functionContext = node.functionContext;
+                traverse(n);
+                traverseContext(n);
+            });
     }
 
     function traverse(node: GraphNode): void {

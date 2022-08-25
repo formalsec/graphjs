@@ -51,8 +51,7 @@ import {
     normSwitchCases,
     rearrangeSwitchCases,
     normArrayPattern,
-    // normSwitchStatement,
-    // normSwitchCase
+    // normRestElement,
 } from "./normalizerUtils";
 
 function mapReduce(arr: (Node | null)[], p: Node | null): Normalization[] {
@@ -238,7 +237,10 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         return normArrayPattern(obj, resultData, parent);
     }
 
-    // case "RestElement": {}
+    // case "RestElement": {
+    //     const resultData = [ normalize(obj.argument, obj) ];
+    //     return normRestElement(obj, resultData);
+    // }
 
     // case "AssignmentPattern": {}
 
