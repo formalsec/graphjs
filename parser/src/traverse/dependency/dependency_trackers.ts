@@ -512,9 +512,10 @@ export class DependencyTracker {
     getObjectVersionsWithProp(objName: string, functionContext: number, propName: string): number[] {
         // get version of object in storage
         const objNameContextList = this.getContextNameList(objName, functionContext);
-        const objStorage = this.getValidObject(objNameContextList).storage;
+        const validObj = this.getValidObject(objNameContextList);
 
-        if (objStorage) {
+        if (validObj) {
+            const objStorage = validObj.storage;
             // filter those versions that are not objects
             const objects = objStorage.filter(sto => StorageFactory.isStorageObject(sto)).map(sto => (<StorageObject>sto).location);
             if (objects.length > 0) {
@@ -535,10 +536,9 @@ export class DependencyTracker {
         return [];
     }
 
-    getValidObject(objNameContextList: string[]): ValidObject {
-        let objStorage;
+    getValidObject(objNameContextList: string[]): ValidObject | undefined {
         for (let i = objNameContextList.length - 1; i >= 0; i--) {
-            objStorage = this.getStorage(objNameContextList[i]);
+            const objStorage = this.getStorage(objNameContextList[i]);
             if (objStorage) {
                 return {
                     name: objNameContextList[i],
@@ -546,15 +546,14 @@ export class DependencyTracker {
                 };
             }
         }
-
-        throw Error(`No valid object for ${objNameContextList}`);
     }
 
     getObjectVersions(objName: string, funcContext: number): number[] {
         const objNameContextList = this.getContextNameList(objName, funcContext);
-        const objStorage = this.getValidObject(objNameContextList).storage;
+        const validObj = this.getValidObject(objNameContextList);
 
-        if (objStorage) {
+        if (validObj) {
+            const objStorage = validObj.storage;
             // filter those versions that are not objects
             const objects = objStorage.filter(sto => StorageFactory.isStorageObject(sto)).map(sto => (<StorageObject>sto).location);
             const objIds = objects.map(o => this.getObjectId(o)) as number[];
@@ -795,10 +794,14 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
             const obj = getASTNode(node, "object");
             const prop = getASTNode(node, "property");
             const objNameContextList = trackers.getContextNameList(obj.obj.name, obj.functionContext);
-            const objNameContext = trackers.getValidObject(objNameContextList).name;
+            const validObj = trackers.getValidObject(objNameContextList);
 
-            const stos = trackers.getPropStorage(objNameContext, prop.obj.name);
-            return stos.length > 0 ? stos : [ StorageFactory.StoUnknown() ];
+            if (validObj) {
+                const objNameContext = validObj.name;
+                const stos = trackers.getPropStorage(objNameContext, prop.obj.name);
+                return stos.length > 0 ? stos : [ StorageFactory.StoUnknown() ];
+            }
+            return [ StorageFactory.StoUnknown() ];
         }
 
         default: {

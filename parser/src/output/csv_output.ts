@@ -94,6 +94,10 @@ export class CSVOutput extends OutputWriter {
             if (edge.expressionIndex) e.push(edge.expressionIndex);
             else e.push("");
 
+            // expression index
+            if (edge.methodIndex) e.push(edge.methodIndex);
+            else e.push("");
+
             // source obj name
             if (edge.sourceObjName) e.push(edge.sourceObjName);
             else e.push("");

@@ -120,6 +120,16 @@ function getEdgeLabel(e: GraphEdge) {
             break;
         }
 
+        case "method": {
+            label = e.methodIndex;
+            break;
+        }
+
+        case "specifier": {
+            label = e.specifierIndex;
+            break;
+        }
+
         default:
             label = e.label;
     }

@@ -119,6 +119,10 @@ interface CreatedDeclarator {
 export function createVariableDeclaration(obj: Expression | null | undefined, objId?: string, constant: boolean = true): CreatedDeclaration {
     const id = (objId)? createIdentifierWithName(objId) : createRandomIdentifier();
 
+    if (!obj) {
+        constant = false;
+    }
+
     const decl: VariableDeclaration = {
         type: "VariableDeclaration",
         declarations: [
@@ -134,7 +138,11 @@ export function createVariableDeclaration(obj: Expression | null | undefined, ob
     return { id, decl };
 }
 
-export function createVariableDeclarationWithIdentifier(identifier: Identifier, obj: Expression | null | undefined): CreatedDeclaration {
+export function createVariableDeclarationWithIdentifier(identifier: Identifier, obj: Expression | null | undefined, constant: boolean = true): CreatedDeclaration {
+    if (!obj) {
+        constant = false;
+    }
+
     const decl: VariableDeclaration = {
         type: "VariableDeclaration",
         declarations: [
@@ -144,7 +152,7 @@ export function createVariableDeclarationWithIdentifier(identifier: Identifier, 
                 init: obj,
             },
         ],
-        kind: "const",
+        kind: (constant)? "const" : "let",
     };
 
     return { id: identifier, decl };
@@ -635,7 +643,9 @@ export function normForInStatement(obj: ForInStatement | ForOfStatement, childre
     newObj.body = createBlockStatement([...children[2].stmts] as Statement[]);
 
     if (!children[0].expr && children[0].stmts[0].type == "VariableDeclaration" ){
-        newObj.left = children[0].stmts[0].declarations[0].id;
+        const decl = children[0].stmts[0];
+        decl.kind = "let";
+        newObj.left = decl.declarations[0].id;
     }
     else {
         newObj.left = children[0].expr;

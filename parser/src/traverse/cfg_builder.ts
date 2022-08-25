@@ -197,6 +197,28 @@ function buildCFG(astGraph: Graph) {
             };
         }
 
+        // case "WhileStatement":
+        // case "DoWhileStatement": {}
+
+        case "ForOfStatement":
+        case "ForInStatemnet": {
+            const [left, right, body] = node.edges.map((edge) => traverse(edge.nodes[1]));
+
+            const _endIf = graph.addNode("FOR_END", { type: "CFG" });
+            _endIf.identifier = node.id.toString();
+
+            graph.addEdge(node.id, left.root.id, { type: "CFG" });
+            graph.addEdge(left.exit.id, body.root.id, { type: "CFG" });
+            graph.addEdge(body.exit.id, right.root.id, { type: "CFG" });
+            graph.addEdge(right.exit.id, node.id, { type: "CFG" });
+            graph.addEdge(right.exit.id, _endIf.id, { type: "CFG" });
+
+            return {
+                root: node,
+                exit: _endIf,
+            };
+        }
+
         default:
             return defaultNode(node);
         }

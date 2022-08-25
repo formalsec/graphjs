@@ -20,7 +20,7 @@ import { Graph } from "./traverse/graph/graph";
 function parse(filename: string, file_output: boolean) : Graph {
     try {
         const data = fs.readFileSync(filename, "utf8");
-        const ast = esprima.parseScript(data);
+        const ast = esprima.parseModule(data, {tolerant: true});
         // const ast = esprima.parseScript(data, { loc: true });
 
         // // printJSON(ast);
@@ -42,7 +42,7 @@ function parse(filename: string, file_output: boolean) : Graph {
         }
 
         // just to get the loc of the normalized version
-        normalizedAst = esprima.parseScript(code, { loc: true });
+        normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true});
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
         const callGraph = buildCallGraph(cfgGraph);

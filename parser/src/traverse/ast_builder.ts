@@ -44,6 +44,41 @@ function buildAST(originalObj: estree.Program) {
             return objNode;
         }
 
+        case "MethodDefinition": {
+            return traverse(obj.value, null);
+        }
+
+        case "ClassBody": {
+            const objNode = graph.addNode(obj.type, obj);
+            const resultData = mapReduce(obj.body, objNode);
+
+            // eslint-disable-next-line no-plusplus
+            for (let i = 0; i < resultData.length; i++) {
+                graph.addEdge(objNode.id, resultData[i].id, { type: "AST", label: "method", methodIndex: i + 1 });
+            }
+            return objNode;
+        }
+
+        case "ClassExpression":
+        case "ClassDeclaration": {
+            const objNode = graph.addNode(obj.type, obj);
+
+            if (obj.id) {
+                const id = traverse(obj.id, objNode);
+                graph.addEdge(objNode.id, id.id, { type: "AST", label: "id" });
+            }
+
+            if (obj.superClass) {
+                const superClass = traverse(obj.superClass, objNode);
+                graph.addEdge(objNode.id, superClass.id, { type: "AST", label: "superClass" })
+            }
+
+            const body = traverse(obj.body, objNode);
+            graph.addEdge(objNode.id, body.id, { type: "AST", label: "body" });
+
+            return objNode;
+        }
+
         //
         // Expressions
         //
@@ -163,6 +198,17 @@ function buildAST(originalObj: estree.Program) {
             }
 
             // graph.addEdge(objNode.id, body.id, { type: "AST", label: "body" });
+            return objNode;
+        }
+
+        case "ForOfStatement": {
+            const objNode = graph.addNode(obj.type, obj);
+            const left = traverse(obj.left, objNode);
+            graph.addEdge(objNode.id, left.id, { type: "AST", label: "left" });
+            const right = traverse(obj.right, objNode);
+            graph.addEdge(objNode.id, right.id, { type: "AST", label: "right" });
+            const body = traverse(obj.body, objNode);
+            graph.addEdge(objNode.id, body.id, { type: "AST", label: "body" });
             return objNode;
         }
 
@@ -365,6 +411,33 @@ function buildAST(originalObj: estree.Program) {
             const newObj = copyObj(obj);
             newObj.name = "this";
             const objNode = graph.addNode(newObj.type, newObj);
+            return objNode
+        }
+
+        case "ExportSpecifier": {
+            const objNode = graph.addNode(obj.type, obj);
+            const exported = traverse(obj.exported, objNode);
+            graph.addEdge(objNode.id, exported.id, { type: "AST", label: "exported" });
+            const local = traverse(obj.local, objNode);
+            graph.addEdge(objNode.id, local.id, { type: "AST", label: "local" });
+            return objNode;
+        }
+        // case "ExportAllDeclaration":
+        // case "ExportDefaultDeclaration":
+        case "ExportNamedDeclaration": {
+            const objNode = graph.addNode(obj.type, obj);
+
+            if (obj.declaration) {
+                const declaration = traverse(obj.declaration, objNode);
+                graph.addEdge(objNode.id, declaration.id, { type: "AST", label: "declaration" });
+            }
+
+            const specifiers = mapReduce(obj.specifiers, objNode);
+            // eslint-disable-next-line no-plusplus
+            for (let i = 0; i < specifiers.length; i++) {
+                graph.addEdge(objNode.id, specifiers[i].id, { type: "AST", label: "specifier", specifierIndex: i + 1 });
+            }
+
             return objNode
         }
 

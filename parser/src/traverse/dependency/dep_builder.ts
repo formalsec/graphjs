@@ -113,7 +113,8 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
 
     const objName = obj.obj.name;
     const objNameContextList = trackers.getContextNameList(objName, stmt.functionContext);
-    const objNameContext = trackers.getValidObject(objNameContextList).name;
+    const validObj = trackers.getValidObject(objNameContextList);
+    const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
     let propName = prop.obj.name;
 
     // clone trackers
@@ -368,6 +369,20 @@ function handleExpressionStatement(stmtId: number, stmt: GraphNode, node: GraphN
     return trackers.clone();
 }
 
+function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    let deps = evalDep(trackers, stmtId, left);
+    deps = [...deps, ...evalDep(trackers, stmtId, right)];
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
 function pushContext(trackers: DependencyTracker, context: number): DependencyTracker {
     const newTrackers = trackers.clone();
     newTrackers.pushContext(context);
@@ -431,7 +446,16 @@ export function buildPDG(cfgGraph: Graph): Graph {
                 const initNode = getASTNode(node, "init");
                 if (initNode) {
                     trackers = handleVariableAssignment(node.id, node, node, initNode, trackers);
+                } else {
+                    // trackers.addVariable(p.obj.name, funcNode.id);
+                    trackers = createAndStoreNewObjectNode(node.id, node, node.obj.id, trackers);
                 }
+                break;
+            }
+
+            case "ExportNamedDeclaration": {
+                const declarations = getAllASTNodes(node, "declaration");
+                declarations.forEach((decl) => traverse(decl, currentNamespace));
                 break;
             }
 
@@ -442,6 +466,18 @@ export function buildPDG(cfgGraph: Graph): Graph {
             //     });
             //     break;
             // }
+
+            // case "DoWhileStatement":
+            // case "WhileStatement": {}
+
+            case "ForOfStatement":
+            case "ForInStatement": {
+                const left = getASTNode(node, "left");
+                const right = getASTNode(node, "right");
+
+                trackers = handleForInStatement(node.id, left, right, trackers);
+                break;
+            }
 
             case "ReturnStatement": {
                 const argument = getASTNode(node, "argument");
