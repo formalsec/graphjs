@@ -54,7 +54,7 @@ export class CSVOutput extends OutputWriter {
         // FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿ArgumentIndex
 
         const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
-        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex¿ParamIndex¿StmtIndex¿ElementIndex¿ExpressionIndex¿SourceObjName\n");
+        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex¿ParamIndex¿StmtIndex¿ElementIndex¿ExpressionIndex¿MethodIndex¿SourceObjName\n");
 
         graph.edges.forEach((edge: GraphEdge) => {
             const e = [];
