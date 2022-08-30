@@ -42,6 +42,7 @@ interface OpCreateNewVersion {
 interface OpCreateDependencyEdge {
     op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
     name: string,
+    depType: string,
     depValue: string | undefined,
     source: number | undefined,
     destination: number | undefined
@@ -291,6 +292,7 @@ export class DependencyTracker {
             this.gChanges.push({
                 op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
                 name: name,
+                depType: DependencyFactory.translate(dep.type),
                 depValue: dep.value,
                 source: dep.source,
                 destination: dep.destination
@@ -306,6 +308,7 @@ export class DependencyTracker {
             this.gChanges.push({
                 op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
                 name: name,
+                depType: DependencyFactory.translate(dep.type),
                 depValue: dep.value,
                 source: dep.source,
                 destination: dep.destination
@@ -331,11 +334,12 @@ export class DependencyTracker {
         deps.forEach(dep => {
             const propName = dep.name || "";
 
-            if (DependencyFactory.isDVar(dep.type)) {
+            if (DependencyFactory.isDVar(dep)) {
                 const name = dep.name || "";
                 this.gChanges.push({
                     op: GraphOperationType.CREATE_DEPENDENCY_EDGE,
                     name: name,
+                    depType: DependencyFactory.translate(dep.type),
                     depValue: dep.value,
                     source: dep.source,
                     destination: dep.destination
@@ -441,7 +445,7 @@ export class DependencyTracker {
                 case GraphOperationType.CREATE_DEPENDENCY_EDGE: {
                     // add var dependency edge
                     if (change.source && change.destination && change.source !== change.destination) {
-                        this.graph.addEdge(change.source, change.destination, { type: "PDG", label: "VAR", objName: change.name });
+                        this.graph.addEdge(change.source, change.destination, { type: "PDG", label: change.depType, objName: change.name });
                     }
                     break;
                 }
@@ -758,7 +762,13 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
         }
 
         case "CallExpression": {
-            return getAllASTNodes(node, "arg").map(arg => evalDep(trackers, stmtId, arg)).flat();
+            const callee = getASTNode(node, "callee");
+            const args = getAllASTNodes(node, "arg");
+            let argDeps = args.map(arg => evalDep(trackers, stmtId, arg)).flat();
+            const calleeDeps = evalDep(trackers, stmtId, callee).map(cd => {
+                return DependencyFactory.isDVar(cd) ? DependencyFactory.changeToCalleeDep(cd) : cd;;
+            });
+            return [...argDeps, ...calleeDeps];
         }
 
         case "TemplateLiteral": {

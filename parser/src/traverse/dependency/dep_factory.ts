@@ -3,6 +3,7 @@ enum DependencyType {
     DConst,
     DVar,
     DObject,
+    DCallee,
 };
 
 export interface Dependency {
@@ -39,8 +40,8 @@ export class DependencyFactory {
         };
     }
 
-    static isDVar(dep: string) {
-        return dep === DependencyType[DependencyType.DVar];
+    static isDVar(dep: Dependency) {
+        return dep.type === DependencyType[DependencyType.DVar];
     }
 
     static DObject(propName: string, destination: number, sourceObjId: number, sourceObjName?: string): Dependency {
@@ -51,5 +52,25 @@ export class DependencyFactory {
             destination,
             sourceObjName,
         };
+    }
+
+    static changeToCalleeDep(dep: Dependency) {
+        return {
+            type: DependencyType[DependencyType.DCallee],
+            name: dep.name,
+            source: dep.source,
+            destination: dep.destination,
+        };
+    }
+
+    static translate(depType: string) {
+        switch(depType) {
+            case DependencyType[DependencyType.DVar]:
+                return "VAR";
+            case DependencyType[DependencyType.DCallee]:
+                return "CALLEE";
+            default:
+                return "UNKNOWN";
+        }
     }
 }

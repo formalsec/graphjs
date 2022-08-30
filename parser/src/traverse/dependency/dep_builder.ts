@@ -181,14 +181,18 @@ function handleArrayExpressionElement(stmtId: number, stmt: GraphNode, variable:
     return newTrackers;
 }
 
-function handleCallExpression(stmtId: number, argNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleCallExpression(stmtId: number, stmt: GraphNode, variable: Identifier, callNode: GraphNode, trackers: DependencyTracker) {
     // clone trackers
-    const newTrackers = trackers.clone();
+    let newTrackers = trackers.clone();
 
-    // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, argNode);
+    newTrackers = createAndStoreNewObjectNode(stmtId, stmt, variable, newTrackers);
+    // track all parameters of this function
+    // const args = getAllASTNodes(callNode, "arg");
+    // args.forEach(a => {
+    //     newTrackers = handleCallArguments(stmtId, a, newTrackers);
+    // });
 
-    // apply dependencies to graph (var edges)
+    const deps = evalDep(newTrackers, stmtId, callNode);
     newTrackers.graphBuildEdge(deps);
 
     return newTrackers;
@@ -232,13 +236,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         }
 
         case "CallExpression": {
-            trackers = createAndStoreNewObjectNode(stmtId, stmt, leftIdentifier, trackers);
-            // track all parameters of this function
-            const args = getAllASTNodes(right, "arg");
-            args.forEach(a => {
-                trackers = handleCallExpression(stmtId, a, trackers);
-            });
-            return trackers;
+            return handleCallExpression(stmtId, stmt, leftIdentifier, right, trackers);
         }
 
         case "ObjectExpression": {
