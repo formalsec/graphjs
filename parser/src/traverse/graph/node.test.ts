@@ -1,7 +1,7 @@
-import { GraphEdge } from "./edge";
+import { GraphEdge, EdgeInfo } from "./edge";
 import { GraphNode } from "./node";
 
-function createEmptyEdgeInfo() {
+function createEmptyEdgeInfo(): EdgeInfo {
     return {
         type: "",
         label: "",
@@ -11,6 +11,8 @@ function createEmptyEdgeInfo() {
         stmtIndex: 0,
         elementIndex: 0,
         expressionIndex: 0,
+        methodIndex: 0,
+        specifierIndex: 0,
         sourceObjName: "",
     }
 }

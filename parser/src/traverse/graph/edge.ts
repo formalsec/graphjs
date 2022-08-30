@@ -1,6 +1,6 @@
 import { GraphNode } from "./node";
 
-interface EdgeInfo {
+export interface EdgeInfo {
     type: string,
     label: string,
     objName: string,

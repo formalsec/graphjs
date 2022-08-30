@@ -1,4 +1,4 @@
-var p;
+let p;
 for (p in src) {
     dest[p] = src[p];
 }
