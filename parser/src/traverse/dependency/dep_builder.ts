@@ -381,6 +381,19 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
     return newTrackers;
 }
 
+function handleWhileStatement(stmtId: number, test: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // evaluate dependency of expression
+    let deps = evalDep(trackers, stmtId, test);
+
+    // apply dependencies to graph (var edges)
+    newTrackers.graphBuildEdge(deps);
+
+    return newTrackers;
+}
+
 function pushContext(trackers: DependencyTracker, context: number): DependencyTracker {
     const newTrackers = trackers.clone();
     newTrackers.pushContext(context);
@@ -465,8 +478,13 @@ export function buildPDG(cfgGraph: Graph): Graph {
             //     break;
             // }
 
-            // case "DoWhileStatement":
-            // case "WhileStatement": {}
+            case "DoWhileStatement":
+            case "WhileStatement": {
+                const test = getASTNode(node, "test");
+
+                trackers = handleWhileStatement(test.id, test, trackers);
+                break;
+            }
 
             case "ForOfStatement":
             case "ForInStatement": {
