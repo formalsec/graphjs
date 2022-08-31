@@ -1,10 +1,10 @@
 {
     "sinks": {
         "code-injection": [
-            "eval"
+            "eval", "Function"
         ],
         "command-injection": [
-            "exec"
+            "exec", "sh", "execSync", "execAsync", "spawn", "execFile", "crossSpawn"
         ]
     },
     "sources": [
