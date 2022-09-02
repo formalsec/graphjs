@@ -7,9 +7,11 @@ Help()
     # Display Help
     echo "Run Explode.js CPG construction and query execution stages."
     echo
-    echo "Syntax: explodejs.sh [-f|s|h]"
+    echo "Syntax: explodejs.sh [-f|-o|s|h]"
     echo "options:"
     echo "f     Path to JavaScript file for analysis."
+    echo "o     Path to Explode.js output file."
+    echo "n     Path to normalization output file."
     echo "s     Silent mode - no console output."
     echo "h     Print this Help."
     echo
@@ -18,10 +20,12 @@ Help()
 SILENT_OP=false
 
 # process arguments
-while getopts f:sh flag
+while getopts f:o:n:sh flag
 do
     case "${flag}" in
         f) FILEPATH=$OPTARG;;
+        o) OUTPUT=$OPTARG;;
+        n) NORM=$OPTARG;;
         s) SILENT_OP=true;;
         h) #display Help
             Help
@@ -37,7 +41,7 @@ if test -f "$FILEPATH"; then
     if [ $SILENT_OP = true ]; then
         npm start --prefix ./parser -- $ABS_INPUT_FILE --csv > '/dev/null' 2>&1
     else
-        npm start --prefix ./parser -- $ABS_INPUT_FILE --csv
+        npm start --prefix ./parser -- $ABS_INPUT_FILE --csv --file | tee $NORM
     fi
 
     # get csv output to import dir in neo4j-custom dir
@@ -60,7 +64,7 @@ if test -f "$FILEPATH"; then
     # run all queries
     echo "[INFO] - Running queries"
     QUERIES=$(realpath ./detection)
-    python3 $QUERIES/run.py
+    python3 $QUERIES/run.py $OUTPUT
 
     # stop Neo4J container
     echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"

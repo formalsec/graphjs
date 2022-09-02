@@ -11,6 +11,17 @@ def console(s, debug=True):
 			pprint(s)
 
 
+def save_output(argv, results, type, detected):
+	if len(argv) >= 2:
+		output = argv[1]
+		with open(output, "a") as f:
+			if detected:
+				f.write("{} vulnerability detected!\n".format(type))
+				f.write(json.dumps(results, indent=4) + '\n')
+			else:
+				f.write("No vulnerability detected for type - {}\n".format(type))
+
+
 def read_config():
 	file_path = path.realpath(path.dirname(__file__))
 	config_path = path.join(file_path, "../config.json")

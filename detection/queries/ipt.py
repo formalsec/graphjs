@@ -12,7 +12,7 @@ class InternalPrototypeTampering(QueryType):
 			query = f"""
 				MATCH
 					(f:FunctionExpression)-[:AST]->(param),
-					(param)-[create:PDG]->(source)-[source_edge_assignment:PDG*1..]->(assignment:ExpressionStatement)-
+					(param)-[create:PDG]->(source:PDG_OBJECT)-[source_edge_assignment:PDG*1..]->(assignment:ExpressionStatement)-
 				[write_edge:PDG]->(tamp_obj:PDG_OBJECT),
 					(assignment)-[:AST]->(:AssignmentExpression)-[right:AST]->(val:Identifier)
 				WHERE
@@ -29,14 +29,18 @@ class InternalPrototypeTampering(QueryType):
 			results = tx.run(query)
 
 			for record in results:
+				value = record["source"]
 				tamp_obj_id = record['tamp_obj'].get('Id')
 				if tamp_obj_id not in tamp_objs:
 					tamp_objs[tamp_obj_id] = {
 						'function': record['f'],
 						'tamp_obj': record['tamp_obj'],
-						'assignment': record['assignment']
+						'assignment': record['assignment'],
+						'values': [ value ]
 					}
-			
+				else:
+					if value not in tamp_objs[tamp_obj_id]["values"]:
+						tamp_objs[tamp_obj_id]["values"].append(value)
 	
 	
 	def find_first_level_lookup_paths(self, session, source, tamp_obj):
@@ -75,6 +79,7 @@ class InternalPrototypeTampering(QueryType):
 					"func_name": source["functionName"],
 					"tamp_obj": record["tamp_obj"],
 					"source": source_dict,
+					"values": tamp_obj["values"],
 					"property": record["lookup_edge"].get('IdentifierName'),
 					"ends": (source_obj_id, record["sink"].get('Id')),
 				})
@@ -103,7 +108,8 @@ class InternalPrototypeTampering(QueryType):
 					create.RelationType = 'CREATE' AND
 					source.Id = '{source_obj_id}' AND
 					tamp_ref.Id = '{tamp_obj_id}' AND
-					ref_edges_obj[-1].RelationType = 'LOOKUP' AND
+					(ref_edges_obj[-1].RelationType = 'LOOKUP' OR ref_edges_obj[-1].RelationType = 'NEW_VERSION') AND
+					//ref_edges_obj[-1].RelationType = 'LOOKUP' AND
 					lookup_edge.RelationType = 'LOOKUP' AND 
 					NOT EXISTS(lookup_edge.SourceObjName)
 				RETURN *
@@ -119,6 +125,7 @@ class InternalPrototypeTampering(QueryType):
 					"func_name": source["functionName"],
 					"tamp_obj": record["tamp_obj"],
 					"source": source_dict,
+					"values": tamp_obj["values"],
 					"property": record["lookup_edge"].get('IdentifierName'),
 					"ends": (source_obj_id, record["sink"].get('Id')),
 				})
@@ -161,6 +168,7 @@ class InternalPrototypeTampering(QueryType):
 					"func_name": source["functionName"],
 					"tamp_obj": record["tamp_obj"],
 					"source": source_dict,
+					"values": tamp_obj["values"],
 					"returned_var": record["var_edge"].get('IdentifierName'),
 					"ends": (source_obj_id, record["sink"].get('Id')),
 				})
@@ -173,6 +181,7 @@ class InternalPrototypeTampering(QueryType):
 		cfg_path = path['cfg_path']
 		tamp_obj_name = path['tamp_obj'].get('IdentifierName').split('-')[0]
 		prop = path["property"]
+		values = [ val.get('IdentifierName').split('-')[0] for val in path["values"] ]
 
 		locs = self.get_locs(func_id, cfg_path, session)
 
@@ -181,6 +190,7 @@ class InternalPrototypeTampering(QueryType):
 		new_flow = {
 			"tampered_object": tamp_obj_name,
 			"sources": [ param ],
+			"values": values,
 			"properties": [ prop ],
 			"returned_vars": [],
 			"lines": locs,
@@ -194,6 +204,8 @@ class InternalPrototypeTampering(QueryType):
 						flow["properties"].append(prop)
 					if param not in flow["sources"]:
 						flow["sources"].append(param)
+					if values != flow["values"]:
+						flow["values"] = list(set(values + flow["values"]))
 					break
 			else:
 				valid_paths[func_name]["flows"].append(new_flow)
@@ -210,6 +222,7 @@ class InternalPrototypeTampering(QueryType):
 		func_name = path['func_name']
 		cfg_path = path['cfg_path']
 		tamp_obj_name = path['tamp_obj'].get('IdentifierName').split('-')[0]
+		values = [ val.get('IdentifierName').split('-')[0] for val in path["values"] ]
 		returned_var = path["returned_var"]
 
 		locs = self.get_locs(func_id, cfg_path, session)
@@ -220,6 +233,7 @@ class InternalPrototypeTampering(QueryType):
 			"tampered_object": tamp_obj_name,
 			"sources": [ param ],
 			"properties": [],
+			"values": values,
 			"returned_vars": [ returned_var ],
 			"lines": locs,
 		}
@@ -254,7 +268,7 @@ class InternalPrototypeTampering(QueryType):
 			for tamp_obj in tamp_objs.values():
 					tamp_obj_func = tamp_obj['function'].get('Id')
 					if source_func == tamp_obj_func:
-						tainted_paths.extend(self.find_first_level_lookup_paths(session, source, tamp_obj))
+						# tainted_paths.extend(self.find_first_level_lookup_paths(session, source, tamp_obj))
 						tainted_paths.extend(self.find_other_level_lookup_paths(session, source, tamp_obj))
 						tainted_paths.extend(self.find_return_paths(session, source, tamp_obj))
 

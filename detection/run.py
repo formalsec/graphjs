@@ -1,7 +1,10 @@
+from ast import arg
 from neo4j import GraphDatabase
 from queries.queries import Queries
 from queries.find_functions import *
 import my_utils.utils as my_utils
+from sys import argv
+import json
 
 NEO4J_CONN_STRING="bolt://127.0.0.1:7687"
 
@@ -32,5 +35,7 @@ with neo_driver.session() as session:
 		if len(results) > 0:
 			print("{} vulnerability detected!".format(query_type.get_type()))
 			my_utils.console(results)
+			my_utils.save_output(argv, results, query_type.get_type(), True)
 		else:
 			print("No vulnerability detected for type - {}".format(query_type.get_type()))
+			my_utils.save_output(argv, results, query_type.get_type(), False)
