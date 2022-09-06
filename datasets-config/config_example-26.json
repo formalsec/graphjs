@@ -1,0 +1,11 @@
+{
+	"sink_types": ["console.log"],
+	"function": "f",
+	"params": ["x"],
+	"vars": [
+		{
+			"name": "x",
+			"type": "symbolic"
+		}
+	]
+}

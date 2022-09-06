@@ -1,0 +1,15 @@
+{
+	"sink_types": ["eval"],
+	"function": "f",
+	"params": ["p", "t"],
+	"vars": [
+		{
+			"name": "p",
+			"type": "prop_string"
+		},
+		{
+			"name": "t",
+			"type": "prop_string"
+		}
+	]
+}

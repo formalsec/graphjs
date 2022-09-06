@@ -1,0 +1,23 @@
+{
+	"sink_types": ["eval"],
+	"function": "f",
+	"params": ["req"],
+	"vars": [
+		{
+			"name": "req",
+			"type": "object",
+			"properties": [
+				{
+					"name": "body",
+					"type": "object",
+					"properties": [
+						{
+							"name": "param",
+							"type": "symbolic"
+						}
+					]
+				}
+			]
+		}
+	]
+}

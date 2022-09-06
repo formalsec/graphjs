@@ -1,0 +1,15 @@
+{
+	"sink_types": ["console.log"],
+	"function": "f",
+	"params": ["key", "val"],
+	"vars": [
+		{
+			"name": "key",
+			"type": "prop_string"
+		},
+		{
+			"name": "val",
+			"type": "prop_string"
+		}
+	]
+}

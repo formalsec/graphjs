@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "escodegen": "^2.0.0",
+    "esprima": "^4.0.1",
+    "esprima-next": "^5.8.3",
+    "fs": "^0.0.1-security",
+    "yargs": "^17.5.1"
+  }
+}
