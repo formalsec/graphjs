@@ -4,7 +4,7 @@ import path = require("path");
 import esprima = require("esprima");
 import escodegen from "escodegen";
 import { normalizeScript } from "./traverse/normalizer";
-const { buildAST } = require("./traverse/ast_builder");
+import buildAST from "./traverse/ast_builder";
 const { buildCFG } = require("./traverse/cfg_builder");
 const { buildCallGraph } = require("./traverse/cg_builder");
 const { buildPDG } = require("./traverse/dependency/dep_builder");

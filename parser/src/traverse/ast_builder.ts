@@ -3,7 +3,7 @@ import { copyObj } from "../utils/utils";
 import { Graph } from "./graph/graph";
 import { GraphNode } from "./graph/node";
 
-function buildAST(originalObj: estree.Program) {
+export default function buildAST(originalObj: estree.Program): Graph {
     const graph = new Graph(null);
 
     function traverse(obj: estree.Node, parentNode: GraphNode | null): GraphNode {
@@ -450,5 +450,3 @@ function buildAST(originalObj: estree.Program) {
     traverse(originalObj, null);
     return graph;
 }
-
-module.exports = { buildAST };
