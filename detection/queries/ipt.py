@@ -261,16 +261,13 @@ class InternalPrototypeTampering(QueryType):
 		tamp_objs = {}
 
 		for source in sources:
-			source_func = source['function'].get('Id')
 			self.find_tampered_objects(session, source, tamp_objs)
 
 		for source in sources:	
 			for tamp_obj in tamp_objs.values():
-					tamp_obj_func = tamp_obj['function'].get('Id')
-					if source_func == tamp_obj_func:
-						# tainted_paths.extend(self.find_first_level_lookup_paths(session, source, tamp_obj))
-						tainted_paths.extend(self.find_other_level_lookup_paths(session, source, tamp_obj))
-						tainted_paths.extend(self.find_return_paths(session, source, tamp_obj))
+					# tainted_paths.extend(self.find_first_level_lookup_paths(session, source, tamp_obj))
+					tainted_paths.extend(self.find_other_level_lookup_paths(session, source, tamp_obj))
+					tainted_paths.extend(self.find_return_paths(session, source, tamp_obj))
 
 		return tainted_paths
 

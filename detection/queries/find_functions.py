@@ -138,7 +138,7 @@ def find_sub_obj_ids(objId, subObjName, session):
 			WHERE
 				obj.Id = '{objId}' AND
 				sub.RelationType = 'SUB_OBJECT' AND
-				sub.IdentifierName = '{subObjName}'
+				sub.IdentifierName = "{subObjName}"
 			RETURN *
 		"""
 		results = tx.run(query)
