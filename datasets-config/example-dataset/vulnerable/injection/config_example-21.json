@@ -1,5 +1,5 @@
 {
-	"sink_types": ["console.log"],
+	"sink_types": ["child_process.exec"],
 	"function": "f",
 	"params": ["x"],
 	"vars": [

@@ -1,15 +1,19 @@
 {
 	"sink_types": ["console.log"],
 	"function": "f",
-	"params": ["key", "val"],
+	"params": ["key", "subKey", "value"],
 	"vars": [
 		{
 			"name": "key",
 			"type": "prop_string"
 		},
 		{
-			"name": "val",
+			"name": "subKey",
 			"type": "prop_string"
+		},
+		{
+			"name": "value",
+			"type": "symbolic"
 		}
 	]
 }

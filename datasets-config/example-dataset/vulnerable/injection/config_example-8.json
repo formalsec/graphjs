@@ -1,10 +1,10 @@
 {
 	"sink_types": ["console.log"],
 	"function": "f",
-	"params": ["x"],
+	"params": ["p"],
 	"vars": [
 		{
-			"name": "x",
+			"name": "p",
 			"type": "symbolic"
 		}
 	]

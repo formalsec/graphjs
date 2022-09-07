@@ -6,7 +6,7 @@
 		{
 			"name": "path",
 			"type": "array",
-			"length": 1,
+			"length": 2,
 			"def_element": {
 				"type": "prop_string"
 			}

@@ -1,14 +1,14 @@
 {
 	"sink_types": ["eval"],
 	"function": "f",
-	"params": ["p", "t"],
+	"params": ["source1", "source2"],
 	"vars": [
 		{
-			"name": "p",
-			"type": "prop_string"
+			"name": "source1",
+			"type": "symbolic"
 		},
 		{
-			"name": "t",
+			"name": "source2",
 			"type": "prop_string"
 		}
 	]

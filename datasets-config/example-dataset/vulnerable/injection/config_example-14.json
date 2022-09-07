@@ -1,5 +1,5 @@
 {
-	"sink_types": ["console.log"],
+	"sink_types": ["eval"],
 	"function": "f",
 	"params": ["x"],
 	"vars": [
