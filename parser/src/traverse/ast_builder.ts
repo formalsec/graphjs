@@ -201,6 +201,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
             return objNode;
         }
 
+        case "ForInStatement":
         case "ForOfStatement": {
             const objNode = graph.addNode(obj.type, obj);
             const left = traverse(obj.left, objNode);

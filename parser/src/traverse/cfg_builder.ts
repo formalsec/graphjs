@@ -201,7 +201,7 @@ function buildCFG(astGraph: Graph) {
         // case "DoWhileStatement": {}
 
         case "ForOfStatement":
-        case "ForInStatemnet": {
+        case "ForInStatement": {
             const [left, right, body] = node.edges.map((edge) => traverse(edge.nodes[1]));
 
             const _endIf = graph.addNode("FOR_END", { type: "CFG" });

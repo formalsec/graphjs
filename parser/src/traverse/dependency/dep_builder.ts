@@ -235,7 +235,9 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
             return handleArrayExpression(stmtId, stmt, leftIdentifier, right, trackers);
         }
 
+        case "NewExpression":
         case "CallExpression": {
+            console.log(stmtId, leftIdentifier);
             return handleCallExpression(stmtId, stmt, leftIdentifier, right, trackers);
         }
 

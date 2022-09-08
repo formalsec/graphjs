@@ -761,6 +761,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             return objIds.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId));
         }
 
+        case "NewExpression":
         case "CallExpression": {
             const callee = getASTNode(node, "callee");
             const args = getAllASTNodes(node, "arg");
