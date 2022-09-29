@@ -135,7 +135,7 @@ function generate_symb_assignment(var_info, prefix = "") {
 	switch (var_info.type) {
 		case "symbolic":
 			//var var_name = symb(var_name);
-			name += fresh_symb_var();
+			name += `_${fresh_symb_var()}`;
 			var tmplt = `var ${name} = symb(${name});\n`;
 			return {name: name, tmplt: tmplt};
 
@@ -143,8 +143,8 @@ function generate_symb_assignment(var_info, prefix = "") {
 			// var var_name = {};
 			// var_name.prop = var;
 			prefix = name;
-			name += fresh_obj_var();
-			var properties_assignment = var_info.properties.map(x => generate_symb_assignment(x, `${prefix}__`));
+			name += `_${fresh_obj_var()}`;
+			var properties_assignment = var_info.properties.map(x => generate_symb_assignment(x, `${prefix}_`));
 			var tmplt = `var ${name} = {};\n`;
 			tmplt = tmplt.concat(
 				/* Templates of properties */
@@ -156,7 +156,7 @@ function generate_symb_assignment(var_info, prefix = "") {
 		case "array":
 			// var var_name = [];
 			prefix = name;
-			name += fresh_array_var();
+			name += `_${fresh_array_var()}`;
 			var tmplt = `var ${name} = [];\n`;
 			var length = var_info.length ? var_info.length: instr_const.symb_array_length;
 			var specified;
@@ -164,11 +164,11 @@ function generate_symb_assignment(var_info, prefix = "") {
 			for(i = 0; i < length; ++i) {
 				if(var_info.spec_element && (specified = var_info.spec_element.findIndex((e) => e.index === i)) != -1) {
 					// Element structure is specified
-					aux_assign = generate_symb_assignment(var_info.spec_element[specified], `${prefix}__${i}__`);
+					aux_assign = generate_symb_assignment(var_info.spec_element[specified], `${prefix}${i}_`);
 					
 				} else {
 					// Use default structure
-					aux_assign = generate_symb_assignment(var_info.def_element, `${prefix}__${i}__`);
+					aux_assign = generate_symb_assignment(var_info.def_element, `${prefix}${i}_`);
 				}
 				tmplt.concat(aux_assign.tmplt);
 				tmplt = tmplt.concat(aux_assign.tmplt, `${name}.push(${aux_assign.name});\n`);
@@ -178,13 +178,13 @@ function generate_symb_assignment(var_info, prefix = "") {
 
 		case "number":
 			// var param_name = symb_number(param_name);
-			name += fresh_symb_num_var();
+			name += `_${fresh_symb_num_var()}`;
 			var tmplt = `var ${name} = symb_number(${name});\n`;
 			return {name: name, tmplt: tmplt};
 
 		case "string":
 			// var param_name = symb_string(param_name);
-			name += fresh_symb_str_var();
+			name += `_${fresh_symb_str_var()}`;
 			var tmplt = `var ${name} = symb_string(${name});\n`;
 			return {name:name, tmplt: tmplt};
 
@@ -192,7 +192,7 @@ function generate_symb_assignment(var_info, prefix = "") {
 			/* Same as string, but assume it is not the default attributes 
 			"valueOf", "toString", "hasOwnProperty", "constructor" 
 			(mostly used to access attributes of objects) */
-			name += fresh_symb_str_var();
+			name += `_${fresh_symb_str_var()}`;
 			var tmplt = `var ${name} = symb_string(${name});\n` +
 							`Assume(not(${name} = "valueOf"));\n` +
 							`Assume(not(${name} = "toString"));\n` +
@@ -202,12 +202,12 @@ function generate_symb_assignment(var_info, prefix = "") {
 
 		case "bool":
 			// var param_name = symb_bool(param_name);
-			name += fresh_symb_bool_var();
+			name += `_${fresh_symb_bool_var()}`;
 			var tmplt = `var ${name} = symb_bool(${name});\n`;
 			return {name: name, tmplt: tmplt};
 
 		case "concrete":
-			name += fresh_concrete_var();
+			name += `_${fresh_concrete_var()}`;
 			var tmplt;
 			if (var_info.value) {
 				// var param_name = <value>;
