@@ -1,0 +1,34 @@
+rules:
+  - id: shelljs_os_command_exec
+    patterns:
+      - pattern-inside: |
+          require('shelljs')
+          ...
+      - pattern-either:
+        - pattern-inside: function ($REQ, $RES, ...) {...}
+        - pattern-inside: function $FUNC($REQ, $RES, ...) {...}
+        - pattern-inside: $X = function $FUNC($REQ, $RES, ...) {...}
+        - pattern-inside: var $X = function $FUNC($REQ, $RES, ...) {...};
+        - pattern-inside: $APP.$METHOD(..., function $FUNC($REQ, $RES, ...) {...})
+      - pattern-either:
+          - pattern: |
+              $EXEC.exec(<... $REQ.$QUERY.$VAR ...>, ...)
+          - pattern: |
+              $EXEC.exec( <... $REQ.$QUERY ...>, ...)
+          - pattern: |
+              $INP = <... $REQ.$QUERY.$VAR ...>;
+              ...
+              $EXEC.exec(<... $INP ...>, ...)
+          - pattern: |
+              $INP = <... $REQ.$QUERY ...>;
+              ...
+              $EXEC.exec(<... $INP ...>, ...)
+    message: >-
+      User controlled data in 'shelljs.exec()' can result in Remote OS
+      Command Execution.
+    languages:
+      - javascript
+    severity: ERROR
+    metadata:
+      owasp-web: a1
+      cwe: cwe-78
