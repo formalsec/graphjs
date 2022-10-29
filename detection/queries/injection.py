@@ -1,7 +1,5 @@
-from pydoc import source_synopsis
 from queries.query_type import QueryType
 import my_utils.utils as my_utils
-import json
 
 class Injection(QueryType):
 	def __init__(self):
@@ -34,13 +32,16 @@ class Injection(QueryType):
 						query = f"""
 							MATCH
 								(f:FunctionExpression)-[:AST*1..]->(source_stmt),
-								pdg_path=(source_stmt)-[create:PDG]->(source)-[:PDG*1..]->(sink),
+								pdg_path=(source_stmt)-[create:PDG]->(source)-[pdg_edges:PDG*1..]->(sink),
+								(sink)-[:AST*1..]->(:CallExpression)-[arg_edge:AST]->(arg:Identifier),
 								cfg_path=(s:CFG_F_START)-[:CFG*1..]->(sink)
 							WHERE
 								f.Id = '{source_func}' AND
 								create.RelationType = 'CREATE' AND
 								source.Id = '{source_obj_id}' AND
-								sink.Id = '{sink_id}'
+								sink.Id = '{sink_id}' AND
+								arg_edge.RelationType = 'arg' AND arg_edge.ArgumentIndex = '1' AND
+								pdg_edges[-1].IdentifierName = arg.IdentifierName
 							RETURN *
 						"""
 						results = tx.run(query)

@@ -26,6 +26,37 @@ def find_explicit_sink_calls(session, sinks):
 
 	return sink_calls
 
+def find_package_sink_calls(session, sinks):
+	sink_calls = []
+	with session.begin_transaction() as tx:
+		# QUERY 1
+		# get (function, sink statement) pair that holds the call to a sink
+		query = f"""
+			WITH {sinks} as SINKS
+			MATCH
+				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt)-[:AST*1..]-(:CallExpression)-[ast_callee:AST]->(:Identifier),
+				(stmt)<-[pdg_edges:PDG*1..]-(require_stmt:VariableDeclarator)-[require_init:AST]->(:CallExpression)-[require_callee:AST]
+			->(require_identifier:Identifier)
+			WHERE
+				ast_callee.RelationType = 'callee' AND
+				pdg_edges[0].RelationType = 'CALLEE' AND
+				pdg_edges[-2].RelationType = 'LOOKUP' AND pdg_edges[-2].IdentifierName in SINKS AND
+				require_init.RelationType = 'init' AND
+				require_callee.RelationType = 'callee' AND
+				require_identifier.IdentifierName = 'require'
+			RETURN *
+		"""
+		results = tx.run(query)
+		for record in results:
+			sink_calls.append({
+				'function': record['f'],
+				'functionName': record['v'].get('IdentifierName'),
+				'sink': record['stmt'],
+				'sinkName': record['pdg_edges'][-2].get('IdentifierName'),
+			})
+
+	return sink_calls
+
 
 def find_implicit_sink_calls(session, sinks):
 	assignments = []
@@ -85,6 +116,7 @@ def find_implicit_sink_calls(session, sinks):
 def find_sink_function_calls(session, sinks):
 	sink_calls = find_explicit_sink_calls(session, sinks)
 	sink_calls.extend(find_implicit_sink_calls(session, sinks))
+	sink_calls.extend(find_package_sink_calls(session, sinks))
 	return sink_calls
 
 
