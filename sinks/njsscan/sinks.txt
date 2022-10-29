@@ -1,0 +1,170 @@
+template:
+    '{{{(?!.*body).+}}}|{{[ ]*&[\w]+.*}}'
+    '{.+\|[ ]*s[ ]*}[^}]'
+    '!{.+}'
+    <%-(?![ ]*include\().*%>
+    v-html=[\'|"].+[\'|"]
+    '_.unescape\(.+\)'
+    '{{.+\|.*safe.*}}'
+    <webview.+nodeIntegration(?!.*=.*['|"]false['|"])
+    <webview.+disablewebsecurity(?!.*=.*['|"]false['|"])
+
+crypto:
+    createHash
+    createCipheriv
+    createDecipheriv
+    createCipher
+    pseudoRandomBytes
+    Math.random
+    $X.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+    $X.env['NODE_TLS_REJECT_UNAUTHORIZED']= '0'
+    $X(..., {SSL_VERIFYPEER : 0}, ...)
+
+dos:
+    test
+    exec
+    new RegExp()
+    search
+    match
+    split
+
+eval:
+    deserialize # require('serialize-to-js')
+    unserialize # require('node-serialize')
+    createInsecure
+    new Function()
+    eval
+    setTimeout
+    setInterval
+    require
+    run # require('sandbox') or require('vm2')
+    new VM() # require('vm2')
+    new NodeVM() # require('vm2')
+    runInContext # require('vm')
+    runInNewContext # require('vm')
+    compileFunction # require('vm')
+    runInThisContext # require('vm')
+    compile # require('handlebars')
+
+generic:
+    end
+    send
+    console.trace
+    console.error
+
+headers:
+    options
+    set
+    header
+    writeHead
+
+
+memory:
+    readUInt8
+    readUInt16LE
+    readUInt16BE
+    readUInt32LE
+    readUInt32BE
+    readInt8
+    readInt16LE
+    readInt16BE
+    readInt32LE
+    readInt32BE
+    readFloatLE
+    readFloatBE
+    readDoubleLE
+    readDoubleBE
+    writeUInt8
+    writeUInt16LE
+    writeUInt16BE
+    writeUInt32LE
+    writeUInt32BE
+    writeInt8
+    writeInt16LE
+    writeInt16BE
+    writeInt32LE
+    writeInt32BE
+    writeFloatLE
+    writeFloatBE
+    writeDoubleLE
+    writeDoubleBE
+
+ssrf:
+    # for request, axios, needle, bent, urllib, net, https, superagent and got
+    get
+    post
+    put
+    needle
+    request
+    getJSON
+    getBuffer
+    fetch
+    connect
+    # for phantom
+    open
+    setContent
+    openUrl
+    evaluateJavaScript
+    property
+    # for playwright and puppeteer
+    goto
+    setContent
+    evaluate
+    evaluateHandle
+    evaluateOnNewDocument
+    addInitScript
+    # for wkhtmltoimage
+    generate
+    # for wkhtmltopdf
+    wkhtmltopdf
+
+xml:
+    write
+    $ for node-expat
+    parse
+    parseXmlString
+    parseXml
+    parseString
+    push
+    $ for sax
+    toJson
+
+database:
+    findOne
+    query
+
+exec:
+    # for child_process
+    exec
+    execSync
+    # for shelljs
+    exec
+
+redirect:
+    redirect
+    header
+    writeHead
+
+traversal:
+    createWriteFile
+    createWriteStream
+    writeFile
+    writeFileSync
+    # for express
+    render
+    # for express, koa, http, electron
+    createReadStream
+    readFile
+    readFileSync
+    readFileAsync
+    # for path
+    resolve
+
+xss:
+    write
+    send
+    compile
+    # for handlebars
+    SafeString
+
+
