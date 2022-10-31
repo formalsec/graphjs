@@ -237,7 +237,6 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
 
         case "NewExpression":
         case "CallExpression": {
-            console.log(stmtId, leftIdentifier);
             return handleCallExpression(stmtId, stmt, leftIdentifier, right, trackers);
         }
 
@@ -371,11 +370,11 @@ function handleExpressionStatement(stmtId: number, stmt: GraphNode, node: GraphN
 
 function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // clone trackers
-    const newTrackers = trackers.clone();
+    let newTrackers = trackers.clone();
 
-    // evaluate dependency of expression
-    let deps = evalDep(trackers, stmtId, left);
-    deps = [...deps, ...evalDep(trackers, stmtId, right)];
+    newTrackers = createAndStoreNewObjectNode(left.id, left, left.obj, newTrackers);
+    // evaluate dependency of right expression
+    const deps = evalDep(newTrackers, stmtId, right);
 
     // apply dependencies to graph (var edges)
     newTrackers.graphBuildEdge(deps);
