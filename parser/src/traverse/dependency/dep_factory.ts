@@ -44,6 +44,10 @@ export class DependencyFactory {
         return dep.type === DependencyType[DependencyType.DVar];
     }
 
+    static isDEmpty(dep: Dependency) {
+        return dep.type === DependencyType[DependencyType.DEmpty];
+    }
+
     static DObject(propName: string, destination: number, sourceObjId: number, sourceObjName?: string): Dependency {
         return {
             type: DependencyType[DependencyType.DObject],

@@ -5,6 +5,7 @@ import { createThisExpression, getAllASTEdges, getAllASTNodes, getASTNode, getFD
 import { DependencyTracker, evalDep, evalSto } from "./dependency_trackers";
 import { StorageFactory, StorageObject } from "./sto_factory";
 import { Identifier } from "estree";
+import { DependencyFactory } from "./dep_factory";
 
 function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const variableName = trackers.getContextNameList(variable.name, stmt.functionContext).slice(-1)[0];
@@ -372,9 +373,13 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
     // clone trackers
     let newTrackers = trackers.clone();
 
-    newTrackers = createAndStoreNewObjectNode(left.id, left, left.obj, newTrackers);
     // evaluate dependency of right expression
-    const deps = evalDep(newTrackers, stmtId, right);
+    let deps = evalDep(newTrackers, stmtId, left);
+    if (DependencyFactory.isDEmpty(deps[0])) {
+        newTrackers = createAndStoreNewObjectNode(left.id, left, left.obj, newTrackers);
+        deps = [];
+    }
+    deps = [...deps, ...evalDep(newTrackers, stmtId, right)];
 
     // apply dependencies to graph (var edges)
     newTrackers.graphBuildEdge(deps);
