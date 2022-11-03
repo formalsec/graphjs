@@ -1,2 +1,2 @@
-class Foo extends Bar {
-}
+const Foo = function Foo() {
+};

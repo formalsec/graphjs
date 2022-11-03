@@ -229,7 +229,7 @@ function handleIfStatementTest(stmtId: number, expNode: GraphNode, trackers: Dep
 }
 
 function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    const leftIdentifier = left.obj.id ? left.obj.id : left.obj;
+    const leftIdentifier: Identifier = left.obj.id ? left.obj.id : left.obj;
 
     switch (right.type) {
         case "ArrayExpression": {
@@ -254,21 +254,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         case "FunctionExpression":
         case "FunctionDeclaration": {
             const funcNode = getFDNode(left);
-            trackers = trackers.addFunctionContext(funcNode.id);
-            trackers = createAndStoreNewObjectNode(stmtId, stmt, leftIdentifier, trackers);
-            trackers = pushContext(trackers, funcNode.id);
-
-            // create the this object for all functions
-            trackers = createAndStoreNewObjectNode(stmtId, funcNode, createThisExpression(), trackers);
-
-            // track all parameters of this function
-            const params = getAllASTNodes(right, "param");
-            params.forEach(p => {
-                // trackers.addVariable(p.obj.name, funcNode.id);
-                trackers = createAndStoreNewObjectNode(p.id, funcNode, p.obj, trackers);
-            });
-            trackers = popContext(trackers);
-            return trackers;
+            return handleFunctionDeclaration(stmtId, stmt, funcNode, leftIdentifier, right, trackers);
         }
 
         case "BinaryExpression": {
@@ -279,6 +265,24 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
             return handleSimpleAssignment(stmtId, stmt, leftIdentifier, right, trackers);
         }
     }
+}
+
+function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: GraphNode, funcIdentifier: Identifier, funcExpNode: GraphNode, trackers: DependencyTracker) : DependencyTracker {
+    trackers = trackers.addFunctionContext(funcNode.id);
+    trackers = createAndStoreNewObjectNode(stmtId, stmt, funcIdentifier, trackers);
+    trackers = pushContext(trackers, funcNode.id);
+
+    // create the this object for all functions
+    trackers = createAndStoreNewObjectNode(stmtId, funcNode, createThisExpression(), trackers);
+
+    // track all parameters of this function
+    const params = getAllASTNodes(funcExpNode, "param");
+    params.forEach(p => {
+        // trackers.addVariable(p.obj.name, funcNode.id);
+        trackers = createAndStoreNewObjectNode(p.id, funcNode, p.obj, trackers);
+    });
+    trackers = popContext(trackers);
+    return trackers;
 }
 
 function handleObjectWrite(stmtId: number, stmt: GraphNode, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
@@ -422,6 +426,8 @@ export function buildPDG(cfgGraph: Graph): Graph {
     function traverse(node: GraphNode, currentNamespace: string | null) {
         if (node === null) return;
 
+        // console.log(node.id, node.type);
+
         // to avoid duplicate traversal of a node with more than one "from" CFG edge
         if (visitedNodes.includes(node.id)) return;
         visitedNodes.push(node.id);
@@ -508,6 +514,13 @@ export function buildPDG(cfgGraph: Graph): Graph {
                 }
                 break;
             }
+
+            // case "ClassDeclaration": {
+            //     const body = getASTNode(node, "body");
+            //     const funcNode = getFDNode(body);
+            //     trackers = handleFunctionDeclaration(node.id, node, funcNode, leftIdentifier, right, trackers);
+            //     break;
+            // }
 
             default:
                 break;

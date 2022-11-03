@@ -53,6 +53,7 @@ import type {
     SwitchStatement,
     ArrayPattern,
     RestElement,
+    Class,
 } from "estree";
 import { CANCELLED } from "dns";
 
@@ -274,6 +275,15 @@ export function createBlockStatementForSwitchCase(originalBody: Statement[], has
     }
 
     return { type: "BlockStatement", body: [ ...originalBody, extraStmt ] };
+}
+
+export function createEmptyFunctionExpression(id: Identifier): FunctionExpression {
+    return {
+        type: "FunctionExpression",
+        id,
+        params: [],
+        body: createBlockStatement([]),
+    };
 }
 
 export function unpattern(declarations: VariableDeclarator[]): VariableDeclarator[] {
@@ -597,7 +607,7 @@ export function normConditionalExpression(obj: ConditionalExpression, children: 
     };
 }
 
-export function createBlockStatement(stmts: Statement[]): Node {
+export function createBlockStatement(stmts: Statement[]): BlockStatement {
     if (stmts.length == 1 && stmts[0].type == "BlockStatement") {
         return stmts[0];
     }
@@ -1094,14 +1104,35 @@ export function normClassExpression(obj: ClassExpression, children: Normalizatio
 
 export function normClassDeclaration(obj: ClassDeclaration, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
+    const stmts: any = [];
+
+    const id: Identifier = newObj.id;
+    // const superClass = children[1];
     const classBodyNormalization = children[2];
 
+    const funcExpr = createEmptyFunctionExpression(id);
+    let funcDecl = createVariableDeclarationWithIdentifier(id, funcExpr, true);
+
     if (classBodyNormalization.expr) {
-        newObj.body = classBodyNormalization.expr;
+        const classBody = classBodyNormalization.expr as ClassBody;
+        const methods = classBody.body;
+        methods.forEach(method => {
+            const key = method.key as Identifier;
+            if (key.name == "constructor") {
+                const constructorMethod = method.value as FunctionExpression;
+                constructorMethod.id = id;
+                funcDecl = createVariableDeclarationWithIdentifier(id, constructorMethod, true);
+            } else {
+                const newMethod = createVariableDeclarationWithIdentifier(key, method.value, true);
+                stmts.push(newMethod.decl);
+                const newAssignment = createPropertyAssignment(id, key, newMethod.id);
+                stmts.push(newAssignment);
+            }
+        });
     }
 
     return {
-        stmts: [...flatStmts(children), newObj],
+        stmts: [ funcDecl.decl, ...stmts],
         expr: null,
     };
 }
@@ -1125,7 +1156,9 @@ export function normMethodDefinition(obj: MethodDefinition, children: Normalizat
     }
 
     if (valueNormalization.expr) {
-        newObj.value = valueNormalization.expr;
+        const method = valueNormalization.expr as FunctionExpression;
+        method.id = newObj.key;
+        newObj.value = method;
     }
 
     return {
