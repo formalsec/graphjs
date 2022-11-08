@@ -1102,6 +1102,7 @@ export function normClassExpression(obj: ClassExpression, children: Normalizatio
     };
 }
 
+// https://stackoverflow.com/questions/8242697/javascript-functions-to-simulate-classes-best-practices
 export function normClassDeclaration(obj: ClassDeclaration, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     const stmts: any = [];

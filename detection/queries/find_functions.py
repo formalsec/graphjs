@@ -34,7 +34,7 @@ def find_package_sink_calls(session, sinks):
 		query = f"""
 			WITH {sinks} as SINKS
 			MATCH
-				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt)-[:AST*1..]-(:CallExpression)-[ast_callee:AST]->(:Identifier),
+				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..2]-(stmt)-[:AST*1..2]-(:CallExpression)-[ast_callee:AST]->(:Identifier),
 				(stmt)<-[pdg_edges:PDG*1..]-(require_stmt:VariableDeclarator)-[require_init:AST]->(:CallExpression)-[require_callee:AST]
 			->(require_identifier:Identifier)
 			WHERE

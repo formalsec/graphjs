@@ -4,6 +4,7 @@ import { OutputWriter } from "./output_writer";
 import { Graph } from "../traverse/graph/graph";
 import { GraphNode } from "../traverse/graph/node";
 import { GraphEdge } from "../traverse/graph/edge";
+import { Literal } from "estree";
 
 export class CSVOutput extends OutputWriter {
     // eslint-disable-next-line class-methods-use-this
@@ -13,6 +14,7 @@ export class CSVOutput extends OutputWriter {
 
         const nodesWriteStream = fs.createWriteStream(`${filename}_nodes.csv`);
         nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Raw¿Location¿Label:LABEL\n");
+        // nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n");
 
         graph.nodes.forEach((node: GraphNode) => {
             const n = [];
@@ -40,8 +42,10 @@ export class CSVOutput extends OutputWriter {
             }
 
             // Raw
-            if (node.type == "Literal") n.push(String(node.obj.value));
-            else n.push("");
+            if (node.type == "Literal") {
+                const lit = node.obj as Literal;
+                n.push(lit.raw);
+            } else n.push("");
 
             // code location
             if (node.obj.loc) n.push(JSON.stringify(node.obj.loc));
