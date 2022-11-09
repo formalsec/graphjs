@@ -1,13 +1,49 @@
 {
     "sinks": {
         "code-injection": [
-            "eval", "Function"
+            {
+                "sink": "eval",
+                "arg": 1
+            },
+            {
+                "sink": "Function",
+                "arg": 1
+            }
         ],
         "command-injection": [
-            "exec", "sh", "execSync", "execAsync", "spawn", "execFile", "crossSpawn"
+            {
+                "sink": "exec",
+                "packages": [
+                    {"package": "child_process", "arg": 1},
+                    {"package": "shelljs", "arg": 1}
+                ]
+            },
+            {
+                "sink": "execSync",
+                "packages": [
+                    {"package": "child_process", "arg": 1}
+                ]
+            },
+            {
+                "sink": "spawn",
+                "packages": [
+                    {"package": "child_process", "arg": [1, 2]}
+                ]
+            }
         ],
         "path-traversal": [
-            "readFile", "createReadStream"
+            {
+                "sink": "readFile",
+                "packages": [
+                    {"package": "fs", "arg": 1}
+                ]
+            },
+            {
+                "sink": "createReadStream",
+                "packages": [
+                    {"package": "fs", "arg": 1}
+                ]
+            }
         ]
     },
     "sources": [

@@ -19,6 +19,7 @@ class Injection(QueryType):
 				sink_func = sink['function'].get('Id')
 				sink_id = sink['sink'].get('Id')
 				sinkName = sink['sinkName']
+				vuln_arg = sink['vuln_arg']
 
 				if "originalSinkName" in sink:
 					sinkName = sink["originalSinkName"]
@@ -40,7 +41,7 @@ class Injection(QueryType):
 								create.RelationType = 'CREATE' AND
 								source.Id = '{source_obj_id}' AND
 								sink.Id = '{sink_id}' AND
-								arg_edge.RelationType = 'arg' AND arg_edge.ArgumentIndex = '1' AND
+								arg_edge.RelationType = 'arg' AND arg_edge.ArgumentIndex = '{vuln_arg}' AND
 								pdg_edges[-1].IdentifierName = arg.IdentifierName
 							RETURN *
 						"""
