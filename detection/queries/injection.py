@@ -18,11 +18,10 @@ class Injection(QueryType):
 				funcName = sink["functionName"]
 				sink_func = sink['function'].get('Id')
 				sink_id = sink['sink'].get('Id')
-				sinkName = sink['sinkName']
-				vuln_arg = sink['vuln_arg']
+				sink_name = sink['sinkName']
 
 				if "originalSinkName" in sink:
-					sinkName = sink["originalSinkName"]
+					sink_name = sink["originalSinkName"]
 
 				if source_func == sink_func:
 					# print("Testing path between:")
@@ -30,35 +29,78 @@ class Injection(QueryType):
 					with session.begin_transaction() as tx:
 						# QUERY 3
 						# get (function, parameter) pairs that we consider source
-						query = f"""
-							MATCH
-								(f:FunctionExpression)-[:AST*1..]->(source_stmt),
-								pdg_path=(source_stmt)-[create:PDG]->(source)-[pdg_edges:PDG*1..]->(sink),
-								(sink)-[:AST*1..]->(:CallExpression)-[arg_edge:AST]->(arg:Identifier),
-								cfg_path=(s:CFG_F_START)-[:CFG*1..]->(sink)
-							WHERE
-								f.Id = '{source_func}' AND
-								create.RelationType = 'CREATE' AND
-								source.Id = '{source_obj_id}' AND
-								sink.Id = '{sink_id}' AND
-								arg_edge.RelationType = 'arg' AND arg_edge.ArgumentIndex = '{vuln_arg}' AND
-								pdg_edges[-1].IdentifierName = arg.IdentifierName
-							RETURN *
-						"""
-						results = tx.run(query)
+						if "packages" in sink.keys():
+							require_call_id = sink["require_call"].get("Id")
+							for package in sink["packages"]:
+								package_name = package["package"]
+								sink_vuln_arg = package["arg"] if isinstance(package["arg"], list) else [ package["arg"] ]
+								query = f"""
+									MATCH
+										(f:FunctionExpression)-[:AST*1..]->(source_stmt),
+										pdg_path=(source_stmt)-[create:PDG]->(source)-[pdg_edges:PDG*1..]->(sink),
+										(sink)-[:AST*1..2]->(:CallExpression)-[sink_arg_edges:AST*1..2]->(sink_arg:Identifier),
+										(require_call)-[require_callee:AST]->(require_identifier:Identifier),
+										(require_call)-[req_arg_edge:AST]->(require_literal:Literal),
+										cfg_path=(s:CFG_F_START)-[:CFG*1..]->(sink)
+									WHERE
+										f.Id = '{source_func}' AND
+										source.Id = '{source_obj_id}' AND
+										sink.Id = '{sink_id}' AND
+										require_call.Id = '{require_call_id}' AND
+										create.RelationType = 'CREATE' AND
+										sink_arg_edges[0].RelationType = 'arg' AND sink_arg_edges[0].ArgumentIndex in {sink_vuln_arg} AND
+										pdg_edges[-1].IdentifierName = sink_arg.IdentifierName AND
+										require_callee.RelationType = 'callee' AND
+										require_identifier.IdentifierName = 'require' AND 
+										require_literal.Raw = "'{package_name}'" AND
+										req_arg_edge.ArgumentIndex = '1'
+									RETURN *
+								"""
 
-						if results.peek():
-							record = list(results)[0]
+								results = tx.run(query)
 
-							tainted_paths.append({
-								"pdg_path": record["pdg_path"],
-								"cfg_path": record["cfg_path"],
-								"function": source["function"],
-								"func": funcName,
-								"source": source_dict,
-								"sink": sinkName,
-								"ends": (source_obj_id, sink_id)
-							})
+								if results.peek():
+									record = list(results)[0]
+									tainted_paths.append({
+										"pdg_path": record["pdg_path"],
+										"cfg_path": record["cfg_path"],
+										"function": source["function"],
+										"func": funcName,
+										"source": source_dict,
+										"sink": sink_name,
+										"ends": (source_obj_id, sink_id)
+									})
+						else:
+							sink_vuln_arg = sink["sink_vuln_arg"] if isinstance(sink["sink_vuln_arg"], list) else [ sink["sink_vuln_arg"] ]
+							query = f"""
+								MATCH
+									(f:FunctionExpression)-[:AST*1..]->(source_stmt),
+									pdg_path=(source_stmt)-[create:PDG]->(source)-[pdg_edges:PDG*1..]->(sink),
+									(sink)-[:AST*1..2]->(:CallExpression)-[sink_arg_edges:AST*1..2]->(sink_arg:Identifier),
+									cfg_path=(s:CFG_F_START)-[:CFG*1..]->(sink)
+								WHERE
+									f.Id = '{source_func}' AND
+									source.Id = '{source_obj_id}' AND
+									sink.Id = '{sink_id}' AND
+									create.RelationType = 'CREATE' AND 
+									sink_arg_edges[0].RelationType = 'arg' AND sink_arg_edges[0].ArgumentIndex in {sink_vuln_arg} AND
+									pdg_edges[-1].IdentifierName = sink_arg.IdentifierName 
+								RETURN *
+							"""
+							results = tx.run(query)
+
+							if results.peek():
+								record = list(results)[0]
+								tainted_paths.append({
+									"pdg_path": record["pdg_path"],
+									"cfg_path": record["cfg_path"],
+									"function": source["function"],
+									"func": funcName,
+									"source": source_dict,
+									"sink": sink_name,
+									"ends": (source_obj_id, sink_id)
+								})
+
 		return tainted_paths
 
 
