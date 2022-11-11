@@ -9,9 +9,8 @@ def find_explicit_sink_calls(session, sinks):
 		query = f"""
 			WITH {sink_names} as SINKS
 			MATCH
-				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]-(c:CallExpression)-[callee:AST]->(e:Identifier)
+				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt)-[:AST*1..2]-(c:CallExpression)-[callee:AST]->(e:Identifier)
 			WHERE
-				init.RelationType = 'init' AND
 				callee.RelationType = 'callee' AND
 				e.IdentifierName in SINKS
 			RETURN *
@@ -26,7 +25,7 @@ def find_explicit_sink_calls(session, sinks):
 				'sinkName': sink_name,
 				'sink_vuln_arg': sinks[sink_name]
 			})
-
+	
 	return sink_calls
 
 def find_package_sink_calls(session, sinks):
@@ -70,9 +69,8 @@ def find_implicit_sink_calls(session, sinks):
 		query = f"""
 			WITH {sink_names} as SINKS
 			MATCH
-				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt:VariableDeclarator)-[init:AST]->(e:Identifier)
+				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt)-[:AST*1..2]->(e:Identifier)
 			WHERE
-				init.RelationType = 'init' AND
 				e.IdentifierName in SINKS
 			RETURN *
 		"""
