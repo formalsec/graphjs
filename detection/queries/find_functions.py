@@ -38,12 +38,12 @@ def find_package_sink_calls(session, sinks):
 			MATCH
 				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt)-[:AST*1..2]-(:CallExpression)-
 			[ast_callee:AST]->(:Identifier),
-				(stmt)<-[pdg_edges:PDG*1..]-(:VariableDeclarator)-[require_init:AST]->(require_call:CallExpression)
+				(stmt)<-[pdg_edges:PDG*1..]-(var_or_expr)-[:AST*1..2]->(require_call:CallExpression)
 			WHERE
 				ast_callee.RelationType = 'callee' AND
 				pdg_edges[0].RelationType = 'CALLEE' AND
-				require_init.RelationType = 'init' AND
-				pdg_edges[-2].RelationType = 'LOOKUP' AND pdg_edges[-2].IdentifierName in SINKS
+				pdg_edges[-2].RelationType = 'LOOKUP' AND pdg_edges[-2].IdentifierName in SINKS AND
+				(var_or_expr:VariableDeclarator or var_or_expr:ExpressionStatement) 
 			RETURN *
 		"""
 		results = tx.run(query)
