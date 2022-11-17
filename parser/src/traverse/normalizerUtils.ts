@@ -447,6 +447,29 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
             };
         }
 
+        if (newInit.expr && newInit.expr.type === "ConditionalExpression") {
+            const newDecl: VariableDeclaration = copyObj(parent);
+            newDecl.kind = "let";
+            newObj.init = null;
+            newDecl.declarations = [newObj];
+
+            const newTest = newInit.expr.test;
+
+            const newConsequentExpression = createExpressionAssignment(newObj.id.name, newInit.expr.consequent);
+            const newConsequent = createBlockStatement([newConsequentExpression]);
+
+            const newAlternateExpression = createExpressionAssignment(newObj.id.name, newInit.expr.alternate);
+            const newAlternate = createBlockStatement([newAlternateExpression]);
+
+            const newIfStatement: IfStatement = createIfStatementForSwitchCase(newTest, newConsequent, newAlternate);
+
+            stmts = [...newInit.stmts, newDecl, newIfStatement];
+            return {
+                stmts,
+                expr: null,
+            };
+        }
+
         // all other init types
         stmts = [...newInit.stmts];
         const newInitExpression = newInit.expr;
@@ -769,6 +792,22 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             return {
                 stmts: [...children[1].stmts, decl],
                 expr: newObj,
+            };
+        } else if (rightExpr.type === "ConditionalExpression") {
+            const newTest = rightExpr.test;
+
+            const newConsequentExpression = createExpressionAssignment(newObj.id.name, rightExpr.consequent);
+            const newConsequent = createBlockStatement([newConsequentExpression]);
+
+            const newAlternateExpression = createExpressionAssignment(newObj.id.name, rightExpr.alternate);
+            const newAlternate = createBlockStatement([newAlternateExpression]);
+
+            const newIfStatement: IfStatement = createIfStatementForSwitchCase(newTest, newConsequent, newAlternate);
+
+            const stmts = [...children[0].stmts, ...children[1].stmts, newIfStatement];
+            return {
+                stmts,
+                expr: null,
             };
         }
 

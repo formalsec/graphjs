@@ -3,16 +3,24 @@
         "code-injection": [
             {
                 "sink": "eval",
+                "type": "function",
                 "arg": "1"
             },
             {
                 "sink": "Function",
+                "type": "function",
+                "arg": "1"
+            },
+            {
+                "sink": "Function",
+                "type": "new",
                 "arg": "1"
             }
         ],
         "command-injection": [
             {
                 "sink": "exec",
+                "type": "function",
                 "packages": [
                     {"package": "child_process", "arg": "1"},
                     {"package": "shelljs", "arg": "1"}
@@ -20,24 +28,28 @@
             },
             {
                 "sink": "execSync",
+                "type": "function",
                 "packages": [
                     {"package": "child_process", "arg": "1"}
                 ]
             },
             {
                 "sink": "execFile",
+                "type": "function",
                 "packages": [
                     {"package": "child_process", "arg": ["1", "2"]}
                 ]
             },
             {
                 "sink": "shell",
+                "type": "function",
                 "packages": [
                     {"package": "execa", "arg": "1"}
                 ]
             },
             {
                 "sink": "spawn",
+                "type": "function",
                 "packages": [
                     {"package": "child_process", "arg": ["1", "2"]}
                 ]
@@ -46,12 +58,14 @@
         "path-traversal": [
             {
                 "sink": "readFile",
+                "type": "function",
                 "packages": [
                     {"package": "fs", "arg": "1"}
                 ]
             },
             {
                 "sink": "createReadStream",
+                "type": "function",
                 "packages": [
                     {"package": "fs", "arg": "1"}
                 ]

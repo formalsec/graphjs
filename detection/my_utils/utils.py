@@ -32,17 +32,20 @@ def read_config():
 def get_all_sinks_from_config(config):
 	package_sinks = {}
 	sinks = {}
+	new_sinks = {}
 	if "sinks" in config:
 		vuln_types = config["sinks"]
 		for vuln in vuln_types.values():
 			for sink in vuln:
 				if "packages" in sink.keys():
 					package_sinks[sink["sink"]] = sink["packages"]
-				else: 
+				elif sink["type"] == "new":
+					new_sinks[sink["sink"]] = sink["arg"]
+				else:
 					sinks[sink["sink"]] = sink["arg"]
 	else:
 		raise Exception("Config file is missing the sinks")
-	return sinks, package_sinks
+	return sinks, package_sinks, new_sinks
 
 def get_all_sources_from_config(config):
 	if "sources" in config:

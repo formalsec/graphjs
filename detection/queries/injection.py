@@ -38,7 +38,7 @@ class Injection(QueryType):
 									MATCH
 										(f:FunctionExpression)-[:AST*1..]->(source_stmt),
 										pdg_path=(source_stmt)-[create:PDG]->(source)-[pdg_edges:PDG*1..]->(sink),
-										(sink)-[:AST*1..2]->(:CallExpression)-[sink_arg_edges:AST*1..2]->(sink_arg:Identifier),
+										(sink)-[:AST*1..2]->(cn)-[sink_arg_edges:AST*1..2]->(sink_arg:Identifier),
 										(require_call)-[require_callee:AST]->(require_identifier:Identifier),
 										(require_call)-[req_arg_edge:AST]->(require_literal:Literal),
 										cfg_path=(s:CFG_F_START)-[:CFG*1..]->(sink)
@@ -48,10 +48,11 @@ class Injection(QueryType):
 										sink.Id = '{sink_id}' AND
 										require_call.Id = '{require_call_id}' AND
 										create.RelationType = 'CREATE' AND
+										(cn.Type = 'CallExpression' or cn.Type = 'NewExpression') AND
 										sink_arg_edges[0].RelationType = 'arg' AND sink_arg_edges[0].ArgumentIndex in {sink_vuln_arg} AND
 										pdg_edges[-1].IdentifierName = sink_arg.IdentifierName AND
 										require_callee.RelationType = 'callee' AND
-										require_identifier.IdentifierName = 'require' AND 
+										require_identifier.IdentifierName = 'require' AND
 										require_literal.Raw = "'{package_name}'" AND
 										req_arg_edge.ArgumentIndex = '1'
 									RETURN *
@@ -76,15 +77,16 @@ class Injection(QueryType):
 								MATCH
 									(f:FunctionExpression)-[:AST*1..]->(source_stmt),
 									pdg_path=(source_stmt)-[create:PDG]->(source)-[pdg_edges:PDG*1..]->(sink),
-									(sink)-[:AST*1..2]->(:CallExpression)-[sink_arg_edges:AST*1..2]->(sink_arg:Identifier),
+									(sink)-[:AST*1..2]->(cn)-[sink_arg_edges:AST*1..2]->(sink_arg:Identifier),
 									cfg_path=(s:CFG_F_START)-[:CFG*1..]->(sink)
 								WHERE
 									f.Id = '{source_func}' AND
 									source.Id = '{source_obj_id}' AND
 									sink.Id = '{sink_id}' AND
-									create.RelationType = 'CREATE' AND 
+									(cn.Type = 'CallExpression' or cn.Type = 'NewExpression') AND
+									create.RelationType = 'CREATE' AND
 									sink_arg_edges[0].RelationType = 'arg' AND sink_arg_edges[0].ArgumentIndex in {sink_vuln_arg} AND
-									pdg_edges[-1].IdentifierName = sink_arg.IdentifierName 
+									pdg_edges[-1].IdentifierName = sink_arg.IdentifierName
 								RETURN *
 							"""
 							results = tx.run(query)

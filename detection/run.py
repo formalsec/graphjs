@@ -12,11 +12,12 @@ config = my_utils.read_config()
 neo_driver = GraphDatabase.driver(NEO4J_CONN_STRING, auth=('', ''))
 
 with neo_driver.session() as session:
-	sinks, package_sinks = my_utils.get_all_sinks_from_config(config)
+	sinks, package_sinks, new_sinks = my_utils.get_all_sinks_from_config(config)
 	my_utils.console(sinks, debug=False)
 	my_utils.console(package_sinks, debug=False)
+	my_utils.console(new_sinks, debug=False)
 
-	sinks = find_sink_function_calls(session, sinks, package_sinks) 
+	sinks = find_sink_function_calls(session, sinks, package_sinks, new_sinks)
 	my_utils.console(sinks, debug=False)
 
 	all_sources = my_utils.get_all_sources_from_config(config)
