@@ -53,6 +53,16 @@
                 "packages": [
                     {"package": "child_process", "arg": ["1", "2"]}
                 ]
+            },
+            {
+                "package": "cross-spawn",
+                "type": "function",
+                "arg": ["1", "2"]
+            },
+            {
+                "package": "meta-exec",
+                "type": "function",
+                "arg": "1"
             }
         ],
         "path-traversal": [
