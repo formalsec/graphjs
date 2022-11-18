@@ -54,6 +54,7 @@ import type {
     ArrayPattern,
     RestElement,
     Class,
+    Pattern,
 } from "estree";
 import { CANCELLED } from "dns";
 
@@ -231,6 +232,18 @@ export function createExpressionAssignment(objId: string, objValue: Expression):
                 type: "Identifier",
                 name: objId,
             },
+            right: objValue,
+        },
+    };
+}
+
+export function createGenericExpressionAssignment(leftObj: Pattern, objValue: Expression): ExpressionStatement {
+    return {
+        type: "ExpressionStatement",
+        expression: {
+            type: "AssignmentExpression",
+            operator: "=",
+            left: leftObj,
             right: objValue,
         },
     };
@@ -796,10 +809,17 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
         } else if (rightExpr.type === "ConditionalExpression") {
             const newTest = rightExpr.test;
 
-            const newConsequentExpression = createExpressionAssignment(newObj.id.name, rightExpr.consequent);
-            const newConsequent = createBlockStatement([newConsequentExpression]);
+            let newConsequentExpression, newAlternateExpression;
+            if (leftExpr.type == "Identifier") {
+                newConsequentExpression = createExpressionAssignment(newObj.id.name, rightExpr.consequent);
 
-            const newAlternateExpression = createExpressionAssignment(newObj.id.name, rightExpr.alternate);
+                newAlternateExpression = createExpressionAssignment(newObj.id.name, rightExpr.alternate);
+            } else {
+                newConsequentExpression = createGenericExpressionAssignment(leftExpr as Pattern, rightExpr.consequent);
+
+                newAlternateExpression = createGenericExpressionAssignment(leftExpr as Pattern, rightExpr.alternate);
+            }
+            const newConsequent = createBlockStatement([newConsequentExpression]);
             const newAlternate = createBlockStatement([newAlternateExpression]);
 
             const newIfStatement: IfStatement = createIfStatementForSwitchCase(newTest, newConsequent, newAlternate);
