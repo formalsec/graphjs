@@ -812,11 +812,9 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             let newConsequentExpression, newAlternateExpression;
             if (leftExpr.type == "Identifier") {
                 newConsequentExpression = createExpressionAssignment(newObj.id.name, rightExpr.consequent);
-
                 newAlternateExpression = createExpressionAssignment(newObj.id.name, rightExpr.alternate);
             } else {
                 newConsequentExpression = createGenericExpressionAssignment(leftExpr as Pattern, rightExpr.consequent);
-
                 newAlternateExpression = createGenericExpressionAssignment(leftExpr as Pattern, rightExpr.alternate);
             }
             const newConsequent = createBlockStatement([newConsequentExpression]);

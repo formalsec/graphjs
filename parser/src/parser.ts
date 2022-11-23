@@ -5,6 +5,7 @@ import esprima = require("esprima");
 import escodegen from "escodegen";
 import { normalizeScript } from "./traverse/normalizer";
 import buildAST from "./traverse/ast_builder";
+const { buildTypes } = require("./traverse/type_builder");
 const { buildCFG } = require("./traverse/cfg_builder");
 const { buildCallGraph } = require("./traverse/cg_builder");
 const { buildPDG } = require("./traverse/dependency/dep_builder");
@@ -47,6 +48,7 @@ function parse(filename: string, file_output: boolean) : Graph {
         const cfgGraph = buildCFG(astGraph);
         const callGraph = buildCallGraph(cfgGraph);
         const pdgGraph = buildPDG(callGraph);
+        const finalGraph = buildTypes(pdgGraph)
         return pdgGraph;
     } catch (e: any) {
         console.log("Error:", e.stack);

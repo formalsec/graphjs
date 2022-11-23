@@ -35,6 +35,7 @@ function buildCFG(astGraph: Graph) {
             _start.identifier = "__main__";
             _start.namespace = cfgNamespace;
             _start.functionContext = _start.id;
+            _start.functionNodeId = node.id;
             graph.addStartNodes("CFG", _start);
 
             const _end = graph.addNode("CFG_F_END", { type: "CFG" });
@@ -87,6 +88,7 @@ function buildCFG(astGraph: Graph) {
             _start.namespace = cfgNamespace;
             _start.functionName = node.functionName;
             _start.functionContext = _start.id;
+            _start.functionNodeId = node.id;
 
             graph.addStartNodes("CFG", _start);
             // eslint-disable-next-line no-param-reassign

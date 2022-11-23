@@ -52,7 +52,7 @@ import {
     rearrangeSwitchCases,
     normArrayPattern,
     // normRestElement,
-} from "./normalizerUtils";
+} from "./normalizer_utils";
 
 function mapReduce(arr: (Node | null)[], p: Node | null): Normalization[] {
     return arr.map((item) => normalize(item, p));
