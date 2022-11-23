@@ -8,7 +8,7 @@ import buildAST from "./traverse/ast_builder";
 const { buildTypes } = require("./traverse/type_builder");
 const { buildCFG } = require("./traverse/cfg_builder");
 const { buildCallGraph } = require("./traverse/cg_builder");
-const { buildPDG } = require("./traverse/dependency/dep_builder");
+const { buildPDG, PDGReturn } = require("./traverse/dependency/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
@@ -16,6 +16,7 @@ const { CSVOutput } = require("./output/csv_output");
 // eslint-disable-next-line no-unused-vars
 import { printJSON } from "./utils/utils";
 import { Graph } from "./traverse/graph/graph";
+import { PDGReturn } from "./traverse/dependency/dep_builder";
 
 // Returns a graph object
 function parse(filename: string, file_output: boolean) : Graph {
@@ -47,9 +48,11 @@ function parse(filename: string, file_output: boolean) : Graph {
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
         const callGraph = buildCallGraph(cfgGraph);
-        const pdgGraph = buildPDG(callGraph);
-        const finalGraph = buildTypes(pdgGraph)
-        return pdgGraph;
+        const pdgReturn: PDGReturn = buildPDG(callGraph);
+        const pdgGraph = pdgReturn.graph;
+        const trackers = pdgReturn.trackers;
+        const finalGraph = buildTypes(pdgGraph, trackers);
+        return finalGraph;
     } catch (e: any) {
         console.log("Error:", e.stack);
     }

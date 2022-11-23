@@ -416,7 +416,12 @@ function popContext(trackers: DependencyTracker): DependencyTracker {
     return newTrackers;
 }
 
-export function buildPDG(cfgGraph: Graph): Graph {
+export interface PDGReturn {
+    graph: Graph,
+    trackers: DependencyTracker,
+};
+
+export function buildPDG(cfgGraph: Graph): PDGReturn {
     const graph = cfgGraph;
 
     let trackers = new DependencyTracker(graph);
@@ -543,5 +548,8 @@ export function buildPDG(cfgGraph: Graph): Graph {
 
     trackers.print();
     // graph.clearUnusedObjectNodes();
-    return graph;
+    return {
+        graph,
+        trackers
+    };
 }

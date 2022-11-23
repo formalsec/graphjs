@@ -11,6 +11,7 @@ export class GraphNode {
     private _functionName: string | null;
     private _functionContext: number;
     private _functionNodeId: number;
+    private _internalStructure: any;
     private _used: boolean;
 
     constructor(id: number, type: string, obj = {}) {
@@ -24,6 +25,7 @@ export class GraphNode {
         this._functionName = null;
         this._functionContext = 0;
         this._functionNodeId = -1;
+        this._internalStructure = null;
         this._used = false;
     }
 
@@ -93,6 +95,14 @@ export class GraphNode {
 
     set functionNodeId(id) {
         this._functionNodeId = id;
+    }
+
+    get internalStructure() {
+        return this._internalStructure;
+    }
+
+    set internalStructure(struct) {
+        this._internalStructure = struct;
     }
 
     get used() {

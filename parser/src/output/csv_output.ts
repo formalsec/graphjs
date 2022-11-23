@@ -13,7 +13,7 @@ export class CSVOutput extends OutputWriter {
         // Id:ID¿Type¿Raw¿Location¿Label:LABEL
 
         const nodesWriteStream = fs.createWriteStream(`${filename}_nodes.csv`);
-        nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Raw¿Location¿Label:LABEL\n");
+        nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Label:LABEL\n");
         // nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n");
 
         graph.nodes.forEach((node: GraphNode) => {
@@ -45,6 +45,11 @@ export class CSVOutput extends OutputWriter {
             if (node.type == "Literal") {
                 const lit = node.obj as Literal;
                 n.push(lit.raw);
+            } else n.push("");
+
+            // Internal Structure
+            if (node.internalStructure) {
+                n.push(JSON.stringify(node.internalStructure));
             } else n.push("");
 
             // code location
