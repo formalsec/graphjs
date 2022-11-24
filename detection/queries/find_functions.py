@@ -1,4 +1,5 @@
 import my_utils.utils as my_utils
+import json
 
 def find_explicit_sink_calls(session, sinks):
 	sink_calls = []
@@ -9,7 +10,7 @@ def find_explicit_sink_calls(session, sinks):
 		query = f"""
 			WITH {sink_names} as SINKS
 			MATCH
-				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]-(stmt)-[:AST*1..2]-(c:CallExpression)-[callee:AST]->(e:Identifier)
+				(v:VariableDeclarator)-[:AST]->(f:FunctionExpression)-[:AST*1..]->(stmt)-[:AST*1..2]->(c:CallExpression)-[callee:AST]->(e:Identifier)
 			WHERE
 				callee.RelationType = 'callee' AND
 				e.IdentifierName in SINKS
@@ -327,6 +328,7 @@ def find_param_objects_and_types(params, session):
 		if sourceType == "param":
 
 			paramName = p['source'].get('IdentifierName')
+			internal_structure = json.loads(p["source"].get("InternalStructure"))
 			paramObjId = p['source_obj'].get('Id')
 			properties = find_obj_properties(paramObjId, session)
 
@@ -337,12 +339,14 @@ def find_param_objects_and_types(params, session):
 				data = {
 					'var': paramName,
 					'type': "object",
+					'graph_type': internal_structure["type"],
 					'properties': properties,
 				}
 			else:
 				data = {
 					'var': paramName,
-					'type': "symbolic"
+					'type': "symbolic",
+					'graph_type': internal_structure["type"]
 				}
 
 			paramTypes[funcName].append(data)
