@@ -1,0 +1,31 @@
+# inputs
+sourceCode: JS Source Code { shape: page }
+queries: Queries { shape: cylinder }
+
+static: Static Analysis Engine {
+  analysis: Graph Construction
+  cpg: Augmented CPG { shape: cylinder }
+  queryExec: Query Execution Engine
+
+  analysis -> cpg -> queryExec
+}
+
+staticOutput: Taint Summary { shape: page}
+
+sourceCode -> static.analysis
+queries -> static.queryExec
+static.queryExec -> staticOutput
+
+
+symbolic: Symbolic Execution Engine {
+  codeInst: Code Instrumentation
+  instCode: Instrumented Code { shape: page }
+  javert: Javert
+
+  codeInst -> instCode -> javert
+}
+
+exploit: PoC Exploit { shape: page }
+
+staticOutput -> symbolic.codeInst
+symbolic.javert -> exploit
