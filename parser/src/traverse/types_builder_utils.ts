@@ -1,3 +1,4 @@
+import { create } from "domain";
 import { Identifier } from "estree";
 import { getAllASTNodes, getASTNode } from "../utils/utils";
 import { DependencyTracker } from "./dependency/dependency_trackers";
@@ -15,15 +16,13 @@ export class FunctionObjects {
         this._fObjects = new Map();
     }
 
-    addParam(functionId: number, paramName: string) {
+    addParam(functionId: number, functionContext: number, paramName: string) {
         let paramObj = this._fObjects.get(functionId.toString());
         if (!paramObj) {
             paramObj = new Map();
         }
 
-        paramObj.set(paramName, {
-            "type": "symbolic",
-        });
+        paramObj.set(paramName, createType(functionContext, "symbolic"));
 
         this._fObjects.set(functionId.toString(), paramObj);
     }
@@ -39,16 +38,14 @@ export class FunctionObjects {
         this._fObjects.set(functionId.toString(), functionVariables);
     }
 
-    addVariableSymbolic(functionId: number, variableName: string) {
+    addVariableSymbolic(functionId: number, functionContext: number, variableName: string) {
         let functionVariables = this._fObjects.get(functionId.toString());
 
         if (!functionVariables) {
             functionVariables = new Map();
         }
 
-        let varType = {
-            "type": "symbolic",
-        };
+        let varType = createType(functionContext, "symbolic");
 
         functionVariables?.set(variableName, varType);
         this._fObjects.set(functionId.toString(), functionVariables);
@@ -73,6 +70,21 @@ export class FunctionObjects {
         this._fObjects.set(functionId.toString(), functionVariables);
     }
 
+    addNewObjectPropertySymbolic(functionId: number, obj: GraphNode, propName: string) {
+        let functionVariables = this._fObjects.get(functionId.toString());
+        const objName = obj.obj.name;
+
+        if (!functionVariables) {
+            functionVariables = new Map();
+        }
+
+        let objType: any = createType(obj.functionContext, "object");
+        objType["properties"][propName] = createType(obj.functionContext, "symbolic");
+
+        functionVariables?.set(objName, objType);
+        this._fObjects.set(functionId.toString(), functionVariables);
+    }
+
     addObjectPropertySymbolic(functionId: number, obj: GraphNode, propName: string) {
         let functionVariables = this._fObjects.get(functionId.toString());
         const objName = obj.obj.name;
@@ -82,8 +94,10 @@ export class FunctionObjects {
         }
 
         let objType: any = createType(obj.functionContext, "object");
-        objType["properties"][propName] = {
-            "type": "symbolic",
+
+        if (functionVariables?.has(objName)) {
+            objType = functionVariables.get(objName);
+            objType["properties"][propName] = createType(obj.functionContext, "symbolic");
         }
 
         functionVariables?.set(objName, objType);
@@ -220,12 +234,10 @@ export function buildTypesFromSimpleAssignment(left: Identifier, right: GraphNod
             const typeInfo = funcObjects.get(right.obj.name);
 
             if (typeInfo) {
-                if (Object.keys(typeInfo).includes("type")) {
-                    const typeObj = createType(right.functionContext, typeInfo["type"]);
-                    newFObjects.addVariableTypeInfo(functionId, left.name, typeObj);
-                }
+                // copy type
+                newFObjects.addVariableTypeInfo(functionId, left.name, typeInfo);
             } else {
-                newFObjects.addVariableSymbolic(functionId, left.name);
+                newFObjects.addVariableSymbolic(functionId, right.functionContext, left.name);
             }
             break;
         }
@@ -269,7 +281,11 @@ export function buildTypesFromSimpleAssignment(left: Identifier, right: GraphNod
                 if (varStructure["type"] == "object") {
                     // for objects we have to get its properties
                     const properties = varStructure["properties"];
-                    typeInfo = properties[propName];
+                    if (propName in properties) {
+                        typeInfo = properties[propName];
+                    } else {
+                        fObjects.addObjectPropertySymbolic(functionId, obj, propName);
+                    }
 
                 } else if (varStructure["type"] == "array"){
                     // obj structure is array, we need prop_type
@@ -285,7 +301,7 @@ export function buildTypesFromSimpleAssignment(left: Identifier, right: GraphNod
                         const propTypeInfo = createType(right.functionContext, "prop_string");
                         fObjects.addObjectPropertyTypeInfo(functionId, obj, propName, propTypeInfo);
                     } else {
-                        fObjects.addObjectPropertySymbolic(functionId, obj, propName);
+                        fObjects.addNewObjectPropertySymbolic(functionId, obj, propName);
                     }
                 }
 
@@ -293,14 +309,22 @@ export function buildTypesFromSimpleAssignment(left: Identifier, right: GraphNod
                 fObjects.addReferencedObjectPropertyTypeInfo(functionId, right.functionContext, locationSplit, propName, typeInfo);
 
             } else {
-                fObjects.addVariableSymbolic(functionId, left.name);
+                fObjects.addVariableSymbolic(functionId, right.functionContext, left.name);
             }
             break;
         }
 
-        // case "BinaryExpression": {
-        //     return handleBinaryExpression(stmtId, stmt, leftIdentifier, right, trackers);
-        // }
+        case "CallExpression": {
+            newFObjects.addVariableSymbolic(functionId, right.functionContext, left.name);
+            break;
+        }
+
+        case "BinaryExpression": {
+            const leftVar = getASTNode(right, "left");
+            const rightVar = getASTNode(right, "right");
+            console.log(leftVar);
+            break;
+        }
     }
 
     return newFObjects;
@@ -312,14 +336,14 @@ export function buildTypesFromObjectWrite(left: GraphNode, right: GraphNode, gra
     // get child nodes for the member expression
     const obj = getASTNode(left, "object");
     const prop = getASTNode(left, "property");
-    const objName = obj.obj.name;
-    const propName = prop.obj.name;
+    const objName: string = obj.obj.name;
+    const propName: string = prop.obj.name;
 
     switch (right.type) {
         case "Literal": {
             let typeInfo = typeof right.obj.value;
             const typeObj = createType(right.functionContext, typeInfo);
-            newFObjects.addObjectPropertyTypeInfo(functionId, objName, propName, typeObj);
+            newFObjects.addObjectPropertyTypeInfo(functionId, obj, propName, typeObj);
             break;
         }
 
@@ -332,10 +356,10 @@ export function buildTypesFromObjectWrite(left: GraphNode, right: GraphNode, gra
                 if (typeInfo) {
                     if (Object.keys(typeInfo).includes("type")) {
                         const typeObj = createType(right.functionContext, typeInfo["type"]);
-                        newFObjects.addObjectPropertyTypeInfo(functionId, objName, propName, typeObj);
+                        newFObjects.addObjectPropertyTypeInfo(functionId, obj, propName, typeObj);
                     }
                 } else {
-                    newFObjects.addObjectPropertySymbolic(functionId, obj, propName);
+                    newFObjects.addNewObjectPropertySymbolic(functionId, obj, propName);
                 }
             }
             break;
@@ -343,13 +367,13 @@ export function buildTypesFromObjectWrite(left: GraphNode, right: GraphNode, gra
 
         case "ArrayExpression": {
             const arrayObj = createType(right.functionContext, "array");
-            newFObjects.addObjectPropertyTypeInfo(functionId, objName, propName, arrayObj);
+            newFObjects.addObjectPropertyTypeInfo(functionId, obj, propName, arrayObj);
             break;
         }
 
         case "ObjectExpression": {
             const objectObj = createType(right.functionContext, "object");
-            newFObjects.addObjectPropertyTypeInfo(functionId, objName, propName, objectObj);
+            newFObjects.addObjectPropertyTypeInfo(functionId, obj, propName, objectObj);
             break;
         }
 

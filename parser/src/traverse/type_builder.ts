@@ -48,7 +48,7 @@ function buildTypes(graph: Graph, trackers: DependencyTracker) {
                 const funcParams = getAllASTNodes(func, "param");
                 if (funcParams.length == 0) return;
                 funcParams.forEach((param) => {
-                    fObjects.addParam(func.id, param.obj.name);
+                    fObjects.addParam(func.id, param.functionContext, param.obj.name);
                     funcParamNames.push({
                         "name": param.obj.name,
                         "id": param.id,
@@ -74,7 +74,7 @@ function buildTypes(graph: Graph, trackers: DependencyTracker) {
     }
 
     newGraph.startNodes.get("CFG")?.forEach(n => traverse(n));
-    // fObjects.print();
+    fObjects.print();
     return newGraph;
 }
 
