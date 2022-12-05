@@ -1,6 +1,11 @@
 const tag = function (strings, personExp, ageExp) {
     const v1 = ageExp > 99;
-    let ageStr = v1 ? 'centenarian' : 'youngster';
+    let ageStr;
+    if (v1) {
+        ageStr = 'centenarian';
+    } else {
+        ageStr = 'youngster';
+    }
     const v2 = strings[0];
     const v3 = strings[1];
     const v4 = strings[2];

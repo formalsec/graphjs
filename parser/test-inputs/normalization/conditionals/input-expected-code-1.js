@@ -1,1 +1,6 @@
-let status = true ? 'adult' : 'minor';
+let status;
+if (true) {
+    status = 'adult';
+} else {
+    status = 'minor';
+}

@@ -251,6 +251,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
 
         // case "ClassDeclaration": {}
 
+        case "ArrowFunctionExpression":
         case "FunctionExpression":
         case "FunctionDeclaration": {
             const funcNode = getFDNode(left);

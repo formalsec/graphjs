@@ -767,7 +767,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const args = getAllASTNodes(node, "arg");
             let argDeps = args.map(arg => evalDep(trackers, stmtId, arg)).flat();
             const calleeDeps = evalDep(trackers, stmtId, callee).map(cd => {
-                return DependencyFactory.isDVar(cd) ? DependencyFactory.changeToCalleeDep(cd) : cd;;
+                return DependencyFactory.isDVar(cd) ? DependencyFactory.changeToCalleeDep(cd) : cd;
             });
             return [...argDeps, ...calleeDeps];
         }

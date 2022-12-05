@@ -62,7 +62,11 @@ export class FunctionObjects {
         let objType: any = createType(obj.functionContext, "object");
 
         if (functionVariables?.has(objName)) {
-            objType = functionVariables.get(objName);
+            const localObjType = functionVariables.get(objName);
+
+            if (localObjType.type == "object") {
+                objType = localObjType;
+            }
             objType["properties"][propName] = typeInfo;
         }
 

@@ -1060,10 +1060,29 @@ export function normObjectExpression(obj: ObjectExpression, children: Normalizat
         };
     }
 
-    const { id, decl } = createVariableDeclaration(newObj);
+    if (parent?.type == "Property") {
+        const { id, decl } = createVariableDeclaration(createEmptyObject());
+        const newAssignments: Array<ExpressionStatement> = [];
+        // push declarations for each property using accesses to new variable
+        newObj.properties.forEach((prop: Property) => {
+            if (prop.type === "Property") {
+                const propKey = createIdentifierFromExpression(prop.key as Expression);
+                const propValue = prop.value as Expression;
+                if (propKey && propValue)
+                    newAssignments.push(createPropertyAssignment(id, propKey, propValue));
+            }
+        });
 
+        return {
+            stmts: [...flatStmts(children), decl, ...newAssignments],
+            expr: id,
+        };
+    }
+
+    const { id, decl } = createVariableDeclaration(newObj);
+    const stmts = flatStmts(children);
     return {
-        stmts: [...flatStmts(children), decl],
+        stmts: [...stmts, decl],
         expr: id,
     };
 }
