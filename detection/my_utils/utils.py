@@ -55,3 +55,16 @@ def get_all_sources_from_config(config):
 		return config["sources"]
 	else:
 		raise Exception("Config file is missing the sources")
+
+
+def format_properties(tmp_properties):
+	properties = []
+	for i, key in enumerate(tmp_properties):
+		properties.append({"name": key})
+		prop = properties[i]
+		prop.update(tmp_properties[key])
+		prop.pop("context", None)
+		if "properties" in prop:
+			prop["properties"] = format_properties(prop["properties"])
+
+	return properties 

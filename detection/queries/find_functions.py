@@ -278,13 +278,13 @@ def find_obj_properties(objId, session):
 
 			if len(subProps) > 0:
 				property = {
-					'prop_name': propName,
+					'name': propName,
 					'type': "object",
 					'properties': subProps
 				}
 			else:
 				property = {
-					'prop_name': propName,
+					'name': propName,
 					'type': "symbolic",
 				}
 		else:
@@ -309,12 +309,12 @@ def find_sub_obj_ids(objId, subObjName, session):
 		results = tx.run(query)
 		for record in results:
 			return {
-				'prop_name': subObjName,
+				'name': subObjName,
 				'sub_obj': record['subObj'].get('Id')
 			}
 
 	return {
-		'prop_name': subObjName
+		'name': subObjName
 	}
 
 
@@ -329,24 +329,23 @@ def find_param_objects_and_types(params, session):
 
 			paramName = p['source'].get('IdentifierName')
 			internal_structure = json.loads(p["source"].get("InternalStructure"))
-			paramObjId = p['source_obj'].get('Id')
-			properties = find_obj_properties(paramObjId, session)
+			# paramObjId = p['source_obj'].get('Id')
+			# properties = find_obj_properties(paramObjId, session)
 
 			if not funcName in paramTypes:
 				paramTypes[funcName] = []
 
-			if len(properties) > 0:
+			# if len(properties) > 0 and "properties" in internal_structure:
+			if "properties" in internal_structure:
 				data = {
-					'var': paramName,
-					'type': "object",
-					'graph_type': internal_structure["type"],
-					'properties': properties,
+					'name': paramName,
+					'type': internal_structure["type"],
+					'properties': my_utils.format_properties(internal_structure["properties"]),
 				}
 			else:
 				data = {
-					'var': paramName,
-					'type': "symbolic",
-					'graph_type': internal_structure["type"]
+					'name': paramName,
+					'type': internal_structure["type"],
 				}
 
 			paramTypes[funcName].append(data)

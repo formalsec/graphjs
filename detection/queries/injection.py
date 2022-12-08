@@ -105,7 +105,6 @@ class Injection(QueryType):
 
 		return tainted_paths
 
-
 	def validate_pdg_paths(self, paths, param_types, session):
 		# detected vulnerability
 		valid_paths = {}
@@ -128,18 +127,17 @@ class Injection(QueryType):
 				if firstNodeName == param or secondNodeName == param:
 
 					flow = {
+						"vuln_type": "injection",
 						"sink": sink,
-						"source": param,
+						"function": func,
+						"params": [ param ] ,
+						"vars": param_types[func],
 						"lines": locs,
 					}
 
-					if func in valid_paths:
-						valid_paths[func]["flows"].append(flow)
+					if func in valid_paths.keys():
+						valid_paths[func]["params"].append(param)
 					else:
-						pResult = {}
-						pResult["function"] = func
-						pResult["params"] = param_types[func]
-						pResult["flows"] = [ flow ]
-						valid_paths[func] = pResult
+						valid_paths[func] = flow
 
 		return list(valid_paths.values())
