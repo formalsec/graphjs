@@ -971,6 +971,7 @@ export function normFunctionExpression(obj: FunctionExpression, children: Normal
 
 export function normArrowFunctionExpression(obj: ArrowFunctionExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
+    newObj.type = "FunctionExpression";
     let stmts: Node[] = [];
 
     if (children[0].expr) { // body is an expression
