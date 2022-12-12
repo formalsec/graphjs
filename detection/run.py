@@ -38,7 +38,8 @@ with neo_driver.session() as session:
 		if len(results) > 0:
 			print("{} vulnerability detected!".format(query_type.get_type()))
 			my_utils.console(results)
-			my_utils.save_output(argv, results, query_type.get_type(), True)
+			# my_utils.save_output(argv, results, query_type.get_type(), True)
+			my_utils.save_output_multi_files(argv, results)
 		else:
 			print("No vulnerability detected for type - {}".format(query_type.get_type()))
-			my_utils.save_output(argv, results, query_type.get_type(), False)
+			# my_utils.save_output(argv, results, query_type.get_type(), False)

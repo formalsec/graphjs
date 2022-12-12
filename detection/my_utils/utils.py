@@ -19,8 +19,14 @@ def save_output(argv, results, type, detected):
 				f.write("{} vulnerability detected!\n".format(type))
 				f.write(json.dumps(results, indent=4) + '\n')
 			else:
-				f.write("No vulnerability detected for type - {}\n".format(type))
+				f.write("no vulnerability detected for type - {}\n".format(type))
 
+def save_output_multi_files(argv, results):
+	if len(argv) >= 2:
+		output = argv[1]
+		for i in range(len(results)):
+			with open(f"{output}.{i}.exjs", "w") as f:
+				f.write(json.dumps(results[i], indent=4) + '\n')
 
 def read_config():
 	file_path = path.realpath(path.dirname(__file__))

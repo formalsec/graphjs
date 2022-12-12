@@ -100,6 +100,7 @@ class Injection(QueryType):
 									"func": funcName,
 									"source": source_dict,
 									"sink": sink_name,
+									"sink_id": sink_id,
 									"ends": (source_obj_id, sink_id)
 								})
 
@@ -112,6 +113,7 @@ class Injection(QueryType):
 			funcId = p['function'].get('Id')
 			func = p['func']
 			sink = p['sink']
+			sink_id = p['sink_id']
 			pdg_path = p["pdg_path"]
 			cfg_path = p["cfg_path"]
 
@@ -130,14 +132,12 @@ class Injection(QueryType):
 						"vuln_type": "injection",
 						"sink": sink,
 						"function": func,
-						"params": [ param ] ,
+						"params": [param["name"] for param in param_types[func]],
 						"vars": param_types[func],
 						"lines": locs,
 					}
 
-					if func in valid_paths.keys():
-						valid_paths[func]["params"].append(param)
-					else:
-						valid_paths[func] = flow
+					if sink_id not in valid_paths.keys():
+						valid_paths[sink_id] = flow
 
 		return list(valid_paths.values())
