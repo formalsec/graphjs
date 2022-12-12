@@ -29,19 +29,13 @@ class InternalPrototypeTampering(QueryType):
 			results = tx.run(query)
 
 			for record in results:
-				value = record["source"]
 				tamp_obj_id = record['tamp_obj'].get('Id')
 				if tamp_obj_id not in tamp_objs:
 					tamp_objs[tamp_obj_id] = {
 						'function': record['f'],
 						'tamp_obj': record['tamp_obj'],
 						'assignment': record['assignment'],
-						'values': [ value ]
 					}
-				else:
-					if value not in tamp_objs[tamp_obj_id]["values"]:
-						tamp_objs[tamp_obj_id]["values"].append(value)
-	
 	
 	def find_first_level_lookup_paths(self, session, source, tamp_obj):
 		lookup_paths = []
@@ -73,15 +67,12 @@ class InternalPrototypeTampering(QueryType):
 
 			for record in results:
 				lookup_paths.append({
-					"path_type": "lookup",
 					"cfg_path": record["cfg_path"],
 					"function": source["function"],
 					"func_name": source["functionName"],
 					"tamp_obj": record["tamp_obj"],
+					"tamp_obj_id": tamp_obj_id,
 					"source": source_dict,
-					"values": tamp_obj["values"],
-					"property": record["lookup_edge"].get('IdentifierName'),
-					"ends": (source_obj_id, record["sink"].get('Id')),
 				})
 
 		return lookup_paths
@@ -119,16 +110,14 @@ class InternalPrototypeTampering(QueryType):
 
 			for record in results:
 				lookup_paths.append({
-					"path_type": "lookup",
 					"cfg_path": record["cfg_path"],
 					"function": source["function"],
 					"func_name": source["functionName"],
 					"tamp_obj": record["tamp_obj"],
+					"tamp_obj_id": tamp_obj_id,
 					"source": source_dict,
-					"values": tamp_obj["values"],
-					"property": record["lookup_edge"].get('IdentifierName'),
-					"ends": (source_obj_id, record["sink"].get('Id')),
 				})
+
 
 		return lookup_paths
 	
@@ -162,99 +151,16 @@ class InternalPrototypeTampering(QueryType):
 
 			for record in results:
 				return_paths.append({
-					"path_type": "return",
 					"cfg_path": record["cfg_path"],
-					"function": record["f"],
+					"function": source["function"],
 					"func_name": source["functionName"],
 					"tamp_obj": record["tamp_obj"],
+					"tamp_obj_id": tamp_obj_id,
 					"source": source_dict,
-					"values": tamp_obj["values"],
-					"returned_var": record["var_edge"].get('IdentifierName'),
-					"ends": (source_obj_id, record["sink"].get('Id')),
 				})
 
 		return return_paths 
 
-	def validate_lookup_path(self, valid_paths, path, param_types, session):
-		func_id = path['function'].get('Id')
-		func_name = path['func_name']
-		cfg_path = path['cfg_path']
-		tamp_obj_name = path['tamp_obj'].get('IdentifierName').split('-')[0]
-		prop = path["property"]
-		values = [ val.get('IdentifierName').split('-')[0] for val in path["values"] ]
-
-		locs = self.get_locs(func_id, cfg_path, session)
-
-		param = path["source"]["var"]
-
-		new_flow = {
-			"tampered_object": tamp_obj_name,
-			"sources": [ param ],
-			"values": values,
-			"properties": [ prop ],
-			"returned_vars": [],
-			"lines": locs,
-		}
-
-		if func_name in valid_paths:
-			for flow in valid_paths[func_name]["flows"]:
-				if flow["tampered_object"] == tamp_obj_name:
-					flow["lines"] = locs if len(locs["locs"]) > len(flow["lines"]["locs"]) else flow["lines"]
-					if prop not in flow["properties"]:
-						flow["properties"].append(prop)
-					if param not in flow["sources"]:
-						flow["sources"].append(param)
-					if values != flow["values"]:
-						flow["values"] = list(set(values + flow["values"]))
-					break
-			else:
-				valid_paths[func_name]["flows"].append(new_flow)
-		else:
-			pResult = {}
-			pResult["function"] = func_name
-			pResult["params"] = param_types[func_name]
-			pResult["flows"] = [ new_flow ]
-			valid_paths[func_name] = pResult
-
-
-	def validate_return_path(self, valid_paths, path, param_types, session):
-		func_id = path['function'].get('Id')
-		func_name = path['func_name']
-		cfg_path = path['cfg_path']
-		tamp_obj_name = path['tamp_obj'].get('IdentifierName').split('-')[0]
-		values = [ val.get('IdentifierName').split('-')[0] for val in path["values"] ]
-		returned_var = path["returned_var"]
-
-		locs = self.get_locs(func_id, cfg_path, session)
-
-		param = path["source"]["var"]
-
-		new_flow = {
-			"tampered_object": tamp_obj_name,
-			"sources": [ param ],
-			"properties": [],
-			"values": values,
-			"returned_vars": [ returned_var ],
-			"lines": locs,
-		}
-
-		if func_name in valid_paths:
-			for flow in valid_paths[func_name]["flows"]:
-				if flow["tampered_object"] == tamp_obj_name or flow["tampered_object"] == tamp_obj_name:
-					flow["lines"] = locs if len(locs["locs"]) > len(flow["lines"]["locs"]) else flow["lines"]
-					if returned_var not in flow["returned_vars"]:
-						flow["returned_vars"].append(returned_var)
-					if param not in flow["sources"]:
-						flow["sources"].append(param)
-					break
-			else:
-				valid_paths[func_name]["flows"].append(new_flow)
-		else:
-			pResult = {}
-			pResult["function"] = func_name
-			pResult["params"] = param_types[func_name]
-			pResult["flows"] = [ new_flow ]
-			valid_paths[func_name] = pResult
 
 	def find_pdg_paths(self, session, sources, sinks):
 		tainted_paths = []
@@ -265,7 +171,7 @@ class InternalPrototypeTampering(QueryType):
 
 		for source in sources:	
 			for tamp_obj in tamp_objs.values():
-					# tainted_paths.extend(self.find_first_level_lookup_paths(session, source, tamp_obj))
+					tainted_paths.extend(self.find_first_level_lookup_paths(session, source, tamp_obj))
 					tainted_paths.extend(self.find_other_level_lookup_paths(session, source, tamp_obj))
 					tainted_paths.extend(self.find_return_paths(session, source, tamp_obj))
 
@@ -275,8 +181,22 @@ class InternalPrototypeTampering(QueryType):
 	def validate_pdg_paths(self, paths, param_types, session):
 		valid_paths = {}
 		for p in paths:
-			if p['path_type'] == 'lookup':	
-				self.validate_lookup_path(valid_paths, p, param_types, session)
-			elif p['path_type'] == 'return': 
-				self.validate_return_path(valid_paths, p, param_types, session)
+			func_id = p['function'].get('Id')
+			func_name = p['func_name']
+			cfg_path = p['cfg_path']
+			tamp_obj_id = p['tamp_obj_id']
+
+			locs = self.get_locs(func_id, cfg_path, session)
+
+			flow = {
+				"vuln_type": "internal prototype tampering",
+				"function": func_name,
+				"params": [param["name"] for param in param_types[func_name]],
+				"vars": param_types[func_name],
+				"lines": locs,
+			}
+
+			if tamp_obj_id not in valid_paths.keys():
+				valid_paths[tamp_obj_id] = flow
+
 		return list(valid_paths.values())
