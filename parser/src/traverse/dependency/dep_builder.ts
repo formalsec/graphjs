@@ -104,6 +104,29 @@ function createAndStoreNewObjectNode(stmtId: number, stmt: GraphNode, variable: 
     return newTrackers;
 }
 
+function createParamNode(stmtId: number, stmt: GraphNode, variable: Identifier, trackers: DependencyTracker): DependencyTracker {
+    const variableName = trackers.getContextNameList(variable.name, stmt.functionContext).slice(-1)[0];
+    const simpleVariableName = variable.name;
+
+    // clone trackers
+    const newTrackers = trackers.clone();
+
+    // add to heap
+    const { pdgObjName, pdgObjNameContext } = newTrackers.addNewObjectToHeap(simpleVariableName, variableName);
+
+    // store the identifier of the new object
+    newTrackers.addToStore(variableName, StorageFactory.StoObject(pdgObjNameContext));
+
+    // store the stmtid
+    newTrackers.addToPhi(variableName, stmtId);
+
+    // set changes as creation of new object
+    // newTrackers.graphCreateNewObject(stmtId, simpleVariableName, pdgObjName, pdgObjNameContext);
+    newTrackers.graphCreateParamObject(stmtId, simpleVariableName, pdgObjName, pdgObjNameContext);
+
+    return newTrackers;
+}
+
 function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Identifier, memExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const variableName = variable.name;
     const variableNameContext = trackers.getContextNameList(variableName, stmt.functionContext).slice(-1)[0];
@@ -280,7 +303,7 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     const params = getAllASTNodes(funcExpNode, "param");
     params.forEach(p => {
         // trackers.addVariable(p.obj.name, funcNode.id);
-        trackers = createAndStoreNewObjectNode(p.id, funcNode, p.obj, trackers);
+        trackers = createParamNode(p.id, funcNode, p.obj, trackers);
     });
     trackers = popContext(trackers);
     return trackers;
@@ -425,6 +448,7 @@ export interface PDGReturn {
 export function buildPDG(cfgGraph: Graph): PDGReturn {
     const graph = cfgGraph;
 
+    graph.addTaintNode();
     let trackers = new DependencyTracker(graph);
 
     const visitedNodes: number[] = [];

@@ -9,6 +9,7 @@ export class Graph {
     private _edges: Map<number, GraphEdge>;
     private _outputManager: OutputManager | null;
     private _startNodes: Map<string, GraphNode[]>; // Change this to a custom type
+    private _taintNode: number;
 
     constructor(outputManager: OutputManager | null) {
         this.nodeCounter = 0;
@@ -19,6 +20,8 @@ export class Graph {
 
         this._outputManager = outputManager;
         this._startNodes = new Map();
+
+        this._taintNode = -1;
     }
 
     get nodes() {
@@ -41,11 +44,24 @@ export class Graph {
         return this._startNodes;
     }
 
+    get taintNode() {
+        return this._taintNode;
+    }
+
     /**
      * @param {OutputManager} outputManager
      */
     set outputManager(outputManager: OutputManager) {
         this._outputManager = outputManager;
+    }
+
+    addTaintNode() {
+        // eslint-disable-next-line no-plusplus
+        const id = this.nodeCounter++;
+        const node = new GraphNode(id, "TAINT_SOURCE", { type: "TAINT" });
+        this.nodes.set(id, node);
+        this._taintNode = id;
+        return node;
     }
 
     addNode(label: string, obj: any) {

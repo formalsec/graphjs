@@ -6,6 +6,7 @@ import { StorageObject, StorageValue, StorageFactory } from "./sto_factory";
 
 enum GraphOperationType {
     CREATE_NEW_OBJECT,
+    CREATE_NEW_PARAM_OBJECT,
     CREATE_DEPENDENCY_EDGE,
     CREATE_NEW_VERSION,
     WRITE_PROPERTY,
@@ -16,6 +17,14 @@ enum GraphOperationType {
 
 interface OpCreateNewObject {
     op: GraphOperationType.CREATE_NEW_OBJECT,
+    objName: string,
+    pdgObjName: string,
+    pdgObjNameContext: string,
+    source: number,
+}
+
+interface OpCreateNewParamObject {
+    op: GraphOperationType.CREATE_NEW_PARAM_OBJECT,
     objName: string,
     pdgObjName: string,
     pdgObjNameContext: string,
@@ -72,6 +81,7 @@ interface OpCreateSubObjectEdge {
 
 type GraphOperation =
     OpCreateNewObject |
+    OpCreateNewParamObject |
     OpWriteProperty |
     OpCreateNewVersion |
     OpCreateDependencyEdge |
@@ -246,6 +256,18 @@ export class DependencyTracker {
         this.updateGraph();
     }
 
+    graphCreateParamObject(sourceId: number, objName: string, pdgObjName: string, pdgObjNameContext: string) {
+        this.gChanges.push({
+            op: GraphOperationType.CREATE_NEW_PARAM_OBJECT,
+            source: sourceId,
+            objName,
+            pdgObjName,
+            pdgObjNameContext
+        });
+
+        this.updateGraph();
+    }
+
     graphCreateNewSubObject(sourceId: number, objects: string[], objName: string, propName: string, pdgObjName: string, pdgObjNameContext: string) {
         // this op must be written to gChanges first
         objects.forEach(obj => {
@@ -374,6 +396,23 @@ export class DependencyTracker {
                     if (source) {
                         this.graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: specChange.objName });
                     }
+                    break;
+                }
+
+                case GraphOperationType.CREATE_NEW_PARAM_OBJECT: {
+                    const specChange = <OpCreateNewParamObject>change;
+                    // create node
+                    const nodeObj = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
+                    this.gNodes.set(specChange.pdgObjNameContext, nodeObj.id);
+                    nodeObj.identifier = specChange.pdgObjName;
+
+                    this.graph.addEdge(this.graph.taintNode, nodeObj.id, { type: "PDG", label: "TAINT" });
+
+                    // // add create edge
+                    // const source = specChange.source;
+                    // if (source) {
+                    //     this.graph.addEdge(source, nodeObj.id, { type: "PDG", label: "CREATE", objName: specChange.objName });
+                    // }
                     break;
                 }
 

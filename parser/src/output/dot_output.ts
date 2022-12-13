@@ -10,6 +10,10 @@ function getNodeLabel(n: GraphNode, showCode: any) {
     let label = `#${n.id} ${n.type} (${n.functionContext})`;
     if (n.obj) {
         switch (n.type) {
+            case "TAINT_SOURCE":
+                label = `#${n.id} ${n.type}`;
+                break;
+
             case "PDG_OBJECT":
                 // label = `#${n.id} ${n.type} ${n.identifier}`;
                 label = `#${n.id} ${n.identifier}`;
@@ -173,6 +177,9 @@ function getNodeColor(n: GraphNode) {
             case "PDG":
                 color = "darkgreen";
                 break;
+            case "TAINT":
+                color = "goldenrod4";
+                break;
             default:
                 color = "black";
         }
@@ -192,6 +199,8 @@ export class DotOutput extends OutputWriter {
         const nodesToPrint = [...graph.startNodes.entries()]
             .filter((entry) => !options.ignore.includes(entry[0]))
             .map((entry) => graph.startNodes.get(entry[0])).flat();
+
+        nodesToPrint.push(graph.nodes.get(graph.taintNode));
 
         while (nodesToPrint.length > 0) {
             const n = nodesToPrint.shift();
