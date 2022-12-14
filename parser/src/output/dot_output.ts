@@ -89,7 +89,7 @@ function getEdgeLabel(e: GraphEdge) {
     let label;
 
     switch (e.label) {
-        case "VAR":
+        case "DEP":
         case "CALLEE":
         case "REF":
         case "NEW_VERSION":
@@ -162,6 +162,19 @@ function getEdgeColor(e: GraphEdge) {
     }
 
     return color;
+}
+
+function getEdgeStyle(e: GraphEdge) {
+    let style;
+    switch (e.type) {
+        case "REF":
+            style = "dashed";
+            break;
+        default:
+            style = "solid";
+    }
+
+    return style;
 }
 
 function getNodeColor(n: GraphNode) {
@@ -247,6 +260,7 @@ export class DotOutput extends OutputWriter {
 
                         if (!options.ignore.includes(e.type)) {
                             const edgeColor = getEdgeColor(e);
+                            const edgeStyle = getEdgeStyle(e);
                             gDot.addEdge(
                                 getNodeLabel(n1, this.showCode),
                                 getNodeLabel(n2, this.showCode),
@@ -254,6 +268,7 @@ export class DotOutput extends OutputWriter {
                                     label: edgeLabel,
                                     fontcolor: edgeColor,
                                     color: edgeColor,
+                                    style: edgeStyle,
                                 },
                             );
                         }

@@ -31,7 +31,7 @@ export class DependencyFactory {
         };
     }
 
-    static DVar(name: string, destination: number, source: number): Dependency {
+    static DVar(name: string, source: number, destination: number): Dependency {
         return {
             type: DependencyType[DependencyType.DVar],
             name: name,
@@ -70,7 +70,7 @@ export class DependencyFactory {
     static translate(depType: string) {
         switch(depType) {
             case DependencyType[DependencyType.DVar]:
-                return "VAR";
+                return "DEP";
             case DependencyType[DependencyType.DCallee]:
                 return "CALLEE";
             default:
