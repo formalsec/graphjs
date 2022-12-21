@@ -65,12 +65,14 @@ const { argv } = yargs(process.argv.slice(3))
     .boolean("graph")
     .boolean("csv")
     .array("ignore")
+    .array("ignore_func")
     .boolean("show_code");
 
 const filename = process.argv[2];
 if (fs.existsSync(filename)) {
     const graphOptions = {
         ignore: argv.ignore || [],
+        ignore_func: argv.ignore_func || [],
         show_code: argv.show_code || false,
     };
 

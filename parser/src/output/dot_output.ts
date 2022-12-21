@@ -77,6 +77,15 @@ function getNodeLabel(n: GraphNode, showCode: any) {
                 break;
             }
 
+            case "ReturnStatement": {
+                if (showCode) {
+                    const code = escodegen.generate(n.obj);
+                    // label = `#${n.id} ${n.type} \n\n${code}`;
+                    label = `#${n.id}» ${code}`;
+                }
+                break;
+            }
+
             default:
                 break;
         }
@@ -89,11 +98,15 @@ function getEdgeLabel(e: GraphEdge) {
     let label;
 
     switch (e.label) {
-        case "DEP":
+        case "NV":
+        case "SO":
+        case "DEP": {
+            label = `${e.label}(${e.objName})`;
+            break;
+        }
+
         case "CALLEE":
         case "REF":
-        case "NEW_VERSION":
-        case "SUB_OBJECT":
         case "WRITE":
         case "LOOKUP":
         case "CREATE": {
@@ -151,6 +164,7 @@ function getEdgeColor(e: GraphEdge) {
         case "CFG":
             color = "red";
             break;
+        case "SUB":
         case "PDG":
             color = "darkgreen";
             break;
@@ -224,6 +238,11 @@ export class DotOutput extends OutputWriter {
                 }
 
                 if (options.ignore && options.ignore.includes(n.obj.type)) {
+                    // eslint-disable-next-line no-continue
+                    continue;
+                }
+
+                if (options.ignore_func && options.ignore_func.includes(n.identifier)) {
                     // eslint-disable-next-line no-continue
                     continue;
                 }

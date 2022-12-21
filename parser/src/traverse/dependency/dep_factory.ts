@@ -1,6 +1,6 @@
 enum DependencyType {
-    DEmpty,
-    DConst,
+    // DEmpty,
+    // DConst,
     DVar,
     DObject,
     DCallee,
@@ -8,35 +8,33 @@ enum DependencyType {
 
 export interface Dependency {
     type: string,
+    source: number,
     name?: string,
     value?: string,
-    source?: number,
     destination?: number,
-    sourceObjName?: string
 };
 
 export class DependencyFactory {
-    static DConst(c: string, stmtId: number): Dependency {
-        return {
-            type: DependencyType[DependencyType.DConst],
-            value: c,
-            source: stmtId,
-            destination: stmtId,
-        };
-    }
+    // static DConst(c: string, stmtId: number): Dependency {
+    //     return {
+    //         type: DependencyType[DependencyType.DConst],
+    //         value: c,
+    //         source: stmtId,
+    //         destination: stmtId,
+    //     };
+    // }
 
-    static DEmpty(): Dependency {
-        return {
-            type: DependencyType[DependencyType.DEmpty]
-        };
-    }
+    // static DEmpty(): Dependency {
+    //     return {
+    //         type: DependencyType[DependencyType.DEmpty]
+    //     };
+    // }
 
-    static DVar(name: string, source: number, destination: number): Dependency {
+    static DVar(name: string, source: number): Dependency {
         return {
             type: DependencyType[DependencyType.DVar],
             name: name,
             source: source,
-            destination: destination,
         };
     }
 
@@ -44,17 +42,20 @@ export class DependencyFactory {
         return dep.type === DependencyType[DependencyType.DVar];
     }
 
-    static isDEmpty(dep: Dependency) {
-        return dep.type === DependencyType[DependencyType.DEmpty];
+    static isDCallee(dep: Dependency) {
+        return dep.type === DependencyType[DependencyType.DCallee];
     }
 
-    static DObject(propName: string, destination: number, sourceObjId: number, sourceObjName?: string): Dependency {
+    static isDObject(dep: Dependency) {
+        return dep.type === DependencyType[DependencyType.DObject];
+    }
+
+    static DObject(propName: string, destination: number, sourceObjId: number): Dependency {
         return {
             type: DependencyType[DependencyType.DObject],
             name: propName,
             source: sourceObjId,
             destination,
-            sourceObjName,
         };
     }
 

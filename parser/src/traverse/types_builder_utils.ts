@@ -273,8 +273,7 @@ export function buildTypesFromSimpleAssignment(left: Identifier, right: GraphNod
             let objStorage = trackers.getStorage(`${right.functionContext}.${objName}`)?.at(0);
             let locationSplit: string[] = [];
             if (objStorage && StorageFactory.isStorageObject(objStorage)) {
-                objStorage = objStorage as StorageObject;
-                locationSplit = objStorage["location"].split('.').slice(1).map(s => s.split('-')[0]);
+                locationSplit = (<StorageObject>objStorage).location.split('.').slice(1).map(s => s.split('-')[0]);
             }
 
             const computed = right.obj.computed;
@@ -326,7 +325,6 @@ export function buildTypesFromSimpleAssignment(left: Identifier, right: GraphNod
         case "BinaryExpression": {
             const leftVar = getASTNode(right, "left");
             const rightVar = getASTNode(right, "right");
-            console.log(leftVar);
             break;
         }
     }

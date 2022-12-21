@@ -74,7 +74,7 @@ function buildTypes(graph: Graph, trackers: DependencyTracker) {
     }
 
     newGraph.startNodes.get("CFG")?.forEach(n => traverse(n));
-    fObjects.print();
+    // fObjects.print();
     return newGraph;
 }
 
