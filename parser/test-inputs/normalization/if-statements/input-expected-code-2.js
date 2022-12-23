@@ -2,10 +2,8 @@ let x = 'Oi';
 const v1 = x === 'Hey';
 if (v1) {
     const v2 = 1 + 2;
-    const v3 = v2 + 3;
-    let y = v3;
+    let y = v2 + 3;
 } else {
-    const v4 = 1 + 2;
-    const v5 = v4 + 3;
-    let z = v5;
+    const v3 = 1 + 2;
+    let z = v3 + 3;
 }

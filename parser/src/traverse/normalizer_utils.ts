@@ -358,7 +358,7 @@ export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, 
         newObj.left = children[0].expr;
         newObj.right = children[1].expr;
 
-        if (parent && parent.type === "AssignmentExpression") {
+        if (parent && (parent.type === "AssignmentExpression" || parent.type === "VariableDeclarator")) {
             return {
                 stmts: [...children[0].stmts, ...children[1].stmts],
                 expr: newObj,
