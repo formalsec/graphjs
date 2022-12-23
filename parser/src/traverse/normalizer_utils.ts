@@ -348,7 +348,7 @@ export function normSimpleStatement(obj: Node): Normalization {
     return { stmts: [ copyObj(obj) ], expr: null };
 }
 
-export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, children: Normalization[]): Normalization {
+export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, children: Normalization[],  parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     const leftExpr = children[0].expr;
     const rightExpr = children[1].expr;
@@ -358,12 +358,21 @@ export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, 
         newObj.left = children[0].expr;
         newObj.right = children[1].expr;
 
-        const { id, decl } = createVariableDeclaration(newObj);
+        if (parent && parent.type === "AssignmentExpression") {
+            return {
+                stmts: [...children[0].stmts, ...children[1].stmts],
+                expr: newObj,
+            };
+        }
+        else {
+            const { id, decl } = createVariableDeclaration(newObj);
 
-        return {
-            stmts: [...children[0].stmts, ...children[1].stmts, decl],
-            expr: id,
-        };
+            return {
+                stmts: [...children[0].stmts, ...children[1].stmts, decl],
+                expr: id,
+            };
+        }
+
     }
 
     return { stmts: [], expr: newObj };

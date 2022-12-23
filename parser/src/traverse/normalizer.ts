@@ -200,7 +200,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
             resultLeft,
             resultRight,
         ];
-        return normBinaryExpression(obj, resultData);
+        return normBinaryExpression(obj, resultData, parent);
     }
 
     case "ConditionalExpression": {
