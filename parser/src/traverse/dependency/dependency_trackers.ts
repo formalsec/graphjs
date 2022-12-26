@@ -650,7 +650,7 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
 		case "Identifier": {
             const objNameContext = trackers.getContextNameList(node.obj.name, node.functionContext).slice(-1)[0];
 			const locations = trackers.getStorage(objNameContext);
-            return locations ? locations.slice(-1) : [];
+            return locations ? locations.slice(-1) : [ {} ];
 		}
 
         case "BinaryExpression": {
@@ -669,11 +669,11 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
                 const objNameContext = validObj.name;
                 return trackers.getPropStorage(objNameContext, prop.obj.name);
             }
-            return [];
+            return [ {} ];
         }
 
         default: {
-            return [];
+            return [ {} ];
         }
 	}
 }

@@ -62,10 +62,13 @@ function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Ident
 
 function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // evaluate dependency of expression
-    const dep = evalDep(trackers, stmtId, expNode)[0];
+    const deps = evalDep(trackers, stmtId, expNode);
 
-    // create reference edge for value of return
-    trackers.graphCreateReferenceEdge(stmtId, dep.source);
+    if (deps.length > 0) {
+        // create reference edge for value of return
+        trackers.graphCreateReferenceEdge(stmtId, deps[0].source);
+    }
+
 
     return trackers;
 }
@@ -237,28 +240,46 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     return trackers;
 }
 
-// function handleArrayExpressionElement(stmtId: number, stmt: GraphNode, variable: Identifier, elemNode: GraphNode, elementIndex: number, trackers: DependencyTracker): DependencyTracker {
-//     const variableName = variable.name;
-//     const variableNameContext = trackers.getContextNameList(variableName, stmt.functionContext).slice(-1)[0];
+function createArrayElement(stmtId: number, objName: string, objNameContext: string, elementIndex: number, propValue: StorageValue, deps: Dependency[], trackers: DependencyTracker) {
+    const lastLocation = trackers.getLastObjectLocation(objNameContext);
 
-//     // clone trackers
-//     const newTrackers = trackers.clone();
+    if (lastLocation) {
+        const locationHeapValue = trackers.getHeapValue(lastLocation);
+        const objVersionId = trackers.getObjectId(lastLocation);
 
-//     // evaluate dependency of expression
-//     const deps = evalDep(trackers, stmtId, elemNode);
+        if (locationHeapValue && objVersionId) {
+            const propName = elementIndex.toString();
 
-//     // check if this expression is already in storage
-//     // we only need the first because we know this is
-//     // not a binary expression or member expression
-//     const storageValue = evalSto(trackers, elemNode)[0];
+            const objNameProperty = `${objNameContext}.${propName}`;
+            const objNameContextProperty = `${lastLocation}.${propName}`;
+            const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
+            locationHeapValue[propName] = StorageFactory.StoObject(propNamesInHeap.pdgObjNameContext);
 
-//     newTrackers.createArrayElementInHeap(stmtId, variableName, variableNameContext, elementIndex, storageValue);
+            const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
+            trackers.graphCreateSubObjectEdge(objVersionId, subObjectId, propName);
 
-//     // apply dependencies to graph (var edges)
-//     newTrackers.graphBuildEdge(deps);
+            deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep));
+            trackers.graphCreateReferenceEdge(stmtId, subObjectId);
+        }
+    }
+}
 
-//     return newTrackers;
-// }
+function handleArrayExpressionElement(stmtId: number,  functionContext: number, variable: Identifier, elemNode: GraphNode, elementIndex: number, trackers: DependencyTracker): DependencyTracker {
+    const variableName = variable.name;
+    const variableNameContext = trackers.getContextNameList(variableName, functionContext).slice(-1)[0];
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, elemNode);
+
+    // check if this expression is already in storage
+    // we only need the first because we know this is
+    // not a binary expression or member expression
+    const storageValue = evalSto(trackers, elemNode)[0];
+
+    createArrayElement(stmtId, variableName, variableNameContext, elementIndex, storageValue, deps, trackers);
+
+    return trackers;
+}
 
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // create new object
@@ -282,22 +303,20 @@ function handleObjectExpression(stmtId: number, functionContext: number, variabl
     return trackers;
 }
 
-// function handleArrayExpression(stmtId: number, stmt: GraphNode, variable: Identifier, arrExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-//     // clone trackers
-//     let newTrackers = trackers.clone();
+function handleArrayExpression(stmtId: number, functionContext: number, variable: Identifier, arrExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // create new empty object node
+    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
+    trackers.graphCreateReferenceEdge(stmtId, newObjId);
 
-//     const newObjReturn = createAndStoreNewObjectNode(stmtId, stmt, variable, newTrackers);
-//     newTrackers = newObjReturn.newTrackers;
+    const arrElementEdges = getAllASTEdges(arrExpNode, "element");
+    arrElementEdges.forEach((edge) => {
+        const elementIndex = edge.elementIndex;
+        const element = edge.nodes[1];
+        trackers = handleArrayExpressionElement(stmtId, functionContext, variable, element, elementIndex, trackers);
+    });
 
-//     const arrElementEdges = getAllASTEdges(arrExpNode, "element");
-//     arrElementEdges.forEach((edge) => {
-//         const elementIndex = edge.elementIndex;
-//         const element = edge.nodes[1];
-//         newTrackers = handleArrayExpressionElement(stmtId, stmt, variable, element, elementIndex, newTrackers);
-//     });
-
-//     return newTrackers;
-// }
+    return trackers;
+}
 
 // function handleIfStatementTest(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
 //     // clone trackers
@@ -341,9 +360,9 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
     const leftIdentifier: Identifier = left.obj.id ? left.obj.id : left.obj;
 
     switch (right.type) {
-        // case "ArrayExpression": {
-        //     return handleArrayExpression(stmtId, stmt, leftIdentifier, right, trackers);
-        // }
+        case "ArrayExpression": {
+            return handleArrayExpression(stmtId, stmt.functionContext, leftIdentifier, right, trackers);
+        }
 
         case "NewExpression":
         case "CallExpression": {
@@ -389,7 +408,6 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     const objName = obj.obj.name;
     const objNameContext = trackers.getContextNameList(objName, functionContext).slice(-1)[0];
     let propName = prop.obj.name;
-    let sourceObjName = undefined;
 
     // get location stored for this object
     // we only need the first because we know this is
@@ -408,7 +426,6 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
 
         // change propName to be '*' since the property is dynamic
         propName = '*';
-        sourceObjName = prop.obj.name;
     } else {
         // if the prop is a Literal or the member expression is not
         // computed then we just evaluate the dependencies for the
@@ -425,7 +442,7 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
         // not a binary expression or member expression
         const rightStorage = evalSto(trackers, right);
 
-        if (rightStorage.length > 0) {
+        if (rightStorage.length > 0 && StorageFactory.isStorageObject(rightStorage[0])) {
             // if the right hand side is an object
             // we want it to be in the sub object
             const rightStorageValue = rightStorage[0];
