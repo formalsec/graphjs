@@ -1,0 +1,85 @@
+{
+    "sinks": {
+        "code-injection": [
+            {
+                "sink": "eval",
+                "type": "function",
+                "args": [ 1 ]
+            },
+            {
+                "sink": "Function",
+                "type": "function",
+                "args": [ 1 ]
+            },
+            {
+                "sink": "Function",
+                "type": "new",
+                "args": [ 1 ]
+            }
+        ],
+        "command-injection": [
+            {
+                "sink": "exec",
+                "type": "function",
+                "packages": [
+                    {"package": "child_process", "args": [ 1 ]},
+                    {"package": "shelljs", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "execSync",
+                "type": "function",
+                "packages": [
+                    {"package": "child_process", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "execFile",
+                "type": "function",
+                "packages": [
+                    {"package": "child_process", "args": [ 1, 2 ]}
+                ]
+            },
+            {
+                "sink": "shell",
+                "type": "function",
+                "packages": [
+                    {"package": "execa", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "spawn",
+                "type": "function",
+                "packages": [
+                    {"package": "child_process", "args": [ 1, 2 ]}
+                ]
+            },
+            {
+                "sink": "cross-spawn",
+                "type": "function",
+                "args": [ 1, 2 ]
+            },
+            {
+                "sink": "meta-exec",
+                "type": "function",
+                "args": [ 1 ]
+            }
+        ],
+        "path-traversal": [
+            {
+                "sink": "readFile",
+                "type": "function",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "createReadStream",
+                "type": "function",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            }
+        ]
+    }
+}

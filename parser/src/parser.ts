@@ -15,11 +15,12 @@ const { CSVOutput } = require("./output/csv_output");
 
 // eslint-disable-next-line no-unused-vars
 import { printJSON } from "./utils/utils";
+import { read_config, Sink } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
 import { PDGReturn } from "./traverse/dependency/dep_builder";
 
 // Returns a graph object
-function parse(filename: string, file_output: boolean) : Graph {
+function parse(filename: string, config: Sink[], file_output: boolean) : Graph {
     try {
         const data = fs.readFileSync(filename, "utf8");
         const ast = esprima.parseModule(data, {tolerant: true});
@@ -48,7 +49,7 @@ function parse(filename: string, file_output: boolean) : Graph {
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
         const callGraph = buildCallGraph(cfgGraph);
-        const pdgReturn: PDGReturn = buildPDG(callGraph);
+        const pdgReturn: PDGReturn = buildPDG(callGraph, config);
         const pdgGraph = pdgReturn.graph;
         const trackers = pdgReturn.trackers;
         const finalGraph = buildTypes(pdgGraph, trackers);
@@ -60,39 +61,69 @@ function parse(filename: string, file_output: boolean) : Graph {
     return new Graph(null);
 }
 
-const { argv } = yargs(process.argv.slice(3))
-    .boolean("file")
-    .boolean("graph")
-    .boolean("csv")
-    .array("ignore")
-    .array("ignore_func")
-    .boolean("show_code");
+const { argv } = yargs(process.argv.slice(2))
+    .usage('Usage: $0 <command> [options]')
+    .alias('f', 'file')
+    .nargs('f', 1)
+    .describe('f', 'Load a JavaScript file')
+    .string('file')
+    .alias('c', 'config')
+    .nargs('c', 1)
+    .describe('c', 'Load a config file')
+    .demandOption(['f', 'c'])
+    .string('config')
+    .example('$0 -f ./foo.js -c ./config.json', 'process the foo.js file using the config.json options')
+    .boolean('out')
+    .describe('out', 'Output the normalized file')
+    .boolean('graph')
+    .describe('graph', 'Output the graph figure')
+    .boolean('csv')
+    .describe('csv', 'Output the graph csv file')
+    .array('i')
+    .alias('i', 'ignore')
+    .describe('i', 'Set array of structures to ignore in graph figure')
+    .example('$0 -f ./foo.js -c ./config.json -i="AST"', 'process the foo.js file using the config.json options')
+    .array('if')
+    .alias('if', 'ignore_func')
+    .describe('if', 'Set array of structures to ignore in graph figure')
+    .example('$0 -f ./foo.js -c ./config.json -if="__main__"', 'process the foo.js file using the config.json options')
+    .boolean('sc')
+    .alias('sc', 'show_code')
+    .describe('sc', 'Show the code in each instruction in graph figure')
+    .help('h')
+    .alias('h', 'help');
 
-const filename = process.argv[2];
+const filename = <string> argv.file;
+const configFile = <string> argv.config;
 if (fs.existsSync(filename)) {
     const graphOptions = {
-        ignore: argv.ignore || [],
-        ignore_func: argv.ignore_func || [],
-        show_code: argv.show_code || false,
+        ignore: argv.i || [],
+        ignore_func: argv.if || [],
+        show_code: argv.sc || false,
     };
 
     let file_output = false;
-    if (argv.file) {
-        file_output = argv.file;
+    if (argv.out) {
+        file_output = argv.out;
     }
 
-    const graph = parse(filename, file_output);
+    if (fs.existsSync(configFile)) {
+        const config = read_config(configFile);
+        const graph = parse(filename, config, file_output);
 
-    if (graph) {
-        if (argv.csv) {
-            graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
-            graph.output("src/graphs/graph");
-        }
+        if (graph) {
+            if (argv.csv) {
+                graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
+                graph.output("src/graphs/graph");
+            }
 
-        if (argv.graph) {
-            graph.outputManager = new OutputManager(graphOptions, new DotOutput());
-            graph.output("src/graphs/graph");
+            if (argv.graph) {
+                graph.outputManager = new OutputManager(graphOptions, new DotOutput());
+                graph.output("src/graphs/graph");
+            }
         }
+    } else {
+        console.error(`${configFile} is not a valid config file.`);
     }
 } else {
     console.error(`${filename} is not a valid file.`);

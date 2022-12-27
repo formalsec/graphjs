@@ -6,6 +6,7 @@ import { DependencyTracker, evalDep, evalSto } from "./dependency_trackers";
 import { StorageFactory, StorageObject, StorageValue } from "./sto_factory";
 import { Identifier } from "estree";
 import { DependencyFactory, Dependency } from "./dep_factory";
+import { Sink } from "../../utils/config_reader";
 
 function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const variableName = trackers.getContextNameList(variable.name, stmt.functionContext).slice(-1)[0];
@@ -539,7 +540,7 @@ export interface PDGReturn {
     trackers: DependencyTracker,
 };
 
-export function buildPDG(cfgGraph: Graph): PDGReturn {
+export function buildPDG(cfgGraph: Graph, config: Sink[]): PDGReturn {
     const graph = cfgGraph;
 
     graph.addTaintNode();
