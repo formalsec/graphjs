@@ -7,20 +7,29 @@ export interface Package {
 
 export interface FunctionSink {
     sink: string,
-    type: string,
+    args: number[],
+};
+
+export interface NewSink {
+    sink: string,
     args: number[],
 };
 
 export interface PackageSink {
     sink: string,
-    type: string,
     packages: Package[]
 }
 
-export type Sink = FunctionSink | PackageSink;
+export type Sink = FunctionSink | NewSink | PackageSink;
+export interface Config {
+    functions: FunctionSink[],
+    news: NewSink[],
+    packages: PackageSink[],
+};
 
-export function read_config(filePath: string): Sink[] {
+export function read_config(filePath: string): Config {
     const fsinks: FunctionSink[] = [];
+    const nsinks: NewSink[] = [];
 	const psinks: PackageSink[] = [];
 
     let config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -31,22 +40,36 @@ export function read_config(filePath: string): Sink[] {
                 const sname: string = sink.sink;
                 const stype: string = sink.type;
 
-                if (sink.packages) {
-                    psinks.push({
-                        sink: sname,
-                        type: stype,
-                        packages: sink.packages,
-                    });
-                } else {
-                    fsinks.push({
-                        sink: sname,
-                        type: stype,
-                        args: sink.args,
-                    });
+                switch (stype) {
+                    case "new": {
+                        nsinks.push({
+                            sink: sname,
+                            args: sink.args,
+                        });
+                        break;
+                    }
+                    case "function": {
+                        fsinks.push({
+                            sink: sname,
+                            args: sink.args,
+                        });
+                        break;
+                    }
+                    case "package": {
+                        psinks.push({
+                            sink: sname,
+                            packages: sink.packages,
+                        });
+                        break;
+                    }
                 }
             });
         });
     }
 
-    return [ ...fsinks, ...psinks];
+    return {
+        functions: fsinks,
+        news: nsinks,
+        packages: psinks
+    };
 }

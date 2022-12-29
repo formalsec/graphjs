@@ -14,6 +14,10 @@ function getNodeLabel(n: GraphNode, showCode: any) {
                 label = `#${n.id} ${n.type}`;
                 break;
 
+            case "TAINT_SINK":
+                label = `#${n.id} ${n.type} (${n.identifier})`;
+                break;
+
             case "PDG_OBJECT":
                 // label = `#${n.id} ${n.type} ${n.identifier}`;
                 label = `#${n.id} ${n.identifier}`;

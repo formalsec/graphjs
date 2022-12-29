@@ -20,7 +20,7 @@
         "command-injection": [
             {
                 "sink": "exec",
-                "type": "function",
+                "type": "package",
                 "packages": [
                     {"package": "child_process", "args": [ 1 ]},
                     {"package": "shelljs", "args": [ 1 ]}
@@ -28,28 +28,28 @@
             },
             {
                 "sink": "execSync",
-                "type": "function",
+                "type": "package",
                 "packages": [
                     {"package": "child_process", "args": [ 1 ]}
                 ]
             },
             {
                 "sink": "execFile",
-                "type": "function",
+                "type": "package",
                 "packages": [
                     {"package": "child_process", "args": [ 1, 2 ]}
                 ]
             },
             {
                 "sink": "shell",
-                "type": "function",
+                "type": "package",
                 "packages": [
                     {"package": "execa", "args": [ 1 ]}
                 ]
             },
             {
                 "sink": "spawn",
-                "type": "function",
+                "type": "package",
                 "packages": [
                     {"package": "child_process", "args": [ 1, 2 ]}
                 ]
@@ -68,14 +68,14 @@
         "path-traversal": [
             {
                 "sink": "readFile",
-                "type": "function",
+                "type": "package",
                 "packages": [
                     {"package": "fs", "args": [ 1 ]}
                 ]
             },
             {
                 "sink": "createReadStream",
-                "type": "function",
+                "type": "package",
                 "packages": [
                     {"package": "fs", "args": [ 1 ]}
                 ]

@@ -15,12 +15,12 @@ const { CSVOutput } = require("./output/csv_output");
 
 // eslint-disable-next-line no-unused-vars
 import { printJSON } from "./utils/utils";
-import { read_config, Sink } from "./utils/config_reader";
+import { read_config, Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
 import { PDGReturn } from "./traverse/dependency/dep_builder";
 
 // Returns a graph object
-function parse(filename: string, config: Sink[], file_output: boolean) : Graph {
+function parse(filename: string, config: Config, file_output: boolean) : Graph {
     try {
         const data = fs.readFileSync(filename, "utf8");
         const ast = esprima.parseModule(data, {tolerant: true});

@@ -6,7 +6,7 @@ import { DependencyTracker, evalDep, evalSto } from "./dependency_trackers";
 import { StorageFactory, StorageObject, StorageValue } from "./sto_factory";
 import { Identifier } from "estree";
 import { DependencyFactory, Dependency } from "./dep_factory";
-import { Sink } from "../../utils/config_reader";
+import { Config } from "../../utils/config_reader";
 
 function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const variableName = trackers.getContextNameList(variable.name, stmt.functionContext).slice(-1)[0];
@@ -282,7 +282,7 @@ function handleArrayExpressionElement(stmtId: number,  functionContext: number, 
     return trackers;
 }
 
-function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // create new object
     const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
     trackers.graphCreateReferenceEdge(stmtId, newObjId);
@@ -290,6 +290,35 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     // process dependencies of call
     const deps = evalDep(trackers, stmtId, callNode);
     trackers.graphCreateCallStatementDependencies(stmtId, newObjId, deps);
+
+    // check sink name
+    const functionIdentifierNode = getASTNode(callNode, "callee");
+    const functionName = functionIdentifierNode.obj.name;
+    const fsinks = config.functions.filter((s) => s.sink == functionName);
+    if (fsinks.length > 0) {
+        const sink = fsinks.slice(-1)[0];
+
+        // function being called is a sink
+        // we have to check if the sink node already exists for this function
+        let checkSink = trackers.graphCheckSinkNode(functionName);
+        let sinkNode: number;
+
+        if (!checkSink) {
+            // create sink node if it does not exist
+            sinkNode = trackers.graphAddSinkNode(functionName).id;
+        } else {
+            sinkNode = checkSink;
+        }
+
+        // connect appropriate arguments to sink node
+        // i am only connecting potentially vulnerable arguments
+        // according to config
+        deps.forEach(dep => {
+            if (DependencyFactory.isDVar(dep) && dep.arg && sink.args.includes(dep.arg)) {
+                trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
+            }
+        });
+    }
 
     return trackers;
 }
@@ -357,7 +386,7 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     return trackers;
 }
 
-function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNode, right: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     const leftIdentifier: Identifier = left.obj.id ? left.obj.id : left.obj;
 
     switch (right.type) {
@@ -367,7 +396,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
 
         case "NewExpression":
         case "CallExpression": {
-            return handleCallStatement(stmtId, stmt.functionContext, leftIdentifier, right, trackers);
+            return handleCallStatement(stmtId, stmt.functionContext, leftIdentifier, right, config, trackers);
         }
 
         case "ObjectExpression": {
@@ -459,11 +488,11 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     return trackers;
 }
 
-function handleAssignmentExpression(stmtId: number, stmt: GraphNode, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleAssignmentExpression(stmtId: number, stmt: GraphNode, left: GraphNode, right: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     switch (left.type) {
         // simple assignment / lookup
         case "Identifier": {
-            return handleVariableAssignment(stmtId, stmt, left, right, trackers);
+            return handleVariableAssignment(stmtId, stmt, left, right, config, trackers);
         }
 
         // object write
@@ -475,7 +504,7 @@ function handleAssignmentExpression(stmtId: number, stmt: GraphNode, left: Graph
     return trackers.clone();
 }
 
-function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     switch (expNode.type) {
         // case "Identifier": {
         //     return handleVariableLookup(stmtId, expNode, trackers);
@@ -484,7 +513,7 @@ function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: Gra
         case "AssignmentExpression": {
             const left = getASTNode(expNode, "left");
             const right = getASTNode(expNode, "right");
-            return handleAssignmentExpression(stmtId, stmt, left, right, trackers);
+            return handleAssignmentExpression(stmtId, stmt, left, right, config, trackers);
         }
     }
 
@@ -540,7 +569,7 @@ export interface PDGReturn {
     trackers: DependencyTracker,
 };
 
-export function buildPDG(cfgGraph: Graph, config: Sink[]): PDGReturn {
+export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
     const graph = cfgGraph;
 
     graph.addTaintNode();
@@ -583,7 +612,7 @@ export function buildPDG(cfgGraph: Graph, config: Sink[]): PDGReturn {
             case "ExpressionStatement": {
                 const expressionNode = getASTNode(node, "expression");
                 if (expressionNode) {
-                    trackers = handleExpressionStatement(node.id, node, expressionNode, trackers);
+                    trackers = handleExpressionStatement(node.id, node, expressionNode, config, trackers);
                 }
                 break;
             }
@@ -591,7 +620,7 @@ export function buildPDG(cfgGraph: Graph, config: Sink[]): PDGReturn {
             case "VariableDeclarator": {
                 const initNode = getASTNode(node, "init");
                 if (initNode) {
-                    trackers = handleVariableAssignment(node.id, node, node, initNode, trackers);
+                    trackers = handleVariableAssignment(node.id, node, node, initNode, config, trackers);
                 }
                 // else {
                 //     // trackers.addVariable(p.obj.name, funcNode.id);
@@ -670,6 +699,7 @@ export function buildPDG(cfgGraph: Graph, config: Sink[]): PDGReturn {
     });
 
     trackers.print();
+    console.log(config);
     return {
         graph,
         trackers

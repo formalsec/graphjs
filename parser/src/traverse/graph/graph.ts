@@ -10,6 +10,7 @@ export class Graph {
     private _outputManager: OutputManager | null;
     private _startNodes: Map<string, GraphNode[]>; // Change this to a custom type
     private _taintNode: number;
+    private _sinkNodes: Map<string, number>;
 
     constructor(outputManager: OutputManager | null) {
         this.nodeCounter = 0;
@@ -22,6 +23,7 @@ export class Graph {
         this._startNodes = new Map();
 
         this._taintNode = -1;
+        this._sinkNodes = new Map();
     }
 
     get nodes() {
@@ -48,6 +50,10 @@ export class Graph {
         return this._taintNode;
     }
 
+    get sinkNodes() {
+        return this._sinkNodes;
+    }
+
     /**
      * @param {OutputManager} outputManager
      */
@@ -61,6 +67,16 @@ export class Graph {
         const node = new GraphNode(id, "TAINT_SOURCE", { type: "TAINT" });
         this.nodes.set(id, node);
         this._taintNode = id;
+        return node;
+    }
+
+    addSinkNode(sink: string): GraphNode {
+        // eslint-disable-next-line no-plusplus
+        const id = this.nodeCounter++;
+        const node = new GraphNode(id, "TAINT_SINK", { type: "TAINT", label: sink });
+        node.identifier = sink;
+        this.nodes.set(id, node);
+        this._sinkNodes.set(sink, id);
         return node;
     }
 

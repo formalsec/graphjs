@@ -9,9 +9,10 @@ enum DependencyType {
 export interface Dependency {
     type: string,
     source: number,
-    name?: string,
+    name: string,
     value?: string,
     destination?: number,
+    arg?: number,
 };
 
 export class DependencyFactory {
@@ -30,11 +31,12 @@ export class DependencyFactory {
     //     };
     // }
 
-    static DVar(name: string, source: number): Dependency {
+    static DVar(name: string, source: number, arg?: number): Dependency {
         return {
             type: DependencyType[DependencyType.DVar],
             name: name,
             source: source,
+            arg: arg,
         };
     }
 

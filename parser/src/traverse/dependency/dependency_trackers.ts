@@ -15,7 +15,7 @@ interface ValidObject {
 
 type Heap = Map<string, HeapObject>;
 type Store = Map<string, StorageValue[]>;
-type Phi = Map<string, number>;
+// type Phi = Map<string, number>;
 type References = Map<string, string[]>;
 type GNodes = Map<string, number>;
 type FContexts = Map<number, number[]>;
@@ -171,6 +171,19 @@ export class DependencyTracker {
 //     addToPhi(name: string, id: number) {
 //         this.phi.set(name, id);
 //     }
+
+    graphConnectToSinkNode(source: number, sourceName: string, sinkNode: number) {
+        // create ref edge
+        this.graph.addEdge(source, sinkNode, { type: "PDG", label: "DEP", objName: sourceName  });
+    }
+
+    graphCheckSinkNode(sink: string): number | undefined {
+        return this.graph.sinkNodes.get(sink);
+    }
+
+    graphAddSinkNode(sink: string): GraphNode {
+        return this.graph.addSinkNode(sink);
+    }
 
     graphCreateNewObject(sourceId: number, objName: string, pdgObjName: string, pdgObjNameContext: string): number {
         // create node
@@ -568,12 +581,16 @@ export class DependencyTracker {
 };
 
 
-export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode): Dependency[] {
+export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode, arg?: number): Dependency[] {
 	switch (node.type) {
         case "ThisExpression":
 		case "Identifier": {
             const objName = node.obj.name;
             const depObjId = trackers.getObjectVersions(objName, node.functionContext).slice(-1)[0];
+
+            if (arg) {
+                return [ DependencyFactory.DVar(objName, depObjId, arg) ];
+            }
 
             return [ DependencyFactory.DVar(objName, depObjId) ];
 		}
@@ -623,7 +640,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const args = getAllASTNodes(node, "arg");
 
             // get all argument dependencies
-            let argDeps = args.map(arg => evalDep(trackers, stmtId, arg)).flat();
+            let argDeps = args.map((arg, i) => evalDep(trackers, stmtId, arg, i+1)).flat();
 
             // get callee dependencies
             const calleeDeps = evalDep(trackers, stmtId, callee).map(cd => {
