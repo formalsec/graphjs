@@ -120,6 +120,7 @@ function buildCFG(astGraph: Graph) {
 
             const _endIf = graph.addNode("CFG_IF_END", { type: "CFG" });
             _endIf.identifier = node.id.toString();
+            node.cfgEndNodeId = _endIf.id;
 
             graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test" });
             graph.addEdge(test.exit.id, consequent.root.id, { type: "CFG", label: "TRUE" });

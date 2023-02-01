@@ -13,6 +13,7 @@ export class GraphNode {
     private _functionNodeId: number;
     private _internalStructure: any;
     private _used: boolean;
+    private _cfgEndNodeId: number;
 
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
@@ -27,6 +28,7 @@ export class GraphNode {
         this._functionNodeId = -1;
         this._internalStructure = null;
         this._used = false;
+        this._cfgEndNodeId = -1;
     }
 
     get id() {
@@ -107,6 +109,14 @@ export class GraphNode {
 
     get used() {
         return this._used;
+    }
+
+    get cfgEndNodeId() {
+        return this._cfgEndNodeId;
+    }
+
+    set cfgEndNodeId(id: number) {
+        this._cfgEndNodeId = id;
     }
 
     setUsed() {

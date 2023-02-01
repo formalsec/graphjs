@@ -1,6 +1,6 @@
 import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
-import { clone, getASTNode, getAllASTNodes, getNextObjectName, ContextNames, copyObj } from "../../utils/utils";
+import { clone, getASTNode, getAllASTNodes, getNextObjectName, ContextNames, copyObj, deepCopyStore } from "../../utils/utils";
 import { Dependency, DependencyFactory } from "./dep_factory";
 import { StorageObject, StorageValue, StorageFactory } from "./sto_factory";
 
@@ -14,7 +14,7 @@ interface ValidObject {
 }
 
 type Heap = Map<string, HeapObject>;
-type Store = Map<string, StorageValue[]>;
+export type Store = Map<string, StorageValue[]>;
 // type Phi = Map<string, number>;
 type References = Map<string, string[]>;
 type GNodes = Map<string, number>;
@@ -349,8 +349,30 @@ export class DependencyTracker {
         this.heap = new Map(newHeap);
     }
 
-    private setStore(newStore: Store) {
-        this.store = new Map(newStore);
+    setStore(newStore: Store) {
+        this.store = deepCopyStore(newStore);
+    }
+
+    mergeStores(storeA: Store, storeB: Store): Store {
+        const mergedStore = deepCopyStore(storeA);
+        const mergedKeys = Array.from(mergedStore.keys());
+
+        storeB.forEach((value: StorageValue[], key: string) => {
+
+            if (!mergedKeys.includes(key)) {
+                // include all pairs in storeB that were not in storeA
+                mergedStore.set(key, value);
+            } else {
+                // include all storagevalues in storeB that were not in storeA for this key
+                const mergedLocs = mergedStore.get(key);
+                value.forEach((s: StorageValue) => {
+                    if (mergedLocs && StorageFactory.isStorageObject(s) && !StorageFactory.includes(<StorageObject>s, mergedLocs)) {
+                        mergedStore.set(key, [...mergedLocs, s])
+                    }
+                });
+            }
+        });
+        return mergedStore;
     }
 
     // private setPhi(newPhi: Phi) {
@@ -564,6 +586,10 @@ export class DependencyTracker {
         clone.setFuncContexts(this.funcContexts);
         clone.setContext(this.intraContextStack);
         return clone;
+    }
+
+    storeSnapshot(): Store {
+        return deepCopyStore(this.store);
     }
 
     print() {
