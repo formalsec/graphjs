@@ -2,11 +2,11 @@ import { GraphEdge } from "../graph/edge";
 import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
 import { clone, createThisExpression, getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
-import { DependencyTracker, evalDep, evalSto } from "./dependency_trackers";
+import { DependencyTracker, evalDep, evalSto, Store } from "./dependency_trackers";
 import { StorageFactory, StorageObject, StorageValue } from "./sto_factory";
 import { Identifier } from "estree";
 import { DependencyFactory, Dependency } from "./dep_factory";
-import { Config } from "../../utils/config_reader";
+import { Config, FunctionSink, PackageSink, NewSink } from "../../utils/config_reader";
 
 function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const variableName = trackers.getContextNameList(variable.name, stmt.functionContext).slice(-1)[0];
@@ -121,7 +121,7 @@ function createNewObjectVersionNodesWithStorage(stmtId: number, objName: string,
             const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
 
             const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
-            trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName);
+            trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName, deps);
 
             // If old version have a sub object with a hanging ref, update the ref
             const oldSubjObjects = trackers.getPropStorage(objNameContext, propName)
@@ -172,7 +172,7 @@ function createNewObjectVersionNodes(stmtId: number, objName: string, objNameCon
     }
 }
 
-function createSubObject(stmtId: number, objNameContext: string, propName: string, trackers: DependencyTracker) {
+function createSubObject(stmtId: number, objNameContext: string, propName: string, deps: Dependency[], trackers: DependencyTracker): number | undefined {
     // get last location of object (most recent version)
     const lastObjLocation = trackers.getLastObjectLocation(objNameContext);
 
@@ -190,7 +190,8 @@ function createSubObject(stmtId: number, objNameContext: string, propName: strin
             locationHeapValue[propName] = StorageFactory.StoObject(pdgObjNameContext);
 
             const subObjectId = trackers.graphCreateNewObject(stmtId, propName, pdgObjName, pdgObjNameContext);
-            trackers.graphCreateSubObjectEdge(oldObjVersionId, subObjectId, propName);
+            trackers.graphCreateSubObjectEdge(oldObjVersionId, subObjectId, propName, deps);
+            return subObjectId;
         }
     }
 }
@@ -205,18 +206,28 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
 
     // evaluate dependency of expression
     let deps = evalDep(trackers, stmtId, memExpNode);
+    let subObjId = deps
+        .filter(d => DependencyFactory.isDObject(d))
+        .map(d => d.source).slice(-1)[0];
 
-    // if there are no dependencies then we have to create
+    // if there are no object dependencies then we have to create
     // the objects corresponding to the properties in the
     // memExpNode and re-run evalDep
-    if (deps.length === 0) {
+    if (deps.filter(d => DependencyFactory.isDObject(d)).length === 0) {
         const objName = obj.obj.name;
         const objNameContextList = trackers.getContextNameList(objName, stmt.functionContext);
         const validObj = trackers.getValidObject(objNameContextList);
         const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
         let propName = prop.obj.name;
 
-        createSubObject(stmtId, objNameContext, propName, trackers);
+        // if the member expression is computed  and is not a Literal
+        if (memExpNode.obj.computed && prop.type !== "Literal") {
+            // change propName to be '*' since the property is dynamic
+            propName = '*';
+        }
+
+        const newobjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
+        if (newobjId) subObjId = newobjId;
         deps = evalDep(trackers, stmtId, memExpNode);
     }
 
@@ -242,7 +253,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         }
     }
 
-    trackers.graphCreateMemberExpressionDependencies(stmtId, deps);
+    trackers.graphCreateMemberExpressionDependencies(stmtId, subObjId, deps);
 
     return trackers;
 }
@@ -321,7 +332,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         // according to config
         deps.forEach(dep => {
             if (DependencyFactory.isDVar(dep) && dep.arg && sink.args.includes(dep.arg)) {
-                trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
+                    trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
             }
         });
     }
@@ -353,20 +364,6 @@ function handleArrayExpression(stmtId: number, functionContext: number, variable
 
     return trackers;
 }
-
-// function handleIfStatementTest(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-//     // clone trackers
-//     const newTrackers = trackers.clone();
-
-//     // evaluate dependency of expression
-//     const deps = evalDep(trackers, stmtId, expNode, undefined);
-
-//     // apply dependencies to graph (var edges)
-//     newTrackers.graphBuildEdge(deps);
-
-//     return newTrackers;
-// }
-
 
 function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: GraphNode, funcIdentifier: Identifier, funcExpNode: GraphNode, trackers: DependencyTracker) : DependencyTracker {
     trackers = trackers.addFunctionContext(funcNode.id);
@@ -457,17 +454,18 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     // of the property as it is a variable,  because it
     // influences the object otherwise treat it is a Literal
     if (left.obj.computed && prop.type !== "Literal") {
-        deps = evalDep(trackers, stmtId, prop);
-        deps = [ ...deps, ...evalDep(trackers, stmtId, right) ];
+        // deps = evalDep(trackers, stmtId, prop);
+        // deps = [ ...deps, ...evalDep(trackers, stmtId, right) ];
 
         // change propName to be '*' since the property is dynamic
         propName = '*';
-    } else {
+    } //else {
         // if the prop is a Literal or the member expression is not
         // computed then we just evaluate the dependencies for the
         // right side
-        deps = evalDep(trackers, stmtId, right);
-    }
+    //     deps = evalDep(trackers, stmtId, right);
+    // }
+    deps = evalDep(trackers, stmtId, right);
 
     // if it is an object just evaluate and create new object version
     if (sto.length > 0 && StorageFactory.isStorageObject(objStorage)) {
@@ -583,34 +581,86 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
 
     const visitedNodes: number[] = [];
 
-    function traverse(node: GraphNode, currentNamespace: string | null) {
-        if (node === null) return;
+    function traverse(node: GraphNode, currentNamespace: string | null, curTrackers: DependencyTracker): DependencyTracker {
+        if (node === null) return curTrackers;
 
         // to avoid duplicate traversal of a node with more than one "from" CFG edge
-        if (visitedNodes.includes(node.id)) return;
+        if (visitedNodes.includes(node.id)) return curTrackers;
         visitedNodes.push(node.id);
 
         // check all possible statements after normalization
         switch (node.type) {
             case "CFG_F_START": {
                 if (node.namespace) {
-                    trackers = pushContext(trackers, node.id);
+                    curTrackers = pushContext(curTrackers, node.id);
                 }
                 break;
             }
 
-            // case "IfStatement": {
-            //     const ifTest = getASTNode(node, "test");
+            case "IfStatement": {
+                const ifTest = getASTNode(node, "test");
 
-            //     // in this case we use the id of the test (identifier) node because
-            //     // the CFG "extracts" this node from the AST and inlines it in the
-            //     // control flow
-            //     trackers = handleIfStatementTest(ifTest.id, ifTest, trackers);
-            //     break;
-            // }
+                // in this case we use the id of the test (identifier) node because
+                // the CFG "extracts" this node from the AST and inlines it in the
+                // control flow
+                const deps = evalDep(curTrackers, ifTest.id, ifTest);
+                deps.forEach(dep => curTrackers.graphCreateReferenceEdge(ifTest.id, dep.source));
+
+                const origStore = curTrackers.storeSnapshot();
+                let thenStore: Store = new Map();
+                let elseStore: Store = new Map();
+                let mergedStore: Store = new Map();
+
+                // if statements must be traversed in a special manner
+                // because we need to merge the objects that might be
+                // influenced by both branches
+                const cfgEdges = ifTest.edges.filter((edge: GraphEdge) => edge.type === "CFG");
+
+                // process then branch
+                // until end if node
+                const thenEdge = cfgEdges[0];
+                curTrackers = traverse(thenEdge.nodes[1], currentNamespace, curTrackers);
+                thenStore = curTrackers.storeSnapshot();
+                mergedStore = thenStore;
+
+                // process else branch if it exists
+                // until end if node
+                if (cfgEdges.length > 1) {
+                    // restore store to original store before using the edge
+                    curTrackers.setStore(origStore);
+                    const elseEdge = cfgEdges[1];
+                    curTrackers = traverse(elseEdge.nodes[1], currentNamespace, curTrackers);
+                    elseStore = curTrackers.storeSnapshot();
+                    mergedStore = curTrackers.mergeStores(thenStore, elseStore);
+                }
+
+                // set the merge
+                curTrackers.setStore(mergedStore);
+                // console.log("orig:", origStore);
+                // console.log("==================");
+                // console.log("then:", thenStore);
+                // console.log("==================");
+                // console.log("else:", elseStore);
+                // console.log("==================");
+                // console.log("merged:", mergedStore);
+
+                // run all remaining cfg nodes after the end if node
+                const endIfNodeId = node.cfgEndNodeId;
+                if (endIfNodeId > 0) {
+                    const endIfNode = graph.nodes.get(endIfNodeId);
+                    const nextNode = endIfNode?.edges[0].nodes[1];
+                    if (nextNode) curTrackers = traverse(nextNode, currentNamespace, curTrackers);
+                }
+
+                return curTrackers;
+            }
+
+            case "CFG_IF_END": {
+                return curTrackers;
+            }
 
             case "CFG_F_END": {
-                trackers = popContext(trackers);
+                curTrackers = popContext(curTrackers);
                 break;
             }
 
@@ -618,7 +668,7 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             case "ExpressionStatement": {
                 const expressionNode = getASTNode(node, "expression");
                 if (expressionNode) {
-                    trackers = handleExpressionStatement(node.id, node, expressionNode, config, trackers);
+                    curTrackers = handleExpressionStatement(node.id, node, expressionNode, config, curTrackers);
                 }
                 break;
             }
@@ -626,11 +676,11 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             case "VariableDeclarator": {
                 const initNode = getASTNode(node, "init");
                 if (initNode) {
-                    trackers = handleVariableAssignment(node.id, node, node, initNode, config, trackers);
+                    curTrackers = handleVariableAssignment(node.id, node, node, initNode, config, curTrackers);
                 }
                 // else {
                 //     // trackers.addVariable(p.obj.name, funcNode.id);
-                //     trackers = createAndStoreNewObjectNode(node.id, node, node.obj.id, trackers).newTrackers;
+                //     curTrackers = createAndStoreNewObjectNode(node.id, node, node.obj.id, curTrackers).newTrackers;
                 // }
                 break;
             }
@@ -644,7 +694,7 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             // // case "FunctionDeclaration": {
             // //     const params = getAllASTNodes(node, "param");
             // //     params.forEach(p => {
-            // //         trackers = createAndStoreNewObjectNode(p.id, p.obj.id, trackers);
+            // //         curTrackers = createAndStoreNewObjectNode(p.id, p.obj.id, curTrackers);
             // //     });
             // //     break;
             // // }
@@ -653,7 +703,7 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             // case "WhileStatement": {
             //     const test = getASTNode(node, "test");
 
-            //     trackers = handleWhileStatement(test.id, test, trackers);
+            //     curTrackers = handleWhileStatement(test.id, test, curTrackers);
             //     break;
             // }
 
@@ -662,14 +712,14 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             //     const left = getASTNode(node, "left");
             //     const right = getASTNode(node, "right");
 
-            //     trackers = handleForInStatement(node.id, left, right, trackers);
+            //     curTrackers = handleForInStatement(node.id, left, right, curTrackers);
             //     break;
             // }
 
             case "ReturnStatement": {
                 const argument = getASTNode(node, "argument");
                 if (argument) {
-                    trackers = handleReturnArgument(node.id, argument, trackers);
+                    curTrackers = handleReturnArgument(node.id, argument, curTrackers);
                 }
                 break;
             }
@@ -677,7 +727,7 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             // // case "ClassDeclaration": {
             // //     const body = getASTNode(node, "body");
             // //     const funcNode = getFDNode(body);
-            // //     trackers = handleFunctionDeclaration(node.id, node, funcNode, leftIdentifier, right, trackers);
+            // //     curTrackers = handleFunctionDeclaration(node.id, node, funcNode, leftIdentifier, right, curTrackers);
             // //     break;
             // // }
 
@@ -694,18 +744,19 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             .filter((edge: GraphEdge) => edge.type === "CFG")
             .forEach((edge: GraphEdge) => {
                 const n = edge.nodes[1];
-                traverse(n, currentNamespace);
+                curTrackers = traverse(n, currentNamespace, curTrackers);
             });
+
+        return curTrackers;
     }
 
     // traverse CFG nodes
     const startNodes = graph.startNodes.get("CFG");
     startNodes?.forEach((node: GraphNode) => {
-        traverse(node, node.namespace);
+        trackers = traverse(node, node.namespace, trackers);
     });
 
     trackers.print();
-    console.log(config);
     return {
         graph,
         trackers

@@ -31,4 +31,12 @@ export class StorageFactory {
         return Object.keys(sto).includes("location");
     }
 
+    static includes(s: StorageObject, mergedLocs: StorageValue[]) {
+        const sameLoc = mergedLocs.
+            filter(ms => StorageFactory.isStorageObject(ms)).
+            map(ms => <StorageObject>ms).
+            filter(ms => ms.location == s.location);
+        return sameLoc && sameLoc.length > 0;
+    }
+
 }

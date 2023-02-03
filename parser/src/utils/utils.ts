@@ -1,4 +1,6 @@
 import { Identifier } from "estree";
+import { Store } from "../traverse/dependency/dependency_trackers";
+import { StorageValue } from "../traverse/dependency/sto_factory";
 import { GraphEdge } from "../traverse/graph/edge";
 import { GraphNode } from "../traverse/graph/node";
 
@@ -65,4 +67,14 @@ export function createThisExpression(): Identifier {
         type: "Identifier",
         name: "this",
     };
+}
+
+export function deepCopyStore(s: Store): Store {
+    const storeCloned: Store = new Map();
+
+    s.forEach((values: StorageValue[], key: string) => {
+        storeCloned.set(key, clone(values));
+    });
+
+    return storeCloned;
 }
