@@ -48,7 +48,9 @@ function parse(filename: string, config: Config, file_output: boolean) : Graph {
         normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true});
         const astGraph = buildAST(normalizedAst);
         const cfgGraph = buildCFG(astGraph);
-        const callGraph = buildCallGraph(cfgGraph);
+        const callGraphReturn = buildCallGraph(cfgGraph, config);
+        const callGraph = callGraphReturn.callGraph;
+        config = callGraphReturn.config;
         const pdgReturn: PDGReturn = buildPDG(callGraph, config);
         const pdgGraph = pdgReturn.graph;
         const trackers = pdgReturn.trackers;

@@ -1,7 +1,8 @@
 import { GraphEdge } from "./graph/edge";
 import { Graph } from "./graph/graph";
 import { GraphNode } from "./graph/node";
-import { getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../utils/utils";
+import { copyObj, getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../utils/utils";
+import { Config } from "../utils/config_reader";
 
 type GFunctions = Map<string, Map<string, number>>;
 
@@ -59,9 +60,15 @@ class GraphFunctions {
     }
 }
 
+interface CallGraphReturn {
+    callGraph: Graph,
+    config: Config
+};
+
 /* eslint-disable consistent-return */
-function buildCallGraph(pdgGraph: Graph) {
+function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
     const graph = pdgGraph;
+    let newConfig: Config = copyObj(origConfig);
     const gFunctions = new GraphFunctions();
     const visitedNodes: number[] = [];
 
@@ -93,6 +100,49 @@ function buildCallGraph(pdgGraph: Graph) {
             });
     }
 
+    function addToConfigME(propName: string, objName: string, id: string, origConfig: Config): Config {
+        const newConfig: Config = copyObj(origConfig);
+        const fsinks = newConfig.functions.filter(s => s.sink === propName);
+        const psinks = newConfig.packages.filter(s => s.sink === propName);
+
+        if (psinks.length > 0) {
+            const sink = psinks.slice(-1)[0];
+            const packages = sink.packages.filter(p => p.package === objName);
+
+            if (packages.map(p => p.package).includes(objName)) {
+                newConfig["functions"].push({
+                    sink: id,
+                    args: packages[0].args
+                });
+            }
+        }
+
+        if (fsinks.length > 0) {
+            const sink = fsinks.slice(-1)[0];
+            newConfig["functions"].push({
+                sink: id,
+                args: sink.args
+            });
+        }
+
+        return newConfig;
+    }
+
+    function addToConfigID(idName: string, varName: string, origConfig: Config): Config {
+        const newConfig: Config = copyObj(origConfig);
+        const fsinks = newConfig.functions.filter(s => s.sink === idName);
+
+        if (fsinks.length > 0) {
+            const sink = fsinks.slice(-1)[0];
+            newConfig["functions"].push({
+                sink: varName,
+                args: sink.args
+            });
+        }
+
+        return newConfig;
+    }
+
     function traverse(node: GraphNode): void {
 
         // to avoid duplicate traversal of a node with more than one "from" CFG edge
@@ -118,15 +168,54 @@ function buildCallGraph(pdgGraph: Graph) {
                 // check init
                 // if function add to context for future processing
                 const init = getASTNode(node, "init");
+                const id = node.obj.id;
 
-                if (init && (init.type === "CallExpression" || init.type === "NewExpression")) {
-                    const callee = getASTNode(init, "callee");
-                    gFunctions.addFunctionCall(node.id, callee, graph);
+                if (init) {
+                    if (init.type === "CallExpression" || init.type === "NewExpression") {
+                        const callee = getASTNode(init, "callee");
+                        gFunctions.addFunctionCall(node.id, callee, graph);
+                    } else if(init.type === "Identifier") {
+                        const idName = init.obj.name;
+                        newConfig = addToConfigID(idName, id.name, newConfig);
+                    } else if(init.type === "MemberExpression") {
+                        const obj = getASTNode(init, "object");
+                        const prop = getASTNode(init, "property");
+                        const objName = obj.obj.name;
+                        if (prop.type === "Identifier") {
+                            const propName = prop.obj.name;
+                            newConfig = addToConfigME(propName, objName, id.name, newConfig);
+                        }
+                    }
                 } else {
                     const fd = getFDNode(node);
                     if (fd) {
                         gFunctions.addFunctionToContext(fd);
                         traverse(fd);
+                    }
+                }
+                traverseCFG(node);
+                break;
+            }
+
+            // expression statements are the majority of statements
+            case "AssignmentExpression": {
+                const left = getASTNode(node, "left");
+                const right = getASTNode(node, "right");
+                if (left && left.type === "Identifier" && right) {
+                    if (right.type === "CallExpression" || right.type === "NewExpression") {
+                        const callee = getASTNode(right, "callee");
+                        gFunctions.addFunctionCall(node.id, callee, graph);
+                    } else if(right.type === "Identifier") {
+                        const idName = right.obj.name;
+                        newConfig = addToConfigID(idName, left.obj.name, newConfig);
+                    } else if(right.type === "MemberExpression") {
+                        const obj = getASTNode(right, "object");
+                        const prop = getASTNode(right, "property");
+                        const objName = obj.obj.name;
+                        if (prop.type === "Identifier") {
+                            const propName = prop.obj.name;
+                            newConfig = addToConfigME(propName, objName, left.obj.name, newConfig);
+                        }
                     }
                 }
                 traverseCFG(node);
@@ -141,7 +230,7 @@ function buildCallGraph(pdgGraph: Graph) {
 
     graph.startNodes.get("CFG")?.forEach(n => traverse(n));
     gFunctions.print();
-    return graph;
+    return { callGraph: graph, config: newConfig };
 }
 
 module.exports = { buildCallGraph };
