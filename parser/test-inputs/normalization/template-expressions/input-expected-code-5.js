@@ -9,10 +9,11 @@ const tag = function (strings, personExp, ageExp) {
     const v2 = strings[0];
     const v3 = strings[1];
     const v4 = strings[2];
-    return `${ v2 }${ personExp }${ v3 }${ ageStr }${ v4 }`;
+    const v5 = `${ v2 }${ personExp }${ v3 }${ ageStr }${ v4 }`;
+    return v5;
 };
 const firstName = 'Mike';
 const lastName = 'Wheeler';
 const age = 28;
-const v5 = firstName + lastName;
-const output = tag`${ v5 } is a ${ age }.`;
+const v6 = firstName + lastName;
+const output = tag`${ v6 } is a ${ age }.`;

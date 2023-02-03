@@ -49,6 +49,18 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
 //     return newTrackers;
 // }
 
+function handleTemplateLiteral(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, BinExpNode);
+
+    const newNodeId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
+
+    deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep));
+    trackers.graphCreateReferenceEdge(stmtId, newNodeId);
+
+    return trackers;
+}
+
 function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // evaluate dependency of expression
     const deps = evalDep(trackers, stmtId, BinExpNode);
@@ -426,6 +438,9 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         case "Identifier": {
             return handleSimpleAssignment(stmtId, stmt, leftIdentifier, right, trackers);
         }
+
+        case "TemplateLiteral":
+            return handleTemplateLiteral(stmtId, stmt, leftIdentifier, right, trackers);
     }
 
     // placeholder

@@ -710,9 +710,9 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             return [...argDeps, ...calleeDeps];
         }
 
-        // case "TemplateLiteral": {
-        //     return getAllASTNodes(node, "expression").map(exp => evalDep(trackers, stmtId, exp, destinationId)).flat();
-        // }
+        case "TemplateLiteral": {
+            return getAllASTNodes(node, "expression").map((arg, i) => evalDep(trackers, stmtId, arg, i+1)).flat();
+        }
 
 		default: {
 			return [];
