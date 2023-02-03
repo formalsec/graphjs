@@ -149,10 +149,10 @@ export class DependencyTracker {
         }
     }
 
-//     addInStoreForAll(lastLocation: string, newLocation: StorageObject) {
-//         const allRefs = this.refs.get(lastLocation);
-//         allRefs?.forEach((name) => this.addToStore(name, newLocation));
-//     }
+     addInStoreForAll(lastLocation: string, newLocation: StorageObject) {
+         const allRefs = this.refs.get(lastLocation);
+         allRefs?.forEach((name) => this.addToStore(name, newLocation));
+     }
 
     getLastObjectLocation(objName: string): string | undefined {
         const objLocations = this.getStorage(objName);
