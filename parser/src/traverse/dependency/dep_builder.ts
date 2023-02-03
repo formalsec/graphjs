@@ -121,7 +121,7 @@ function createNewObjectVersionNodesWithStorage(stmtId: number, objName: string,
             const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
 
             const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
-            trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName);
+            trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName, deps);
 
             deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep));
             trackers.graphCreateReferenceEdge(stmtId, subObjectId);
@@ -166,7 +166,7 @@ function createNewObjectVersionNodes(stmtId: number, objName: string, objNameCon
     }
 }
 
-function createSubObject(stmtId: number, objNameContext: string, propName: string, trackers: DependencyTracker) {
+function createSubObject(stmtId: number, objNameContext: string, propName: string, deps: Dependency[], trackers: DependencyTracker): number | undefined {
     // get last location of object (most recent version)
     const lastObjLocation = trackers.getLastObjectLocation(objNameContext);
 
@@ -184,7 +184,8 @@ function createSubObject(stmtId: number, objNameContext: string, propName: strin
             locationHeapValue[propName] = StorageFactory.StoObject(pdgObjNameContext);
 
             const subObjectId = trackers.graphCreateNewObject(stmtId, propName, pdgObjName, pdgObjNameContext);
-            trackers.graphCreateSubObjectEdge(oldObjVersionId, subObjectId, propName);
+            trackers.graphCreateSubObjectEdge(oldObjVersionId, subObjectId, propName, deps);
+            return subObjectId;
         }
     }
 }
@@ -199,18 +200,28 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
 
     // evaluate dependency of expression
     let deps = evalDep(trackers, stmtId, memExpNode);
+    let subObjId = deps
+        .filter(d => DependencyFactory.isDObject(d))
+        .map(d => d.source).slice(-1)[0];
 
-    // if there are no dependencies then we have to create
+    // if there are no object dependencies then we have to create
     // the objects corresponding to the properties in the
     // memExpNode and re-run evalDep
-    if (deps.length === 0) {
+    if (deps.filter(d => DependencyFactory.isDObject(d)).length === 0) {
         const objName = obj.obj.name;
         const objNameContextList = trackers.getContextNameList(objName, stmt.functionContext);
         const validObj = trackers.getValidObject(objNameContextList);
         const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
         let propName = prop.obj.name;
 
-        createSubObject(stmtId, objNameContext, propName, trackers);
+        // if the member expression is computed  and is not a Literal
+        if (memExpNode.obj.computed && prop.type !== "Literal") {
+            // change propName to be '*' since the property is dynamic
+            propName = '*';
+        }
+
+        const newobjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
+        if (newobjId) subObjId = newobjId;
         deps = evalDep(trackers, stmtId, memExpNode);
     }
 
@@ -236,7 +247,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         }
     }
 
-    trackers.graphCreateMemberExpressionDependencies(stmtId, deps);
+    trackers.graphCreateMemberExpressionDependencies(stmtId, subObjId, deps);
 
     return trackers;
 }
@@ -437,17 +448,18 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     // of the property as it is a variable,  because it
     // influences the object otherwise treat it is a Literal
     if (left.obj.computed && prop.type !== "Literal") {
-        deps = evalDep(trackers, stmtId, prop);
-        deps = [ ...deps, ...evalDep(trackers, stmtId, right) ];
+        // deps = evalDep(trackers, stmtId, prop);
+        // deps = [ ...deps, ...evalDep(trackers, stmtId, right) ];
 
         // change propName to be '*' since the property is dynamic
         propName = '*';
-    } else {
+    } //else {
         // if the prop is a Literal or the member expression is not
         // computed then we just evaluate the dependencies for the
         // right side
-        deps = evalDep(trackers, stmtId, right);
-    }
+    //     deps = evalDep(trackers, stmtId, right);
+    // }
+    deps = evalDep(trackers, stmtId, right);
 
     // if it is an object just evaluate and create new object version
     if (sto.length > 0 && StorageFactory.isStorageObject(objStorage)) {

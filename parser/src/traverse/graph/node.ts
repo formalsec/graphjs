@@ -1,3 +1,4 @@
+import { Dependency } from "../dependency/dep_factory";
 import { GraphEdge } from "./edge";
 
 export class GraphNode {
@@ -14,6 +15,7 @@ export class GraphNode {
     private _internalStructure: any;
     private _used: boolean;
     private _cfgEndNodeId: number;
+    private _writeAllSubObjects: Dependency[];
 
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
@@ -29,6 +31,7 @@ export class GraphNode {
         this._internalStructure = null;
         this._used = false;
         this._cfgEndNodeId = -1;
+        this._writeAllSubObjects = [];
     }
 
     get id() {
@@ -117,6 +120,14 @@ export class GraphNode {
 
     set cfgEndNodeId(id: number) {
         this._cfgEndNodeId = id;
+    }
+
+    get writeAllSubObjects() {
+        return this._writeAllSubObjects;
+    }
+
+    addWriteAllSubObjects(dep: Dependency) {
+        this._writeAllSubObjects.push(dep);
     }
 
     setUsed() {

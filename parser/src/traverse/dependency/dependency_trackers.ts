@@ -3,6 +3,7 @@ import { GraphNode } from "../graph/node";
 import { clone, getASTNode, getAllASTNodes, getNextObjectName, ContextNames, copyObj, deepCopyStore } from "../../utils/utils";
 import { Dependency, DependencyFactory } from "./dep_factory";
 import { StorageObject, StorageValue, StorageFactory } from "./sto_factory";
+import { deepStrictEqual } from "assert";
 
 export interface HeapObject {
     [key: string]: StorageValue,
@@ -212,9 +213,14 @@ export class DependencyTracker {
         varDeps.forEach(dep => this.graphCreateDependencyEdge(dep.source, newObjId, dep));
     }
 
-    graphCreateMemberExpressionDependencies(stmtId: number, deps: Dependency[]) {
-        const objDeps = deps.filter(dep => DependencyFactory.isDObject(dep));
-        objDeps.forEach(dep => this.graphCreateReferenceEdge(stmtId, dep.source));
+    graphCreateMemberExpressionDependencies(stmtId: number, newObjId: number, deps: Dependency[]) {
+        deps
+            .filter(dep => DependencyFactory.isDObject(dep))
+            .forEach(dep => this.graphCreateReferenceEdge(stmtId, dep.source));
+
+        deps
+            .filter(dep => DependencyFactory.isDVar(dep))
+            .forEach(dep => this.graphCreateDependencyEdge(dep.source, newObjId, dep));
     }
 
     graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string) {
@@ -222,9 +228,15 @@ export class DependencyTracker {
         this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName });
     }
 
-    graphCreateSubObjectEdge(objId: number, subObjId: number, propName: string) {
+    graphCreateSubObjectEdge(objId: number, subObjId: number, propName: string, deps: Dependency[] = []) {
         // create new version edge
         this.graph.addEdge(objId, subObjId, { type: "PDG", label: "SO", objName: propName });
+
+        // if we are writing all possible subobject
+        if (propName === '*') {
+            const objNode = this.graph.nodes.get(objId);
+            deps.filter(dep => DependencyFactory.isDVar(dep)).forEach(dep => objNode?.addWriteAllSubObjects(dep));
+        }
     }
 
 //     graphCreateParamObject(sourceId: number, objName: string, pdgObjName: string, pdgObjNameContext: string) {
@@ -440,7 +452,7 @@ export class DependencyTracker {
             });
         }
 
-        return objIds;
+        return Array.from(new Set(objIds));
     }
 
     getValidObject(objNameContextList: string[]): ValidObject | undefined {
@@ -468,6 +480,16 @@ export class DependencyTracker {
         }
 
         return [];
+    }
+
+    getObjectVersionNodes(objName: string, funcContext: number): GraphNode[] {
+        const objIds = this.getObjectVersions(objName, funcContext);
+        const objs: GraphNode[] = [];
+        objIds.forEach(objId => {
+            const n = this.graph.nodes.get(objId);
+            if (n) objs.push(n);
+        });
+        return objs;
     }
 
     getPropStorage(objName: string, propName: string): StorageValue[] {
@@ -640,24 +662,35 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const prop = getASTNode(node, "property");
             const objName = obj.obj.name;
 
-            // // if the member expression is computed  and is not a
-            // // Literal then we have to evaluate the dependencies
-            // // of the property as it is a variable,  because it
-            // // influences the object otherwise treat it is a Literal
-            // if (node.obj.computed && prop.type !== "Literal") {
-            //     let deps = evalDep(trackers, stmtId, prop);
-            //     let objIds = trackers.getObjectVersions(objName, obj.functionContext);
-            //     deps = [
-            //         ...deps,
-            //         ...objIds.map(objId => DependencyFactory.DObject("*", stmtId, objId, prop.obj.name))
-            //     ];
-            //     return deps;
-            // }
+            let latestObj = trackers.getObjectVersionNodes(objName, obj.functionContext).slice(-1)[0];
+            let deps: Dependency[] = [];
+
+            if (latestObj && latestObj.writeAllSubObjects.length > 0) {
+                deps = latestObj.writeAllSubObjects;
+            }
+
+            // if the member expression is computed  and is not a
+            // Literal then we have to evaluate the dependencies
+            // of the property as it is a variable,  because it
+            // influences the object otherwise treat it is a Literal
+            if (node.obj.computed && prop.type !== "Literal") {
+                // let deps = evalDep(trackers, stmtId, prop);
+                let objIds = trackers.getObjectVersions(objName, obj.functionContext);
+                deps = [
+                    ...deps,
+                    //...objIds.map(objId => DependencyFactory.DObject("*", stmtId, objId))
+                ];
+                return deps;
+            }
 
             // if the prop is a Literal or the member expression is not
             // computed then we just evaluate the dependencies for the object
-            const objIds = trackers.getObjectVersionsWithProp(objName, obj.functionContext, prop.obj.name);
-            return objIds.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId));
+            const objIdsProp = trackers.getObjectVersionsWithProp(objName, obj.functionContext, prop.obj.name);
+            deps = [
+                ...deps,
+                ...objIdsProp.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId))
+            ]
+            return deps;
         }
 
         case "NewExpression":
