@@ -154,7 +154,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
 
     case "TemplateLiteral": {
         const resultExpressions = mapReduce(obj.expressions, obj);
-        return normTemplateLiteral(obj, resultExpressions);
+        return normTemplateLiteral(obj, resultExpressions, parent);
     }
 
     case "MemberExpression": {

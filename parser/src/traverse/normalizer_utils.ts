@@ -517,11 +517,21 @@ export function normTaggedTemplateExpression(obj: TaggedTemplateExpression, chil
     }
 }
 
-export function normTemplateLiteral(obj: TemplateLiteral, children: Normalization[]): Normalization {
+export function normTemplateLiteral(obj: TemplateLiteral, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
 
     const stmts = flatStmts(children);
     newObj.expressions = flatExprs(children);
+
+    if (parent &&
+        (parent.type === "CallExpression"
+        || parent.type === "ReturnStatement")) {
+        const { id, decl } = createVariableDeclaration(newObj);
+        return {
+            stmts: [...flatStmts(children), decl],
+            expr: id,
+        };
+    }
 
     return {
         stmts: [...stmts],

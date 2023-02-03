@@ -49,6 +49,18 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
 //     return newTrackers;
 // }
 
+function handleTemplateLiteral(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, BinExpNode);
+
+    const newNodeId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
+
+    deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep));
+    trackers.graphCreateReferenceEdge(stmtId, newNodeId);
+
+    return trackers;
+}
+
 function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // evaluate dependency of expression
     const deps = evalDep(trackers, stmtId, BinExpNode);
@@ -112,7 +124,7 @@ function createNewObjectVersionNodesWithStorage(stmtId: number, objName: string,
             trackers.graphCreateNewVersionEdge(oldObjVersionId, newObjVersionId, propName);
 
             // store the identifier of the new object
-            trackers.addToStore(objNameContext, StorageFactory.StoObject(pdgObjNameContext));
+            trackers.addInStoreForAll(lastObjLocation, StorageFactory.StoObject(pdgObjNameContext));
 
             const objNameProperty = `${pdgObjName}.${propName}`;
             const objNameContextProperty = `${pdgObjNameContext}.${propName}`;
@@ -122,6 +134,12 @@ function createNewObjectVersionNodesWithStorage(stmtId: number, objName: string,
 
             const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
             trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName, deps);
+
+            // If old version have a sub object with a hanging ref, update the ref
+            const oldSubjObjects = trackers.getPropStorage(objNameContext, propName)
+            const previousSubObject = oldSubjObjects.slice(-2)[0]
+            if (previousSubObject && "location" in previousSubObject)
+                    trackers.addInStoreForAll(previousSubObject.location, StorageFactory.StoObject(propNamesInHeap.pdgObjNameContext));
 
             deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep));
             trackers.graphCreateReferenceEdge(stmtId, subObjectId);
@@ -420,6 +438,9 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         case "Identifier": {
             return handleSimpleAssignment(stmtId, stmt, leftIdentifier, right, trackers);
         }
+
+        case "TemplateLiteral":
+            return handleTemplateLiteral(stmtId, stmt, leftIdentifier, right, trackers);
     }
 
     // placeholder
