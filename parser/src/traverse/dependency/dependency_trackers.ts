@@ -743,6 +743,10 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
 
             if (validObj) {
                 const objNameContext = validObj.name;
+                // if property is not a Literal, need to get dynamic property
+                if (prop.type !== "Literal") {
+                    return trackers.getPropStorage(objNameContext, '*');
+                }
                 return trackers.getPropStorage(objNameContext, prop.obj.name);
             }
             return [ {} ];
