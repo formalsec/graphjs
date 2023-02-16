@@ -1049,9 +1049,10 @@ export function normMemberExpression(obj: MemberExpression, children: Normalizat
     newObj.property = children[1].expr;
 
     if (parent
-        && (parent.type === "VariableDeclarator"
+        && (parent.type === "VariableDeclarator" ||
             // || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression")) {
+            parent.type === "CallExpression" ||
+            parent.type === "AssignmentExpression")) {
         return {
             stmts: [...children[0].stmts, ...children[1].stmts],
             expr: newObj,
