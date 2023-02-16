@@ -5,7 +5,6 @@ let iterable = [
 ];
 let value;
 for (value of iterable) {
-    const v1 = console.log;
-    const v2 = v1(value);
-    v2;
+    const v1 = console.log(value);
+    v1;
 }

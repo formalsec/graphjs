@@ -1051,7 +1051,7 @@ export function normMemberExpression(obj: MemberExpression, children: Normalizat
     if (parent
         && (parent.type === "VariableDeclarator" ||
             // || parent.type === "ExpressionStatement"
-            parent.type === "CallExpression" ||
+            (parent.type === "CallExpression" && parent.callee === obj) ||
             parent.type === "AssignmentExpression")) {
         return {
             stmts: [...children[0].stmts, ...children[1].stmts],

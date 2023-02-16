@@ -6,3 +6,4 @@ virtual_py/*
 neo4j-custom/.config
 __pycache__/
 .vscode/
+.idea/
