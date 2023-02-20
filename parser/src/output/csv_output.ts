@@ -27,18 +27,19 @@ export class CSVOutput extends OutputWriter {
 
             // node identifier name
             switch (node.type) {
-            case "Identifier":
-            case "VariableDeclarator":
-            case "FunctionDeclaration":
-            case "PDG_OBJECT":
-            case "CFG_F_START":
-            case "CFG_F_END":
-            case "CFG_IF_END":
-                n.push(node.identifier);
-                break;
+                case "Identifier":
+                case "VariableDeclarator":
+                case "FunctionDeclaration":
+                case "PDG_OBJECT":
+                case "CFG_F_START":
+                case "CFG_F_END":
+                case "CFG_IF_END":
+                case "TAINT_SINK":
+                    n.push(node.identifier);
+                    break;
 
-            default:
-                n.push("");
+                default:
+                    n.push("");
             }
 
             // Raw
