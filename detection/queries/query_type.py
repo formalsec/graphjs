@@ -79,7 +79,7 @@ class QueryType:
 
 
     @abstractmethod
-    def find_pdg_paths(self, session, sources, sinks):
+    def find_vulnerable_paths(self, session):
         pass
 
 
