@@ -72,7 +72,7 @@ export class DependencyTracker {
         return contextList ? [...contextList, latestContext].map(ctx => `${ctx}.${name}`) : [`${latestContext.toString()}.${name}`];
     }
 
-    addParamNode(stmtId: number, name: string, nameContext: string) {
+    addParamNode(stmtId: number, name: string, nameContext: string, index: number): void {
         // add to heap
         const { pdgObjName, pdgObjNameContext } = this.addNewObjectToHeap(name, nameContext);
 
@@ -91,7 +91,7 @@ export class DependencyTracker {
         // connect taint node
         this.graph.addEdge(this.graph.taintNode, nodeObj.id, { type: "PDG", label: "TAINT" });
 
-        this.graphCreateReferenceEdge(stmtId, nodeObj.id);
+        this.graphCreateSourceEdge(stmtId, nodeObj.id, index);
     }
 
     addNewObjectToHeap(name: string, nameContext: string, heapObject?: HeapObject): ContextNames {
@@ -195,14 +195,49 @@ export class DependencyTracker {
         return nodeObj.id;
     }
 
-    graphCreateReferenceEdge(source: number, destination: number) {
-        // create ref edge
-        this.graph.addEdge(source, destination, { type: "REF", label: "" });
+    /**
+     * Methods for adding edges in the graph:
+     *   - Reference edges
+     *   - Dependency edges
+     *   - Source edges
+     *   - Sink edges
+     *   - Return edges (TODO)
+     *   - New version edges
+     *   - Sub-object edges
+     */
+
+    graphCreateReferenceEdge(source: number, destination: number, label: string = ""): void {
+        this.graph.addEdge(source, destination, { type: "REF", label });
     }
 
-    graphCreateDependencyEdge(source: number, destination: number, dep: Dependency) {
-        // create ref edge
+    graphCreateDependencyEdge(source: number, destination: number, dep: Dependency): void {
         this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name });
+    }
+
+    graphCreateSourceEdge(source: number, destination: number, index: number): void {
+        this.graph.addEdge(source, destination, { type: "REF", label: "param", paramIndex: index })
+    }
+
+    graphCreateSinkEdge(source: number, destination: number, type: string): void {
+        this.graph.addEdge(source, destination, { type: "SINK", label: "SINK", objName: type })
+    }
+
+    graphCreateReturnEdge(source: number, destination: number): void {
+        this.graph.addEdge(source, destination, { type: "REF", label: "RET" });
+    }
+
+    graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string): void {
+        this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName });
+    }
+
+    graphCreateSubObjectEdge(objId: number, subObjId: number, propName: string, deps: Dependency[] = []): void {
+        this.graph.addEdge(objId, subObjId, { type: "PDG", label: "SO", objName: propName });
+
+        // if we are writing all possible subobject
+        if (propName === '*') {
+            const objNode = this.graph.nodes.get(objId);
+            deps.filter(dep => DependencyFactory.isDVar(dep)).forEach(dep => objNode?.addWriteAllSubObjects(dep));
+        }
     }
 
     graphCreateCallStatementDependencies(stmtId: number, newObjId: number, deps: Dependency[]) {
@@ -222,140 +257,6 @@ export class DependencyTracker {
             .filter(dep => DependencyFactory.isDVar(dep))
             .forEach(dep => this.graphCreateDependencyEdge(dep.source, newObjId, dep));
     }
-
-    graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string) {
-        // create new version edge
-        this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName });
-    }
-
-    graphCreateSubObjectEdge(objId: number, subObjId: number, propName: string, deps: Dependency[] = []) {
-        // create new version edge
-        this.graph.addEdge(objId, subObjId, { type: "PDG", label: "SO", objName: propName });
-
-        // if we are writing all possible subobject
-        if (propName === '*') {
-            const objNode = this.graph.nodes.get(objId);
-            deps.filter(dep => DependencyFactory.isDVar(dep)).forEach(dep => objNode?.addWriteAllSubObjects(dep));
-        }
-    }
-
-//     graphCreateParamObject(sourceId: number, objName: string, pdgObjName: string, pdgObjNameContext: string) {
-//         // create node
-//         const nodeObj = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
-//         this.gNodes.set(pdgObjNameContext, nodeObj.id);
-//         nodeObj.identifier = pdgObjName;
-
-//         this.graph.addEdge(this.graph.taintNode, nodeObj.id, { type: "PDG", label: "TAINT" });
-//         this.graph.addEdge(sourceId, nodeObj.id, { type: "REF", label: "", objName: objName });
-//     }
-
-//     graphCreateNewSubObject(sourceId: number, objects: string[], objName: string, propName: string, pdgObjName: string, pdgObjNameContext: string) {
-//         const subObj = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
-//         this.gNodes.set(pdgObjNameContext, subObj.id);
-//         subObj.identifier = pdgObjName;
-
-//         // this op must be written to gChanges first
-//         objects.forEach(obj => {
-//             const sourceObjId = this.gNodes.get(obj);
-//             // add create edge
-//             if (sourceObjId) {
-//                 this.graph.addEdge(sourceObjId, subObj.id, { type: "SUB", label: "SO", objName: propName });
-//             }
-//         });
-//     }
-
-//     graphCreateNewObjectVersion(sourceId: number, srcLocation: string, dstLocation: string, dstLocationContext: string, deps: Dependency[], propName: string, sourceObjName?: string) {
-//         // create new version node
-//         const nodeObj = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
-//         this.gNodes.set(dstLocationContext, nodeObj.id);
-//         nodeObj.identifier = dstLocation;
-
-//         // // get id of object node (destination)
-//         // const destinationNodeId = this.gNodes.get(dstLocationContext);
-//         // // add write edge
-//         // if (destinationNodeId) {
-//         //     this.graph.addEdge(sourceId, destinationNodeId, {
-//         //         type: "PDG",
-//         //         label: "WRITE",
-//         //         objName: propName,
-//         //         sourceObjName: sourceObjName
-//         //     });
-//         // }
-
-//         // this op must be written to gChanges first
-//         const destinationObjId = this.gNodes.get(propName);
-//         // add create edge
-//         if (destinationObjId) {
-//             this.graph.addEdge(nodeObj.id, destinationObjId, { type: "SUB", label: "SUB_OBJECT", objName: propName });
-//         }
-
-//         // add new version edge
-//         const previousVersionId = this.gNodes.get(srcLocation);
-//         if (previousVersionId) {
-//             this.graph.addEdge(previousVersionId, nodeObj.id, {
-//                 type: "PDG",
-//                 label: "NEW_VERSION",
-//                 objName: propName,
-//                 sourceObjName: sourceObjName,
-//             });
-//         }
-
-//         // deps.forEach(dep => {
-//         //     const name = dep.name || "";
-//         //     // add var dependency edge
-//         //     if (dep.source && dep.destination && dep.source !== dep.destination) {
-//         //         this.graph.addEdge(dep.source, dep.destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: name });
-//         //     }
-//         // });
-//     }
-
-//     graphBuildEdge(deps: Dependency[], destinationId: number) {
-//         deps.forEach(dep => {
-//             const name = dep.name || "";
-//             // add var dependency edge
-//             if (dep.source && dep.source !== destinationId) {
-//                 this.graph.addEdge(dep.source, destinationId, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: name });
-//             }
-//         });
-//     }
-
-//     graphBuildReferenceEdge(sourceId: number, variableName: string, destinationId: number) {
-//         if (sourceId !== destinationId) {
-//             this.graph.addEdge(sourceId, destinationId, { type: "REF", label: "", objName: variableName });
-//         }
-//     }
-
-//     graphBuildReferenceEdgeLocation(sourceId: number, variableName: string, location: string) {
-//         const locationId = this.gNodes.get(location);
-
-//         if (locationId && sourceId !== locationId) {
-//             this.graph.addEdge(sourceId, locationId, { type: "REF", label: "", objName: variableName });
-//         }
-//     }
-
-//     graphLookupObject(deps: Dependency[]) {
-//         deps.forEach(dep => {
-//             const propName = dep.name || "";
-
-//             if (DependencyFactory.isDVar(dep)) {
-//                 const name = dep.name || "";
-//                 // add var dependency edge
-//                 if (dep.source && dep.destination && dep.source !== dep.destination) {
-//                     this.graph.addEdge(dep.source, dep.destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: name });
-//                 }
-//             } else {
-//                 // add lookup edge
-//                 if (dep.source && dep.destination) {
-//                     this.graph.addEdge(dep.source, dep.destination, {
-//                         type: "PDG",
-//                         label: "LOOKUP",
-//                         objName: propName,
-//                         sourceObjName: dep.sourceObjName,
-//                     });
-//                 }
-//             }
-//         });
-//     }
 
     private setHeap(newHeap: Heap) {
         this.heap = new Map(newHeap);
@@ -412,6 +313,10 @@ export class DependencyTracker {
     getStorage(key: string): StorageValue[] | undefined {
         return this.store.get(key);
     }
+
+    // getFuncContext(key: number): number[] | undefined {
+    //     return this.funcContexts.get(key);
+    // }
 
     getHeapValue(key: string): HeapObject | undefined {
         return this.heap.get(key);

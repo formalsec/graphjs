@@ -6,7 +6,7 @@ import { DependencyTracker, evalDep, evalSto, Store } from "./dependency_tracker
 import { StorageFactory, StorageObject, StorageValue } from "./sto_factory";
 import { Identifier } from "estree";
 import { DependencyFactory, Dependency } from "./dep_factory";
-import { Config, FunctionSink, PackageSink, NewSink } from "../../utils/config_reader";
+import { Config } from "../../utils/config_reader";
 
 function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     const variableName = trackers.getContextNameList(variable.name, stmt.functionContext).slice(-1)[0];
@@ -81,7 +81,9 @@ function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: Depe
         // create reference edge for value of return
         trackers.graphCreateReferenceEdge(stmtId, deps[0].source);
     }
-
+    // Create edge to the start of the function
+    // const functionNode = expNode.functionContext;
+    // trackers.graphCreateReturnEdge(deps[0].source, functionNode)
 
     return trackers;
 }
@@ -338,13 +340,14 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         } else {
             sinkNode = checkSink;
         }
+        trackers.graphCreateSinkEdge(stmtId, sinkNode, functionName)
 
         // connect appropriate arguments to sink node
         // i am only connecting potentially vulnerable arguments
         // according to config
         deps.forEach(dep => {
             if (DependencyFactory.isDVar(dep) && dep.arg && sink.args.includes(dep.arg)) {
-                    trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
+                trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
             }
         });
     }
@@ -383,18 +386,30 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     // add context so that params are in the context of funcNode execution
     trackers = pushContext(trackers, funcNode.id);
 
-    // // create the this object for all functions
-    // newObjReturn = createAndStoreNewObjectNode(stmtId, funcNode, createThisExpression(), trackers);
-    // trackers = newObjReturn.newTrackers;
+    // Create the ThisObject for all function
+    const newObjId = createNewObjectNodeVariable(stmtId, funcNode.functionContext, createThisExpression(), trackers);
+    trackers.graphCreateReferenceEdge(stmtId, newObjId);
+
+    // Check if outer scope contains this object
+    // If not, create new this object
+    // const funcContext = trackers.getFuncContext(funcNode.id);
+    // if (funcContext !== null && funcContext?.length === 1) {
+    //     const newObjId = createNewObjectNodeVariable(stmtId, funcNode.functionContext, createThisExpression(), trackers);
+    //     trackers.graphCreateReferenceEdge(stmtId, newObjId);
+    // } else {
+    //     // If so, reference to the other this
+    //     const x = trackers.getStorage(`${funcContext.slice(-1)}.this`);
+    //     if (x?.length > 0) trackers.addToRefs(x?.slice(-1)[0].location,`${funcNode.functionContext}.this` )
+    // }
 
     // track all parameters of this function
     const params = getAllASTNodes(funcExpNode, "param");
-    params.forEach(p => {
+    params.forEach((p, i) => {
         const paramName = (<Identifier>p.obj).name;
         const latestParamContextName = trackers.getContextNameList(paramName, funcNode.functionContext).slice(-1)[0];
 
         // create param node and connect to taint source
-        trackers.addParamNode(stmtId, paramName, latestParamContextName);
+        trackers.addParamNode(stmtId, paramName, latestParamContextName, i);
     });
 
     trackers = popContext(trackers);
@@ -435,6 +450,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
             return handleBinaryExpression(stmtId, stmt, leftIdentifier, right, trackers);
         }
 
+        case "ThisExpression":
         case "Identifier": {
             return handleSimpleAssignment(stmtId, stmt, leftIdentifier, right, trackers);
         }

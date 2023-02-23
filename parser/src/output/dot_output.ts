@@ -121,6 +121,10 @@ function getEdgeLabel(e: GraphEdge) {
             }
             break;
         }
+        case "SINK": {
+            label = `${e.label} (${e.objName})`;
+            break;
+        }
 
         case "arg": {
             label = `${e.label} ${e.argumentIndex}`;
@@ -186,6 +190,7 @@ function getEdgeStyle(e: GraphEdge) {
     let style;
     switch (e.type) {
         case "REF":
+        case "SINK":
             style = "dashed";
             break;
         default:

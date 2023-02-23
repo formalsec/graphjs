@@ -26,31 +26,31 @@ export class Graph {
         this._sinkNodes = new Map();
     }
 
-    get nodes() {
+    get nodes(): Map<number, GraphNode> {
         return this._nodes;
     }
 
-    get edges() {
+    get edges(): Map<number, GraphEdge> {
         return this._edges;
     }
 
-    get number_nodes() {
+    get number_nodes(): number {
         return this.nodeCounter;
     }
 
-    get number_edges() {
+    get number_edges(): number {
         return this.edgeCounter;
     }
 
-    get startNodes() {
+    get startNodes(): Map<string, GraphNode[]> {
         return this._startNodes;
     }
 
-    get taintNode() {
+    get taintNode(): number {
         return this._taintNode;
     }
 
-    get sinkNodes() {
+    get sinkNodes(): Map<string, number> {
         return this._sinkNodes;
     }
 
@@ -61,8 +61,7 @@ export class Graph {
         this._outputManager = outputManager;
     }
 
-    addTaintNode() {
-        // eslint-disable-next-line no-plusplus
+    addTaintNode(): GraphNode {
         const id = this.nodeCounter++;
         const node = new GraphNode(id, "TAINT_SOURCE", { type: "TAINT" });
         this.nodes.set(id, node);
@@ -71,7 +70,6 @@ export class Graph {
     }
 
     addSinkNode(sink: string): GraphNode {
-        // eslint-disable-next-line no-plusplus
         const id = this.nodeCounter++;
         const node = new GraphNode(id, "TAINT_SINK", { type: "TAINT", label: sink });
         node.identifier = sink;
@@ -80,8 +78,7 @@ export class Graph {
         return node;
     }
 
-    addNode(label: string, obj: any) {
-        // eslint-disable-next-line no-plusplus
+    addNode(label: string, obj: any): GraphNode {
         const id = this.nodeCounter++;
         const node = new GraphNode(id, label, obj);
         this.nodes.set(id, node);
