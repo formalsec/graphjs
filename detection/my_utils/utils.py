@@ -78,3 +78,11 @@ def get_injection_type(sink):
 		for vuln in vulns:
 			if vuln["sink"] == sink:
 				return injection_type 
+
+
+def change_dict_value_recursively(d, value):
+	for i, v in d.items():
+		if not v:
+			d[i] = value
+		else:
+			change_dict_value_recursively(d[i], value)

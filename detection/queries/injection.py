@@ -1,5 +1,4 @@
 from queries.query_type import QueryType
-from .find_functions import find_source_params
 import my_utils.utils as my_utils
 import json
 
@@ -25,6 +24,13 @@ class Injection(QueryType):
 				(sink_cfg)
 					-[:SINK]
 						->(sink)
+			MATCH
+				cfg_path=
+					(source_cfg)
+						-[:FD]
+							->(:CFG_F_START)
+								-[:CFG*1..]
+									->(sink_cfg)
 			WHERE 
 				param_edge.RelationType = "TAINT" AND
 				param_ref.RelationType = "param"
@@ -34,19 +40,21 @@ class Injection(QueryType):
 		results = session.run(query)
 
 		for record in results:
-			sink = record["sink"]["IdentifierName"]
+			sink_name = record["sink"]["IdentifierName"]
 			source_cfg = record["source_cfg"]
 			source_location = json.loads(source_cfg["Location"])
 			sink_location = json.loads(record["sink_cfg"]["Location"])
+			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"]) 
+
 			vuln_path = {
-				"vuln_type": my_utils.get_injection_type(sink),
+				"vuln_type": my_utils.get_injection_type(sink_name),
 				"source": source_cfg["IdentifierName"],
 				"source_lineno": source_location["start"]["line"],
-				"sink": sink,
+				"sink": sink_name,
 				"sink_lineno": sink_location["start"]["line"],
-				"tainted_params": find_source_params(session, record["source_cfg"]["Id"]),
-				"params_types": {}
-				# "vars": param_types[func],
+				"tainted_params": tainted_params,
+				"params_types": params_types,
+				# "lines": self.find_vulnerable_lines(record["cfg_path"])
 			}
 			if vuln_path not in vuln_paths:
 				vuln_paths.append(vuln_path)

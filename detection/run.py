@@ -1,6 +1,5 @@
 from neo4j import GraphDatabase
 from queries.queries import Queries
-from queries.find_functions import *
 import my_utils.utils as my_utils
 from sys import argv
 
