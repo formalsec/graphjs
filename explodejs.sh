@@ -10,6 +10,7 @@ Help()
     echo "Syntax: explodejs.sh [-f|-o|s|h]"
     echo "options:"
     echo "f     Path to JavaScript file for analysis."
+    echo "c     Path to JSON file containing the unsafe sinks."
     echo "o     Path to Explode.js output file."
     echo "n     Path to normalization output file."
     echo "s     Silent mode - no console output."
@@ -20,10 +21,11 @@ Help()
 SILENT_OP=false
 
 # process arguments
-while getopts f:o:n:sh flag
+while getopts f:c:o:n:sh flag
 do
     case "${flag}" in
         f) FILEPATH=$OPTARG;;
+        c) CONFIGPATH=$OPTARG;;
         o) OUTPUT=$OPTARG;;
         n) NORM=$OPTARG;;
         s) SILENT_OP=true;;
@@ -36,12 +38,13 @@ done
 # check argument to single javascript source file
 if test -f "$FILEPATH"; then
     ABS_INPUT_FILE=$(realpath $FILEPATH)
+    ABS_CONFIG_FILE=$(realpath $CONFIGPATH)
 
     # run cpg construction stage and serialize cpg
     if [ $SILENT_OP = true ]; then
-        npm start --prefix ./parser -- $ABS_INPUT_FILE --csv > '/dev/null' 2>&1
+        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv 
     else
-        npm start --prefix ./parser -- $ABS_INPUT_FILE --csv --file | tee $NORM
+        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv | tee $NORM
     fi
 
     # get csv output to import dir in neo4j-custom dir

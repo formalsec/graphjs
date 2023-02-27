@@ -15,11 +15,7 @@ def save_output(argv, results, type, detected):
 	if len(argv) >= 2:
 		output = argv[1]
 		with open(output, "a") as f:
-			if detected:
-				f.write("{} vulnerability detected!\n".format(type))
-				f.write(json.dumps(results, indent=4) + '\n')
-			else:
-				f.write("no vulnerability detected for type - {}\n".format(type))
+			f.write(json.dumps(results, indent=4) + '\n')
 
 def save_output_multi_files(argv, results):
 	if len(argv) >= 2:
@@ -74,3 +70,19 @@ def format_properties(tmp_properties):
 			prop["properties"] = format_properties(prop["properties"])
 
 	return properties 
+
+
+def get_injection_type(sink):
+	config = read_config()
+	for injection_type, vulns in config["sinks"].items():
+		for vuln in vulns:
+			if vuln["sink"] == sink:
+				return injection_type 
+
+
+def change_dict_value_recursively(d, value):
+	for i, v in d.items():
+		if not v:
+			d[i] = value
+		else:
+			change_dict_value_recursively(d[i], value)

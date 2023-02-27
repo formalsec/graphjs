@@ -4,85 +4,82 @@
             {
                 "sink": "eval",
                 "type": "function",
-                "arg": "1"
+                "args": [ 1 ]
             },
             {
                 "sink": "Function",
                 "type": "function",
-                "arg": "1"
+                "args": [ 1 ]
             },
             {
                 "sink": "Function",
                 "type": "new",
-                "arg": "1"
+                "args": [ 1 ]
             }
         ],
         "command-injection": [
             {
                 "sink": "exec",
-                "type": "function",
+                "type": "package",
                 "packages": [
-                    {"package": "child_process", "arg": "1"},
-                    {"package": "shelljs", "arg": "1"}
+                    {"package": "child_process", "args": [ 1 ]},
+                    {"package": "shelljs", "args": [ 1 ]}
                 ]
             },
             {
                 "sink": "execSync",
-                "type": "function",
+                "type": "package",
                 "packages": [
-                    {"package": "child_process", "arg": "1"}
+                    {"package": "child_process", "args": [ 1 ]}
                 ]
             },
             {
                 "sink": "execFile",
-                "type": "function",
+                "type": "package",
                 "packages": [
-                    {"package": "child_process", "arg": ["1", "2"]}
+                    {"package": "child_process", "args": [ 1, 2 ]}
                 ]
             },
             {
                 "sink": "shell",
-                "type": "function",
+                "type": "package",
                 "packages": [
-                    {"package": "execa", "arg": "1"}
+                    {"package": "execa", "args": [ 1 ]}
                 ]
             },
             {
                 "sink": "spawn",
-                "type": "function",
+                "type": "package",
                 "packages": [
-                    {"package": "child_process", "arg": ["1", "2"]}
+                    {"package": "child_process", "args": [ 1, 2 ]}
                 ]
             },
             {
-                "package": "cross-spawn",
+                "sink": "cross-spawn",
                 "type": "function",
-                "arg": ["1", "2"]
+                "args": [ 1, 2 ]
             },
             {
-                "package": "meta-exec",
+                "sink": "meta-exec",
                 "type": "function",
-                "arg": "1"
+                "args": [ 1 ]
             }
         ],
         "path-traversal": [
             {
                 "sink": "readFile",
-                "type": "function",
+                "type": "package",
                 "packages": [
-                    {"package": "fs", "arg": "1"}
+                    {"package": "fs", "args": [ 1 ]}
                 ]
             },
             {
                 "sink": "createReadStream",
-                "type": "function",
+                "type": "package",
                 "packages": [
-                    {"package": "fs", "arg": "1"}
+                    {"package": "fs", "args": [ 1 ]}
                 ]
             }
         ]
-    },
-    "sources": [
-        "read"
-    ]
+    }
 }
