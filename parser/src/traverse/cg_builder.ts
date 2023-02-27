@@ -1,13 +1,14 @@
-import { GraphEdge } from "./graph/edge";
-import { Graph } from "./graph/graph";
-import { GraphNode } from "./graph/node";
-import { copyObj, getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../utils/utils";
-import { Config } from "../utils/config_reader";
+import { type Graph } from "./graph/graph";
+import { type GraphNode } from "./graph/node";
+import { copyObj, getASTNode, getFDNode } from "../utils/utils";
+import { type Config } from "../utils/config_reader";
 
 type GFunctions = Map<string, Map<string, number>>;
 
 class GraphFunctions {
+    // This value represents TODO
     private gFunctions: GFunctions;
+    // This value represents the context stack of
     private intraContextStack: string[];
 
     constructor() {
@@ -15,7 +16,7 @@ class GraphFunctions {
         this.intraContextStack = new Array<string>();
     }
 
-    pushContext(namespace: string) {
+    pushContext(namespace: string): void {
         this.intraContextStack.push(namespace);
     }
 
@@ -28,11 +29,10 @@ class GraphFunctions {
     }
 
     getParentContext(): string {
-        // console.log(this.intraContextStack);
         return this.intraContextStack[0];
     }
 
-    addFunctionToContext(functionNode: GraphNode) {
+    addFunctionToContext(functionNode: GraphNode): void {
         if (functionNode.functionName) {
             const context = this.getRecentContext();
             let contextMap = this.gFunctions.get(context);
@@ -44,7 +44,7 @@ class GraphFunctions {
         }
     }
 
-    addFunctionCall(stmtId: number, callee: GraphNode, graph: Graph) {
+    addFunctionCall(stmtId: number, callee: GraphNode, graph: Graph): void {
         const functionName = callee.identifier;
         const context = this.getParentContext();
         const contextMap = this.gFunctions.get(context);
@@ -55,17 +55,16 @@ class GraphFunctions {
         }
     }
 
-    print() {
+    print(): void {
         console.log("Functions:", this.gFunctions);
     }
 }
 
 interface CallGraphReturn {
-    callGraph: Graph,
+    callGraph: Graph
     config: Config
-};
+}
 
-/* eslint-disable consistent-return */
 function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
     const graph = pdgGraph;
     let newConfig: Config = copyObj(origConfig);
@@ -74,24 +73,24 @@ function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
 
     const ctxVisitedNodes: number[] = [];
 
-    function traverseContext(node: GraphNode) {
+    function traverseContext(node: GraphNode): void {
         if (ctxVisitedNodes.includes(node.id) || node.type === "CFG_F_END" || node.type === "BlockStatement") return;
         // console.log(node.id, node.functionContext);
         node.edges
             .filter((edge) => edge.type === "AST")
             .map((edge) => {
-            const n = edge.nodes[1];
-            n.functionContext = node.functionContext;
-            traverseContext(n);
-        });
+                const n = edge.nodes[1];
+                n.functionContext = node.functionContext;
+                traverseContext(n);
+            });
         ctxVisitedNodes.push(node.id);
     }
 
-    function traverseCFG(node: GraphNode) {
+    function traverseCFG(node: GraphNode): void {
         if (node.type === "CFG_F_END") return;
         // console.log(node.id, node.functionContext);
         node.edges
-            .filter((edge) => edge.type == "CFG")
+            .filter((edge) => edge.type === "CFG")
             .map((edge) => {
                 const n = edge.nodes[1];
                 n.functionContext = node.functionContext;
@@ -144,7 +143,6 @@ function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
     }
 
     function traverse(node: GraphNode): void {
-
         // to avoid duplicate traversal of a node with more than one "from" CFG edge
         if (visitedNodes.includes(node.id)) return;
         visitedNodes.push(node.id);
@@ -174,10 +172,10 @@ function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
                     if (init.type === "CallExpression" || init.type === "NewExpression") {
                         const callee = getASTNode(init, "callee");
                         gFunctions.addFunctionCall(node.id, callee, graph);
-                    } else if(init.type === "Identifier") {
+                    } else if (init.type === "Identifier") {
                         const idName = init.obj.name;
                         newConfig = addToConfigID(idName, id.name, newConfig);
-                    } else if(init.type === "MemberExpression") {
+                    } else if (init.type === "MemberExpression") {
                         const obj = getASTNode(init, "object");
                         const prop = getASTNode(init, "property");
                         const objName = obj.obj.name;
@@ -205,10 +203,10 @@ function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
                     if (right.type === "CallExpression" || right.type === "NewExpression") {
                         const callee = getASTNode(right, "callee");
                         gFunctions.addFunctionCall(node.id, callee, graph);
-                    } else if(right.type === "Identifier") {
+                    } else if (right.type === "Identifier") {
                         const idName = right.obj.name;
                         newConfig = addToConfigID(idName, left.obj.name, newConfig);
-                    } else if(right.type === "MemberExpression") {
+                    } else if (right.type === "MemberExpression") {
                         const obj = getASTNode(right, "object");
                         const prop = getASTNode(right, "property");
                         const objName = obj.obj.name;
@@ -224,12 +222,11 @@ function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
 
             default:
                 traverseCFG(node);
-
         }
     }
 
-    graph.startNodes.get("CFG")?.forEach(n => traverse(n));
-    gFunctions.print();
+    graph.startNodes.get("CFG")?.forEach(n => { traverse(n); });
+    // gFunctions.print();
     return { callGraph: graph, config: newConfig };
 }
 

@@ -17,6 +17,9 @@
         "@typescript-eslint/no-var-requires": "off",
         "@typescript-eslint/indent": ["error", 4],
         "@typescript-eslint/space-before-function-paren": "off",
+        "@typescript-eslint/strict-boolean-expressions": "off",
+        "@typescript-eslint/prefer-readonly": "off",
+        "accessor-pairs": "off",
         "import/first": "off"
     }
 }

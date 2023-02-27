@@ -1,6 +1,6 @@
 import { GraphNode } from "./node";
 import { GraphEdge } from "./edge";
-import { OutputManager } from "../../output/output_strategy";
+import { type OutputManager } from "../../output/output_strategy";
 
 export class Graph {
     private nodeCounter: number;
@@ -54,9 +54,6 @@ export class Graph {
         return this._sinkNodes;
     }
 
-    /**
-     * @param {OutputManager} outputManager
-     */
     set outputManager(outputManager: OutputManager) {
         this._outputManager = outputManager;
     }
@@ -98,7 +95,7 @@ export class Graph {
         }
     }
 
-    addStartNodes(nodeType: string, startNode: GraphNode) {
+    addStartNodes(nodeType: string, startNode: GraphNode): void {
         const oldNodeArray = this._startNodes.get(nodeType);
         if (oldNodeArray) {
             oldNodeArray.push(startNode);
@@ -108,14 +105,7 @@ export class Graph {
         }
     }
 
-
-
-    clearUnusedObjectNodes() {
-        this._nodes = new Map([...this._nodes].filter((n) => n[1].used));
-        this._edges = new Map([...this._edges].filter((e) => e[1].nodes[0].used && e[1].nodes[1].used));
-    }
-
-    output(filename: string) {
+    output(filename: string): void {
         if (this._outputManager) this._outputManager.output(this, filename);
         else console.log("Output Manager is null");
     }

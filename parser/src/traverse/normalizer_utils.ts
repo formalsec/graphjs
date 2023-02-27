@@ -1,4 +1,4 @@
-import { getNextVariableName, copyObj, printJSON } from "../utils/utils";
+import { getNextVariableName, copyObj } from "../utils/utils";
 
 import type {
     Node,
@@ -50,36 +50,32 @@ import type {
     ExportDefaultDeclaration,
     ExportNamedDeclaration,
     SwitchCase,
-    SwitchStatement,
     ArrayPattern,
-    RestElement,
-    Class,
-    Pattern,
+    Pattern
 } from "estree";
-import { CANCELLED } from "dns";
 
 export interface Normalization {
-    stmts: Node[],
-    expr: Node | null,
+    stmts: Node[]
+    expr: Node | null
 }
 
 export function createRandomIdentifier(): Identifier {
     const variableName = getNextVariableName();
     return {
         type: "Identifier",
-        name: variableName,
+        name: variableName
     };
 }
 
 export function createIdentifierWithName(name: string): Identifier {
     return {
         type: "Identifier",
-        name,
+        name
     };
 }
 
 export function createIdentifierFromExpression(expr: Expression): Identifier | null {
-    switch(expr.type) {
+    switch (expr.type) {
         case "Identifier": {
             return expr;
         }
@@ -87,16 +83,16 @@ export function createIdentifierFromExpression(expr: Expression): Identifier | n
         case "Literal": {
             return createIdentifierWithName(expr?.value as string);
         }
-
+        default:
+            console.trace("Expression didn't match with case values.");
+            return null;
     }
-
-    return null;
 }
 
 export function createEmptyObject(): ObjectExpression {
     return {
         type: "ObjectExpression",
-        properties: [],
+        properties: []
     };
 }
 
@@ -109,17 +105,17 @@ export function createBooleanLiteral(value: boolean): SimpleLiteral {
 }
 
 interface CreatedDeclaration {
-    id: Identifier,
-    decl: VariableDeclaration,
+    id: Identifier
+    decl: VariableDeclaration
 }
 
 interface CreatedDeclarator {
-    id: Identifier,
-    decl: VariableDeclarator,
+    id: Identifier
+    decl: VariableDeclarator
 }
 
 export function createVariableDeclaration(obj: Expression | null | undefined, objId?: string, constant: boolean = true): CreatedDeclaration {
-    const id = (objId)? createIdentifierWithName(objId) : createRandomIdentifier();
+    const id = (objId) ? createIdentifierWithName(objId) : createRandomIdentifier();
 
     if (!obj) {
         constant = false;
@@ -131,10 +127,10 @@ export function createVariableDeclaration(obj: Expression | null | undefined, ob
             {
                 type: "VariableDeclarator",
                 id,
-                init: obj,
-            },
+                init: obj
+            }
         ],
-        kind: (constant)? "const" : "let",
+        kind: (constant) ? "const" : "let"
     };
 
     return { id, decl };
@@ -151,10 +147,10 @@ export function createVariableDeclarationWithIdentifier(identifier: Identifier, 
             {
                 type: "VariableDeclarator",
                 id: identifier,
-                init: obj,
-            },
+                init: obj
+            }
         ],
-        kind: (constant)? "const" : "let",
+        kind: (constant) ? "const" : "let"
     };
 
     return { id: identifier, decl };
@@ -168,9 +164,9 @@ export function createComputedMemberExpression(obj: Expression, index: number): 
         property: {
             type: "Literal",
             value: index,
-            raw: index.toString(),
+            raw: index.toString()
         },
-        optional: false,
+        optional: false
     };
 }
 
@@ -180,7 +176,7 @@ export function createVariableDeclarator(newInit: Expression | null | undefined)
     const decl: VariableDeclarator = {
         type: "VariableDeclarator",
         id,
-        init: newInit,
+        init: newInit
     };
 
     return { id, decl };
@@ -194,13 +190,13 @@ export function createObjectLookupDeclarator(prop: Property, objectValue: Expres
         computed: false,
         optional: false,
         object: objectValue,
-        property: propValue,
+        property: propValue
     };
 
     return {
         type: "VariableDeclarator",
         id: propKey,
-        init: memExpr,
+        init: memExpr
     };
 }
 
@@ -215,10 +211,10 @@ export function createPropertyAssignment(objId: Identifier, propKey: Identifier,
                 computed: false,
                 object: objId,
                 property: propKey,
-                optional: false,
+                optional: false
             },
-            right: propValue,
-        },
+            right: propValue
+        }
     };
 }
 
@@ -230,10 +226,10 @@ export function createExpressionAssignment(objId: string, objValue: Expression):
             operator: "=",
             left: {
                 type: "Identifier",
-                name: objId,
+                name: objId
             },
-            right: objValue,
-        },
+            right: objValue
+        }
     };
 }
 
@@ -244,8 +240,8 @@ export function createGenericExpressionAssignment(leftObj: Pattern, objValue: Ex
             type: "AssignmentExpression",
             operator: "=",
             left: leftObj,
-            right: objValue,
-        },
+            right: objValue
+        }
     };
 }
 
@@ -256,7 +252,7 @@ export function createIfStatementForSwitchCase(test: Expression, consequent: Blo
                 type: "IfStatement",
                 test: test,
                 consequent: consequent,
-                alternate: alternate,
+                alternate: alternate
             };
         }
 
@@ -266,15 +262,15 @@ export function createIfStatementForSwitchCase(test: Expression, consequent: Blo
             consequent: consequent,
             alternate: {
                 type: "BlockStatement",
-                body: [ alternate ]
-            },
+                body: [alternate]
+            }
         };
     }
 
     return {
         type: "IfStatement",
         test: test,
-        consequent: consequent,
+        consequent: consequent
     };
 }
 
@@ -284,10 +280,10 @@ export function createBlockStatementForSwitchCase(originalBody: Statement[], has
     }
 
     if (extraStmt.type === "BlockStatement") {
-        return { type: "BlockStatement", body: [ ...originalBody, ...extraStmt.body ] };
+        return { type: "BlockStatement", body: [...originalBody, ...extraStmt.body] };
     }
 
-    return { type: "BlockStatement", body: [ ...originalBody, extraStmt ] };
+    return { type: "BlockStatement", body: [...originalBody, extraStmt] };
 }
 
 export function createEmptyFunctionExpression(id: Identifier): FunctionExpression {
@@ -295,7 +291,7 @@ export function createEmptyFunctionExpression(id: Identifier): FunctionExpressio
         type: "FunctionExpression",
         id,
         params: [],
-        body: createBlockStatement([]),
+        body: createBlockStatement([])
     };
 }
 
@@ -312,8 +308,7 @@ export function unpattern(declarations: VariableDeclarator[]): VariableDeclarato
 
             // push declarations for each property using accesses to new variable
             d.id.properties.forEach((prop) => {
-                if (prop.type === "Property")
-                    unpatternedDeclarations.push(createObjectLookupDeclarator(prop as Property, id));
+                if (prop.type === "Property") { unpatternedDeclarations.push(createObjectLookupDeclarator(prop as Property, id)); }
             });
         } else {
             unpatternedDeclarations.push(d);
@@ -324,7 +319,7 @@ export function unpattern(declarations: VariableDeclarator[]): VariableDeclarato
 }
 
 export const flatStmts = (children: Normalization[]): Node[] => children.map((child) => child.stmts).flat();
-export const flatExprs = (children: Normalization[]): (Node | null)[] => children.map((child) => child.expr).flat();
+export const flatExprs = (children: Normalization[]): Array<Node | null> => children.map((child) => child.expr).flat();
 export const isNotPropertyMethod = (obj: Node): boolean => obj.type !== "Property";
 export const isNotLiteral = (obj: Node): boolean => obj.type !== "Literal" && obj.type !== "Identifier";
 export function isNotEmpty (obj: Node): boolean {
@@ -345,7 +340,7 @@ export function normSimpleExpression(obj: Node): Normalization {
 }
 
 export function normSimpleStatement(obj: Node): Normalization {
-    return { stmts: [ copyObj(obj) ], expr: null };
+    return { stmts: [copyObj(obj)], expr: null };
 }
 
 export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, children: Normalization[],  parent: Node | null): Normalization {
@@ -361,7 +356,7 @@ export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, 
         if (parent && (parent.type === "AssignmentExpression" || parent.type === "VariableDeclarator")) {
             return {
                 stmts: [...children[0].stmts, ...children[1].stmts],
-                expr: newObj,
+                expr: newObj
             };
         }
         else {
@@ -369,10 +364,9 @@ export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, 
 
             return {
                 stmts: [...children[0].stmts, ...children[1].stmts, decl],
-                expr: id,
+                expr: id
             };
         }
-
     }
 
     return { stmts: [], expr: newObj };
@@ -580,10 +574,9 @@ export function createEqualBinaryExpression(left: Expression, right: Expression)
 }
 
 export function normSwitchStatement(obj: Node, children: Normalization[]): Normalization {
-    // children = children.slice(0,2);
     return {
         stmts: flatStmts(children),
-        expr: null,
+        expr: null
     };
 }
 
@@ -597,7 +590,7 @@ export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: No
     const parentDiscriminant = parent && (parent.type === "Identifier" || parent.type === "Literal") ? parent : createRandomIdentifier();
 
     const previousDecls: Statement[] = [];
-    let ifNode: Node | undefined = undefined;
+    let ifNode: Node | undefined;
 
     for (let j = cases.length - 1; j >= 0; j--) {
         const switchCase = cases[j];
@@ -605,7 +598,7 @@ export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: No
 
         const flatChildrenStmts = flatStmts(children);
         const hasBreak = flatChildrenStmts.filter(stmt => stmt.type === "BreakStatement").length > 0;
-        const newBody = flatChildrenStmts.filter(stmt => stmt.type != "BreakStatement") as Statement[];
+        const newBody = flatChildrenStmts.filter(stmt => stmt.type !== "BreakStatement") as Statement[];
         const newConsequent = createBlockStatementForSwitchCase(newBody, hasBreak, ifNode);
 
         if (switchCase.test) {
@@ -627,8 +620,8 @@ export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: No
     }
 
     return {
-        stmts: [ ...previousDecls ],
-        expr: null,
+        stmts: [...previousDecls],
+        expr: null
     };
 }
 

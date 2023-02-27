@@ -1,18 +1,36 @@
-import { GraphNode } from "./node";
+import { type GraphNode } from "./node";
 
 export interface EdgeInfo {
-    type: string,
-    label: string,
-    objName: string,
-    argumentIndex: number,
-    paramIndex: number,
-    stmtIndex: number,
-    elementIndex: number,
-    expressionIndex: number,
-    methodIndex: number,
-    specifierIndex: number,
-    sourceObjName: string,
-};
+    /*
+    This value can be:
+    - AST: between AST nodes
+    - CFG: between CFG nodes
+    - FD: between the function declaration (AST) and the start of the flow (CFG)
+    */
+    type: string
+    /*
+    This value can represent:
+    - Number of the statement (AST)
+    - Type of the statement (AST)
+    */
+    label: string
+    objName: string
+    // This value represents the argument index for AST nodes (CallExpression, NewExpression)
+    argumentIndex: number
+    // This value represents the parameter index for AST nodes (ArrowFunctionExpression, FunctionDeclaration, FunctionExpression, CatchClause)
+    paramIndex: number
+    // This value represents the statement index for AST nodes (BlockStatement)
+    stmtIndex: number
+    // This value represents the element index for AST nodes (ArrayExpression)
+    elementIndex: number
+    // This value represents the expression index for AST nodes (TemplateLiteral)
+    expressionIndex: number
+    // This value represents the method index for AST nodes (ClassBody)
+    methodIndex: number
+    // This value represents the specifier index for AST nodes (ExportNamedDeclaration)
+    specifierIndex: number
+    sourceObjName: string
+}
 
 export class GraphEdge {
     private _id: number;
@@ -51,59 +69,55 @@ export class GraphEdge {
         this._specifier_index = edgeInfo.specifierIndex;
     }
 
-    get id() {
+    get id(): number {
         return this._id;
     }
 
-    get nodes() {
+    get nodes(): GraphNode[] {
         return this._nodes;
     }
 
-    get type() {
+    get type(): string {
         return this._type;
     }
 
-    get label() {
+    get label(): string {
         return this._label;
     }
 
-    get objName() {
+    get objName(): string {
         return this._obj_name;
     }
 
-    get argumentIndex() {
+    get argumentIndex(): number {
         return this._argument_index;
     }
 
-    get paramIndex() {
+    get paramIndex(): number {
         return this._param_index;
     }
 
-    get stmtIndex() {
+    get stmtIndex(): number {
         return this._stmt_index;
     }
 
-    get elementIndex() {
+    get elementIndex(): number {
         return this._element_index;
     }
 
-    get expressionIndex() {
+    get expressionIndex(): number {
         return this._expression_index;
     }
 
-    get methodIndex() {
+    get methodIndex(): number {
         return this._method_index;
     }
 
-    get specifierIndex() {
+    get specifierIndex(): number {
         return this._specifier_index;
     }
 
-    get sourceObjName() {
+    get sourceObjName(): string {
         return this._source_obj_name;
-    }
-
-    set sourceObjName(name: string) {
-        this._source_obj_name = name;
     }
 }

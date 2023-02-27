@@ -8,53 +8,54 @@ import buildAST from "./traverse/ast_builder";
 const { buildTypes } = require("./traverse/type_builder");
 const { buildCFG } = require("./traverse/cfg_builder");
 const { buildCallGraph } = require("./traverse/cg_builder");
-const { buildPDG, PDGReturn } = require("./traverse/dependency/dep_builder");
+const { buildPDG } = require("./traverse/dependency/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
 
-// eslint-disable-next-line no-unused-vars
-import { printJSON } from "./utils/utils";
-import { read_config, Config } from "./utils/config_reader";
+import { printStatus } from "./utils/utils";
+import { read_config, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
-import { PDGReturn } from "./traverse/dependency/dep_builder";
+import { type PDGReturn } from "./traverse/dependency/dep_builder";
 
 // Returns a graph object
-function parse(filename: string, config: Config, file_output: boolean) : Graph {
+function parse(filename: string, config: Config, fileOutput: boolean): Graph {
     try {
         const data = fs.readFileSync(filename, "utf8");
-        const ast = esprima.parseModule(data, {tolerant: true});
-        // const ast = esprima.parseScript(data, { loc: true });
+        const ast = esprima.parseModule(data, { tolerant: true });
+        printStatus("AST Parsing");
 
-        // // printJSON(ast);
-        // // console.log("===============");
         let normalizedAst = normalizeScript(ast);
-        // // printJSON(normalizedAst);
-        // // console.log("===============");
+        printStatus("AST Normalization");
 
         const code = escodegen.generate(normalizedAst);
-        // const code = escodegen.generate(ast);
-        console.log(code);
+        console.log(`\nNormalized code:\n${code}\n`);
 
         const normalizedFilename = path.basename(filename).slice(0, -path.extname(filename).length) + "-normalized";
         const normalizedFilepath = path.join(path.dirname(filename), normalizedFilename + path.extname(filename));
 
-        if (file_output) {
+        if (fileOutput) {
             fs.writeFileSync(normalizedFilepath, code);
             console.log("===============");
         }
 
         // just to get the loc of the normalized version
-        normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true});
+        normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true });
         const astGraph = buildAST(normalizedAst);
+        printStatus("Build AST");
         const cfgGraph = buildCFG(astGraph);
+        printStatus("Build CFG");
         const callGraphReturn = buildCallGraph(cfgGraph, config);
+        printStatus("Build CG");
         const callGraph = callGraphReturn.callGraph;
         config = callGraphReturn.config;
         const pdgReturn: PDGReturn = buildPDG(callGraph, config);
+        printStatus("Build PDG");
         const pdgGraph = pdgReturn.graph;
         const trackers = pdgReturn.trackers;
         const finalGraph = buildTypes(pdgGraph, trackers);
+        printStatus("Build Types")
+        trackers.print();
         return finalGraph;
     } catch (e: any) {
         console.log("Error:", e.stack);
@@ -95,23 +96,23 @@ const { argv } = yargs(process.argv.slice(2))
     .help('h')
     .alias('h', 'help');
 
-const filename = <string> argv.file;
-const configFile = <string> argv.config;
+const filename = argv.file as string;
+const configFile = argv.config as string;
 if (fs.existsSync(filename)) {
     const graphOptions = {
-        ignore: argv.i || [],
-        ignore_func: argv.if || [],
-        show_code: argv.sc || false,
+        ignore: argv.i ?? [],
+        ignore_func: argv.if ?? [],
+        show_code: argv.sc ?? false
     };
 
-    let file_output = false;
+    let fileOutput = false;
     if (argv.out) {
-        file_output = argv.out;
+        fileOutput = argv.out;
     }
 
     if (fs.existsSync(configFile)) {
         const config = read_config(configFile);
-        const graph = parse(filename, config, file_output);
+        const graph = parse(filename, config, fileOutput);
 
         if (graph) {
             if (argv.csv) {

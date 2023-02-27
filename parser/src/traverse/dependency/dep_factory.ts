@@ -4,16 +4,16 @@ enum DependencyType {
     DVar,
     DObject,
     DCallee,
-};
+}
 
 export interface Dependency {
-    type: string,
-    source: number,
-    name: string,
-    value?: string,
-    destination?: number,
-    arg?: number,
-};
+    type: string
+    source: number
+    name: string
+    value?: string
+    destination?: number
+    arg?: number
+}
 
 export class DependencyFactory {
     // static DConst(c: string, stmtId: number): Dependency {
@@ -34,21 +34,21 @@ export class DependencyFactory {
     static DVar(name: string, source: number, arg?: number): Dependency {
         return {
             type: DependencyType[DependencyType.DVar],
-            name: name,
-            source: source,
-            arg: arg,
+            name,
+            source,
+            arg
         };
     }
 
-    static isDVar(dep: Dependency) {
+    static isDVar(dep: Dependency): boolean {
         return dep.type === DependencyType[DependencyType.DVar];
     }
 
-    static isDCallee(dep: Dependency) {
+    static isDCallee(dep: Dependency): boolean {
         return dep.type === DependencyType[DependencyType.DCallee];
     }
 
-    static isDObject(dep: Dependency) {
+    static isDObject(dep: Dependency): boolean {
         return dep.type === DependencyType[DependencyType.DObject];
     }
 
@@ -57,7 +57,7 @@ export class DependencyFactory {
             type: DependencyType[DependencyType.DObject],
             name: propName,
             source: sourceObjId,
-            destination,
+            destination
         };
     }
 
@@ -66,12 +66,12 @@ export class DependencyFactory {
             type: DependencyType[DependencyType.DCallee],
             name: dep.name,
             source: dep.source,
-            destination: dep.destination,
+            destination: dep.destination
         };
     }
 
-    static translate(depType: string) {
-        switch(depType) {
+    static translate(depType: string): string {
+        switch (depType) {
             case DependencyType[DependencyType.DVar]:
                 return "DEP";
             case DependencyType[DependencyType.DCallee]:

@@ -1,191 +1,33 @@
-import { GraphEdge } from "../graph/edge";
-import { Graph } from "../graph/graph";
-import { GraphNode } from "../graph/node";
+import { type GraphEdge } from "../graph/edge";
+import { type Graph } from "../graph/graph";
+import { type GraphNode } from "../graph/node";
 import { clone, createThisExpression, getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
-import { DependencyTracker, evalDep, evalSto, Store } from "./dependency_trackers";
-import { StorageFactory, StorageObject, StorageValue } from "./sto_factory";
-import { Identifier } from "estree";
-import { DependencyFactory, Dependency } from "./dep_factory";
-import { Config } from "../../utils/config_reader";
+import { DependencyTracker, evalDep, evalSto, type Store } from "./dependency_trackers";
+import { StorageFactory, type StorageObject, type StorageValue } from "./sto_factory";
+import { type Identifier } from "estree";
+import { DependencyFactory, type Dependency } from "./dep_factory";
+import { type Config } from "../../utils/config_reader";
 
-function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    const variableName = trackers.getContextNameList(variable.name, stmt.functionContext).slice(-1)[0];
-
-    // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, expNode);
-
-    // check if this expression is already in storage
-    // we only need the first because we know this is
-    // not a binary expression or member expression
-    let storageValue = evalSto(trackers, expNode)[0];
-
-    // if the expression does not correspond to an object then
-    // we need to create a new object
-    if (!StorageFactory.isStorageObject(storageValue)) {
-        // const newObjReturn = createAndStoreNewObjectNode(stmtId, stmt, variable, trackers);
-        // newTrackers = newObjReturn.newTrackers;
-    } else {
-        // if the expression corresponds to a known object
-        // then we are referencing this object and need to
-        // store the identifier of the location
-        trackers.addToStore(variableName, <StorageObject>storageValue);
-    }
-
-    deps.forEach(dep => trackers.graphCreateReferenceEdge(stmtId, dep.source));
-
-    return trackers;
+export interface PDGReturn {
+    graph: Graph
+    trackers: DependencyTracker
 }
 
-// function handleVariableLookup(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-//     // clone trackers
-//     let newTrackers = trackers.clone();
-
-//     // evaluate dependency of expression
-//     const deps = evalDep(trackers, stmtId, expNode);
-
-//     // apply dependencies to graph (var edges)
-//     newTrackers.graphBuildEdge(deps);
-
-//     return newTrackers;
-// }
-
-function handleTemplateLiteral(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, BinExpNode);
-
-    const newNodeId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
-
-    deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep));
-    trackers.graphCreateReferenceEdge(stmtId, newNodeId);
-
-    return trackers;
-}
-
-function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, BinExpNode);
-
-    const newNodeId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
-
-    deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep));
-    trackers.graphCreateReferenceEdge(stmtId, newNodeId);
-
-    return trackers;
-}
-
-function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, expNode);
-
-    if (deps.length > 0) {
-        // create reference edge for value of return
-        trackers.graphCreateReferenceEdge(stmtId, deps[0].source);
-    }
-    // Create edge to the start of the function
-    // const functionNode = expNode.functionContext;
-    // trackers.graphCreateReturnEdge(deps[0].source, functionNode)
-
-    return trackers;
-}
-
+/** Object creation functions **/
 function createNewObjectNodeVariable(stmtId: number, functionContext: number, variable: Identifier, trackers: DependencyTracker): number {
     // create node for variable
     const variableName = trackers.getContextNameList(variable.name, functionContext).slice(-1)[0];
     const simpleVariableName = variable.name;
 
-    // add to heap
+    // Add to heap
     const { pdgObjName, pdgObjNameContext } = trackers.addNewObjectToHeap(simpleVariableName, variableName);
-
-    // store the identifier of the new object
+    // Store the identifier of the new object
     trackers.addToStore(variableName, StorageFactory.StoObject(pdgObjNameContext));
-
-    // store the stmtid
-    // newTrackers.addToPhi(variableName, stmtId);
-
-    // set changes as creation of new object
+    // Create new object in graph
     return trackers.graphCreateNewObject(stmtId, simpleVariableName, pdgObjName, pdgObjNameContext);
 }
 
-function createNewObjectVersionNodesWithStorage(stmtId: number, objName: string, objNameContext: string, propName: string, rightStorageValue: StorageValue, deps: Dependency[], trackers: DependencyTracker) {
-    // get last location of object (most recent version)
-    const lastObjLocation = trackers.getLastObjectLocation(objNameContext);
-
-    if (lastObjLocation) {
-        const locationHeapValue = clone(trackers.getHeapValue(lastObjLocation));
-        const oldObjVersionId = trackers.getObjectId(lastObjLocation);
-
-        if (locationHeapValue && oldObjVersionId) {
-
-            locationHeapValue[propName] = rightStorageValue;
-            // add to heap
-            const { pdgObjName, pdgObjNameContext } = trackers.addNewObjectToHeap(objName, objNameContext, locationHeapValue);
-
-            // newPropValue = trackers.createObjectProperties(stmtId, objName, objNameContext, propName);
-
-            const newObjVersionId = trackers.graphCreateNewObject(stmtId, objName, pdgObjName, pdgObjNameContext);
-            trackers.graphCreateNewVersionEdge(oldObjVersionId, newObjVersionId, propName);
-
-            // store the identifier of the new object
-            trackers.addInStoreForAll(lastObjLocation, StorageFactory.StoObject(pdgObjNameContext));
-
-            const objNameProperty = `${pdgObjName}.${propName}`;
-            const objNameContextProperty = `${pdgObjNameContext}.${propName}`;
-
-            // add subobject to heap
-            const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
-
-            const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
-            trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName, deps);
-
-            // If old version have a sub object with a hanging ref, update the ref
-            const oldSubjObjects = trackers.getPropStorage(objNameContext, propName)
-            const previousSubObject = oldSubjObjects.slice(-2)[0]
-            if (previousSubObject && "location" in previousSubObject)
-                    trackers.addInStoreForAll(previousSubObject.location, StorageFactory.StoObject(propNamesInHeap.pdgObjNameContext));
-
-            deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep));
-            trackers.graphCreateReferenceEdge(stmtId, subObjectId);
-        }
-    }
-}
-
-function createNewObjectVersionNodes(stmtId: number, objName: string, objNameContext: string, propName: string, deps: Dependency[], trackers: DependencyTracker) {
-    // get last location of object (most recent version)
-    const lastObjLocation = trackers.getLastObjectLocation(objNameContext);
-
-    if (lastObjLocation) {
-        const locationHeapValue = clone(trackers.getHeapValue(lastObjLocation));
-        const oldObjVersionId = trackers.getObjectId(lastObjLocation);
-
-        if (locationHeapValue && oldObjVersionId) {
-
-            // add to heap
-            const { pdgObjName, pdgObjNameContext } = trackers.addNewObjectToHeap(objName, objNameContext, locationHeapValue);
-
-            // newPropValue = trackers.createObjectProperties(stmtId, objName, objNameContext, propName);
-
-            const newObjVersionId = trackers.graphCreateNewObject(stmtId, objName, pdgObjName, pdgObjNameContext);
-            trackers.graphCreateNewVersionEdge(oldObjVersionId, newObjVersionId, propName);
-
-            // store the identifier of the new object
-            trackers.addToStore(objNameContext, StorageFactory.StoObject(pdgObjNameContext));
-
-            const objNameProperty = `${pdgObjName}.${propName}`;
-            const objNameContextProperty = `${pdgObjNameContext}.${propName}`;
-
-            // add subobject to heap
-            const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
-            locationHeapValue[propName] = StorageFactory.StoObject(propNamesInHeap.pdgObjNameContext);
-
-            const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
-            trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName);
-
-            deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep));
-            trackers.graphCreateReferenceEdge(stmtId, subObjectId);
-        }
-    }
-}
-
+// TODO - I think these functions can be merged
 function createSubObject(stmtId: number, objNameContext: string, propName: string, deps: Dependency[], trackers: DependencyTracker): number | undefined {
     // get last location of object (most recent version)
     const lastObjLocation = trackers.getLastObjectLocation(objNameContext);
@@ -195,7 +37,6 @@ function createSubObject(stmtId: number, objNameContext: string, propName: strin
         const oldObjVersionId = trackers.getObjectId(lastObjLocation);
 
         if (locationHeapValue && oldObjVersionId) {
-
             const objNameProperty = `${objNameContext}.${propName}`;
             const objNameContextProperty = `${lastObjLocation}.${propName}`;
 
@@ -208,6 +49,190 @@ function createSubObject(stmtId: number, objNameContext: string, propName: strin
             return subObjectId;
         }
     }
+}
+
+function createNewObjectVersion(stmtId: number, objName: string, objNameContext: string, propName: string, deps: Dependency[], trackers: DependencyTracker): void {
+    // get last location of object (most recent version)
+    const lastObjLocation = trackers.getLastObjectLocation(objNameContext);
+
+    if (lastObjLocation) {
+        const locationHeapValue = clone(trackers.getHeapValue(lastObjLocation));
+        const oldObjVersionId = trackers.getObjectId(lastObjLocation);
+
+        if (locationHeapValue && oldObjVersionId) {
+            // Update heap, store and create new object (for the new version) in graph
+            const { pdgObjName, pdgObjNameContext } = trackers.addNewObjectToHeap(objName, objNameContext, locationHeapValue);
+            trackers.addToStore(objNameContext, StorageFactory.StoObject(pdgObjNameContext));
+            const newObjVersionId = trackers.graphCreateNewObject(stmtId, objName, pdgObjName, pdgObjNameContext);
+
+            // Create edge between old version and new version
+            trackers.graphCreateNewVersionEdge(oldObjVersionId, newObjVersionId, propName);
+
+            // Update heap, store and create new object (for the sub-object of the new version) in graph
+            const objNameProperty = `${pdgObjName}.${propName}`;
+            const objNameContextProperty = `${pdgObjNameContext}.${propName}`;
+            const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
+            locationHeapValue[propName] = StorageFactory.StoObject(propNamesInHeap.pdgObjNameContext);
+            const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
+            trackers.graphCreateReferenceEdge(stmtId, subObjectId);
+
+            // Create edge between new version and new sub-object
+            trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName);
+
+            // Process dependencies of the right side of the assignment
+            deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep) });
+        }
+    }
+}
+
+function createNewObjectVersionWithStorage(stmtId: number, objName: string, objNameContext: string, propName: string, rightStorageValue: StorageValue, deps: Dependency[], trackers: DependencyTracker): void {
+    // get last location of object (most recent version)
+    const lastObjLocation = trackers.getLastObjectLocation(objNameContext);
+
+    if (lastObjLocation) {
+        const locationHeapValue = clone(trackers.getHeapValue(lastObjLocation));
+        const oldObjVersionId = trackers.getObjectId(lastObjLocation);
+
+        if (locationHeapValue && oldObjVersionId) {
+            // Update heap, store and create new object (for the new version) in graph
+            const { pdgObjName, pdgObjNameContext } = trackers.addNewObjectToHeap(objName, objNameContext, locationHeapValue);
+            trackers.addInStoreForAll(lastObjLocation, StorageFactory.StoObject(pdgObjNameContext));
+            const newObjVersionId = trackers.graphCreateNewObject(stmtId, objName, pdgObjName, pdgObjNameContext);
+
+            // Create edge between old version and new version
+            trackers.graphCreateNewVersionEdge(oldObjVersionId, newObjVersionId, propName);
+
+            // Update heap, store and create new object (for the sub-object of the new version) in graph
+            const objNameProperty = `${pdgObjName}.${propName}`;
+            const objNameContextProperty = `${pdgObjNameContext}.${propName}`;
+            const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
+            locationHeapValue[propName] = rightStorageValue;
+            const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
+            trackers.graphCreateReferenceEdge(stmtId, subObjectId);
+
+            // If old version have a sub object with a hanging ref, update the ref
+            const oldSubjObjects = trackers.getPropStorage(objNameContext, propName)
+            const previousSubObject = oldSubjObjects.slice(-2)[0]
+            if (previousSubObject && "location" in previousSubObject) {
+                trackers.addInStoreForAll(previousSubObject.location, StorageFactory.StoObject(propNamesInHeap.pdgObjNameContext));
+            }
+
+            // Create edge between new version and new sub-object
+            trackers.graphCreateSubObjectEdge(newObjVersionId, subObjectId, propName, deps);
+
+            // Process dependencies of the right side of the assignment
+            deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep); });
+        }
+    }
+}
+
+/** **/
+function createArrayElement(stmtId: number, objName: string, objNameContext: string, elementIndex: number, propValue: StorageValue, deps: Dependency[], trackers: DependencyTracker): void {
+    const lastLocation = trackers.getLastObjectLocation(objNameContext);
+
+    if (lastLocation) {
+        const locationHeapValue = trackers.getHeapValue(lastLocation);
+        const objVersionId = trackers.getObjectId(lastLocation);
+
+        if (locationHeapValue && objVersionId) {
+            const propName = elementIndex.toString();
+
+            const objNameProperty = `${objNameContext}.${propName}`;
+            const objNameContextProperty = `${lastLocation}.${propName}`;
+            const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
+            locationHeapValue[propName] = StorageFactory.StoObject(propNamesInHeap.pdgObjNameContext);
+
+            const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
+            trackers.graphCreateSubObjectEdge(objVersionId, subObjectId, propName);
+
+            deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep); });
+            trackers.graphCreateReferenceEdge(stmtId, subObjectId);
+        }
+    }
+}
+
+function handleArrayExpressionElement(stmtId: number, functionContext: number, variable: Identifier, elemNode: GraphNode, elementIndex: number, trackers: DependencyTracker): DependencyTracker {
+    const variableName = variable.name;
+    const variableNameContext = trackers.getContextNameList(variableName, functionContext).slice(-1)[0];
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, elemNode);
+
+    // check if this expression is already in storage
+    // we only need the first because we know this is
+    // not a binary expression or member expression
+    const storageValue = evalSto(trackers, elemNode)[0];
+
+    createArrayElement(stmtId, variableName, variableNameContext, elementIndex, storageValue, deps, trackers);
+
+    return trackers;
+}
+
+function handleArrayExpression(stmtId: number, functionContext: number, variable: Identifier, arrExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // create new empty object node
+    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
+    trackers.graphCreateReferenceEdge(stmtId, newObjId);
+
+    const arrElementEdges = getAllASTEdges(arrExpNode, "element");
+    arrElementEdges.forEach((edge) => {
+        const elementIndex = edge.elementIndex;
+        const element = edge.nodes[1];
+        trackers = handleArrayExpressionElement(stmtId, functionContext, variable, element, elementIndex, trackers);
+    });
+
+    return trackers;
+}
+
+function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
+    // create new object
+    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
+    trackers.graphCreateReferenceEdge(stmtId, newObjId);
+
+    // process dependencies of call
+    const deps = evalDep(trackers, stmtId, callNode);
+    trackers.graphCreateCallStatementDependencyEdges(stmtId, newObjId, deps);
+
+    // check sink name
+    const functionIdentifierNode = getASTNode(callNode, "callee");
+    const functionName = functionIdentifierNode.obj.name;
+    const functionSinks = config.functions.filter((s) => s.sink === functionName);
+    if (functionSinks.length > 0) {
+        const sink = functionSinks.slice(-1)[0];
+
+        // function being called is a sink
+        // we have to check if the sink node already exists for this function
+        const checkSink = trackers.graphCheckSinkNode(functionName);
+        let sinkNode: number;
+
+        if (!checkSink) {
+            // create sink node if it does not exist
+            sinkNode = trackers.graphAddSinkNode(functionName).id;
+        } else {
+            sinkNode = checkSink;
+        }
+        trackers.graphCreateSinkEdge(stmtId, sinkNode, functionName)
+
+        // connect appropriate arguments to sink node
+        // I am only connecting potentially vulnerable arguments
+        // according to config
+        deps.forEach(dep => {
+            if (DependencyFactory.isDVar(dep) && dep.arg && sink.args.includes(dep.arg)) {
+                trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
+            }
+        });
+    }
+
+    return trackers;
+}
+
+function handleObjectExpression(stmtId: number, functionContext: number, variable: Identifier, objExp: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // create new empty object node
+    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
+
+    // create reference edge
+    trackers.graphCreateReferenceEdge(stmtId, newObjId);
+
+    return trackers;
 }
 
 function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Identifier, memExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
@@ -234,14 +259,14 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
         let propName = prop.obj.name;
 
-        // if the member expression is computed  and is not a Literal
+        // if the member expression is computed and is not a Literal
         if (memExpNode.obj.computed && prop.type !== "Literal") {
             // change propName to be '*' since the property is dynamic
             propName = '*';
         }
 
-        const newobjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
-        if (newobjId) subObjId = newobjId;
+        const newObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
+        if (newObjId) subObjId = newObjId;
         deps = evalDep(trackers, stmtId, memExpNode);
     }
 
@@ -251,7 +276,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     const storageValueArray = evalSto(trackers, memExpNode);
 
     if (storageValueArray.length > 0) {
-        let storageValue = storageValueArray.slice(-1)[0];
+        const storageValue = storageValueArray.slice(-1)[0];
         if (!StorageFactory.isStorageObject(storageValue)) {
             // // if the expression is not an object then
             // // create a new one, otherwise we need a new object
@@ -260,7 +285,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         } else {
             // if the expression is a known object
             // then we just reference it
-            const storeObj = <StorageObject>storageValue;
+            const storeObj = storageValue as StorageObject;
 
             // store the identifier of the location
             trackers.addToStore(variableNameContext, storeObj);
@@ -272,115 +297,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     return trackers;
 }
 
-function createArrayElement(stmtId: number, objName: string, objNameContext: string, elementIndex: number, propValue: StorageValue, deps: Dependency[], trackers: DependencyTracker) {
-    const lastLocation = trackers.getLastObjectLocation(objNameContext);
-
-    if (lastLocation) {
-        const locationHeapValue = trackers.getHeapValue(lastLocation);
-        const objVersionId = trackers.getObjectId(lastLocation);
-
-        if (locationHeapValue && objVersionId) {
-            const propName = elementIndex.toString();
-
-            const objNameProperty = `${objNameContext}.${propName}`;
-            const objNameContextProperty = `${lastLocation}.${propName}`;
-            const propNamesInHeap = trackers.addNewObjectToHeap(objNameProperty, objNameContextProperty);
-            locationHeapValue[propName] = StorageFactory.StoObject(propNamesInHeap.pdgObjNameContext);
-
-            const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
-            trackers.graphCreateSubObjectEdge(objVersionId, subObjectId, propName);
-
-            deps.forEach(dep => trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep));
-            trackers.graphCreateReferenceEdge(stmtId, subObjectId);
-        }
-    }
-}
-
-function handleArrayExpressionElement(stmtId: number,  functionContext: number, variable: Identifier, elemNode: GraphNode, elementIndex: number, trackers: DependencyTracker): DependencyTracker {
-    const variableName = variable.name;
-    const variableNameContext = trackers.getContextNameList(variableName, functionContext).slice(-1)[0];
-
-    // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, elemNode);
-
-    // check if this expression is already in storage
-    // we only need the first because we know this is
-    // not a binary expression or member expression
-    const storageValue = evalSto(trackers, elemNode)[0];
-
-    createArrayElement(stmtId, variableName, variableNameContext, elementIndex, storageValue, deps, trackers);
-
-    return trackers;
-}
-
-function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
-    // create new object
-    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
-    trackers.graphCreateReferenceEdge(stmtId, newObjId);
-
-    // process dependencies of call
-    const deps = evalDep(trackers, stmtId, callNode);
-    trackers.graphCreateCallStatementDependencies(stmtId, newObjId, deps);
-
-    // check sink name
-    const functionIdentifierNode = getASTNode(callNode, "callee");
-    const functionName = functionIdentifierNode.obj.name;
-    const fsinks = config.functions.filter((s) => s.sink == functionName);
-    if (fsinks.length > 0) {
-        const sink = fsinks.slice(-1)[0];
-
-        // function being called is a sink
-        // we have to check if the sink node already exists for this function
-        let checkSink = trackers.graphCheckSinkNode(functionName);
-        let sinkNode: number;
-
-        if (!checkSink) {
-            // create sink node if it does not exist
-            sinkNode = trackers.graphAddSinkNode(functionName).id;
-        } else {
-            sinkNode = checkSink;
-        }
-        trackers.graphCreateSinkEdge(stmtId, sinkNode, functionName)
-
-        // connect appropriate arguments to sink node
-        // i am only connecting potentially vulnerable arguments
-        // according to config
-        deps.forEach(dep => {
-            if (DependencyFactory.isDVar(dep) && dep.arg && sink.args.includes(dep.arg)) {
-                trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
-            }
-        });
-    }
-
-    return trackers;
-}
-
-function handleObjectExpression(stmtId: number, functionContext: number, variable: Identifier, objExp: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // create new empty object node
-    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
-
-    // create reference edge
-    trackers.graphCreateReferenceEdge(stmtId, newObjId);
-
-    return trackers;
-}
-
-function handleArrayExpression(stmtId: number, functionContext: number, variable: Identifier, arrExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // create new empty object node
-    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
-    trackers.graphCreateReferenceEdge(stmtId, newObjId);
-
-    const arrElementEdges = getAllASTEdges(arrExpNode, "element");
-    arrElementEdges.forEach((edge) => {
-        const elementIndex = edge.elementIndex;
-        const element = edge.nodes[1];
-        trackers = handleArrayExpressionElement(stmtId, functionContext, variable, element, elementIndex, trackers);
-    });
-
-    return trackers;
-}
-
-function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: GraphNode, funcIdentifier: Identifier, funcExpNode: GraphNode, trackers: DependencyTracker) : DependencyTracker {
+function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: GraphNode, funcIdentifier: Identifier, funcExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     trackers = trackers.addFunctionContext(funcNode.id);
 
     // add context so that params are in the context of funcNode execution
@@ -405,7 +322,7 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     // track all parameters of this function
     const params = getAllASTNodes(funcExpNode, "param");
     params.forEach((p, i) => {
-        const paramName = (<Identifier>p.obj).name;
+        const paramName = (p.obj as Identifier).name;
         const latestParamContextName = trackers.getContextNameList(paramName, funcNode.functionContext).slice(-1)[0];
 
         // create param node and connect to taint source
@@ -413,6 +330,58 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     });
 
     trackers = popContext(trackers);
+    return trackers;
+}
+
+function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, BinExpNode);
+
+    const newNodeId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
+
+    deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep); });
+    trackers.graphCreateReferenceEdge(stmtId, newNodeId);
+
+    return trackers;
+}
+
+function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    const variableName = trackers.getContextNameList(variable.name, stmt.functionContext).slice(-1)[0];
+
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
+
+    // check if this expression is already in storage
+    // we only need the first because we know this is
+    // not a binary expression or member expression
+    const storageValue = evalSto(trackers, expNode)[0];
+
+    // if the expression does not correspond to an object then
+    // we need to create a new object
+    if (!StorageFactory.isStorageObject(storageValue)) {
+        // const newObjReturn = createAndStoreNewObjectNode(stmtId, stmt, variable, trackers);
+        // newTrackers = newObjReturn.newTrackers;
+    } else {
+        // if the expression corresponds to a known object
+        // then we are referencing this object and need to
+        // store the identifier of the location
+        trackers.addToStore(variableName, storageValue as StorageObject);
+    }
+
+    deps.forEach(dep => { trackers.graphCreateReferenceEdge(stmtId, dep.source); });
+
+    return trackers;
+}
+
+function handleTemplateLiteral(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, BinExpNode);
+
+    const newNodeId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
+
+    deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep); });
+    trackers.graphCreateReferenceEdge(stmtId, newNodeId);
+
     return trackers;
 }
 
@@ -437,8 +406,6 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
             return handleMemberExpression(stmtId, stmt, leftIdentifier, right, trackers);
         }
 
-        // // case "ClassDeclaration": {}
-
         case "ArrowFunctionExpression":
         case "FunctionExpression":
         case "FunctionDeclaration": {
@@ -457,10 +424,11 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
 
         case "TemplateLiteral":
             return handleTemplateLiteral(stmtId, stmt, leftIdentifier, right, trackers);
-    }
 
-    // placeholder
-    return trackers;
+        default:
+            console.trace("Expression didn't match with case values.");
+            return trackers;
+    }
 }
 
 function handleObjectWrite(stmtId: number, functionContext: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
@@ -479,31 +447,27 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     const sto = evalSto(trackers, obj);
     const objStorage = sto.slice(-1)[0];
 
-    let deps;
-    // if the member expression is computed  and is not a
-    // Literal then we have to evaluate the dependencies
-    // of the property as it is a variable,  because it
-    // influences the object otherwise treat it is a Literal
+    // TODO
+    // if the member expression is computed  and is not a Literal then we have to evaluate the dependencies
+    // of the property as it is a variable,  because it influences the object otherwise treat it is a Literal
     if (left.obj.computed && prop.type !== "Literal") {
         // deps = evalDep(trackers, stmtId, prop);
         // deps = [ ...deps, ...evalDep(trackers, stmtId, right) ];
 
         // change propName to be '*' since the property is dynamic
         propName = '*';
-    } //else {
-        // if the prop is a Literal or the member expression is not
-        // computed then we just evaluate the dependencies for the
-        // right side
+    } // else {
+    // if the prop is a Literal or the member expression is not
+    // computed then we just evaluate the dependencies for the
+    // right side
     //     deps = evalDep(trackers, stmtId, right);
     // }
-    deps = evalDep(trackers, stmtId, right);
+    // eslint-disable-next-line prefer-const
+    const deps = evalDep(trackers, stmtId, right);
 
     // if it is an object just evaluate and create new object version
     if (sto.length > 0 && StorageFactory.isStorageObject(objStorage)) {
-        const objLocation = (<StorageObject>objStorage).location;
-
-        // get storage of right-hand side expression
-        // we only need the first because we know this is
+        // get storage of right-hand side expression. We only need the first because we know this is
         // not a binary expression or member expression
         const rightStorage = evalSto(trackers, right);
 
@@ -514,9 +478,9 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
             // create new object version node
             // create sub object
             // connect all objects accordingly
-            createNewObjectVersionNodesWithStorage(stmtId, objName, objNameContext, propName, rightStorageValue, deps, trackers);
+            createNewObjectVersionWithStorage(stmtId, objName, objNameContext, propName, rightStorageValue, deps, trackers);
         } else {
-            createNewObjectVersionNodes(stmtId, objName, objNameContext, propName, deps, trackers);
+            createNewObjectVersion(stmtId, objName, objNameContext, propName, deps, trackers);
         }
     }
 
@@ -534,9 +498,10 @@ function handleAssignmentExpression(stmtId: number, stmt: GraphNode, left: Graph
         case "MemberExpression": {
             return handleObjectWrite(stmtId, stmt.functionContext, left, right, trackers);
         }
+        default:
+            console.trace("Expression didn't match with case values.");
+            return trackers.clone();
     }
-
-    return trackers.clone();
 }
 
 function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
@@ -550,59 +515,38 @@ function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: Gra
             const right = getASTNode(expNode, "right");
             return handleAssignmentExpression(stmtId, stmt, left, right, config, trackers);
         }
+        default:
+            console.trace(`Expression ${expNode.type} didn't match with case values.`);
+            return trackers.clone();
     }
-
-    return trackers.clone();
 }
 
-// function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
-//     // clone trackers
-//     let newTrackers = trackers.clone();
+function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
 
-//     // evaluate dependency of right expression
-//     let deps = evalDep(newTrackers, stmtId, left);
-//     if (DependencyFactory.isDEmpty(deps[0])) {
-//         const newObjReturn = createAndStoreNewObjectNode(left.id, left, left.obj, newTrackers);
-//         newTrackers = newObjReturn.newTrackers;
-//         deps = [];
-//     }
-//     deps = [...deps, ...evalDep(newTrackers, stmtId, right)];
+    if (deps.length > 0) {
+        // create reference edge for value of return
+        trackers.graphCreateReferenceEdge(stmtId, deps[0].source);
+    }
+    // Create edge to the start of the function
+    // const functionNode = expNode.functionContext;
+    // trackers.graphCreateReturnEdge(deps[0].source, functionNode)
 
-//     // apply dependencies to graph (var edges)
-//     newTrackers.graphBuildEdge(deps);
-
-//     return newTrackers;
-// }
-
-// function handleWhileStatement(stmtId: number, test: GraphNode, trackers: DependencyTracker): DependencyTracker {
-//     // clone trackers
-//     const newTrackers = trackers.clone();
-
-//     // evaluate dependency of expression
-//     let deps = evalDep(trackers, stmtId, test, undefined);
-
-//     // apply dependencies to graph (var edges)
-//     newTrackers.graphBuildEdge(deps);
-
-//     return newTrackers;
-// }
+    return trackers;
+}
 
 function pushContext(trackers: DependencyTracker, context: number): DependencyTracker {
     const newTrackers = trackers.clone();
-    newTrackers.pushContext(context);
+    newTrackers.pushIntraContext(context);
     return newTrackers;
 }
 
 function popContext(trackers: DependencyTracker): DependencyTracker {
     const newTrackers = trackers.clone();
-    newTrackers.popContext();
+    newTrackers.popIntraContext();
     return newTrackers;
 }
-
-export interface PDGReturn {
-    graph: Graph,
-    trackers: DependencyTracker,
-};
 
 export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
     const graph = cfgGraph;
@@ -621,9 +565,28 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
 
         // check all possible statements after normalization
         switch (node.type) {
+            /* CFG nodes: update the intra context stack */
             case "CFG_F_START": {
                 if (node.namespace) {
                     curTrackers = pushContext(curTrackers, node.id);
+                }
+                break;
+            }
+
+            case "CFG_IF_END": {
+                return curTrackers;
+            }
+
+            case "CFG_F_END": {
+                curTrackers = popContext(curTrackers);
+                break;
+            }
+
+            // expression statements are the majority of statements
+            case "ExpressionStatement": {
+                const expressionNode = getASTNode(node, "expression");
+                if (expressionNode) {
+                    curTrackers = handleExpressionStatement(node.id, node, expressionNode, config, curTrackers);
                 }
                 break;
             }
@@ -635,7 +598,7 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
                 // the CFG "extracts" this node from the AST and inlines it in the
                 // control flow
                 const deps = evalDep(curTrackers, ifTest.id, ifTest);
-                deps.forEach(dep => curTrackers.graphCreateReferenceEdge(ifTest.id, dep.source));
+                deps.forEach(dep => { curTrackers.graphCreateReferenceEdge(ifTest.id, dep.source); });
 
                 const origStore = curTrackers.storeSnapshot();
                 let thenStore: Store = new Map();
@@ -667,13 +630,6 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
 
                 // set the merge
                 curTrackers.setStore(mergedStore);
-                // console.log("orig:", origStore);
-                // console.log("==================");
-                // console.log("then:", thenStore);
-                // console.log("==================");
-                // console.log("else:", elseStore);
-                // console.log("==================");
-                // console.log("merged:", mergedStore);
 
                 // run all remaining cfg nodes after the end if node
                 const endIfNodeId = node.cfgEndNodeId;
@@ -686,24 +642,6 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
                 return curTrackers;
             }
 
-            case "CFG_IF_END": {
-                return curTrackers;
-            }
-
-            case "CFG_F_END": {
-                curTrackers = popContext(curTrackers);
-                break;
-            }
-
-            // expression statements are the majority of statements
-            case "ExpressionStatement": {
-                const expressionNode = getASTNode(node, "expression");
-                if (expressionNode) {
-                    curTrackers = handleExpressionStatement(node.id, node, expressionNode, config, curTrackers);
-                }
-                break;
-            }
-
             case "VariableDeclarator": {
                 const initNode = getASTNode(node, "init");
                 if (initNode) {
@@ -713,6 +651,14 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
                 //     // trackers.addVariable(p.obj.name, funcNode.id);
                 //     curTrackers = createAndStoreNewObjectNode(node.id, node, node.obj.id, curTrackers).newTrackers;
                 // }
+                break;
+            }
+
+            case "ReturnStatement": {
+                const argument = getASTNode(node, "argument");
+                if (argument) {
+                    curTrackers = handleReturnArgument(node.id, argument, curTrackers);
+                }
                 break;
             }
 
@@ -747,14 +693,6 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             //     break;
             // }
 
-            case "ReturnStatement": {
-                const argument = getASTNode(node, "argument");
-                if (argument) {
-                    curTrackers = handleReturnArgument(node.id, argument, curTrackers);
-                }
-                break;
-            }
-
             // // case "ClassDeclaration": {
             // //     const body = getASTNode(node, "body");
             // //     const funcNode = getFDNode(body);
@@ -762,13 +700,11 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             // //     break;
             // // }
 
+
             default:
+                console.trace(`Expression ${node.type} didn't match with case values.`);
                 break;
         }
-
-        // console.log("=======================================");
-        // trackers.print();
-
 
         // traverse all child CFG nodes
         node.edges
@@ -787,9 +723,41 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
         trackers = traverse(node, node.namespace, trackers);
     });
 
-    trackers.print();
+    // trackers.print();
     return {
         graph,
         trackers
     };
 }
+
+// function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+//     // clone trackers
+//     let newTrackers = trackers.clone();
+
+//     // evaluate dependency of right expression
+//     let deps = evalDep(newTrackers, stmtId, left);
+//     if (DependencyFactory.isDEmpty(deps[0])) {
+//         const newObjReturn = createAndStoreNewObjectNode(left.id, left, left.obj, newTrackers);
+//         newTrackers = newObjReturn.newTrackers;
+//         deps = [];
+//     }
+//     deps = [...deps, ...evalDep(newTrackers, stmtId, right)];
+
+//     // apply dependencies to graph (var edges)
+//     newTrackers.graphBuildEdge(deps);
+
+//     return newTrackers;
+// }
+
+// function handleWhileStatement(stmtId: number, test: GraphNode, trackers: DependencyTracker): DependencyTracker {
+//     // clone trackers
+//     const newTrackers = trackers.clone();
+
+//     // evaluate dependency of expression
+//     let deps = evalDep(trackers, stmtId, test, undefined);
+
+//     // apply dependencies to graph (var edges)
+//     newTrackers.graphBuildEdge(deps);
+
+//     return newTrackers;
+// }
