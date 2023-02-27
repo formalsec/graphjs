@@ -222,6 +222,34 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         });
     }
 
+    const packageSinks = config.packages.filter((s) => s.sink === functionName);
+    if (packageSinks.length > 0) {
+        const sink = packageSinks.slice(-1)[0];
+
+        // function being called is a sink
+        // we have to check if the sink node already exists for this function
+        const checkSink = trackers.graphCheckSinkNode(functionName);
+        let sinkNode: number;
+
+        if (!checkSink) {
+            // create sink node if it does not exist
+            sinkNode = trackers.graphAddSinkNode(functionName).id;
+        } else {
+            sinkNode = checkSink;
+        }
+        trackers.graphCreateSinkEdge(stmtId, sinkNode, functionName)
+
+        // connect appropriate arguments to sink node
+        // I am only connecting potentially vulnerable arguments
+        // according to config
+        deps.forEach(dep => {
+            const sinkArgs = sink.packages.slice(-1)[0].args;
+            if (DependencyFactory.isDVar(dep) && dep.arg && sinkArgs.includes(dep.arg)) {
+                trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
+            }
+        });
+    }
+
     return trackers;
 }
 
