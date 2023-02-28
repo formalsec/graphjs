@@ -277,8 +277,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         .filter(d => DependencyFactory.isDObject(d))
         .map(d => d.source).slice(-1)[0];
 
-    // if there are no object dependencies then we have to create
-    // the objects corresponding to the properties in the
+    // if there are no object dependencies then we have to create the objects corresponding to the properties in the
     // memExpNode and re-run evalDep
     if (deps.filter(d => DependencyFactory.isDObject(d)).length === 0) {
         const objName = obj.obj.name;
@@ -475,23 +474,20 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     const sto = evalSto(trackers, obj);
     const objStorage = sto.slice(-1)[0];
 
-    // TODO
-    // if the member expression is computed  and is not a Literal then we have to evaluate the dependencies
-    // of the property as it is a variable,  because it influences the object otherwise treat it is a Literal
+    // Evaluate the dependencies for the right side
+    let deps = evalDep(trackers, stmtId, right);
+
+    // if the member expression is computed and is not a Literal then we have to evaluate the dependencies
+    // of the property as it is a variable, because it influences the object otherwise treat it is a Literal
     if (left.obj.computed && prop.type !== "Literal") {
+        const objDeps: Dependency[] = evalDep(trackers, stmtId, prop);
+        deps = deps.concat(objDeps.filter((item) => !DependencyFactory.includes(deps, item)));
         // deps = evalDep(trackers, stmtId, prop);
         // deps = [ ...deps, ...evalDep(trackers, stmtId, right) ];
 
         // change propName to be '*' since the property is dynamic
         propName = '*';
-    } // else {
-    // if the prop is a Literal or the member expression is not
-    // computed then we just evaluate the dependencies for the
-    // right side
-    //     deps = evalDep(trackers, stmtId, right);
-    // }
-    // eslint-disable-next-line prefer-const
-    const deps = evalDep(trackers, stmtId, right);
+    }
 
     // if it is an object just evaluate and create new object version
     if (sto.length > 0 && StorageFactory.isStorageObject(objStorage)) {
@@ -727,7 +723,6 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             // //     curTrackers = handleFunctionDeclaration(node.id, node, funcNode, leftIdentifier, right, curTrackers);
             // //     break;
             // // }
-
 
             default:
                 console.trace(`Expression ${node.type} didn't match with case values.`);

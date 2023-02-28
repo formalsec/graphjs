@@ -80,4 +80,12 @@ export class DependencyFactory {
                 return "UNKNOWN";
         }
     }
+
+    static includes(deps: Dependency[], item: Dependency): boolean {
+        return deps.findIndex((dep) => {
+            return dep.type === item.type &&
+                dep.name === item.name &&
+                dep.source === item.source
+        }) >= 0;
+    }
 }

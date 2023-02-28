@@ -457,17 +457,13 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
                 deps = latestObj.writeAllSubObjects;
             }
 
-            // if the member expression is computed  and is not a
-            // Literal then we have to evaluate the dependencies
-            // of the property as it is a variable,  because it
-            // influences the object otherwise treat it is a Literal
+            // if the member expression is computed and is not a Literal then we have to evaluate the dependencies
+            // of the property as it is a variable, because it influences the object otherwise treat it is a Literal
             if (node.obj.computed && prop.type !== "Literal") {
-                // let deps = evalDep(trackers, stmtId, prop);
+                const objDeps: Dependency[] = evalDep(trackers, stmtId, prop);
                 const objIds = trackers.getObjectVersions(objName, obj.functionContext);
-                deps = [
-                    ...deps
-                    // ...objIds.map(objId => DependencyFactory.DObject("*", stmtId, objId))
-                ];
+                // ...objIds.map(objId => DependencyFactory.DObject("*", stmtId, objId))
+                deps = deps.concat(objDeps.filter((item) => !DependencyFactory.includes(deps, item)));
                 return deps;
             }
 
