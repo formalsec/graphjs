@@ -530,9 +530,10 @@ function handleAssignmentExpression(stmtId: number, stmt: GraphNode, left: Graph
 
 function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     switch (expNode.type) {
-        // case "Identifier": {
+        case "Identifier": {
+            return trackers.clone();
         //     return handleVariableLookup(stmtId, expNode, trackers);
-        // }
+        }
 
         case "AssignmentExpression": {
             const left = getASTNode(expNode, "left");
@@ -683,6 +684,10 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
                 if (argument) {
                     curTrackers = handleReturnArgument(node.id, argument, curTrackers);
                 }
+                break;
+            }
+
+            case "BlockStatement": {
                 break;
             }
 
