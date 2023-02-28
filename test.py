@@ -1,5 +1,4 @@
 import gspread
-import re
 from glob import glob
 import os
 import json
@@ -26,8 +25,8 @@ def clean(dataset):
                 os.remove(file_path)
 
 
-def test_odgen(dataset):
-    print(Fore.MAGENTA + f"Running ODGen for vulnerabilities in {dataset}" + Fore.RESET)
+def test_odgen(dataset_path, dataset, update_sheets):
+    print(Fore.MAGENTA + f"Running ODGen for vulnerabilities in {dataset_path}" + Fore.RESET)
 
 
 def test_explodejs(dataset_path, dataset, update_sheets):
@@ -46,9 +45,13 @@ def test_explodejs(dataset_path, dataset, update_sheets):
             if vulnerable_file.endswith(".js") and "-normalized.js" not in vulnerable_file:
                 vulnerable_file_path = os.path.join(vulnerability_path, vulnerable_file)
                 output_file = os.path.join(explodejs_path, f"{vulnerable_file}_taint_summary.json")
-                os.system(f"./explodejs.sh -f {vulnerable_file_path} -c detection/config.json -o {output_file} -n {explodejs_path}/{vulnerable_file}.norm")
+                norm_file = os.path.join(explodejs_path, f"{vulnerable_file}.norm")
+                os.system(f"./explodejs.sh -f {vulnerable_file_path} -c detection/config.json -o {output_file} -n {norm_file}")
+
                 if update_sheets:
-                    grades = compare_outputs(os.path.join(explodejs_path, "expected_output.json"), output_file)
+                    grades = {}
+                    check_graph_construction(grades, norm_file)
+                    comapre_outputs(grades, os.path.join(explodejs_path, "expected_output.json"), output_file)
                     update_sheet(ws, dataset, vulnerability_path, grades)
         end = time.time()
         with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
@@ -56,8 +59,19 @@ def test_explodejs(dataset_path, dataset, update_sheets):
         count += 1
 
 
-def compare_outputs(expected_output, output):
-    grades = {}
+def check_graph_construction(grades, norm_file):
+    print(norm_file)
+    with open(norm_file, "r") as f:
+        file_content = f.read()
+        if "Error" in file_content:
+            grades["graph_construction"] = "D"
+        elif "Trace: Expression" in file_content:
+            grades["graph_construction"] = "C"
+        else:
+            grades["graph_construction"] = "A"
+        
+
+def comapre_outputs(grades, expected_output, output):
     expected = json.load(open(expected_output))
     out = json.load(open(output))
 
@@ -110,15 +124,16 @@ def update_sheet(ws, dataset, vulnerable_file, grades):
     if dataset == "Example Dataset":
         vulnerable_file = "/".join(vulnerable_file.split("/")[2:])
     elif dataset == "Injection Dataset":
-        pass
+        vulnerable_file = vulnerable_file.split("/")[-1]
     else:
         print(Fore.RED + "The given dataset is not present in the sheet" + Fore.RESET)
         return
     
     cell = ws.find(vulnerable_file)
-    ws.update_cell(cell.row, cell.col + 1, grades.get("detection", "NaN"))
-    ws.update_cell(cell.row, cell.col + 2, grades.get("data_reconstruction", "NaN"))
-    ws.update_cell(cell.row, cell.col + 3, grades.get("confirmation", "NaN"))
+    ws.update_cell(cell.row, cell.col + 1, grades.get("graph_construction", "NaN"))
+    ws.update_cell(cell.row, cell.col + 2, grades.get("detection", "NaN"))
+    ws.update_cell(cell.row, cell.col + 3, grades.get("data_reconstruction", "NaN"))
+    ws.update_cell(cell.row, cell.col + 4, grades.get("confirmation", "NaN"))
 
 
 if __name__ == "__main__":
