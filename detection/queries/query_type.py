@@ -30,7 +30,7 @@ class QueryType:
             WHERE 
                 source.Id = "{source}" AND
                 ref_edge.RelationType = "param" AND
-                all(edge IN obj_edges WHERE edge.RelationType = "SO")
+                all(edge IN obj_edges WHERE edge.RelationType = "SO" or edge.RelationType = "NV")
             RETURN *
             ORDER BY 
                 ref_edge.IdentifierName
@@ -48,6 +48,9 @@ class QueryType:
                 param_types_pointer = params_types
                 params_types = params_types[param_name]
                 for rel in record["obj_edges"]:
+                    # TODO: little trick
+                    if rel["RelationType"] == "NV":
+                        continue
                     prop_name = rel["IdentifierName"]
                     if not prop_name in params_types:
                         params_types[prop_name] = {}
