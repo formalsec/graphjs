@@ -1,57 +1,57 @@
-import { getNextVariableName, copyObj } from "../utils/utils";
+import { copyObj, getNextVariableName } from "../utils/utils";
 
 import type {
-    Node,
-    Program,
-    Identifier,
-    VariableDeclaration,
-    VariableDeclarator,
-    BinaryExpression,
-    Expression,
-    AssignmentExpression,
-    MemberExpression,
-    LogicalExpression,
-    ExpressionStatement,
-    Property,
     ArrayExpression,
-    ObjectExpression,
-    UpdateExpression,
-    UnaryExpression,
-    CallExpression,
-    FunctionDeclaration,
+    ArrayPattern,
     ArrowFunctionExpression,
-    FunctionExpression,
-    ClassExpression,
-    ClassBody,
-    MethodDefinition,
+    AssignmentExpression,
     AwaitExpression,
-    YieldExpression,
-    SpreadElement,
-    SequenceExpression,
-    SimpleLiteral,
+    BinaryExpression,
     BlockStatement,
-    Statement,
-    LabeledStatement,
-    IfStatement,
-    TemplateLiteral,
-    TaggedTemplateExpression,
-    ClassDeclaration,
-    TryStatement,
+    CallExpression,
     CatchClause,
-    ReturnStatement,
-    ForStatement,
-    ForInStatement,
-    ForOfStatement,
-    ThrowStatement,
-    DoWhileStatement,
-    WhileStatement,
+    ClassBody,
+    ClassDeclaration,
+    ClassExpression,
     ConditionalExpression,
-    WithStatement,
+    DoWhileStatement,
     ExportDefaultDeclaration,
     ExportNamedDeclaration,
+    Expression,
+    ExpressionStatement,
+    ForInStatement,
+    ForOfStatement,
+    ForStatement,
+    FunctionDeclaration,
+    FunctionExpression,
+    Identifier,
+    IfStatement,
+    LabeledStatement,
+    LogicalExpression,
+    MemberExpression,
+    MethodDefinition,
+    Node,
+    ObjectExpression,
+    Pattern,
+    Program,
+    Property,
+    ReturnStatement,
+    SequenceExpression,
+    SimpleLiteral,
+    SpreadElement,
+    Statement,
     SwitchCase,
-    ArrayPattern,
-    Pattern
+    TaggedTemplateExpression,
+    TemplateLiteral,
+    ThrowStatement,
+    TryStatement,
+    UnaryExpression,
+    UpdateExpression,
+    VariableDeclaration,
+    VariableDeclarator,
+    WhileStatement,
+    WithStatement,
+    YieldExpression
 } from "estree";
 
 export interface Normalization {
@@ -250,16 +250,16 @@ export function createIfStatementForSwitchCase(test: Expression, consequent: Blo
         if (alternate.type === "BlockStatement") {
             return {
                 type: "IfStatement",
-                test: test,
-                consequent: consequent,
-                alternate: alternate
+                test,
+                consequent,
+                alternate
             };
         }
 
         return {
             type: "IfStatement",
-            test: test,
-            consequent: consequent,
+            test,
+            consequent,
             alternate: {
                 type: "BlockStatement",
                 body: [alternate]
@@ -269,8 +269,8 @@ export function createIfStatementForSwitchCase(test: Expression, consequent: Blo
 
     return {
         type: "IfStatement",
-        test: test,
-        consequent: consequent
+        test,
+        consequent
     };
 }
 
@@ -343,7 +343,7 @@ export function normSimpleStatement(obj: Node): Normalization {
     return { stmts: [copyObj(obj)], expr: null };
 }
 
-export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, children: Normalization[],  parent: Node | null): Normalization {
+export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     const leftExpr = children[0].expr;
     const rightExpr = children[1].expr;
@@ -358,8 +358,7 @@ export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, 
                 stmts: [...children[0].stmts, ...children[1].stmts],
                 expr: newObj
             };
-        }
-        else {
+        } else {
             const { id, decl } = createVariableDeclaration(newObj);
 
             return {
@@ -373,7 +372,7 @@ export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, 
 }
 
 export function normVariableDeclaration(obj: VariableDeclaration, children: Normalization[]): Normalization {
-    let stmts: Node[] = [];
+    const stmts: Node[] = [];
 
     for (const child of children.flat()) {
         const newObj = copyObj(obj);
@@ -386,7 +385,7 @@ export function normVariableDeclaration(obj: VariableDeclaration, children: Norm
 
     return {
         stmts: [...stmts],
-        expr: null,
+        expr: null
     };
 }
 
@@ -401,7 +400,7 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
     const newInit = children[1];
     if (newInit) {
         if (newId.expr && newId.expr.type === "ArrayPattern") {
-            const newDeclarations: Array<VariableDeclaration> = [];
+            const newDeclarations: VariableDeclaration[] = [];
             const patternElements = newId.expr.elements;
 
             if (newInit.expr) {
@@ -432,7 +431,7 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
                 stmts = [...newInit.stmts, ...newDeclarations];
                 return {
                     stmts,
-                    expr: null,
+                    expr: null
                 };
             }
         }
@@ -442,14 +441,15 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
             // push empty object for this identifier
             newObj.init = createEmptyObject();
 
-            const newAssignments: Array<ExpressionStatement> = [];
+            const newAssignments: ExpressionStatement[] = [];
             // push declarations for each property using accesses to new variable
             objExpr.properties.forEach((prop) => {
                 if (prop.type === "Property") {
                     const propKey = createIdentifierFromExpression(prop.key as Expression);
                     const propValue = prop.value as Expression;
-                    if (propKey && propValue)
+                    if (propKey && propValue) {
                         newAssignments.push(createPropertyAssignment(newObj.id, propKey, propValue));
+                    }
                 }
             });
 
@@ -459,7 +459,7 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
 
             return {
                 stmts,
-                expr: null,
+                expr: null
             };
         }
 
@@ -482,19 +482,18 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
             stmts = [...newInit.stmts, newDecl, newIfStatement];
             return {
                 stmts,
-                expr: null,
+                expr: null
             };
         }
 
         // all other init types
         stmts = [...newInit.stmts];
-        const newInitExpression = newInit.expr;
-        newObj.init = newInitExpression;
+        newObj.init = newInit.expr;
     }
 
     return {
         stmts,
-        expr: newObj,
+        expr: newObj
     };
 }
 
@@ -507,7 +506,7 @@ export function normTaggedTemplateExpression(obj: TaggedTemplateExpression, chil
 
     return {
         stmts: [...stmts],
-        expr: newObj,
+        expr: newObj
     }
 }
 
@@ -518,20 +517,19 @@ export function normTemplateLiteral(obj: TemplateLiteral, children: Normalizatio
     newObj.expressions = flatExprs(children);
 
     if (parent &&
-        (parent.type === "CallExpression"
-        || parent.type === "ReturnStatement")) {
+        (parent.type === "CallExpression" ||
+        parent.type === "ReturnStatement")) {
         const { id, decl } = createVariableDeclaration(newObj);
         return {
             stmts: [...flatStmts(children), decl],
-            expr: id,
+            expr: id
         };
     }
 
     return {
         stmts: [...stmts],
-        expr: newObj,
-    };
-
+        expr: newObj
+    }
 }
 
 export function normBlockStatement(obj: BlockStatement, children: Normalization[]): Normalization {
@@ -544,7 +542,7 @@ export function normBlockStatement(obj: BlockStatement, children: Normalization[
     newObj.body = [...stmts, ...exprs];
     return {
         stmts: [newObj],
-        expr: null,
+        expr: null
     };
 }
 
@@ -560,7 +558,7 @@ export function normIfStatement(obj: IfStatement, children: Normalization[]): No
 
     return {
         stmts: [...children[0].stmts, newObj],
-        expr: null,
+        expr: null
     };
 }
 
@@ -586,11 +584,11 @@ export function rearrangeSwitchCases(cases: SwitchCase[]): SwitchCase[] {
     return [...otherCases, ...defaultCase];
 }
 
-export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: Normalization[][], parent: Node | null ): Normalization {
+export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: Normalization[][], parent: Node | null): Normalization {
     const parentDiscriminant = parent && (parent.type === "Identifier" || parent.type === "Literal") ? parent : createRandomIdentifier();
 
     const previousDecls: Statement[] = [];
-    let ifNode: Node | undefined;
+    let ifNode: IfStatement | BlockStatement | undefined;
 
     for (let j = cases.length - 1; j >= 0; j--) {
         const switchCase = cases[j];
@@ -614,8 +612,8 @@ export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: No
 
     if (ifNode) {
         return {
-            stmts: [ ...previousDecls, ifNode ],
-            expr: null,
+            stmts: [...previousDecls, ifNode],
+            expr: null
         };
     }
 
@@ -651,19 +649,18 @@ export function normConditionalExpression(obj: ConditionalExpression, children: 
 
     return {
         stmts: [...children[0].stmts, ...children[1].stmts, ...children[2].stmts],
-        expr: newObj,
+        expr: newObj
     };
 }
 
 export function createBlockStatement(stmts: Statement[]): BlockStatement {
-    if (stmts.length == 1 && stmts[0].type == "BlockStatement") {
+    if (stmts.length === 1 && stmts[0].type === "BlockStatement") {
         return stmts[0];
+    } else if (stmts.length >= 1) {
+        const newStmts = stmts.map((stmt) => { if (stmt.type === "BlockStatement") return stmt.body; else return stmt }).flat()
+        return { type: "BlockStatement", body: newStmts };
     }
-    else if (stmts.length >= 1) {
-        const newStmts = stmts.map((stmt) => { if (stmt.type == "BlockStatement") return stmt.body; else return stmt }).flat()
-        return { type: "BlockStatement", body: newStmts};
-    }
-    return { type: "BlockStatement", body: stmts};
+    return { type: "BlockStatement", body: stmts };
 }
 
 export function concatToBody(body: BlockStatement, stmt: Statement): BlockStatement {
@@ -680,17 +677,17 @@ export function normWhileStatement(obj: WhileStatement, children: Normalization[
 
     const objId = newObj.test.name;
     children[0].stmts.forEach((stmt) => {
-        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator"
-            && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
-                stmt.kind = "let";
-                const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
-                newObj.body = concatToBody(newObj.body, newAssignment);
+        if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
+        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            stmt.kind = "let";
+            const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
+            newObj.body = concatToBody(newObj.body, newAssignment);
         }
     });
 
     return {
         stmts: [...children[0].stmts, newObj],
-        expr: null,
+        expr: null
     };
 }
 
@@ -700,18 +697,17 @@ export function normForInStatement(obj: ForInStatement | ForOfStatement, childre
     newObj.right = children[1].expr;
     newObj.body = createBlockStatement([...children[2].stmts] as Statement[]);
 
-    if (!children[0].expr && children[0].stmts[0].type == "VariableDeclaration" ){
+    if (!children[0].expr && children[0].stmts[0].type === "VariableDeclaration") {
         const decl = children[0].stmts[0];
         decl.kind = "let";
         newObj.left = decl.declarations[0].id;
-    }
-    else {
+    } else {
         newObj.left = children[0].expr;
     }
 
     return {
-        stmts: [...children[0].stmts,...children[1].stmts, newObj],
-        expr: null,
+        stmts: [...children[0].stmts, ...children[1].stmts, newObj],
+        expr: null
     };
 }
 
@@ -728,17 +724,17 @@ export function normDoWhileStatement(obj: DoWhileStatement, children: Normalizat
 
     // Change test declaration to assignment (if exists)
     children[0].stmts.forEach((stmt) => {
-        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator"
-            && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
-                const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
-                // Append condition statement to the end of body
-                newObj.body = concatToBody(newObj.body, newAssignment);
+        if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
+        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
+            // Append condition statement to the end of body
+            newObj.body = concatToBody(newObj.body, newAssignment);
         }
     });
 
     return {
         stmts: [decl, newObj],
-        expr: null,
+        expr: null
     };
 }
 
@@ -750,18 +746,18 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
 
     const objId = newObj.test.name;
     children[1].stmts.forEach((stmt) => {
-        if (stmt.type == "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type == "VariableDeclarator"
-            && stmt.declarations[0].id.type == "Identifier" && stmt.declarations[0].id.name == objId && stmt.declarations[0].init) {
-                // Append test condition
-                stmt.kind = "let";
-                const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
-                newObj.body = concatToBody(newObj.body, newAssignment);
+        if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
+        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            // Append test condition
+            stmt.kind = "let";
+            const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
+            newObj.body = concatToBody(newObj.body, newAssignment);
         }
     });
 
     return {
         stmts: [...children[0].stmts, ...children[1].stmts, newObj],
-        expr: null,
+        expr: null
     };
 }
 
@@ -779,14 +775,15 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             // push empty object for this identifier
             newObj.right = createEmptyObject();
 
-            const newAssignments: Array<ExpressionStatement> = [];
+            const newAssignments: ExpressionStatement[] = [];
             // push declarations for each property using accesses to new variable
             rightExpr.properties.forEach((prop) => {
                 if (prop.type === "Property") {
                     const propKey = createIdentifierFromExpression(prop.key as Expression);
                     const propValue = prop.value as Expression;
-                    if (propKey && propValue)
+                    if (propKey && propValue) {
                         newAssignments.push(createPropertyAssignment(newObj.left, propKey, propValue));
+                    }
                 }
             });
 
@@ -795,10 +792,9 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
 
             return {
                 stmts: [...children[1].stmts, newExprStmt, ...newAssignments],
-                expr: null,
+                expr: null
             };
         } else if (rightExpr.type === "FunctionExpression") {
-
             let functionIdentifier;
             if (rightExpr.id) {
                 // create variable with the same name as function
@@ -808,7 +804,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 functionIdentifier = createRandomIdentifier();
             }
 
-            let newRightExpr = copyObj(rightExpr);
+            const newRightExpr = copyObj(rightExpr);
             delete newRightExpr.id;
             const { id, decl } = createVariableDeclarationWithIdentifier(functionIdentifier, newRightExpr);
 
@@ -816,13 +812,13 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
 
             return {
                 stmts: [...children[1].stmts, decl],
-                expr: newObj,
+                expr: newObj
             };
         } else if (rightExpr.type === "ConditionalExpression") {
             const newTest = rightExpr.test;
 
             let newConsequentExpression, newAlternateExpression;
-            if (leftExpr.type == "Identifier") {
+            if (leftExpr.type === "Identifier") {
                 newConsequentExpression = createExpressionAssignment(newObj.id.name, rightExpr.consequent);
                 newAlternateExpression = createExpressionAssignment(newObj.id.name, rightExpr.alternate);
             } else {
@@ -837,7 +833,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             const stmts = [...children[0].stmts, ...children[1].stmts, newIfStatement];
             return {
                 stmts,
-                expr: null,
+                expr: null
             };
         }
 
@@ -845,7 +841,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
 
         return {
             stmts: [...children[0].stmts, ...children[1].stmts],
-            expr: newObj,
+            expr: newObj
         };
     }
 
@@ -861,13 +857,13 @@ export function normExpressionStatement(obj: ExpressionStatement, children: Norm
         newObj.expression = expression;
         return {
             stmts: [...children[0].stmts, newObj],
-            expr: null,
+            expr: null
         };
     }
 
     return {
         stmts: [...flatStmts(children)],
-        expr: null,
+        expr: null
     };
 }
 
@@ -883,7 +879,7 @@ export function normUpdateExpression(obj: UpdateExpression | UnaryExpression, ch
 
         return {
             stmts: [...children[0].stmts, decl],
-            expr: id,
+            expr: id
         };
     }
 
@@ -900,14 +896,14 @@ export function normFunctionDeclaration(obj: FunctionDeclaration, children: Norm
     [newObj.body] = funcBody.stmts;
 
     if (funcId) {
-        const funcIdentifier: Identifier = <Identifier> funcId.expr;
+        const funcIdentifier: Identifier = funcId.expr as Identifier;
         newObj.id = null;
 
         const { id, decl } = createVariableDeclarationWithIdentifier(funcIdentifier, newObj);
 
         return {
             stmts: [decl],
-            expr: null,
+            expr: null
         };
     }
 
@@ -915,7 +911,7 @@ export function normFunctionDeclaration(obj: FunctionDeclaration, children: Norm
 
     return {
         stmts: [decl],
-        expr: null,
+        expr: null
     };
 }
 
@@ -927,7 +923,7 @@ export function normLabeledStatement(obj: LabeledStatement, children: Normalizat
 
     return {
         stmts: [newObj],
-        expr: null,
+        expr: null
     };
 }
 
@@ -940,19 +936,19 @@ export function normReturnStatement(obj: ReturnStatement | ThrowStatement, child
 
         return {
             stmts: [...children[0].stmts, newObj],
-            expr: null,
+            expr: null
         };
     }
 
     return {
         stmts: [newObj],
-        expr: null,
+        expr: null
     };
 }
 
 export function normFunctionExpression(obj: FunctionExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
-    let stmts: Node[] = [];
+    const stmts: Node[] = [];
 
     if (children[0]) {
         newObj.id = children[0].expr;
@@ -960,15 +956,15 @@ export function normFunctionExpression(obj: FunctionExpression, children: Normal
 
     [newObj.body] = children[1].stmts;
 
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression"
-            || parent.type === "MethodDefinition"
-            || (parent.type === "Property" && (parent.kind === "set" || parent.kind === "get")))) {
+    if (parent &&
+        (parent.type === "VariableDeclarator" ||
+            parent.type === "ExpressionStatement" ||
+            parent.type === "AssignmentExpression" ||
+            parent.type === "MethodDefinition" ||
+            (parent.type === "Property" && (parent.kind === "set" || parent.kind === "get")))) {
         return {
             stmts: [],
-            expr: newObj,
+            expr: newObj
         };
     }
 
@@ -977,7 +973,7 @@ export function normFunctionExpression(obj: FunctionExpression, children: Normal
 
     return {
         stmts,
-        expr: id,
+        expr: id
     };
 }
 
@@ -993,13 +989,13 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
         [newObj.body] = children[0].stmts;
     }
 
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression")) {
+    if (parent &&
+        (parent.type === "VariableDeclarator" ||
+            parent.type === "ExpressionStatement" ||
+            parent.type === "AssignmentExpression")) {
         return {
             stmts,
-            expr: newObj,
+            expr: newObj
         };
     }
 
@@ -1008,23 +1004,22 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
 
     return {
         stmts,
-        expr: id,
+        expr: id
     };
 }
-
 
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     newObj.callee = children[0].expr;
     newObj.arguments = flatExprs(children.slice(1));
 
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "AssignmentExpression"
-            || parent.type === "AwaitExpression")) {
+    if (parent &&
+        (parent.type === "VariableDeclarator" ||
+            parent.type === "AssignmentExpression" ||
+            parent.type === "AwaitExpression")) {
         return {
             stmts: [...flatStmts(children)],
-            expr: newObj,
+            expr: newObj
         };
     }
 
@@ -1032,7 +1027,7 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
 
     return {
         stmts: [...flatStmts(children), decl],
-        expr: id,
+        expr: id
     };
 }
 
@@ -1041,14 +1036,14 @@ export function normMemberExpression(obj: MemberExpression, children: Normalizat
     newObj.object = children[0].expr;
     newObj.property = children[1].expr;
 
-    if (parent
-        && (parent.type === "VariableDeclarator" ||
+    if (parent &&
+        (parent.type === "VariableDeclarator" ||
             // || parent.type === "ExpressionStatement"
             (parent.type === "CallExpression" && parent.callee === obj) ||
             parent.type === "AssignmentExpression")) {
         return {
             stmts: [...children[0].stmts, ...children[1].stmts],
-            expr: newObj,
+            expr: newObj
         };
     }
 
@@ -1056,7 +1051,7 @@ export function normMemberExpression(obj: MemberExpression, children: Normalizat
 
     return {
         stmts: [...children[0].stmts, ...children[1].stmts, decl],
-        expr: id,
+        expr: id
     };
 }
 
@@ -1064,32 +1059,33 @@ export function normObjectExpression(obj: ObjectExpression, children: Normalizat
     const newObj = copyObj(obj);
     newObj.properties = [...flatExprs(children)];
 
-    if (parent
-        && (parent.type === "VariableDeclarator"
-            || parent.type === "ExpressionStatement"
-            || parent.type === "AssignmentExpression")) {
+    if (parent &&
+        (parent.type === "VariableDeclarator" ||
+            parent.type === "ExpressionStatement" ||
+            parent.type === "AssignmentExpression")) {
         return {
             stmts: [...flatStmts(children)],
-            expr: newObj,
+            expr: newObj
         };
     }
 
-    if (parent?.type == "Property") {
+    if (parent?.type === "Property") {
         const { id, decl } = createVariableDeclaration(createEmptyObject());
-        const newAssignments: Array<ExpressionStatement> = [];
+        const newAssignments: ExpressionStatement[] = [];
         // push declarations for each property using accesses to new variable
         newObj.properties.forEach((prop: Property) => {
             if (prop.type === "Property") {
                 const propKey = createIdentifierFromExpression(prop.key as Expression);
                 const propValue = prop.value as Expression;
-                if (propKey && propValue)
+                if (propKey && propValue) {
                     newAssignments.push(createPropertyAssignment(id, propKey, propValue));
+                }
             }
         });
 
         return {
             stmts: [...flatStmts(children), decl, ...newAssignments],
-            expr: id,
+            expr: id
         };
     }
 
@@ -1097,7 +1093,7 @@ export function normObjectExpression(obj: ObjectExpression, children: Normalizat
     const stmts = flatStmts(children);
     return {
         stmts: [...stmts, decl],
-        expr: id,
+        expr: id
     };
 }
 
@@ -1130,7 +1126,7 @@ export function normProperty(obj: Property, children: Normalization[]): Normaliz
 
     return {
         stmts: [...keyStmts, ...valueStmts],
-        expr: newObj,
+        expr: newObj
     };
 }
 
@@ -1138,16 +1134,16 @@ export function normArrayExpression(obj: ArrayExpression, children: Normalizatio
     const newObj = copyObj(obj);
     newObj.elements = [...flatExprs(children)];
 
-    if ((parent && (parent.type === "ExpressionStatement" || parent.type === "VariableDeclarator" ||  parent.type === "AssignmentExpression" )) || !isNotEmpty(obj))
+    if ((parent && (parent.type === "ExpressionStatement" || parent.type === "VariableDeclarator" || parent.type === "AssignmentExpression")) ?? !isNotEmpty(obj)) {
         return {
             stmts: [...flatStmts(children)],
-            expr: newObj,
+            expr: newObj
         };
-    else {
+    } else {
         const { id, decl } = createVariableDeclaration(newObj);
         return {
             stmts: [...flatStmts(children), decl],
-            expr: id,
+            expr: id
         };
     }
 }
@@ -1156,16 +1152,16 @@ export function normArrayPattern(obj: ArrayPattern, children: Normalization[], p
     const newObj = copyObj(obj);
     newObj.elements = [...flatExprs(children)];
 
-    if ((parent && (parent.type === "ExpressionStatement" || parent.type === "VariableDeclarator" ||  parent.type === "AssignmentExpression" )) || !isNotEmpty(obj))
+    if ((parent && (parent.type === "ExpressionStatement" || parent.type === "VariableDeclarator" || parent.type === "AssignmentExpression")) ?? !isNotEmpty(obj)) {
         return {
             stmts: [...flatStmts(children)],
-            expr: newObj,
+            expr: newObj
         };
-    else {
+    } else {
         const { id, decl } = createVariableDeclaration(newObj);
         return {
             stmts: [...flatStmts(children), decl],
-            expr: id,
+            expr: id
         };
     }
 }
@@ -1188,7 +1184,7 @@ export function normClassExpression(obj: ClassExpression, children: Normalizatio
 
     return {
         stmts: [],
-        expr: newObj,
+        expr: newObj
     };
 }
 
@@ -1209,7 +1205,7 @@ export function normClassDeclaration(obj: ClassDeclaration, children: Normalizat
         const methods = classBody.body;
         methods.forEach(method => {
             const key = method.key as Identifier;
-            if (key.name == "constructor") {
+            if (key.name === "constructor") {
                 const constructorMethod = method.value as FunctionExpression;
                 constructorMethod.id = id;
                 funcDecl = createVariableDeclarationWithIdentifier(id, constructorMethod, true);
@@ -1223,8 +1219,8 @@ export function normClassDeclaration(obj: ClassDeclaration, children: Normalizat
     }
 
     return {
-        stmts: [ funcDecl.decl, ...stmts],
-        expr: null,
+        stmts: [funcDecl.decl, ...stmts],
+        expr: null
     };
 }
 
@@ -1234,7 +1230,7 @@ export function normClassBody(obj: ClassBody, children: Normalization[]): Normal
 
     return {
         stmts: [],
-        expr: newObj,
+        expr: newObj
     };
 }
 
@@ -1254,7 +1250,7 @@ export function normMethodDefinition(obj: MethodDefinition, children: Normalizat
 
     return {
         stmts: [],
-        expr: newObj,
+        expr: newObj
     };
 }
 
@@ -1268,7 +1264,7 @@ export function normAwaitYieldExpression(obj: AwaitExpression | YieldExpression 
 
     return {
         stmts: [...flatStmts(children)],
-        expr: newObj,
+        expr: newObj
     };
 }
 
@@ -1278,7 +1274,7 @@ export function normSequenceExpression(obj: SequenceExpression, children: Normal
 
     return {
         stmts: [...flatStmts(children)],
-        expr: newObj,
+        expr: newObj
     };
 }
 
@@ -1293,7 +1289,7 @@ export function normTryStatement(obj: TryStatement, children: Normalization[]): 
 
     return {
         stmts: [...children[1].stmts, newObj],
-        expr: null,
+        expr: null
     };
 }
 
@@ -1304,7 +1300,7 @@ export function normCatchClause(obj: CatchClause, children: Normalization[]): No
 
     return {
         stmts: [...children[0].stmts],
-        expr: newObj,
+        expr: newObj
     };
 }
 
@@ -1315,7 +1311,7 @@ export function normWithStatement(obj: WithStatement, children: Normalization[])
 
     return {
         stmts: [...children[0].stmts, newObj],
-        expr: null,
+        expr: null
     };
 }
 
@@ -1326,7 +1322,7 @@ export function normExportDeclaration(obj: ExportDefaultDeclaration | ExportName
         newObj.declaration = children[0].expr;
         return {
             stmts: [...children[0].stmts, newObj],
-            expr: null,
+            expr: null
         };
     }
 
@@ -1334,6 +1330,6 @@ export function normExportDeclaration(obj: ExportDefaultDeclaration | ExportName
 
     return {
         stmts: [newObj],
-        expr: null,
+        expr: null
     };
 }
