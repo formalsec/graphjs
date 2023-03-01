@@ -5,15 +5,17 @@ import { Graph } from "../traverse/graph/graph";
 import { GraphNode } from "../traverse/graph/node";
 import { GraphEdge } from "../traverse/graph/edge";
 import { Literal } from "estree";
+import escodegen from "escodegen";
 
 export class CSVOutput extends OutputWriter {
-    // eslint-disable-next-line class-methods-use-this
+    private showCode: any;
     output(graph: Graph, options: any, filename: string) {
+        this.showCode = options.show_code || false;
         // NODES
         // Id:ID¿Type¿Raw¿Location¿Label:LABEL
 
         const nodesWriteStream = fs.createWriteStream(`${filename}_nodes.csv`);
-        nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Label:LABEL\n");
+        nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL\n");
         // nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n");
 
         graph.nodes.forEach((node: GraphNode) => {
@@ -56,6 +58,12 @@ export class CSVOutput extends OutputWriter {
             // code location
             if (node.obj.loc) n.push(JSON.stringify(node.obj.loc));
             else n.push("");
+
+            if (node.obj && this.showCode &&
+                ["VariableDeclarator", "ExpressionStatement", "ReturnStatement"].includes(node.type)) {
+                const code = escodegen.generate(node.obj);
+                n.push(code)
+            } n.push("");
 
             // label
             n.push(node.type);
