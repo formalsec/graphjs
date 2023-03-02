@@ -32,13 +32,21 @@ NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
 RESULTS_DIR=execution-results
 
 # Make sure we have permissions to use graph files (auto chowned by docker...)
-echo $password | sudo -S chown $UID:$UID -R $GRAPH_DIR_PATH
+if [[ "$OSTYPE" =~ ^darwin ]]; then
+  echo $password | sudo -S chown $UID:$UID $GRAPH_DIR_PATH
+else
+  echo $password | sudo -S chown $UID:$UID -R $GRAPH_DIR_PATH
+fi
 
 if [ "$DEBUG" = true ]; then
     # Build and Run container
-    echo "[INFO] - Building image for container $NEO4j_EXPLODEJS_CONTAINER"
-    docker build . -t neo4j-docker
-    echo "[INFO] - Running container $NEO4j_EXPLODEJS_CONTAINER"
+    echo "[INFO] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      docker build --platform linux/amd64 . -t neo4j-docker
+    else
+      docker build . -t neo4j-docker
+    fi
+    echo "[INFO] - Running container $NEO4J_EXPLODEJS_CONTAINER"
     docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
         -e NEO4J_dbms_query__cache__size=0 \
         -e NEO4J_apoc_export_file_enabled=true \
@@ -48,7 +56,11 @@ if [ "$DEBUG" = true ]; then
 else
     # Build and Run container
     echo "[INFO] - Building image for container $NEO4j_EXPLODEJS_CONTAINER"
-    docker build -q . -t neo4j-docker
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      docker build --platform linux/amd64 -q . -t neo4j-docker
+    else
+      docker build -q . -t neo4j-docker
+    fi
     echo "[INFO] - Running container $NEO4j_EXPLODEJS_CONTAINER"
     docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
         -e NEO4J_dbms_query__cache__size=0 \
@@ -57,9 +69,11 @@ else
         -e NEO4J_apoc_import_file_use__neo4j__config=true \
         -p 7474:7474 -p 7687:7687 neo4j-docker
 
-    echo "[INFO] - Waiting for server to start..."
-    # Check if server already accepting connections
-    (echo $password | sudo -S tail -f -n0 `docker inspect --format='{{.LogPath}}' $NEO4J_EXPLODEJS_CONTAINER` &) | grep -q "Started."
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      until (docker logs -n 1 $NEO4J_EXPLODEJS_CONTAINER | grep "Started."); do sleep 20; done;
+    else
+      (echo $password | sudo -S tail -f -n0 `docker inspect --format='{{.LogPath}}' $NEO4J_EXPLODEJS_CONTAINER` &) | grep -q "Started."
+    fi
     echo "[INFO] - Neo4j server started..."
 
     # # Stop container
@@ -68,7 +82,12 @@ else
 fi
 
 # Make sure we have permissions to use graph files (auto chowned by docker...)
-echo $password | sudo -S chown $UID:$UID -R $GRAPH_DIR_PATH
+if [[ "$OSTYPE" =~ ^darwin ]]; then
+  echo $password | sudo -S chown $UID:$UID $GRAPH_DIR_PATH
+else
+  echo $password | sudo -S chown $UID:$UID -R $GRAPH_DIR_PATH
+fi
+
 
 # if [ "$DEBUG" = false ]; then
 # # Move results and times to execution results directory

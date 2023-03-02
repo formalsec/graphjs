@@ -59,11 +59,10 @@ export class CSVOutput extends OutputWriter {
             if (node.obj.loc) n.push(JSON.stringify(node.obj.loc));
             else n.push("");
 
-            if (node.obj && this.showCode &&
-                ["VariableDeclarator", "ExpressionStatement", "ReturnStatement"].includes(node.type)) {
-                const code = escodegen.generate(node.obj);
-                n.push(code)
-            } n.push("");
+            if (this.showCode && ["VariableDeclarator", "ExpressionStatement", "ReturnStatement"].includes(node.type)) {
+                const code = JSON.stringify(escodegen.generate(node.obj));
+                n.push(code);
+            } else n.push("");
 
             // label
             n.push(node.type);
