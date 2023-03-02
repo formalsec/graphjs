@@ -6,16 +6,15 @@ class Injection(QueryType):
 	def __init__(self):
 		QueryType.__init__(self, "Injection")
 
-	def find_vulnerable_paths(self, session):
+	def find_vulnerable_paths(self, session, vuln_paths):
 		"""
 		Find injection vulnerabilities paths.
 		"""
-		vuln_paths = []
 		query = f"""
 			MATCH
 				(source:TAINT_SOURCE)
 					-[param_edge:PDG]
-						-(param:PDG_OBJECT)
+						->(param:PDG_OBJECT)
 							-[pdg_edges:PDG*1..]
 								->(sink:TAINT_SINK),
 				(source_cfg)

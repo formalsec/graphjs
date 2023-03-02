@@ -42,9 +42,9 @@ if test -f "$FILEPATH"; then
 
     # run cpg construction stage and serialize cpg
     if [ $SILENT_OP = true ]; then
-        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv 
+        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv --show_code
     else
-        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv 2>&1 | tee $NORM
+        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv --show_code 2>&1 | tee $NORM
     fi
 
     # get csv output to import dir in neo4j-custom dir

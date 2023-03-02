@@ -9,14 +9,13 @@ config = my_utils.read_config()
 neo_driver = GraphDatabase.driver(NEO4J_CONN_STRING, auth=('', ''))
 
 with neo_driver.session() as session:
+	vuln_paths = []
 	for query_type in Queries().get_query_types():
-		vuln_paths = query_type.find_vulnerable_paths(session)
+		query_type.find_vulnerable_paths(session, vuln_paths)
 
-		if len(vuln_paths) > 0:
-			print("{} vulnerability detected!".format(query_type.get_type()))
-			my_utils.console(vuln_paths)
-			my_utils.save_output(argv, vuln_paths, query_type.get_type(), True)
-			# my_utils.save_output_multi_files(argv, vuln_paths)
-		else:
-			print("No vulnerability detected for type - {}".format(query_type.get_type()))
-			my_utils.save_output(argv, vuln_paths, query_type.get_type(), False)
+	if len(vuln_paths) > 0:
+		my_utils.console(vuln_paths)
+		my_utils.save_output(argv, vuln_paths)
+	else:
+		print("No vulnerabilities detected.")
+		my_utils.save_output(argv, vuln_paths)

@@ -60,7 +60,6 @@ def test_explodejs(dataset_path, dataset, update_sheets):
 
 
 def check_graph_construction(grades, norm_file):
-    print(norm_file)
     with open(norm_file, "r") as f:
         file_content = f.read()
         if "Error" in file_content:

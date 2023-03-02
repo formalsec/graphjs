@@ -11,10 +11,10 @@ def console(s, debug=True):
 			pprint(s)
 
 
-def save_output(argv, results, type, detected):
+def save_output(argv, results):
 	if len(argv) >= 2:
 		output = argv[1]
-		with open(output, "a") as f:
+		with open(output, "w") as f:
 			f.write(json.dumps(results, indent=4) + '\n')
 
 def save_output_multi_files(argv, results):
