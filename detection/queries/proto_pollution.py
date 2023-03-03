@@ -1,5 +1,8 @@
 from queries.query_type import QueryType
+import my_utils.utils as my_utils
 import json
+from sys import argv
+import os
 
 class PrototypePollution(QueryType):
 	def __init__(self):
@@ -63,18 +66,19 @@ class PrototypePollution(QueryType):
 		results = session.run(query)
 
 		for record in results:
-			sink = record["sink_cfg"]["Code"]
 			source_cfg = record["source_cfg"]
-			source_location = json.loads(source_cfg["Location"])
-			sink_location = json.loads(record["sink_cfg"]["Location"])
+			source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
+			sink_lineno = json.loads(record["sink_cfg"]["Location"])["start"]["line"]
+			filename = argv[1][0:-len(os.path.splitext(argv[1])[1])] + "-normalized.js"
+			sink = my_utils.get_code_line_from_file(filename, sink_lineno)
 			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"]) 
 
 			vuln_path = {
 				"vuln_type": "prototype-pollution",
 				"source": source_cfg["IdentifierName"],
-				"source_lineno": source_location["start"]["line"],
+				"source_lineno": source_lineno,
 				"sink": sink,
-				"sink_lineno": sink_location["start"]["line"],
+				"sink_lineno": sink_lineno,
 				"tainted_params": tainted_params,
 				"params_types": params_types,
 				# "lines": self.find_vulnerable_lines(record["cfg_path"])

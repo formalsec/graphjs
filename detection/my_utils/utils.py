@@ -1,6 +1,8 @@
 from os import path
 import json
 from pprint import pprint
+from sys import argv 
+import linecache
 
 
 def console(s, debug=True):
@@ -11,9 +13,9 @@ def console(s, debug=True):
 			pprint(s)
 
 
-def save_output(argv, results):
+def save_output(results):
 	if len(argv) >= 2:
-		output = argv[1]
+		output = argv[2]
 		with open(output, "w") as f:
 			f.write(json.dumps(results, indent=4) + '\n')
 
@@ -86,3 +88,8 @@ def change_dict_value_recursively(d, value):
 			d[i] = value
 		else:
 			change_dict_value_recursively(d[i], value)
+
+
+def get_code_line_from_file(filename, lineno):
+	line = linecache.getline(filename, lineno)
+	return line.lstrip().replace("\n", "")
