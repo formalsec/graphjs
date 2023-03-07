@@ -835,6 +835,22 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 stmts,
                 expr: null
             };
+        } else if (rightExpr.type === "CallExpression") {
+
+            if (leftExpr.type !== "Identifier") {
+                // create new random identifier
+                const newIdentifier = createRandomIdentifier()
+                const newRightExpr = copyObj(rightExpr);
+
+                const { id, decl } = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr);
+
+                newObj.right = newIdentifier;
+
+                return {
+                    stmts: [...children[1].stmts, decl],
+                    expr: newObj
+                };
+            }
         }
 
         newObj.right = rightExpr;
