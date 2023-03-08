@@ -43,6 +43,8 @@ if [ "$DEBUG" = true ]; then
     echo "[INFO] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
     if [[ "$OSTYPE" =~ ^darwin ]]; then
       docker build --platform linux/amd64 . -t neo4j-docker
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      docker build --platform linux/x86_64 -q . -t neo4j-docker
     else
       docker build . -t neo4j-docker
     fi
@@ -58,8 +60,8 @@ else
     echo "[INFO] - Building image for container $NEO4j_EXPLODEJS_CONTAINER"
     if [[ "$OSTYPE" =~ ^darwin ]]; then
       docker build --platform linux/amd64 -q . -t neo4j-docker
-    else
-      docker build -q . -t neo4j-docker
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      docker build --platform linux/x86_64 -q . -t neo4j-docker
     fi
     echo "[INFO] - Running container $NEO4j_EXPLODEJS_CONTAINER"
     docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \

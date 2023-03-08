@@ -14,7 +14,7 @@ def console(s, debug=True):
 
 
 def save_output(results):
-	if len(argv) >= 2:
+	if len(argv) >= 3:
 		output = argv[2]
 		with open(output, "w") as f:
 			f.write(json.dumps(results, indent=4) + '\n')
