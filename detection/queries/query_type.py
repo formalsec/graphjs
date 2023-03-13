@@ -12,7 +12,7 @@ class QueryType:
 
 
     @abstractmethod
-    def find_vulnerable_paths(self, session):
+    def find_vulnerable_paths(self, session, vuln_paths):
         pass
 
 

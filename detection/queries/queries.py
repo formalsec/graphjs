@@ -7,7 +7,7 @@ class Queries:
     query_types = []
 
     def __init__(self):
-        self.query_types += [Injection(), InternalPrototypeTampering(), PrototypePollution()]
+        self.query_types += [Injection(), PrototypePollution()]
 
     def get_query_types(self):
         return self.query_types

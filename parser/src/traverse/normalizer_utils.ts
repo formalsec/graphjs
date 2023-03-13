@@ -835,6 +835,22 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 stmts,
                 expr: null
             };
+        } else if (rightExpr.type === "CallExpression") {
+
+            if (leftExpr.type !== "Identifier") {
+                // create new random identifier
+                const newIdentifier = createRandomIdentifier()
+                const newRightExpr = copyObj(rightExpr);
+
+                const { id, decl } = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr);
+
+                newObj.right = newIdentifier;
+
+                return {
+                    stmts: [...children[1].stmts, decl],
+                    expr: newObj
+                };
+            }
         }
 
         newObj.right = rightExpr;
@@ -1010,15 +1026,25 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
 
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
-    newObj.callee = children[0].expr;
+    const callee = children[0].expr;
+    let stmts: Node[] = [];
+    newObj.callee = callee;
     newObj.arguments = flatExprs(children.slice(1));
+
+    if (callee && callee.type === "MemberExpression") {
+        // create new variable for member expression assignment
+        // make callee the identifier for that variable
+        const { id, decl } = createVariableDeclaration(callee);
+        stmts.push(decl);
+        newObj.callee = id;
+    }
 
     if (parent &&
         (parent.type === "VariableDeclarator" ||
             parent.type === "AssignmentExpression" ||
             parent.type === "AwaitExpression")) {
         return {
-            stmts: [...flatStmts(children)],
+            stmts: [...stmts, ...flatStmts(children)],
             expr: newObj
         };
     }
@@ -1026,7 +1052,7 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
     const { id, decl } = createVariableDeclaration(newObj);
 
     return {
-        stmts: [...flatStmts(children), decl],
+        stmts: [...stmts, ...flatStmts(children), decl],
         expr: id
     };
 }

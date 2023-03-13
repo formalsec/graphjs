@@ -1,118 +1,131 @@
 from queries.query_type import QueryType
+import my_utils.utils as my_utils
+import json
+from sys import argv
+import os
 
 class PrototypePollution(QueryType):
 	def __init__(self):
 		QueryType.__init__(self, "Prototype Pollution")
 
+	def find_vulnerable_paths(self, session, vuln_paths):
+		"""
+		Find prototype pollution vulnerabilities paths.
+		"""
+		self.find_first_level_lookups(session, vuln_paths)
 
-	def find_tampered_objects(self, session, source, tamp_objs):
-		source_obj_id = source["source_obj"].get('Id')
-		source_func_id = source["function"].get('Id')
-		with session.begin_transaction() as tx:
-			query = f"""
-				MATCH
-					(f:FunctionExpression)-[:AST]->(param),
-					(param)-[create:PDG]->(source:PDG_OBJECT)-[source_edge_assignment:PDG*1..]->(assignment:ExpressionStatement)-
-				[write_edge:PDG]->(tamp_obj:PDG_OBJECT),
-					(assignment)-[:AST]->(:AssignmentExpression)-[right:AST]->(val:Identifier)
-				WHERE
-					f.Id = '{source_func_id}' AND
-					source.Id = '{source_obj_id}' AND
-					create.RelationType = 'CREATE' AND
-					write_edge.RelationType = 'WRITE' AND
-					write_edge.IdentifierName = '*' AND
-					right.RelationType = 'right' AND
-					source_edge_assignment[-1].IdentifierName = val.IdentifierName
-				RETURN *
-			"""
+		return vuln_paths
 
-			results = tx.run(query)
+	def find_first_level_lookups(self, session, vuln_paths):
+		"""
+		Find prototype pollution first level lookups.
+		E.g. obj[key] = value
+		"""
+		query = f"""
+			MATCH
+				(tamp_obj:PDG_OBJECT)
+					-[nv_edge:PDG]
+						->()
+							-[so_edge:PDG]	
+								->(sink:PDG_OBJECT),
+				(source:TAINT_SOURCE)
+					-[param_edge_0:PDG]
+						->(param_0:PDG_OBJECT)
+							-[dep_edges_0:PDG*1..]
+								->(sink),
+				(source)
+					-[param_edge_1:PDG]
+						->(param_1:PDG_OBJECT)
+							-[dep_edges_1:PDG*1..]
+								->(sink),
+				(source_cfg)
+					-[param_ref:REF]
+						->(param),
+				(sink_cfg)
+					-[:REF]
+						->(sink)
+			MATCH
+				cfg_path=
+					(source_cfg)
+						-[cfg_edges: CFG|FD*1..]
+							->(sink_cfg)
+			WHERE 
+				nv_edge.RelationType = "NV" AND
+				nv_edge.IdentifierName = "*" AND
+				so_edge.RelationType = "SO" AND
+				so_edge.IdentifierName = "*" AND
+				param_edge_0.RelationType = "TAINT" AND
+				dep_edges_0[-1].RelationType = "DEP" AND
+                param_edge_1.RelationType = "TAINT" AND
+				dep_edges_1[-1].RelationType = "DEP" AND
+				param_ref.RelationType = "param" AND
+                param_0.Id <> param_1.Id
+			RETURN *
+		"""
 
-			for record in results:
-				tamp_obj_id = record['tamp_obj'].get('Id')
-				if tamp_obj_id not in tamp_objs:
-					tamp_objs[tamp_obj_id] = {
-						'function': record['f'],
-						'tamp_obj': record['tamp_obj'],
-						'assignment': record['assignment'],
-					}
-	
-	
-	def find_assignment_paths(self, session, source, tamp_obj):
-		assignment_paths = []
-		source_func_id = source['function'].get('Id')
-		source_obj_id = source['source_obj'].get('Id')
-		source_dict = { "var": source["source"]["IdentifierName"] }
-		tamp_obj_id = tamp_obj['tamp_obj'].get('Id')
+		results = session.run(query)
 
-		with session.begin_transaction() as tx:
-			# False positives for one level assignments
-			query = f"""
-				MATCH
-					(f:FunctionExpression)-[:AST]->(param), 
-					(param)-[create:PDG]->(source:PDG_OBJECT)-[:PDG*1..]->(tamp_ref:PDG_OBJECT)
-				MATCH
-					(sink:ExpressionStatement)-[:PDG]->(tamp_ref)<-[ref_edges_obj:PDG*1..]-(tamp_obj:PDG_OBJECT)<-
-				[create_obj_edge:PDG]-(cfg_obj),
-					cfg_path=(s:CFG_F_START)-[:CFG*1..]->(sink)
-				WHERE
-					f.Id = '{source_func_id}' AND
-					create.RelationType = 'CREATE' AND
-					source.Id = '{source_obj_id}' AND
-					tamp_ref.Id = '{tamp_obj_id}' AND
-					(ref_edges_obj[-1].RelationType = 'LOOKUP' OR ref_edges_obj[-1].RelationType = 'NEW_VERSION') AND
-					create_obj_edge.RelationType = 'CREATE'
-				RETURN *
-			"""
+		for record in results:
+			source_cfg = record["source_cfg"]
+			source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
+			sink_lineno = json.loads(record["sink_cfg"]["Location"])["start"]["line"]
+			filename = argv[1][0:-len(os.path.splitext(argv[1])[1])] + "-normalized.js"
+			sink = my_utils.get_code_line_from_file(filename, sink_lineno)
+			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"]) 
 
-			results = tx.run(query)
-
-			for record in results:
-				assignment_paths.append({
-					"cfg_path": record["cfg_path"],
-					"function": source["function"],
-					"func_name": source["functionName"],
-					"tamp_obj": record["tamp_obj"],
-					"tamp_obj_id": tamp_obj_id,
-					"source": source_dict,
-				})
-
-		return assignment_paths
-	
-
-	def find_pdg_paths(self, session, sources, sinks):
-		tainted_paths = []
-		tamp_objs = {}
-
-		for source in sources:
-			self.find_tampered_objects(session, source, tamp_objs)
-
-		for source in sources:	
-			for tamp_obj in tamp_objs.values():
-				tainted_paths.extend(self.find_assignment_paths(session, source, tamp_obj))
-
-		return tainted_paths
-
-
-	def validate_pdg_paths(self, paths, param_types, session):
-		valid_paths = {}
-		for p in paths:
-			func_id = p['function'].get('Id')
-			func_name = p['func_name']
-			cfg_path = p['cfg_path']
-			tamp_obj_id = p['tamp_obj_id']
-
-			locs = self.get_locs(func_id, cfg_path, session)
-
-			flow = {
-				"vuln_type": "prototype pollution",
-				"function": func_name,
-				"params": [param["name"] for param in param_types[func_name]],
-				"vars": param_types[func_name],
-				"lines": locs,
+			vuln_path = {
+				"vuln_type": "prototype-pollution",
+				"source": source_cfg["IdentifierName"],
+				"source_lineno": source_lineno,
+				"sink": sink,
+				"sink_lineno": sink_lineno,
+				"tainted_params": tainted_params,
+				"params_types": params_types,
+				# "lines": self.find_vulnerable_lines(record["cfg_path"])
 			}
+			if vuln_path not in vuln_paths:
+				vuln_paths.append(vuln_path)
 
-			if tamp_obj_id not in valid_paths.keys():
-				valid_paths[tamp_obj_id] = flow
 
-		return list(valid_paths.values())
+	def find_several_levels_lookups(self, session, vuln_paths):
+		"""
+		Find prototype pollution first level lookups.
+		E.g. obj[key][subKey] = value; obj[key][subKey][subSubKey] = value
+		"""
+		vuln_paths = []
+		query = f"""
+			MATCH
+
+			MATCH
+				cfg_path=
+					(source_cfg)
+						-[cfg_edges: CFG|FD*1..]
+							->(sink_cfg)
+			WHERE 
+
+			RETURN *
+		"""
+
+		results = session.run(query)
+
+		for record in results:
+			sink_name = record["sink"]["IdentifierName"]
+			source_cfg = record["source_cfg"]
+			source_location = json.loads(source_cfg["Location"])
+			sink_location = json.loads(record["sink_cfg"]["Location"])
+			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"]) 
+
+			vuln_path = {
+				"vuln_type": "prototype-pollution",
+				"source": source_cfg["IdentifierName"],
+				"source_lineno": source_location["start"]["line"],
+				"sink": sink_name,
+				"sink_lineno": sink_location["start"]["line"],
+				"tainted_params": tainted_params,
+				"params_types": params_types,
+				# "lines": self.find_vulnerable_lines(record["cfg_path"])
+			}
+			if vuln_path not in vuln_paths:
+				vuln_paths.append(vuln_path)
+
+		return vuln_paths

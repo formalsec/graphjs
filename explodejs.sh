@@ -42,7 +42,7 @@ if test -f "$FILEPATH"; then
 
     # run cpg construction stage and serialize cpg
     if [ $SILENT_OP = true ]; then
-        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv 
+        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv
     else
         npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv 2>&1 | tee $NORM
     fi
@@ -67,7 +67,7 @@ if test -f "$FILEPATH"; then
     # run all queries
     echo "[INFO] - Running queries"
     QUERIES=$(realpath ./detection)
-    python3 $QUERIES/run.py $OUTPUT
+    python3 $QUERIES/run.py $FILEPATH $OUTPUT
 
     # stop Neo4J container
     echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
