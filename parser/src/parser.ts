@@ -14,14 +14,18 @@ const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
 
 import { printStatus } from "./utils/utils";
-import { read_config, type Config } from "./utils/config_reader";
+import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
 
 // Returns a graph object
 function parse(filename: string, config: Config, fileOutput: boolean): Graph {
     try {
-        const data = fs.readFileSync(filename, "utf8");
+        let data = fs.readFileSync(filename, "utf8");
+        // Remove shebang line
+        if (data.slice(0, 2) === "#!") {
+            data = data.slice(data.indexOf('\n') + ('\n').length);
+        }
         const ast = esprima.parseModule(data, { tolerant: true });
         printStatus("AST Parsing");
 
@@ -111,7 +115,7 @@ if (fs.existsSync(filename)) {
     }
 
     if (fs.existsSync(configFile)) {
-        const config = read_config(configFile);
+        const config = readConfig(configFile);
         const graph = parse(filename, config, fileOutput);
 
         if (graph) {
