@@ -1,0 +1,9 @@
+[{
+    "function": "function",
+    "deps": [
+        {
+            "obj": 0,
+            "deps": [1]
+        }
+    ]
+}]

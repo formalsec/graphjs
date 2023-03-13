@@ -140,6 +140,10 @@ export class DependencyTracker {
         varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
     }
 
+    graphCreateCallDependencyEdge(source: number, destination: number, objName: string | null): void {
+        this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName: objName ?? "" });
+    }
+
     graphCreateMemberExpressionDependencies(stmtId: number, newObjId: number, deps: Dependency[]): void {
         deps
             .filter(dep => DependencyFactory.isDObject(dep))

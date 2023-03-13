@@ -1,64 +1,66 @@
 import fs = require("fs");
+import { readSummaries, type Summaries } from "./summary_reader";
 
 export interface Package {
-    package: string,
-    args: number[],
-};
+    package: string
+    args: number[]
+}
 
 export interface FunctionSink {
-    sink: string,
-    args: number[],
-};
+    sink: string
+    args: number[]
+}
 
 export interface NewSink {
-    sink: string,
-    args: number[],
-};
+    sink: string
+    args: number[]
+}
 
 export interface PackageSink {
-    sink: string,
+    sink: string
     packages: Package[]
 }
 
 export type Sink = FunctionSink | NewSink | PackageSink;
 export interface Config {
-    functions: FunctionSink[],
-    news: NewSink[],
-    packages: PackageSink[],
-};
+    functions: FunctionSink[]
+    news: NewSink[]
+    packages: PackageSink[]
+    summaries: Summaries
+}
 
-export function read_config(filePath: string): Config {
-    const fsinks: FunctionSink[] = [];
-    const nsinks: NewSink[] = [];
-	const psinks: PackageSink[] = [];
+export function readConfig(filePath: string): Config {
+    const functionSinks: FunctionSink[] = [];
+    const newSinks: NewSink[] = [];
+    const packageSinks: PackageSink[] = [];
 
-    let config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-	if (config.sinks) {
-        const vuln_types = config.sinks;
-        Object.keys(vuln_types).forEach(vuln => {
-            vuln_types[vuln].forEach((sink: any) => {
-                const sname: string = sink.sink;
-                const stype: string = sink.type;
+    const config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (config.sinks) {
+        const vulnerabilityTypes = config.sinks;
+        Object.keys(vulnerabilityTypes).forEach(vuln => {
+            vulnerabilityTypes[vuln].forEach((sink: any) => {
+                const sinkName: string = sink.sink;
+                const sinkType: string = sink.type;
 
-                switch (stype) {
+                switch (sinkType) {
                     case "new": {
-                        nsinks.push({
-                            sink: sname,
-                            args: sink.args,
+                        newSinks.push({
+                            sink: sinkName,
+                            args: sink.args
                         });
                         break;
                     }
                     case "function": {
-                        fsinks.push({
-                            sink: sname,
-                            args: sink.args,
+                        functionSinks.push({
+                            sink: sinkName,
+                            args: sink.args
                         });
                         break;
                     }
                     case "package": {
-                        psinks.push({
-                            sink: sname,
-                            packages: sink.packages,
+                        packageSinks.push({
+                            sink: sinkName,
+                            packages: sink.packages
                         });
                         break;
                     }
@@ -67,9 +69,12 @@ export function read_config(filePath: string): Config {
         });
     }
 
+    const summaries = readSummaries("src/summaries.json");
+
     return {
-        functions: fsinks,
-        news: nsinks,
-        packages: psinks
+        functions: functionSinks,
+        news: newSinks,
+        packages: packageSinks,
+        summaries
     };
 }

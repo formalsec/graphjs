@@ -227,6 +227,7 @@ function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
 
     graph.startNodes.get("CFG")?.forEach(n => { traverse(n); });
     // gFunctions.print();
+    newConfig.summaries = origConfig.summaries;
     return { callGraph: graph, config: newConfig };
 }
 

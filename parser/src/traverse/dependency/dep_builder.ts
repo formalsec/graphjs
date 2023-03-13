@@ -7,6 +7,7 @@ import { StorageFactory, type StorageObject, type StorageValue } from "./sto_fac
 import { type Identifier } from "estree";
 import { DependencyFactory, type Dependency } from "./dep_factory";
 import { type Config } from "../../utils/config_reader";
+import { type SummaryDependency } from "../../utils/summary_reader";
 
 export interface PDGReturn {
     graph: Graph
@@ -183,7 +184,28 @@ function handleArrayExpression(stmtId: number, functionContext: number, variable
     return trackers;
 }
 
+/* This method translates the dependencies of the summaries into the corresponding object
+* 0 is the called object
+* -1 is the return object
+* >1 are the arguments of the functions */
+function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNode, objName: string, ret: number): [number, string | null] {
+    switch (depNumber) {
+        case -1:
+            return [ret, ""]
+        case 0:
+            return [obj.id, objName]
+        default:
+            // Here, is only returning the first found argument
+            // TODO: support all arguments (e.g. push(x,y,z)
+            const dep = deps.find(d => d.arg === depNumber)
+            return [dep?.source ?? -1, dep?.name ?? ""]
+    }
+}
+
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
+    // Get function name
+    const functionIdentifierNode = getASTNode(callNode, "callee");
+    const functionName = functionIdentifierNode.obj.name;
     // create new object
     const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
     trackers.graphCreateReferenceEdge(stmtId, newObjId);
@@ -192,9 +214,40 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     const deps = evalDep(trackers, stmtId, callNode);
     trackers.graphCreateCallStatementDependencyEdges(stmtId, newObjId, deps);
 
+    // Process dependencies between the subjects of the call
+    // E.g. dependencies of object (arr) being called upon (e.g. arr.push(x))
+    // TODO: Should this create a new version?
+    if (callNode.obj.callee.type === "MemberExpression") {
+        // Get call name
+        const callName = callNode.obj.callee.property.name;
+        // Get callee object (e.g. arr)
+        const callObj = callNode.obj.callee.object.name;
+        const latestCallObj = trackers.getObjectVersionNodes(callObj, callNode.functionContext).slice(-1)[0];
+        // Get summary for the function
+        const functionSummary: SummaryDependency[] | undefined = config.summaries.get(callName);
+        if (functionSummary) {
+            // For each summary item (obj, dependencies)
+            functionSummary.forEach((summaryItem) => {
+                // Get object (destination) information
+                const destination = translateDependency(summaryItem.obj, deps, latestCallObj, callObj, newObjId)
+                // For each dependency, add the corresponding edge
+                summaryItem.deps.forEach(d => {
+                    const source = translateDependency(d, deps, latestCallObj, callObj, newObjId)
+                    trackers.graphCreateCallDependencyEdge(source[0], destination[0], source[1])
+                })
+            })
+        } else {
+            // If there is no function summary available, assume all dependencies
+            // Dependency callee -> ret
+            trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, callObj)
+            // Call params -> callee
+            deps.forEach(d => {
+                trackers.graphCreateCallDependencyEdge(d.source, latestCallObj.id, d.name)
+            })
+        }
+    }
+
     // check sink name
-    const functionIdentifierNode = getASTNode(callNode, "callee");
-    const functionName = functionIdentifierNode.obj.name;
     const functionSinks = config.functions.filter((s) => s.sink === functionName);
     if (functionSinks.length > 0) {
         const sink = functionSinks.slice(-1)[0];
