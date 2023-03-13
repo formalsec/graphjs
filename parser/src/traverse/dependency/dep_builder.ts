@@ -493,6 +493,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
             return handleFunctionDeclaration(stmtId, stmt, funcNode, leftIdentifier, right, trackers);
         }
 
+        case "LogicalExpression":
         case "BinaryExpression": {
             return handleBinaryExpression(stmtId, stmt, leftIdentifier, right, trackers);
         }

@@ -219,10 +219,12 @@ function buildCFG(astGraph: Graph): Graph {
                 };
             }
 
+            // Types of nodes that don't make changes in the CFG
             case "Literal":
             case "Identifier":
             case "VariableDeclarator":
             case "ObjectExpression":
+            case "Property":
             case "ExpressionStatement":
             case "AssignmentExpression":
             case "MemberExpression":
@@ -233,6 +235,9 @@ function buildCFG(astGraph: Graph): Graph {
             case "TemplateLiteral":
             case "NewExpression":
             case "ThisExpression":
+            case "LogicalExpression":
+            case "UnaryExpression":
+            case "UpdateExpression":
                 return defaultNode(node);
 
             default:

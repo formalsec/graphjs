@@ -442,7 +442,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
         // case "Property": {
         //     return evalDep(trackers, stmtId, getASTNode(node, "value"), destinationId);
         // }
-
+        case "LogicalExpression":
         case "BinaryExpression": {
             const leftDep = evalDep(trackers, stmtId, getASTNode(node, "left"));
             const rightDep = evalDep(trackers, stmtId, getASTNode(node, "right"));
@@ -521,6 +521,7 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
             return locations ? locations.slice(-1) : [{}];
         }
 
+        case "LogicalExpression":
         case "BinaryExpression": {
             const leftSto = evalSto(trackers, getASTNode(node, "left"));
             const rightSto = evalSto(trackers, getASTNode(node, "right"));
