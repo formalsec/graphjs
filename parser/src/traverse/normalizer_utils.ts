@@ -818,7 +818,11 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             const newTest = rightExpr.test;
 
             let newConsequentExpression, newAlternateExpression;
-            if (leftExpr.type === "Identifier") {
+            // Case where we modify an existing variable on the left side
+            if (leftExpr.type === "Identifier" && parent && parent.type === "ExpressionStatement" && parent.expression.type === "AssignmentExpression") {
+                newConsequentExpression = createExpressionAssignment(newObj.left.name, rightExpr.consequent);
+                newAlternateExpression = createExpressionAssignment(newObj.left.name, rightExpr.alternate);
+            } else if (leftExpr.type === "Identifier") { // Case where we are declaring a new variable on the left side
                 newConsequentExpression = createExpressionAssignment(newObj.id.name, rightExpr.consequent);
                 newAlternateExpression = createExpressionAssignment(newObj.id.name, rightExpr.alternate);
             } else {
@@ -995,7 +999,7 @@ export function normFunctionExpression(obj: FunctionExpression, children: Normal
 
 export function normArrowFunctionExpression(obj: ArrowFunctionExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
-    newObj.type = "FunctionExpression";
+    // newObj.type = "FunctionExpression";
     let stmts: Node[] = [];
 
     if (children[0].expr) { // body is an expression

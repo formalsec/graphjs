@@ -506,6 +506,12 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         case "TemplateLiteral":
             return handleTemplateLiteral(stmtId, stmt, leftIdentifier, right, trackers);
 
+        case "UnaryExpression":
+            return handleSimpleAssignment(stmtId, stmt, leftIdentifier, right, trackers);
+
+        case "Literal":
+            return trackers; // There are no dependencies from a Literal
+
         default:
             console.trace("Expression didn't match with case values.");
             return trackers;

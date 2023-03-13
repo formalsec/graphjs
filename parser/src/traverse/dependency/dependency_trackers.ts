@@ -435,6 +435,16 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             return [DependencyFactory.DVar(objName, depObjId)];
         }
 
+        case "UnaryExpression": {
+            const arg = node.obj.argument;
+            if (arg.type === "Literal") return [];
+            else {
+                const objName = arg.name;
+                const depObjId = trackers.getObjectVersions(objName, node.functionContext).slice(-1)[0];
+                return [DependencyFactory.DVar(objName, depObjId)];
+            }
+        }
+
         // case "Literal": {
         //     return [ DependencyFactory.DConst(node.obj.value, stmtId) ];
         // }
@@ -519,6 +529,10 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
             const objNameContext = trackers.getContextNameList(node.obj.name, node.functionContext).slice(-1)[0];
             const locations = trackers.getStorage(objNameContext);
             return locations ? locations.slice(-1) : [{}];
+        }
+
+        case "UnaryExpression": {
+            return evalSto(trackers, getASTNode(node, "argument"));
         }
 
         case "LogicalExpression":
