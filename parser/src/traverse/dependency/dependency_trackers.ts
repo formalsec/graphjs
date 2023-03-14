@@ -17,6 +17,9 @@ type References = Map<string, string[]>;
 type GNodes = Map<string, number>;
 type FContexts = Map<number, number[]>;
 
+type RequireChain = Map<string, string[]>;
+type VPMap = Map<string, string>;
+
 export class DependencyTracker {
     // This value represents the current state of the graph
     private graph: Graph;
@@ -32,6 +35,10 @@ export class DependencyTracker {
     private funcContexts: FContexts;
     // This value represents TODO
     private intraContextStack: number[];
+    // This value represents chains of "request" dependencies
+    private requireChain: RequireChain;
+    // This value represents a map of variable name to package name
+    private variableMap: VPMap;
 
     constructor(graph: Graph) {
         this.graph = graph;
@@ -41,6 +48,8 @@ export class DependencyTracker {
         this.gNodes = new Map();
         this.funcContexts = new Map();
         this.intraContextStack = new Array<number>();
+        this.requireChain = new Map();
+        this.variableMap = new Map();
     }
 
     private setHeap(newHeap: Heap): void {
@@ -63,6 +72,14 @@ export class DependencyTracker {
         const newContextArray = new Array<number>();
         newContext.forEach(c => newContextArray.push(c));
         this.intraContextStack = newContextArray;
+    }
+
+    private setRequireChain(newRequireChain: RequireChain): void {
+        this.requireChain = new Map(newRequireChain);
+    }
+
+    private setVariableMap(newVariableMap: VPMap): void {
+        this.variableMap = new Map(newVariableMap);
     }
 
     /** Context functions **/
@@ -88,6 +105,22 @@ export class DependencyTracker {
 
     popIntraContext(): number | undefined {
         return this.intraContextStack.pop();
+    }
+
+    addRequireChainEntry(variableName: string, packageName: string) {
+        const pChain = this.requireChain.get(packageName);
+        let pChainValue: string[] = [variableName];
+        if (pChain) pChainValue = [...pChain, variableName];
+        this.requireChain.set(packageName, pChainValue);
+        this.addVariableMap(variableName, packageName);
+    }
+
+    addVariableMap(variableName: string, functionMap: string) {
+        this.variableMap.set(variableName, functionMap);
+    }
+
+    checkVariableMap(variableName: string): string | undefined {
+        return this.variableMap.get(variableName);
     }
 
     getContextNameList(name: string, defaultContext: number): string[] {
@@ -398,6 +431,8 @@ export class DependencyTracker {
         clone.setGNodes(this.gNodes);
         clone.setFuncContexts(this.funcContexts);
         clone.setContext(this.intraContextStack);
+        clone.setRequireChain(this.requireChain);
+        clone.setVariableMap(this.variableMap);
         return clone;
     }
 
@@ -411,6 +446,8 @@ export class DependencyTracker {
         console.log("Refs:", this.refs);
         console.log("Graph Nodes:", this.gNodes);
         console.log("Func Contexts:", this.funcContexts);
+        console.log("Require Chain:", this.requireChain);
+        console.log("Variable Map:", this.variableMap);
     }
 
     printContext(): void {

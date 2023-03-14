@@ -206,6 +206,14 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     // Get function name
     const functionIdentifierNode = getASTNode(callNode, "callee");
     const functionName = functionIdentifierNode.obj.name;
+    const functionNameContext = trackers.getContextNameList(functionName, functionContext).slice(-1)[0];
+
+    if (functionName === "require") {
+        const packageName = getAllASTNodes(callNode, "arg")[0];
+        const variableName = trackers.getContextNameList(variable.name, functionContext).slice(-1)[0];
+        trackers.addRequireChainEntry(variableName, packageName.obj.value);
+    }
+
     // create new object
     const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
     trackers.graphCreateReferenceEdge(stmtId, newObjId);
@@ -247,23 +255,35 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         }
     }
 
+    let useFunctionMap = false;
+    const functionNameMap = trackers.checkVariableMap(functionNameContext);
+    if (functionNameMap) {
+        useFunctionMap = true;
+    }
+
+    let sinkName = functionName;
     // check sink name
-    const functionSinks = config.functions.filter((s) => s.sink === functionName);
+    let functionSinks;
+    if (useFunctionMap) {
+        sinkName = functionNameMap;
+    }
+    functionSinks = config.functions.filter((s) => s.sink === sinkName);
+
     if (functionSinks.length > 0) {
         const sink = functionSinks.slice(-1)[0];
 
         // function being called is a sink
         // we have to check if the sink node already exists for this function
-        const checkSink = trackers.graphCheckSinkNode(functionName);
+        const checkSink = trackers.graphCheckSinkNode(sinkName);
         let sinkNode: number;
 
         if (!checkSink) {
             // create sink node if it does not exist
-            sinkNode = trackers.graphAddSinkNode(functionName).id;
+            sinkNode = trackers.graphAddSinkNode(sinkName).id;
         } else {
             sinkNode = checkSink;
         }
-        trackers.graphCreateSinkEdge(stmtId, sinkNode, functionName)
+        trackers.graphCreateSinkEdge(stmtId, sinkNode, sinkName)
 
         // connect appropriate arguments to sink node
         // I am only connecting potentially vulnerable arguments
@@ -275,22 +295,27 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         });
     }
 
-    const packageSinks = config.packages.filter((s) => s.sink === functionName);
+    let packageSinks;
+    if (useFunctionMap) {
+        sinkName = functionNameMap?.split('.')[1];
+    }
+    packageSinks = config.packages.filter((s) => s.sink === sinkName);
+
     if (packageSinks.length > 0) {
         const sink = packageSinks.slice(-1)[0];
 
         // function being called is a sink
         // we have to check if the sink node already exists for this function
-        const checkSink = trackers.graphCheckSinkNode(functionName);
+        const checkSink = trackers.graphCheckSinkNode(sinkName);
         let sinkNode: number;
 
         if (!checkSink) {
             // create sink node if it does not exist
-            sinkNode = trackers.graphAddSinkNode(functionName).id;
+            sinkNode = trackers.graphAddSinkNode(sinkName).id;
         } else {
             sinkNode = checkSink;
         }
-        trackers.graphCreateSinkEdge(stmtId, sinkNode, functionName)
+        trackers.graphCreateSinkEdge(stmtId, sinkNode, sinkName)
 
         // connect appropriate arguments to sink node
         // I am only connecting potentially vulnerable arguments
@@ -323,6 +348,17 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     // get child nodes for the member expression
     const obj = getASTNode(memExpNode, "object");
     const prop = getASTNode(memExpNode, "property");
+
+    const objNameContextList = trackers.getContextNameList(obj.obj.name, stmt.functionContext);
+    let objNameContext;
+    let mapName;
+    while (!mapName && objNameContextList.length > 0) {
+        objNameContext = objNameContextList.pop();
+        if (objNameContext) mapName = trackers.checkVariableMap(objNameContext);
+    }
+    if (mapName && prop.type === "Identifier") {
+        trackers.addVariableMap(variableNameContext, `${mapName}.${prop.obj.name}`);
+    }
 
     // evaluate dependency of expression
     let deps = evalDep(trackers, stmtId, memExpNode);
@@ -435,6 +471,9 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
     // we only need the first because we know this is
     // not a binary expression or member expression
     const storageValue = evalSto(trackers, expNode)[0];
+
+    // create map entry
+    trackers.addVariableMap(variableName, expNode.obj.name);
 
     // if the expression does not correspond to an object then
     // we need to create a new object
