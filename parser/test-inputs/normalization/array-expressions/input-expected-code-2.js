@@ -1,10 +1,11 @@
-const v1 = 1 + 2;
-const v2 = [
-    [],
-    v1
+const v1 = [];
+const v2 = 1 + 2;
+const v3 = [
+    v1,
+    v2
 ];
-const v3 = eval('hello');
+const v4 = eval('hello');
 [
-    v2,
-    v3
+    v3,
+    v4
 ];

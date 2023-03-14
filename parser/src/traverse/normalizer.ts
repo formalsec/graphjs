@@ -211,7 +211,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
                 resultConsequent,
                 resultAlternate
             ];
-            return normConditionalExpression(obj, resultData);
+            return normConditionalExpression(obj, resultData, parent);
         }
 
         case "AssignmentExpression": {

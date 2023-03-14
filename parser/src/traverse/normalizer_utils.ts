@@ -469,17 +469,7 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
             newObj.init = null;
             newDecl.declarations = [newObj];
 
-            const newTest = newInit.expr.test;
-
-            const newConsequentExpression = createExpressionAssignment(newObj.id.name, newInit.expr.consequent);
-            const newConsequent = createBlockStatement([newConsequentExpression]);
-
-            const newAlternateExpression = createExpressionAssignment(newObj.id.name, newInit.expr.alternate);
-            const newAlternate = createBlockStatement([newAlternateExpression]);
-
-            const newIfStatement: IfStatement = createIfStatementForSwitchCase(newTest, newConsequent, newAlternate);
-
-            stmts = [...newInit.stmts, newDecl, newIfStatement];
+            stmts = [newDecl, ...newInit.stmts];
             return {
                 stmts,
                 expr: null
@@ -641,15 +631,43 @@ export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: No
 //     };
 // }
 
-export function normConditionalExpression(obj: ConditionalExpression, children: Normalization[]): Normalization {
-    const newObj = copyObj(obj);
-    newObj.test = children[0].expr;
-    newObj.consequent = children[1].expr;
-    newObj.alternate = children[2].expr;
+export function normConditionalExpression(obj: ConditionalExpression, children: Normalization[], parent: Node | null): Normalization {
+    const newTest = children[0].expr ? children[0].expr as Expression : obj.test;
+    const consequent = children[1].expr ? children[1].expr as Expression : obj.consequent
+    const alternate = children[2].expr ? children[2].expr as Expression : obj.alternate
+    let testExpr; const declStmt = [];
+    let newConsequentExpression, newAlternateExpression;
+    // Case where we modify an existing variable on the left side
+    if (parent && parent.type === "ExpressionStatement" && parent.expression.type === "AssignmentExpression" && parent.expression.left.type === "Identifier") {
+        newConsequentExpression = createExpressionAssignment(parent.expression.left.name, consequent);
+        newAlternateExpression = createExpressionAssignment(parent.expression.left.name, alternate);
+        testExpr = parent.expression.left;
+    } else if (parent && parent.type === "VariableDeclarator" && parent.id.type === "Identifier") { // Case where we are declaring a new variable on the left side
+        newConsequentExpression = createExpressionAssignment(parent.id.name, consequent);
+        newAlternateExpression = createExpressionAssignment(parent.id.name, alternate);
+        testExpr = obj;
+    } else if (parent && parent.type === "AssignmentExpression" && parent.left.type === "Identifier") {
+        newConsequentExpression = createGenericExpressionAssignment(parent.left as Pattern, consequent);
+        newAlternateExpression = createGenericExpressionAssignment(parent.left as Pattern, alternate);
+        testExpr = obj;
+    } else {
+        const newId = createRandomIdentifier();
+        const { id, decl } = createVariableDeclarationWithIdentifier(newId, null);
+        newConsequentExpression = createGenericExpressionAssignment(newId as Pattern, consequent);
+        newAlternateExpression = createGenericExpressionAssignment(newId as Pattern, alternate);
+        testExpr = id;
+        declStmt.push(decl);
+    }
+    const newConsequent = createBlockStatement([newConsequentExpression]);
+    const newAlternate = createBlockStatement([newAlternateExpression]);
+
+    const newIfStatement: IfStatement = createIfStatementForSwitchCase(newTest, newConsequent, newAlternate);
+
+    const stmts = [...children[0].stmts, ...children[1].stmts, ...children[2].stmts, ...declStmt, newIfStatement];
 
     return {
-        stmts: [...children[0].stmts, ...children[1].stmts, ...children[2].stmts],
-        expr: newObj
+        stmts,
+        expr: testExpr
     };
 }
 
@@ -815,26 +833,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 expr: newObj
             };
         } else if (rightExpr.type === "ConditionalExpression") {
-            const newTest = rightExpr.test;
-
-            let newConsequentExpression, newAlternateExpression;
-            // Case where we modify an existing variable on the left side
-            if (leftExpr.type === "Identifier" && parent && parent.type === "ExpressionStatement" && parent.expression.type === "AssignmentExpression") {
-                newConsequentExpression = createExpressionAssignment(newObj.left.name, rightExpr.consequent);
-                newAlternateExpression = createExpressionAssignment(newObj.left.name, rightExpr.alternate);
-            } else if (leftExpr.type === "Identifier") { // Case where we are declaring a new variable on the left side
-                newConsequentExpression = createExpressionAssignment(newObj.id.name, rightExpr.consequent);
-                newAlternateExpression = createExpressionAssignment(newObj.id.name, rightExpr.alternate);
-            } else {
-                newConsequentExpression = createGenericExpressionAssignment(leftExpr as Pattern, rightExpr.consequent);
-                newAlternateExpression = createGenericExpressionAssignment(leftExpr as Pattern, rightExpr.alternate);
-            }
-            const newConsequent = createBlockStatement([newConsequentExpression]);
-            const newAlternate = createBlockStatement([newAlternateExpression]);
-
-            const newIfStatement: IfStatement = createIfStatementForSwitchCase(newTest, newConsequent, newAlternate);
-
-            const stmts = [...children[0].stmts, ...children[1].stmts, newIfStatement];
+            const stmts = [...children[0].stmts, ...children[1].stmts];
             return {
                 stmts,
                 expr: null
