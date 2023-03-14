@@ -303,6 +303,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
                 return objNode;
             }
 
+            case "RestElement":
             case "ReturnStatement":
             case "ThrowStatement": {
                 const objNode = graph.addNode(obj.type, obj);

@@ -4,7 +4,7 @@ import type {
     ArrayExpression,
     ArrayPattern,
     ArrowFunctionExpression,
-    AssignmentExpression,
+    AssignmentExpression, AssignmentPattern,
     AwaitExpression,
     BinaryExpression,
     BlockStatement,
@@ -34,7 +34,7 @@ import type {
     ObjectExpression,
     Pattern,
     Program,
-    Property,
+    Property, RestElement,
     ReturnStatement,
     SequenceExpression,
     SimpleLiteral,
@@ -353,7 +353,7 @@ export function normBinaryExpression(obj: BinaryExpression | LogicalExpression, 
         newObj.left = children[0].expr;
         newObj.right = children[1].expr;
 
-        if (parent && (parent.type === "AssignmentExpression" || parent.type === "VariableDeclarator")) {
+        if (parent && (parent.type === "AssignmentExpression" || (parent.type === "VariableDeclarator" && parent.id.type !== "ArrayPattern"))) {
             return {
                 stmts: [...children[0].stmts, ...children[1].stmts],
                 expr: newObj
@@ -402,6 +402,7 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
         if (newId.expr && newId.expr.type === "ArrayPattern") {
             const newDeclarations: VariableDeclaration[] = [];
             const patternElements = newId.expr.elements;
+            const lastPatternElement = patternElements[patternElements.length - 1];
 
             if (newInit.expr) {
                 if (newInit.expr.type === "ArrayExpression") {
@@ -417,6 +418,16 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
                             }
                         }
                     }
+                    // If there is RestElement, is always in the last position
+                    // If we have a RestElement, we can't separate into different variable declarations because it breaks the normalization
+                    // For example: arr = [1,2,3]
+                    // If we have let [a, ...b] = arr, then a = 1 and b = [2,3]
+                    // But if we separate them, then, the second declaration will be let ...b = arr[1], which does not compile
+                } else if (lastPatternElement && lastPatternElement.type === "RestElement") {
+                    stmts = [...newId.stmts, ...newInit.stmts];
+                    newObj.id = newId.expr;
+                    newObj.init = newInit.expr;
+                    return { stmts, expr: newObj }
                 } else {
                     for (let i = 0; i < patternElements.length; i++) {
                         const patternId = patternElements[i];
@@ -1043,7 +1054,7 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
     }
 
     if (parent &&
-        (parent.type === "VariableDeclarator" ||
+        ((parent.type === "VariableDeclarator" && parent.id.type !== "ArrayPattern") ||
             parent.type === "AssignmentExpression" ||
             parent.type === "AwaitExpression")) {
         return {
@@ -1195,13 +1206,19 @@ export function normArrayPattern(obj: ArrayPattern, children: Normalization[], p
     }
 }
 
-// export function normRestElement(obj: RestElement, children: Normalization[]): Normalization {
-//     const newObj = copyObj(obj);
-//     return {
-//         stmts: [],
-//         expr: newObj,
-//     };
-// }
+// AssignmentPattern can have an expression of the right side. We need to normalize the expression and add the statements on top
+// children[0] is left element
+// children[1] is the right element
+export function normAssignmentPattern(obj: AssignmentPattern, children: Normalization[], parent: Node | null): Normalization {
+    const newObj = copyObj(obj);
+    newObj.left = children[0].expr;
+    newObj.right = children[1].expr;
+
+    return {
+        stmts: [...children[0].stmts, ...children[1].stmts],
+        expr: newObj
+    };
+}
 
 export function normClassExpression(obj: ClassExpression, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
@@ -1283,7 +1300,7 @@ export function normMethodDefinition(obj: MethodDefinition, children: Normalizat
     };
 }
 
-export function normAwaitYieldExpression(obj: AwaitExpression | YieldExpression | SpreadElement, children: Normalization[]): Normalization {
+export function normAwaitYieldExpression(obj: AwaitExpression | YieldExpression | SpreadElement | RestElement, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     const [argumentNormalization] = children;
 

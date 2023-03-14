@@ -50,7 +50,8 @@ import {
     normSwitchStatement,
     normSwitchCases,
     rearrangeSwitchCases,
-    normArrayPattern
+    normArrayPattern,
+    normAssignmentPattern
 } from "./normalizer_utils";
 
 function mapReduce(arr: Array<Node | null>, p: Node | null): Normalization[] {
@@ -184,6 +185,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
 
         case "AwaitExpression":
         case "SpreadElement":
+        case "RestElement":
         case "YieldExpression": {
             const resultData = [normalize(obj.argument, obj)];
             return normAwaitYieldExpression(obj, resultData);
@@ -235,13 +237,16 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
             return normArrayPattern(obj, resultData, parent);
         }
 
-        // TODO
-        // case "RestElement": {
-        //     const resultData = [ normalize(obj.argument, obj) ];
-        //     return normRestElement(obj, resultData);
-        // }
+        case "AssignmentPattern": {
+            const resultLeft = normalize(obj.left, obj);
+            const resultRight = normalize(obj.right, obj);
 
-        // case "AssignmentPattern": {}
+            const resultData = [
+                resultLeft,
+                resultRight
+            ];
+            return normAssignmentPattern(obj, resultData, parent);
+        }
 
         // case "ObjectPattern": {}
 
