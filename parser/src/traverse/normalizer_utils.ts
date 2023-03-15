@@ -26,7 +26,7 @@ import type {
     FunctionExpression,
     Identifier,
     IfStatement,
-    LabeledStatement,
+    LabeledStatement, Literal,
     LogicalExpression,
     MemberExpression,
     MethodDefinition,
@@ -200,7 +200,7 @@ export function createObjectLookupDeclarator(prop: Property, objectValue: Expres
     };
 }
 
-export function createPropertyAssignment(objId: Identifier, propKey: Identifier, propValue: Expression): ExpressionStatement {
+export function createPropertyAssignment(objId: Identifier, propKey: Identifier | Literal, propValue: Expression): ExpressionStatement {
     return {
         type: "ExpressionStatement",
         expression: {
@@ -208,7 +208,7 @@ export function createPropertyAssignment(objId: Identifier, propKey: Identifier,
             operator: "=",
             left: {
                 type: "MemberExpression",
-                computed: false,
+                computed: propKey.type !== "Identifier",
                 object: objId,
                 property: propKey,
                 optional: false
@@ -456,7 +456,8 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
             // push declarations for each property using accesses to new variable
             objExpr.properties.forEach((prop) => {
                 if (prop.type === "Property") {
-                    const propKey = createIdentifierFromExpression(prop.key as Expression);
+                    // const propKey = createIdentifierFromExpression(prop.key as Expression);
+                    const propKey = prop.key.type === "Identifier" || prop.key.type === "Literal" ? prop.key : null;
                     const propValue = prop.value as Expression;
                     if (propKey && propValue) {
                         newAssignments.push(createPropertyAssignment(newObj.id, propKey, propValue));
