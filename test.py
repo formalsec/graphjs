@@ -1,4 +1,5 @@
 import gspread
+import re
 from glob import glob
 import os
 import json
@@ -7,8 +8,8 @@ import time
 import argparse
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/example-0"
-INJECTION_DATASET = "datasets/injection-dataset/CWE-471/GHSA-vvv8-xw5f-3f88"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-25"
+INJECTION_DATASET = "datasets/injection-dataset/CWE-78/958"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -22,10 +23,13 @@ def clean(dataset):
         if "aux-files" in vulnerability:
             continue
 
-        for file_name in os.listdir(explodejs):
-            if "expected_output.json" not in file_name:
-                file_path = os.path.join(explodejs, file_name)
-                os.remove(file_path)
+        if not os.path.exists(explodejs):
+            os.mkdir(explodejs)
+        else:
+            for file_name in os.listdir(explodejs):
+                if "expected_output.json" not in file_name:
+                    file_path = os.path.join(explodejs, file_name)
+                    os.remove(file_path)
 
 
 def test_odgen(dataset_path, dataset, update_sheets):
@@ -76,7 +80,8 @@ def test_explodejs(dataset_path, dataset, update_sheets):
 def check_graph_construction(grades, norm_file):
     with open(norm_file, "r") as f:
         file_content = f.read()
-        if "Error" in file_content:
+        regex = re.compile(r'Error: [A-Za-z]*Error')
+        if regex.search(file_content):
             grades["graph_construction"] = chr(max(ord(grades.get("graph_construction", "0")), ord("D")))
         elif "Trace: Expression" in file_content:
             grades["graph_construction"] = chr(max(ord(grades.get("graph_construction", "0")), ord("C")))
