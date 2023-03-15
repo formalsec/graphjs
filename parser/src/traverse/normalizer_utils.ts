@@ -487,6 +487,20 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
             };
         }
 
+        // For cases like { 0: a } = b; --> Instead of 0 = b.a, this should be a = b.0
+        if (newId.expr && newId.expr.type === "Literal" && parent && parent.type === "VariableDeclaration" && parent.declarations[0] && parent.declarations[0].id.type === "ObjectPattern") {
+            stmts = [...newInit.stmts];
+            if (newInit.expr && newInit.expr.type === "MemberExpression") {
+                newObj.id = newInit.expr.property;
+                newObj.init.computed = true;
+                newObj.init.property = newId.expr;
+                return {
+                    stmts,
+                    expr: newObj
+                };
+            }
+        }
+
         // all other init types
         stmts = [...newInit.stmts];
         newObj.init = newInit.expr;
