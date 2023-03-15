@@ -706,6 +706,10 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
                 break;
             }
 
+            // TODO: TryStatement should pop context?
+            case "CFG_TRY_STMT_END":
+                break;
+
             // expression statements are the majority of statements
             case "ExpressionStatement": {
                 const expressionNode = getASTNode(node, "expression");
@@ -786,6 +790,8 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
                 break;
             }
 
+            case "CatchClause":
+            case "TryStatement":
             case "BlockStatement": {
                 break;
             }
