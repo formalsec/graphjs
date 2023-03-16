@@ -545,6 +545,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         case "TemplateLiteral":
             return handleTemplateLiteral(stmtId, stmt, leftIdentifier, right, trackers);
 
+        case "AwaitExpression":
         case "UnaryExpression":
             return handleSimpleAssignment(stmtId, stmt, leftIdentifier, right, trackers);
 
@@ -629,6 +630,7 @@ function handleAssignmentExpression(stmtId: number, stmt: GraphNode, left: Graph
 
 function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     switch (expNode.type) {
+        case "Literal":
         case "Identifier": {
             return trackers.clone();
         //     return handleVariableLookup(stmtId, expNode, trackers);

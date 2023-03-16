@@ -51,7 +51,7 @@ import {
     normSwitchCases,
     rearrangeSwitchCases,
     normArrayPattern,
-    normAssignmentPattern
+    normAssignmentPattern, createArrowFunctionBlockBody
 } from "./normalizer_utils";
 
 function mapReduce(arr: Array<Node | null>, p: Node | null): Normalization[] {
@@ -118,7 +118,9 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
         }
 
         case "ArrowFunctionExpression": {
-            const resultBody = normalize(obj.body, obj);
+            const blockBody = obj.body.type !== "BlockStatement" ? createArrowFunctionBlockBody(obj.body) : obj.body;
+            obj.expression = false;
+            const resultBody = normalize(blockBody, obj);
             const resultData = [resultBody];
             return normArrowFunctionExpression(obj, resultData, parent);
         }

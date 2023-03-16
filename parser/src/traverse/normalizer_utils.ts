@@ -838,9 +838,9 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 stmts: [...children[1].stmts, newExprStmt, ...newAssignments],
                 expr: null
             };
-        } else if (rightExpr.type === "FunctionExpression") {
+        } else if (rightExpr.type === "FunctionExpression" || rightExpr.type === "ArrowFunctionExpression") {
             let functionIdentifier;
-            if (rightExpr.id) {
+            if (rightExpr.type === "FunctionExpression" && rightExpr.id) {
                 // create variable with the same name as function
                 functionIdentifier = createIdentifierWithName(rightExpr.id.name);
             } else {
@@ -1020,6 +1020,11 @@ export function normFunctionExpression(obj: FunctionExpression, children: Normal
         stmts,
         expr: id
     };
+}
+
+export function createArrowFunctionBlockBody(body: Expression): BlockStatement {
+    const newReturnStatement: ReturnStatement = { type: "ReturnStatement", argument: body }
+    return { type: "BlockStatement", body: [newReturnStatement] }
 }
 
 export function normArrowFunctionExpression(obj: ArrowFunctionExpression, children: Normalization[], parent: Node | null): Normalization {

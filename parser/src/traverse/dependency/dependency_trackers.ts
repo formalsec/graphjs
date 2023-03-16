@@ -472,6 +472,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             return [DependencyFactory.DVar(objName, depObjId)];
         }
 
+        case "AwaitExpression":
         case "UnaryExpression": {
             const arg = node.obj.argument;
             if (arg.type === "Literal") return [];
@@ -486,9 +487,17 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
         //     return [ DependencyFactory.DConst(node.obj.value, stmtId) ];
         // }
 
-        // case "Property": {
-        //     return evalDep(trackers, stmtId, getASTNode(node, "value"), destinationId);
-        // }
+        case "ObjectExpression": {
+            const properties = (node.obj.properties);
+            if (properties.length !== 0) return []
+            // Due to normalization, I think that this case will never happen
+            else return getAllASTNodes(node, "properties").map((arg, i) => evalDep(trackers, stmtId, arg, i + 1)).flat(); // D
+        }
+
+        case "Property": {
+            return evalDep(trackers, stmtId, getASTNode(node, "value"), arg);
+        }
+
         case "LogicalExpression":
         case "BinaryExpression": {
             const leftDep = evalDep(trackers, stmtId, getASTNode(node, "left"));
@@ -568,9 +577,16 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
             return locations ? locations.slice(-1) : [{}];
         }
 
+        case "AwaitExpression":
         case "UnaryExpression": {
             return evalSto(trackers, getASTNode(node, "argument"));
         }
+
+        case "CallExpression":
+            const calleeSto = evalSto(trackers, getASTNode(node, "callee"));
+            const argsSto = getAllASTNodes(node, "arguments").map((arg) => evalSto(trackers, arg)).flat();
+
+            return [...calleeSto, ...argsSto];
 
         case "LogicalExpression":
         case "BinaryExpression": {

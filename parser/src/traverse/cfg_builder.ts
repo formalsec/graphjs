@@ -240,6 +240,10 @@ function buildCFG(astGraph: Graph): Graph {
             case "UpdateExpression":
                 return defaultNode(node);
 
+            // TODO: Not sure if doesn't make changes
+            case "AwaitExpression":
+                return defaultNode(node);
+
             default:
                 console.trace(`Expression ${node.type} didn't match with case values.`);
                 return defaultNode(node);

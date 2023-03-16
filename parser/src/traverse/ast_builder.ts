@@ -138,6 +138,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
                 return objNode;
             }
 
+            case "AwaitExpression":
             case "UpdateExpression":
             case "UnaryExpression": {
                 const objNode = graph.addNode(obj.type, obj);
