@@ -55,9 +55,21 @@
                 ]
             },
             {
+                "sink": "write",
+                "type": "package",
+                "packages": [
+                    {"package": "comandante", "args": [ 1 ]}
+                ]
+            },
+            {
                 "sink": "cross-spawn",
                 "type": "function",
                 "args": [ 1, 2 ]
+            },
+            {
+                "sink": "im-metadata",
+                "type": "function",
+                "args": [ 1 ]
             },
             {
                 "sink": "meta-exec",
