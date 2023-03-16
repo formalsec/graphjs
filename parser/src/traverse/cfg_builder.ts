@@ -238,6 +238,7 @@ function buildCFG(astGraph: Graph): Graph {
             case "LogicalExpression":
             case "UnaryExpression":
             case "UpdateExpression":
+            case "SequenceExpression":
                 return defaultNode(node);
 
             // TODO: Not sure if doesn't make changes

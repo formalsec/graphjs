@@ -558,6 +558,10 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             return getAllASTNodes(node, "expression").map((arg, i) => evalDep(trackers, stmtId, arg, i + 1)).flat();
         }
 
+        // It's always associated with a return. May be relevant later for inter procedural
+        case "SequenceExpression":
+            return [];
+
         default: {
             console.trace(`Expression ${node.type} didn't match with case values.`);
             return [];
@@ -582,11 +586,11 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
             return evalSto(trackers, getASTNode(node, "argument"));
         }
 
-        case "CallExpression":
+        case "CallExpression": {
             const calleeSto = evalSto(trackers, getASTNode(node, "callee"));
             const argsSto = getAllASTNodes(node, "arguments").map((arg) => evalSto(trackers, arg)).flat();
-
             return [...calleeSto, ...argsSto];
+        }
 
         case "LogicalExpression":
         case "BinaryExpression": {

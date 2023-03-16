@@ -160,10 +160,21 @@ export default function buildAST(originalObj: estree.Program): Graph {
                 return objNode;
             }
 
-            // TODO?
-            // case "SequenceExpression":
-            //     const resultData = mapReduce(obj.expressions);
-            //     return objNode;
+            case "SequenceExpression": {
+                const objNode = graph.addNode(obj.type, obj);
+                const elements: Array<estree.Expression> = [];
+                obj.expressions.forEach((e) => {
+                    if (e !== null) elements.push(e);
+                });
+
+                const resultData = mapReduce(elements, objNode);
+
+                for (let i = 0; i < resultData.length; i++) {
+                    graph.addEdge(objNode.id, resultData[i].id, { type: "AST", label: "expression", elementIndex: i });
+                }
+
+                return objNode;
+            }
 
             //
             // Statements and Declarations

@@ -636,6 +636,10 @@ function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: Gra
         //     return handleVariableLookup(stmtId, expNode, trackers);
         }
 
+        case "SequenceExpression": {
+            return trackers.clone();
+        }
+
         case "AssignmentExpression": {
             const left = getASTNode(expNode, "left");
             const right = getASTNode(expNode, "right");
