@@ -9,7 +9,7 @@ import argparse
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-25"
-INJECTION_DATASET = "datasets/injection-dataset/CWE-78/958"
+INJECTION_DATASET = "datasets/injection-dataset/CWE-94/1021"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -58,7 +58,7 @@ def test_explodejs(dataset_path, dataset, update_sheets):
         grades = {}
         for vulnerable_file in os.listdir(vulnerability_path):
             if (vulnerable_file.endswith(".js") or vulnerable_file.endswith(".cjs")) \
-            and "-normalized.js" not in vulnerable_file and vulnerable_file != "simplified.js":
+            and "-normalized.js" not in vulnerable_file and "simplified.js" not in vulnerable_file:
                 vulnerable_file_path = os.path.join(vulnerability_path, vulnerable_file)
                 output_file = os.path.join(explodejs_path, f"{vulnerable_file}_taint_summary.json")
                 norm_file = os.path.join(explodejs_path, f"{vulnerable_file}.norm")

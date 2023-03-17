@@ -9,12 +9,31 @@
             {
                 "sink": "Function",
                 "type": "function",
+                "args": [ 1, 2, 3, 4 ]
+            },
+            {
+                "sink": "require",
+                "type": "function",
                 "args": [ 1 ]
             },
             {
                 "sink": "Function",
                 "type": "new",
-                "args": [ 1 ]
+                "args": [ 1, 2, 3, 4 ]
+            },
+            {
+                "sink": "runInContext",
+                "type": "package",
+                "packages": [
+                    {"package": "vm", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "default",
+                "type": "package",
+                "packages": [
+                    {"package": "gray-matter", "args": [ 1 ]}
+                ]
             }
         ],
         "command-injection": [
