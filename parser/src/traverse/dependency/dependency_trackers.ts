@@ -558,10 +558,10 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             return getAllASTNodes(node, "expression").map((arg, i) => evalDep(trackers, stmtId, arg, i + 1)).flat();
         }
 
-        // It's always associated with a return. May be relevant later for inter procedural
-        case "SequenceExpression":
-            return [];
-
+        case "SequenceExpression": {
+            const expressions = getAllASTNodes(node, "expression");
+            return expressions.map((arg, i) => evalDep(trackers, stmtId, arg, i + 1)).flat();
+        }
         default: {
             console.trace(`Expression ${node.type} didn't match with case values.`);
             return [];

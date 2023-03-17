@@ -492,6 +492,17 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
     return trackers;
 }
 
+function handleSequenceAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, stmtId, expNode);
+    const newNodeId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
+
+    deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep); });
+    trackers.graphCreateReferenceEdge(stmtId, newNodeId);
+
+    return trackers;
+}
+
 function handleTemplateLiteral(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // evaluate dependency of expression
     const deps = evalDep(trackers, stmtId, BinExpNode);
@@ -552,8 +563,11 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         case "Literal":
             return trackers; // There are no dependencies from a Literal
 
+        case "SequenceExpression":
+            return handleSequenceAssignment(stmtId, stmt, leftIdentifier, right, trackers);
+
         default:
-            console.trace("Expression didn't match with case values.");
+            console.trace(`Expression ${right.type} didn't match with case values.`);
             return trackers;
     }
 }
@@ -623,7 +637,7 @@ function handleAssignmentExpression(stmtId: number, stmt: GraphNode, left: Graph
             return handleObjectWrite(stmtId, stmt.functionContext, left, right, trackers);
         }
         default:
-            console.trace("Expression didn't match with case values.");
+            console.trace(`Expression ${left.type} didn't match with case values.`);
             return trackers.clone();
     }
 }

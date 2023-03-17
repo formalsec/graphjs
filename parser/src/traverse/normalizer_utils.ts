@@ -807,13 +807,22 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
 
 export function normAssignmentExpressions (obj: AssignmentExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
-
     const leftExpr = children[0].expr;
     const rightExpr = children[1].expr;
 
     // if both left and right expression were not normalized we just ignore
     if (leftExpr && rightExpr) {
         newObj.left = leftExpr;
+
+        // If there is an assignment inside the call, we need to add a external statement with the assignment and return the left side of the assignment
+        const assignmentStatement = [];
+        let assignmentValue;
+        if (parent && parent.type === "CallExpression") {
+            assignmentValue = newObj.left;
+            const newAssignment = createExpressionAssignment(newObj.left.name, newObj.right)
+            assignmentStatement.push(newAssignment);
+        }
+
 
         if (rightExpr.type === "ObjectExpression" && (!parent || parent.type !== "SequenceExpression")) {
             const newAssignments: ExpressionStatement[] = [];
@@ -829,10 +838,14 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             });
             // push empty object for this identifier
             newObj.right = createEmptyObject();
-            const newExprStmt: ExpressionStatement = copyObj(parent);
-            newExprStmt.expression = newObj;
-            const stmts = [...children[1].stmts, newExprStmt, ...newAssignments]
-            return { stmts, expr: null }
+            const newExprStmt = [];
+            if (!parent || parent.type !== "CallExpression") {
+                const newExpr: ExpressionStatement = copyObj(parent);
+                newExpr.expression = newObj;
+                newExprStmt.push(newExpr)
+            }
+            const stmts = [...children[1].stmts, ...newExprStmt, ...newAssignments]
+            return { stmts, expr: assignmentValue ?? newObj }
         } else if (rightExpr.type === "ObjectExpression" && parent && parent.type === "SequenceExpression") {
             const { id, decl } = createVariableDeclaration(createEmptyObject());
             const newAssignments: ExpressionStatement[] = [];
@@ -870,12 +883,9 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             };
         } else if (rightExpr.type === "ConditionalExpression") {
             const stmts = [...children[0].stmts, ...children[1].stmts];
-            return {
-                stmts,
-                expr: null
-            };
+            if (parent && (parent.type === "IfStatement" || parent.type === "SequenceExpression")) return { stmts, expr: leftExpr }
+            else return { stmts, expr: null };
         } else if (rightExpr.type === "CallExpression") {
-
             if (leftExpr.type !== "Identifier") {
                 // create new random identifier
                 const newIdentifier = createRandomIdentifier()
@@ -889,14 +899,19 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                     stmts: [...children[1].stmts, decl],
                     expr: newObj
                 };
+            } else {
+                newObj.right = rightExpr;
+
+                return {
+                    stmts: [...children[1].stmts],
+                    expr: newObj
+                };
             }
         }
 
-        newObj.right = rightExpr;
-
         return {
-            stmts: [...children[0].stmts, ...children[1].stmts],
-            expr: newObj
+            stmts: [...children[0].stmts, ...children[1].stmts, ...assignmentStatement],
+            expr: assignmentValue ?? newObj
         };
     }
 

@@ -2,8 +2,10 @@ parser/node_modules/*
 parser/if.json
 parser/coverage/*
 parser/built/*
+parser/src/graphs/graph.svg
 virtual_py/*
 neo4j-custom/.config
+neo4j-custom/import-files/*
 __pycache__/
 .vscode/
 .idea/
