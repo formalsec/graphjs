@@ -214,6 +214,13 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         trackers.addRequireChainEntry(variableName, packageName.obj.value);
     }
 
+    const calleeObjectDeps = [];
+    if (callNode.obj.callee.type === "MemberExpression") {
+        const callASTNode = getASTNode(callNode, "callee");
+        const calleeDeps = evalDep(trackers, stmtId, getASTNode(callASTNode, "object"));
+        calleeObjectDeps.push(...calleeDeps);
+    }
+
     // create new object
     const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
     trackers.graphCreateReferenceEdge(stmtId, newObjId);
@@ -247,10 +254,14 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         } else {
             // If there is no function summary available, assume all dependencies
             // Dependency callee -> ret
-            trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, callObj)
+            if (latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, callObj)
             // Call params -> callee
+            // get callee dependencies for arr.push()
+            if (!deps.filter(d => DependencyFactory.isDCallee(d)).length) {
+                deps.push(...calleeObjectDeps);
+            }
             deps.forEach(d => {
-                trackers.graphCreateCallDependencyEdge(d.source, latestCallObj.id, d.name)
+                if (d.source !== latestCallObj.id) trackers.graphCreateCallDependencyEdge(d.source, latestCallObj.id, d.name)
             })
         }
     }
