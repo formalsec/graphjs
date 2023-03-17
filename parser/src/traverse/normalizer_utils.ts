@@ -815,10 +815,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
     if (leftExpr && rightExpr) {
         newObj.left = leftExpr;
 
-        if (rightExpr.type === "ObjectExpression") {
-            // push empty object for this identifier
-            newObj.right = createEmptyObject();
-
+        if (rightExpr.type === "ObjectExpression" && (!parent || parent.type !== "SequenceExpression")) {
             const newAssignments: ExpressionStatement[] = [];
             // push declarations for each property using accesses to new variable
             rightExpr.properties.forEach((prop) => {
@@ -830,14 +827,27 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                     }
                 }
             });
-
+            // push empty object for this identifier
+            newObj.right = createEmptyObject();
             const newExprStmt: ExpressionStatement = copyObj(parent);
             newExprStmt.expression = newObj;
-
-            return {
-                stmts: [...children[1].stmts, newExprStmt, ...newAssignments],
-                expr: null
-            };
+            const stmts = [...children[1].stmts, newExprStmt, ...newAssignments]
+            return { stmts, expr: null }
+        } else if (rightExpr.type === "ObjectExpression" && parent && parent.type === "SequenceExpression") {
+            const { id, decl } = createVariableDeclaration(createEmptyObject());
+            const newAssignments: ExpressionStatement[] = [];
+            rightExpr.properties.forEach((prop) => {
+                if (prop.type === "Property") {
+                    const propKey = createIdentifierFromExpression(prop.key as Expression);
+                    const propValue = prop.value as Expression;
+                    if (propKey && propValue) {
+                        newAssignments.push(createPropertyAssignment(id, propKey, propValue));
+                    }
+                }
+            });
+            newObj.right = id;
+            const stmts = [...children[1].stmts, decl, ...newAssignments]
+            return { stmts, expr: newObj }
         } else if (rightExpr.type === "FunctionExpression" || rightExpr.type === "ArrowFunctionExpression") {
             let functionIdentifier;
             if (rightExpr.type === "FunctionExpression" && rightExpr.id) {
