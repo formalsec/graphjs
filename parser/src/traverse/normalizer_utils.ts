@@ -823,7 +823,6 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             assignmentStatement.push(newAssignment);
         }
 
-
         if (rightExpr.type === "ObjectExpression" && (!parent || parent.type !== "SequenceExpression")) {
             const newAssignments: ExpressionStatement[] = [];
             // push declarations for each property using accesses to new variable
@@ -907,8 +906,19 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                     expr: newObj
                 };
             }
-        }
+        } else if (rightExpr.type === "AssignmentExpression") {
+            const newIdentifier = createRandomIdentifier()
+            const newRightExpr = copyObj(rightExpr.left);
 
+            const { id, decl } = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr);
+            newObj.right = newIdentifier;
+
+            return {
+                stmts: [...children[0].stmts, ...children[1].stmts, decl],
+                expr: newObj
+            };
+        }
+        newObj.right = rightExpr;
         return {
             stmts: [...children[0].stmts, ...children[1].stmts, ...assignmentStatement],
             expr: assignmentValue ?? newObj
