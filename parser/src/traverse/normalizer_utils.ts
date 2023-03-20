@@ -837,13 +837,12 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             });
             // push empty object for this identifier
             newObj.right = createEmptyObject();
-            const newExprStmt = [];
-            if (!parent || parent.type !== "CallExpression") {
-                const newExpr: ExpressionStatement = copyObj(parent);
-                newExpr.expression = newObj;
-                newExprStmt.push(newExpr)
+            if ((!parent || parent.type !== "CallExpression") && rightExpr.properties.length) {
+                const newExprStmt: ExpressionStatement = copyObj(parent);
+                newExprStmt.expression = newObj;
+                newAssignments.push(newExprStmt)
             }
-            const stmts = [...children[1].stmts, ...newExprStmt, ...newAssignments]
+            const stmts = [...children[1].stmts, ...newAssignments]
             return { stmts, expr: assignmentValue ?? newObj }
         } else if (rightExpr.type === "ObjectExpression" && parent && parent.type === "SequenceExpression") {
             const { id, decl } = createVariableDeclaration(createEmptyObject());
