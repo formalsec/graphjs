@@ -237,10 +237,10 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         const callName = callNode.obj.callee.property.name;
         // Get callee object (e.g. arr)
         const callObj = callNode.obj.callee.object.name;
-        const latestCallObj = trackers.getObjectVersionNodes(callObj, callNode.functionContext).slice(-1)[0];
+        let latestCallObj = trackers.getObjectVersionNodes(callObj, callNode.functionContext).slice(-1)[0];
         // Get summary for the function
         const functionSummary: SummaryDependency[] | undefined = config.summaries.get(callName);
-        if (functionSummary) {
+        if (functionSummary?.length) {
             // For each summary item (obj, dependencies)
             functionSummary.forEach((summaryItem) => {
                 // Get object (destination) information
@@ -251,8 +251,15 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
                     trackers.graphCreateCallDependencyEdge(source[0], destination[0], source[1])
                 })
             })
-        } else {
-            // If there is no function summary available, assume all dependencies
+        // If there is no function summary available, assume all dependencies
+        } else if (functionSummary && !functionSummary.length) {
+
+            // If called object doesn't exist (e.g. it was the return of a function)
+            if (!latestCallObj) {
+                const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callObj, trackers);
+                latestCallObj = trackers.getObjectVersionNodes(callObj, callNode.functionContext).slice(-1)[0];
+                trackers.graphCreateReferenceEdge(stmtId, newObjId);
+            }
             // Dependency callee -> ret
             if (latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, callObj)
             // Call params -> callee

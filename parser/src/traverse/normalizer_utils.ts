@@ -1113,7 +1113,7 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
             parent.type === "AssignmentExpression" ||
             parent.type === "AwaitExpression")) {
         return {
-            stmts: [...stmts, ...flatStmts(children)],
+            stmts: [...flatStmts(children), ...stmts],
             expr: newObj
         };
     }
@@ -1121,7 +1121,7 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
     const { id, decl } = createVariableDeclaration(newObj);
 
     return {
-        stmts: [...stmts, ...flatStmts(children), decl],
+        stmts: [...flatStmts(children), ...stmts, decl],
         expr: id
     };
 }
