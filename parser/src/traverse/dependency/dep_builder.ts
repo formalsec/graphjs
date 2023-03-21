@@ -280,7 +280,11 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     }
 
     let useFunctionMap = false;
-    const functionNameMap = trackers.checkVariableMap(functionNameContext);
+    const contextFunctionNames = trackers.getContextNameList(functionName, functionContext);
+    const matchedFunctionName = contextFunctionNames
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .find(fc => trackers.checkVariableMap(fc))
+    const functionNameMap = matchedFunctionName ? trackers.checkVariableMap(matchedFunctionName) : undefined;
     if (functionNameMap) {
         useFunctionMap = true;
     }
