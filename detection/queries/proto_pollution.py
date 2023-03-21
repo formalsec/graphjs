@@ -28,16 +28,11 @@ class PrototypePollution(QueryType):
 						->()
 							-[so_edge:PDG]	
 								->(sink:PDG_OBJECT),
-				//(source:TAINT_SOURCE)
-				//	-[param_edge_0:PDG]
-				//		->(param_0:PDG_OBJECT)
-				//			-[dep_edges_0:PDG*1..]
-				//				->(sink),
-				//(source)
-				//	-[param_edge_1:PDG]
-				//		->(param_1:PDG_OBJECT)
-				//			-[dep_edges_1:PDG*1..]
-				//				->(sink),
+				(source:TAINT_SOURCE)
+					-[param_edge:PDG]
+						->(param:PDG_OBJECT)
+							-[dep_edges:PDG*1..]
+								->(sink),
 				(source_cfg)
 					-[param_ref:REF]
 						->(param),
@@ -54,12 +49,9 @@ class PrototypePollution(QueryType):
 				nv_edge.IdentifierName = "*" AND
 				so_edge.RelationType = "SO" AND
 				so_edge.IdentifierName = "*" AND
-				//param_edge_0.RelationType = "TAINT" AND
-				//dep_edges_0[-1].RelationType = "DEP" AND
-                //param_edge_1.RelationType = "TAINT" AND
-				//dep_edges_1[-1].RelationType = "DEP" AND
-				param_ref.RelationType = "param" //AND
-                //param_0.Id <> param_1.Id
+				param_edge.RelationType = "TAINT" AND
+				dep_edges[-1].RelationType = "DEP" AND
+				param_ref.RelationType = "param" 
 			RETURN *
 		"""
 
