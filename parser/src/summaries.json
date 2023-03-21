@@ -8,5 +8,10 @@
     ]
 },
 {
-    "function": "push"
-}]
+    "function": "push",
+    "deps": []
+},
+    {
+        "function": "join",
+        "deps": []
+    }]

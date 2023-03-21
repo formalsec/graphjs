@@ -170,9 +170,16 @@ function handleArrayExpressionElement(stmtId: number, functionContext: number, v
 }
 
 function handleArrayExpression(stmtId: number, functionContext: number, variable: Identifier, arrExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // Check if object/array already exists
+    let objId;
+    const arrayObj = trackers.getObjectVersionNodes(variable.name, functionContext).slice(-1)[0];
+    if (!arrayObj) {
+        objId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
+    } else {
+        objId = arrayObj.id;
+    }
     // create new empty object node
-    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
-    trackers.graphCreateReferenceEdge(stmtId, newObjId);
+    trackers.graphCreateReferenceEdge(stmtId, objId);
 
     const arrElementEdges = getAllASTEdges(arrExpNode, "element");
     arrElementEdges.forEach((edge) => {
@@ -253,7 +260,6 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
             })
         // If there is no function summary available, assume all dependencies
         } else if (functionSummary && !functionSummary.length) {
-
             // If called object doesn't exist (e.g. it was the return of a function)
             if (!latestCallObj) {
                 const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callObj, trackers);
