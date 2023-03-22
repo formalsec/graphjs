@@ -409,8 +409,13 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
             propName = '*';
         }
 
-        const newObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
-        if (newObjId) subObjId = newObjId;
+        // Check if object exists
+        const subObj = trackers.getObjectVersionsWithProp(objName, obj.functionContext, propName);
+
+        if (!subObj.length) {
+            const newObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
+            if (newObjId) subObjId = newObjId;
+        }
         deps = evalDep(trackers, stmtId, memExpNode);
     }
 
@@ -708,6 +713,39 @@ function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: Depe
     return trackers;
 }
 
+function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of right expression
+    const deps = evalDep(trackers, stmtId, left);
+
+    // We assume identifiers due to normalization
+    if (left.type !== "Identifier") {
+        console.trace(`Expression ${left.type} didn't match with case values.`);
+        return trackers;
+    }
+    /*
+    if (DependencyFactory.isDEmpty(deps[0])) {
+        const newObjReturn = createAndStoreNewObjectNode(left.id, left, left.obj, newTrackers);
+        newTrackers = newObjReturn.newTrackers;
+        deps = [];
+    }
+    deps = [...deps, ...evalDep(newTrackers, stmtId, right)];
+     */
+    const objName = right.obj.name;
+    const objNameContextList = trackers.getContextNameList(objName, right.obj.functionContext);
+    const validObj = trackers.getValidObject(objNameContextList);
+    const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
+    const propName = '*';
+
+    // Check if subobj exists
+    const subObj = trackers.getObjectVersionsWithProp(objName, right.functionContext, propName);
+
+    if (!subObj.length) {
+        const subObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
+        if (subObjId) deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjId, dep) });
+    }
+    return trackers;
+}
+
 function pushContext(trackers: DependencyTracker, context: number): DependencyTracker {
     const newTrackers = trackers.clone();
     newTrackers.pushIntraContext(context);
@@ -867,13 +905,13 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             // }
 
             // case "ForOfStatement":
-            // case "ForInStatement": {
-            //     const left = getASTNode(node, "left");
-            //     const right = getASTNode(node, "right");
+            case "ForInStatement": {
+                const left = getASTNode(node, "left");
+                const right = getASTNode(node, "right");
 
-            //     curTrackers = handleForInStatement(node.id, left, right, curTrackers);
-            //     break;
-            // }
+                curTrackers = handleForInStatement(node.id, left, right, curTrackers);
+                break;
+            }
 
             // // case "ClassDeclaration": {
             // //     const body = getASTNode(node, "body");
@@ -910,25 +948,6 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
         trackers
     };
 }
-
-// function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
-//     // clone trackers
-//     let newTrackers = trackers.clone();
-
-//     // evaluate dependency of right expression
-//     let deps = evalDep(newTrackers, stmtId, left);
-//     if (DependencyFactory.isDEmpty(deps[0])) {
-//         const newObjReturn = createAndStoreNewObjectNode(left.id, left, left.obj, newTrackers);
-//         newTrackers = newObjReturn.newTrackers;
-//         deps = [];
-//     }
-//     deps = [...deps, ...evalDep(newTrackers, stmtId, right)];
-
-//     // apply dependencies to graph (var edges)
-//     newTrackers.graphBuildEdge(deps);
-
-//     return newTrackers;
-// }
 
 // function handleWhileStatement(stmtId: number, test: GraphNode, trackers: DependencyTracker): DependencyTracker {
 //     // clone trackers

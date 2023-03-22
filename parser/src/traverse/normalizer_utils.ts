@@ -916,6 +916,16 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 stmts: [...children[0].stmts, ...children[1].stmts, decl],
                 expr: newObj
             };
+        } else if (rightExpr.type === "MemberExpression" && leftExpr.type === "MemberExpression") {
+            const newIdentifier = createRandomIdentifier()
+
+            const { id, decl } = createVariableDeclarationWithIdentifier(newIdentifier, rightExpr);
+            newObj.right = newIdentifier;
+
+            return {
+                stmts: [...children[0].stmts, ...children[1].stmts, decl],
+                expr: newObj
+            };
         }
         newObj.right = rightExpr;
         return {
