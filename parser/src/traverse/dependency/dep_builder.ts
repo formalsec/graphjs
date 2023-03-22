@@ -323,11 +323,12 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         });
     }
 
-    let packageSinks;
+    let sinkPackageName: string;
     if (useFunctionMap) {
         sinkName = functionNameMap?.split('.')[1];
+        sinkPackageName = functionNameMap?.split('.')[0];
     }
-    packageSinks = config.packages.filter((s) => s.sink === sinkName);
+    const packageSinks = config.packages.filter((s) => s.sink === sinkName);
 
     if (packageSinks.length > 0) {
         const sink = packageSinks.slice(-1)[0];
@@ -348,9 +349,9 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         // connect appropriate arguments to sink node
         // I am only connecting potentially vulnerable arguments
         // according to config
+        const sinkArgs = sink.packages.find(p => p.package === sinkPackageName)?.args;
         deps.forEach(dep => {
-            const sinkArgs = sink.packages.slice(-1)[0].args;
-            if (DependencyFactory.isDVar(dep) && dep.arg && sinkArgs.includes(dep.arg)) {
+            if (DependencyFactory.isDVar(dep) && dep.arg && sinkArgs?.includes(dep.arg)) {
                 trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
             }
         });
