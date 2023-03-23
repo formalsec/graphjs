@@ -511,7 +511,7 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
 
     // if the expression does not correspond to an object then
     // we need to create a new object
-    if (!StorageFactory.isStorageObject(storageValue)) {
+    if (!storageValue || !StorageFactory.isStorageObject(storageValue)) {
         // const newObjReturn = createAndStoreNewObjectNode(stmtId, stmt, variable, trackers);
         // newTrackers = newObjReturn.newTrackers;
     } else {
