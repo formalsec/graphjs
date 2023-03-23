@@ -211,11 +211,19 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
 
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // Get function name
-    const functionIdentifierNode = getASTNode(callNode, "callee");
-    const functionName = functionIdentifierNode.obj.name;
-    const functionNameContext = trackers.getContextNameList(functionName, functionContext).slice(-1)[0];
+    const callASTNode = getASTNode(callNode, "callee");
+    let callName: string, calleeName: string;
+    if (callASTNode.obj.type === "MemberExpression") {
+        callName = callASTNode.obj.property.name;
+        calleeName = callASTNode.obj.object.name; // Get callee object name (e.g. arr)
+    } else {
+        callName = callASTNode.obj.name;
+        calleeName = callASTNode.obj.name;
+    }
 
-    if (functionName === "require") {
+    const functionNameContext = trackers.getContextNameList(callName, functionContext).slice(-1)[0];
+
+    if (callName === "require") {
         const packageName = getAllASTNodes(callNode, "arg")[0];
         const variableName = trackers.getContextNameList(variable.name, functionContext).slice(-1)[0];
         trackers.addRequireChainEntry(variableName, packageName.obj.value);
@@ -223,7 +231,6 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
 
     const calleeObjectDeps = [];
     if (callNode.obj.callee.type === "MemberExpression") {
-        const callASTNode = getASTNode(callNode, "callee");
         const calleeDeps = evalDep(trackers, stmtId, getASTNode(callASTNode, "object"));
         calleeObjectDeps.push(...calleeDeps);
     }
@@ -240,21 +247,17 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     // E.g. dependencies of object (arr) being called upon (e.g. arr.push(x))
     // TODO: Should this create a new version?
     if (callNode.obj.callee.type === "MemberExpression") {
-        // Get call name
-        const callName = callNode.obj.callee.property.name;
-        // Get callee object (e.g. arr)
-        const callObj = callNode.obj.callee.object.name;
-        let latestCallObj = trackers.getObjectVersionNodes(callObj, callNode.functionContext).slice(-1)[0];
+        let latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
         // Get summary for the function
         const functionSummary: SummaryDependency[] | undefined = config.summaries.get(callName);
         if (functionSummary?.length) {
             // For each summary item (obj, dependencies)
             functionSummary.forEach((summaryItem) => {
                 // Get object (destination) information
-                const destination = translateDependency(summaryItem.obj, deps, latestCallObj, callObj, newObjId)
+                const destination = translateDependency(summaryItem.obj, deps, latestCallObj, calleeName, newObjId)
                 // For each dependency, add the corresponding edge
                 summaryItem.deps.forEach(d => {
-                    const source = translateDependency(d, deps, latestCallObj, callObj, newObjId)
+                    const source = translateDependency(d, deps, latestCallObj, calleeName, newObjId)
                     trackers.graphCreateCallDependencyEdge(source[0], destination[0], source[1])
                 })
             })
@@ -262,12 +265,12 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         } else if (functionSummary && !functionSummary.length) {
             // If called object doesn't exist (e.g. it was the return of a function)
             if (!latestCallObj) {
-                const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callObj, trackers);
-                latestCallObj = trackers.getObjectVersionNodes(callObj, callNode.functionContext).slice(-1)[0];
+                const newObjId = createNewObjectNodeVariable(stmtId, functionContext, calleeName, trackers);
+                latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
                 trackers.graphCreateReferenceEdge(stmtId, newObjId);
             }
             // Dependency callee -> ret
-            if (latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, callObj)
+            if (latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, calleeName)
             // Call params -> callee
             // get callee dependencies for arr.push()
             if (!deps.filter(d => DependencyFactory.isDCallee(d)).length) {
@@ -279,20 +282,16 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         }
     }
 
-    let useFunctionMap = false;
-    const contextFunctionNames = trackers.getContextNameList(functionName, functionContext);
+    const contextFunctionNames = trackers.getContextNameList(calleeName, functionContext);
     const matchedFunctionName = contextFunctionNames
         .sort((a, b) => parseInt(a) - parseInt(b))
         .find(fc => trackers.checkVariableMap(fc))
     const functionNameMap = matchedFunctionName ? trackers.checkVariableMap(matchedFunctionName) : undefined;
-    if (functionNameMap) {
-        useFunctionMap = true;
-    }
 
-    let sinkName = functionName;
+    let sinkName = callName;
     // check sink name
     let functionSinks;
-    if (useFunctionMap) {
+    if (functionNameMap) {
         sinkName = functionNameMap;
     }
     functionSinks = config.functions.filter((s) => s.sink === sinkName);
@@ -324,9 +323,10 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     }
 
     let sinkPackageName: string;
-    if (useFunctionMap) {
-        sinkName = functionNameMap?.split('.')[1];
-        sinkPackageName = functionNameMap?.split('.')[0];
+    if (functionNameMap) {
+        if (callASTNode.obj.type !== "MemberExpression") sinkName = functionNameMap.split('.')[1];
+        else sinkName = callName;
+        sinkPackageName = functionNameMap.split('.')[0];
     }
     const packageSinks = config.packages.filter((s) => s.sink === sinkName);
 

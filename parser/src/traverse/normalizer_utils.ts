@@ -1109,15 +1109,6 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
     newObj.callee = callee;
     newObj.arguments = flatExprs(children.slice(1));
 
-    if (callee && callee.type === "MemberExpression" &&
-        (callee.property.type === "Identifier" && !["join", "push", "split"].includes(callee.property.name))) {
-        // create new variable for member expression assignment
-        // make callee the identifier for that variable
-        const { id, decl } = createVariableDeclaration(callee);
-        stmts.push(decl);
-        newObj.callee = id;
-    }
-
     if (parent &&
         ((parent.type === "VariableDeclarator" && parent.id.type !== "ArrayPattern") ||
             parent.type === "AssignmentExpression" ||
