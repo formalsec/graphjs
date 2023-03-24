@@ -245,6 +245,13 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     const deps = evalDep(trackers, stmtId, callNode);
     trackers.graphCreateCallStatementDependencyEdges(stmtId, newObjId, deps);
 
+    // Create sinks when promisify(exec) e.g.
+    const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
+    varDeps.forEach(dep => {
+        const variableMap = trackers.checkVariableMap(`${callNode.functionContext}.${dep.name}`)
+        if (variableMap) trackers.addVariableMap(`${callNode.functionContext}.${variable.name}`, variableMap);
+    })
+
     // Process dependencies between the subjects of the call
     // E.g. dependencies of object (arr) being called upon (e.g. arr.push(x))
     // TODO: Should this create a new version?
