@@ -758,6 +758,37 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
     return trackers;
 }
 
+function handleForOfStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of left expression
+    const deps = evalDep(trackers, stmtId, left);
+
+    // We assume identifiers due to normalization
+    if (left.type !== "Identifier") {
+        console.trace(`Expression ${left.type} didn't match with case values.`);
+        return trackers;
+    }
+
+    const objName = right.obj.name;
+    const objNameContextList = trackers.getContextNameList(objName, right.obj.functionContext);
+    const validObj = trackers.getValidObject(objNameContextList);
+    const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
+
+    // Check if iterable variable exists
+    let varObjId = left.obj.id;
+
+    const varObjContextList = trackers.getContextNameList(left.obj.name, left.obj.functionContext);
+    const validVarObj = trackers.getValidObject(varObjContextList)
+    if (!validVarObj) {
+        varObjId = createNewObjectNodeVariable(stmtId, left.obj.functionContext, left.obj, trackers);
+        trackers.graphCreateReferenceEdge(stmtId, varObjId);
+        if (varObjId) deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, varObjId, dep) });
+    }
+    // Create dependency between aux var and iterable array/object
+    const rightDeps = evalDep(trackers, stmtId, right);
+    if (varObjId) rightDeps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, varObjId, dep) });
+    return trackers;
+}
+
 function pushContext(trackers: DependencyTracker, context: number): DependencyTracker {
     const newTrackers = trackers.clone();
     newTrackers.pushIntraContext(context);
@@ -916,7 +947,14 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             //     break;
             // }
 
-            // case "ForOfStatement":
+            case "ForOfStatement":
+            case "ForInStatement": {
+                const left = getASTNode(node, "left");
+                const right = getASTNode(node, "right");
+
+                curTrackers = handleForOfStatement(node.id, left, right, curTrackers);
+                break;
+            }
             case "ForInStatement": {
                 const left = getASTNode(node, "left");
                 const right = getASTNode(node, "right");
