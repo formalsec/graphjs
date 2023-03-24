@@ -6,5 +6,8 @@
 },
 { "function": "push", "deps": [] },
 { "function": "join", "deps": [] },
-{ "function": "split", "deps": [] }
+{ "function": "split", "deps": [] },
+{ "function": "reverse", "deps": [] },
+{ "function": "reduce", "deps": [] },
+{ "function": "reverse", "deps": [] }
 ]
