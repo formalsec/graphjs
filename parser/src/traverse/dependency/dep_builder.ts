@@ -212,13 +212,15 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // Get function name
     const callASTNode = getASTNode(callNode, "callee");
-    let callName: string, calleeName: string;
+    let callName: string, calleeName: string, callee: Identifier;
     if (callASTNode.obj.type === "MemberExpression") {
         callName = callASTNode.obj.property.name;
-        calleeName = callASTNode.obj.object.name; // Get callee object name (e.g. arr)
+        callee = callASTNode.obj.object;
+        calleeName = callee.name; // Get callee object name (e.g. arr)
     } else {
         callName = callASTNode.obj.name;
-        calleeName = callASTNode.obj.name;
+        callee = callASTNode.obj;
+        calleeName = callee.name;
     }
 
     const functionNameContext = trackers.getContextNameList(callName, functionContext).slice(-1)[0];
@@ -265,7 +267,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         } else if (functionSummary && !functionSummary.length) {
             // If called object doesn't exist (e.g. it was the return of a function)
             if (!latestCallObj) {
-                const newObjId = createNewObjectNodeVariable(stmtId, functionContext, calleeName, trackers);
+                const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callee, trackers);
                 latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
                 trackers.graphCreateReferenceEdge(stmtId, newObjId);
             }
