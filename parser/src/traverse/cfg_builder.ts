@@ -242,6 +242,7 @@ function buildCFG(astGraph: Graph): Graph {
                 return defaultNode(node);
 
             // TODO: Not sure if doesn't make changes
+            case "YieldExpression":
             case "AwaitExpression":
                 return defaultNode(node);
 

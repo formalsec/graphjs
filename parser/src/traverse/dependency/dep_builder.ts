@@ -472,7 +472,16 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     // }
 
     // track all parameters of this function
-    const params = getAllASTNodes(funcExpNode, "param");
+    const unpatternedParams = getAllASTNodes(funcExpNode, "param");
+    // in case a parameter is an object expression
+    const params: GraphNode[] = []
+    unpatternedParams.forEach((p, i) => {
+        if (p.type === "ObjectPattern") {
+            const objParams = getAllASTNodes(p, "property").map(prop => getASTNode(prop, "value"));
+            params.push(...objParams)
+        } else params.push(p)
+    })
+
     params.forEach((p, i) => {
         const paramName = (p.obj as Identifier).name;
         const latestParamContextName = trackers.getContextNameList(paramName, funcNode.functionContext).slice(-1)[0];

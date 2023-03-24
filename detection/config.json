@@ -42,6 +42,7 @@
                 "type": "package",
                 "packages": [
                     {"package": "child_process", "args": [ 1 ]},
+                    {"package": "mz/child_process", "args": [ 1 ]},
                     {"package": "shelljs", "args": [ 1 ]}
                 ]
             },
