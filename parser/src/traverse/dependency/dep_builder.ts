@@ -237,12 +237,13 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         calleeObjectDeps.push(...calleeDeps);
     }
 
+    const deps = evalDep(trackers, stmtId, callNode);
+
     // create new object
     const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
     trackers.graphCreateReferenceEdge(stmtId, newObjId);
 
     // process dependencies of call
-    const deps = evalDep(trackers, stmtId, callNode);
     trackers.graphCreateCallStatementDependencyEdges(stmtId, newObjId, deps);
 
     // Create sinks when promisify(exec) e.g.

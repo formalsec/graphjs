@@ -11,5 +11,6 @@
 { "function": "reduce", "deps": [] },
 { "function": "reverse", "deps": [] },
 { "function": "map", "deps": [] },
-{ "function": "match", "deps": [] }
+{ "function": "match", "deps": [] },
+{ "function": "replace", "deps": [] }
 ]
