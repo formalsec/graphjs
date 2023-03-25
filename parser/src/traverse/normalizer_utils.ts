@@ -828,7 +828,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             // push declarations for each property using accesses to new variable
             rightExpr.properties.forEach((prop) => {
                 if (prop.type === "Property") {
-                    const propKey = createIdentifierFromExpression(prop.key as Expression);
+                    const propKey = prop.key.type === "Identifier" || prop.key.type === "Literal" ? prop.key : null;
                     const propValue = prop.value as Expression;
                     if (propKey && propValue) {
                         newAssignments.push(createPropertyAssignment(newObj.left, propKey, propValue));
