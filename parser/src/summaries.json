@@ -12,5 +12,7 @@
 { "function": "reverse", "deps": [] },
 { "function": "map", "deps": [] },
 { "function": "match", "deps": [] },
-{ "function": "replace", "deps": [] }
+{ "function": "replace", "deps": [] },
+{ "function": "toString", "deps": [] },
+{ "function": "trim", "deps": [] }
 ]
