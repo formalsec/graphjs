@@ -817,7 +817,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
         // If there is an assignment inside the call, we need to add a external statement with the assignment and return the left side of the assignment
         const assignmentStatement = [];
         let assignmentValue;
-        if (parent && parent.type === "CallExpression") {
+        if (parent && parent.type === "CallExpression" && rightExpr.type !== "ConditionalExpression") {
             assignmentValue = newObj.left;
             const newAssignment = createExpressionAssignment(newObj.left.name, newObj.right)
             assignmentStatement.push(newAssignment);
@@ -881,8 +881,9 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             };
         } else if (rightExpr.type === "ConditionalExpression") {
             const stmts = [...children[0].stmts, ...children[1].stmts];
-            if (parent && (parent.type === "IfStatement" || parent.type === "SequenceExpression")) return { stmts, expr: leftExpr }
-            else return { stmts, expr: null };
+            if (parent && (parent.type === "IfStatement" || parent.type === "SequenceExpression" || parent.type === "CallExpression")) {
+                return { stmts, expr: leftExpr }
+            } else return { stmts, expr: null };
         } else if (rightExpr.type === "CallExpression") {
             if (leftExpr.type !== "Identifier") {
                 // create new random identifier
