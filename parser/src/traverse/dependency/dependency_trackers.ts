@@ -616,6 +616,11 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
             return [{}];
         }
 
+        case "TemplateLiteral": {
+            const expressionsSto = getAllASTNodes(node, "expression").map((arg) => evalSto(trackers, arg)).flat();
+            return expressionsSto;
+        }
+
         default: {
             console.trace(`Expression ${node.type} didn't match with case values.`);
             return [{}];

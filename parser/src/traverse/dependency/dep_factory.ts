@@ -61,7 +61,7 @@ export class DependencyFactory {
         };
     }
 
-    static changeToCalleeDep(dep: Dependency) {
+    static changeToCalleeDep(dep: Dependency): Dependency {
         return {
             type: DependencyType[DependencyType.DCallee],
             name: dep.name,

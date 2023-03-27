@@ -15,5 +15,6 @@
 { "function": "replace", "deps": [] },
 { "function": "toString", "deps": [] },
 { "function": "trim", "deps": [] },
-{ "function": "shift", "deps": [] }
+{ "function": "shift", "deps": [] },
+{ "function": "find", "deps": [] }
 ]

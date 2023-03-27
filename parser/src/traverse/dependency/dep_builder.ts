@@ -146,7 +146,10 @@ function createArrayElement(stmtId: number, objName: string, objNameContext: str
             const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
             trackers.graphCreateSubObjectEdge(objVersionId, subObjectId, propName);
 
-            deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep); });
+            deps.forEach(dep => {
+                trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep);
+                trackers.graphCreateDependencyEdge(dep.source, objVersionId, dep);
+            });
             trackers.graphCreateReferenceEdge(stmtId, subObjectId);
         }
     }
@@ -195,17 +198,24 @@ function handleArrayExpression(stmtId: number, functionContext: number, variable
 * 0 is the called object
 * -1 is the return object
 * >1 are the arguments of the functions */
-function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNode, objName: string, ret: number): [number, string | null] {
+function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNode, objName: string, ret: number): Array<{ id: number, name: string }> {
     switch (depNumber) {
         case -1:
-            return [ret, ""]
-        case 0:
-            return [obj.id, objName]
-        default:
+            return [{ id: ret, name: "" }]
+        case 0: {
+            return [{ id: obj.id, name: objName }]
+        }
+        // Consider all arguments
+        case 99: {
+            if (!deps.length) return []
+            else return deps.map(dep => { return { id: dep?.source ?? -1, name: dep?.name ?? "" } })
+        }
+        default: {
             // Here, is only returning the first found argument
             // TODO: support all arguments (e.g. push(x,y,z)
             const dep = deps.find(d => d.arg === depNumber)
-            return [dep?.source ?? -1, dep?.name ?? ""]
+            return [{ id: dep?.source ?? -1, name: dep?.name ?? "" }]
+        }
     }
 }
 
@@ -222,8 +232,6 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         callee = callASTNode.obj;
         calleeName = callee.name;
     }
-
-    const functionNameContext = trackers.getContextNameList(callName, functionContext).slice(-1)[0];
 
     if (callName === "require") {
         const packageName = getAllASTNodes(callNode, "arg")[0];
@@ -264,11 +272,11 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
             // For each summary item (obj, dependencies)
             functionSummary.forEach((summaryItem) => {
                 // Get object (destination) information
-                const destination = translateDependency(summaryItem.obj, deps, latestCallObj, calleeName, newObjId)
+                const destination = translateDependency(summaryItem.obj, deps, latestCallObj, calleeName, newObjId)[0]
                 // For each dependency, add the corresponding edge
                 summaryItem.deps.forEach(d => {
-                    const source = translateDependency(d, deps, latestCallObj, calleeName, newObjId)
-                    trackers.graphCreateCallDependencyEdge(source[0], destination[0], source[1])
+                    const sources = translateDependency(d, deps, latestCallObj, calleeName, newObjId)
+                    sources.forEach(source => { trackers.graphCreateCallDependencyEdge(source.id, destination.id, source.name); });
                 })
             })
         // If there is no function summary available, assume all dependencies
@@ -300,11 +308,10 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
 
     let sinkName = callName;
     // check sink name
-    let functionSinks;
     if (functionNameMap) {
         sinkName = functionNameMap;
     }
-    functionSinks = config.functions.filter((s) => s.sink === sinkName);
+    const functionSinks = config.functions.filter((s) => s.sink === sinkName);
 
     if (functionSinks.length > 0) {
         const sink = functionSinks.slice(-1)[0];
@@ -483,7 +490,7 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     const unpatternedParams = getAllASTNodes(funcExpNode, "param");
     // in case a parameter is an object expression
     const params: GraphNode[] = []
-    unpatternedParams.forEach((p, i) => {
+    unpatternedParams.forEach(p => {
         if (p.type === "ObjectPattern") {
             const objParams = getAllASTNodes(p, "property").map(prop => getASTNode(prop, "value"));
             params.push(...objParams)
@@ -775,12 +782,6 @@ function handleForOfStatement(stmtId: number, left: GraphNode, right: GraphNode,
         console.trace(`Expression ${left.type} didn't match with case values.`);
         return trackers;
     }
-
-    const objName = right.obj.name;
-    const objNameContextList = trackers.getContextNameList(objName, right.obj.functionContext);
-    const validObj = trackers.getValidObject(objNameContextList);
-    const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
-
     // Check if iterable variable exists
     let varObjId = left.obj.id;
 
@@ -955,8 +956,7 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             //     break;
             // }
 
-            case "ForOfStatement":
-            case "ForInStatement": {
+            case "ForOfStatement": {
                 const left = getASTNode(node, "left");
                 const right = getASTNode(node, "right");
 
