@@ -1,5 +1,6 @@
-lbl1: {
-    lbl2: {
-        break lbl1;
+lbl: {
+    const v1 = x === true;
+    if (v1) {
+        y = false;
     }
 }

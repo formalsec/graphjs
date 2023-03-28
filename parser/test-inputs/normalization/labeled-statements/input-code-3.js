@@ -1,3 +1,1 @@
-lbl: {
-    break lbl;
-}
+lbl: if (x === true) y = false;

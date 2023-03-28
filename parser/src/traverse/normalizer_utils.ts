@@ -1084,7 +1084,7 @@ export function normLabeledStatement(obj: LabeledStatement, children: Normalizat
     const newObj = copyObj(obj);
     newObj.id = children[0].expr;
 
-    [newObj.body] = children[1].stmts;
+    newObj.body = createBlockStatement(children[1].stmts as Statement[]);
 
     return {
         stmts: [newObj],
