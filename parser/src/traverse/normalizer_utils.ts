@@ -602,33 +602,108 @@ export function rearrangeSwitchCases(cases: SwitchCase[]): SwitchCase[] {
 
 export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: Normalization[][], parent: Node | null): Normalization {
     const parentDiscriminant = parent && (parent.type === "Identifier" || parent.type === "Literal") ? parent : createRandomIdentifier();
-
     const previousDecls: Statement[] = [];
-    let ifNode: IfStatement | BlockStatement | undefined;
 
-    for (let j = cases.length - 1; j >= 0; j--) {
-        const switchCase = cases[j];
-        const children = childrenList[j];
+    // The parent if statement, with all the switch cases
+    let ifStatement: IfStatement | undefined;
+    // Stores the last alternate, so we can replace it with new alternates as we go over the switch cases
+    let lastAlternate: { type: string, test: any, consequent: any, alternate?: any };
 
-        const flatChildrenStmts = flatStmts(children);
-        const hasBreak = flatChildrenStmts.filter(stmt => stmt.type === "BreakStatement").length > 0;
-        const newBody = flatChildrenStmts.filter(stmt => stmt.type !== "BreakStatement") as Statement[];
-        const newConsequent = createBlockStatementForSwitchCase(newBody, hasBreak, ifNode);
-
-        if (switchCase.test) {
-            const caseTest = createEqualBinaryExpression(parentDiscriminant, children[0].expr as Expression);
+    function addCaseToIfStatement(testValue: Expression, body: BlockStatement): void {
+        // If it's a switch case (else it is default)
+        if (testValue) {
+            const caseTest = createEqualBinaryExpression(parentDiscriminant, testValue);
             const newTest = createVariableDeclaration(caseTest);
 
-            ifNode = createIfStatementForSwitchCase(newTest.id, newConsequent, ifNode);
-            previousDecls.push(newTest.decl);
-        } else {
-            ifNode = newConsequent;
+            // If the main IfStatement does not have a test, we need to initialize it
+            if (!ifStatement) {
+                ifStatement = {
+                    type: "IfStatement",
+                    test: newTest.id,
+                    consequent: body
+                }
+                previousDecls.push(newTest.decl);
+            } else if (!ifStatement.alternate) { // If the main IfStatement does not have an alternate
+                ifStatement.alternate = {
+                    type: "IfStatement",
+                    test: newTest.id,
+                    consequent: body
+                }
+                lastAlternate = ifStatement.alternate;
+                previousDecls.push(newTest.decl);
+            } else if (lastAlternate && lastAlternate.type === "IfStatement") { // If the main IfStatement already has an alternate
+                lastAlternate.alternate = {
+                    type: "IfStatement",
+                    test: newTest.id,
+                    consequent: body
+                }
+                lastAlternate = lastAlternate.alternate;
+                previousDecls.push(newTest.decl);
+            }
+        } else { // Default case
+            if (!ifStatement) {
+                ifStatement = { type: "IfStatement", test: { type: "Literal", value: true }, consequent: body }
+            } else if (!ifStatement.alternate) { // If the main IfStatement does not have an alternate
+                ifStatement.alternate = { type: "BlockStatement", body: body.body }
+            } else if (lastAlternate && lastAlternate.type === "IfStatement") { // If the main IfStatement already has an alternate
+                lastAlternate.alternate = { type: "BlockStatement", body: body.body }
+            }
         }
     }
 
-    if (ifNode) {
+    cases.forEach((switchCase: SwitchCase, i: number) => {
+        // Get normalized statements
+        const children = childrenList[i];
+        const flatChildrenStmts = flatStmts(children) as Statement[]
+        const testValue: Expression = children[0].expr as Expression;
+
+        // Check if case has a break statement:
+        // 1 - If the first statement is a block, it can be the last one of the block
+        // 2 - If it is a list of statements, it can be the last statement
+        if (flatChildrenStmts.length && flatChildrenStmts[0].type === "BlockStatement" &&
+            flatChildrenStmts[0].body.length && flatChildrenStmts[0].body[flatChildrenStmts[0].body.length - 1].type === "BreakStatement") {
+            // Remove the break statement
+            flatChildrenStmts[0].body.pop();
+            // Add case to main if statement
+            const newBody = createBlockStatement(flatChildrenStmts[0].body);
+            addCaseToIfStatement(testValue, newBody);
+        } else if (flatChildrenStmts.length && flatChildrenStmts[flatChildrenStmts.length - 1].type === "BreakStatement") {
+            // If switch case has a break statement, then it is an isolated if statement
+            // Remove break statement
+            flatChildrenStmts.pop();
+            // Add case to main if statement
+            const newBody = createBlockStatement(flatChildrenStmts);
+            addCaseToIfStatement(testValue, newBody);
+        } else { // If there is no break statement, we need to get the code inside the next cases, until a break occurs
+            // Get next switch cases and add the body until a switch
+            const concatenatedBody: Statement[] = []
+            cases.slice(i).every((nextCase: SwitchCase, j: number) => {
+                // Get normalized statements
+                const childrenNextCase = childrenList[i + j];
+                const flatChildrenNextCaseStmts = flatStmts(childrenNextCase) as Statement[]
+                // If contains a break, remove break
+                if (flatChildrenNextCaseStmts.length && flatChildrenNextCaseStmts[0].type === "BlockStatement" &&
+                    flatChildrenNextCaseStmts[0].body.length && flatChildrenNextCaseStmts[0].body[flatChildrenNextCaseStmts[0].body.length - 1].type === "BreakStatement") {
+                    flatChildrenNextCaseStmts[0].body.pop();
+                    concatenatedBody.push(...flatChildrenNextCaseStmts[0].body);
+                    return false;
+                } else if (flatChildrenNextCaseStmts.length && flatChildrenNextCaseStmts[flatChildrenNextCaseStmts.length - 1].type === "BreakStatement") {
+                    flatChildrenNextCaseStmts.pop();
+                    concatenatedBody.push(...flatChildrenNextCaseStmts);
+                    return false;
+                } else { // If it does not include a break, add statements and continue cycle
+                    concatenatedBody.push(...flatChildrenNextCaseStmts);
+                    return true;
+                }
+            })
+            const newBody = createBlockStatement(concatenatedBody);
+            addCaseToIfStatement(testValue, newBody);
+        }
+    })
+
+    if (ifStatement) {
         return {
-            stmts: [...previousDecls, ifNode],
+            stmts: [...previousDecls, ifStatement],
             expr: null
         };
     }
