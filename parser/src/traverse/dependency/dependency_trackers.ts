@@ -250,6 +250,14 @@ export class DependencyTracker {
             const lastObjLocation = objLocations[objLocations.length - 1];
             const stoObj = lastObjLocation as StorageObject;
             return stoObj.location;
+        } else {
+            const name = objName.split('.')[1]
+            const functionContext = parseInt(objName.split('.')[0])
+            const objNameContextList = this.getContextNameList(name, functionContext);
+            const validObj = this.getValidObject(objNameContextList);
+            if (!validObj) return undefined;
+            const locations: StorageValue[] = validObj.storage;
+            return locations ? (locations.slice(-1)[0] as StorageObject)?.location : undefined;
         }
     }
 
@@ -576,8 +584,10 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
 
         case "ThisExpression":
         case "Identifier": {
-            const objNameContext = trackers.getContextNameList(node.obj.name, node.functionContext).slice(-1)[0];
-            const locations = trackers.getStorage(objNameContext);
+            const objNameContextList = trackers.getContextNameList(node.obj.name, node.functionContext);
+            const validObj = trackers.getValidObject(objNameContextList);
+            if (!validObj) return [{}]
+            const locations = validObj.storage;
             return locations ? locations.slice(-1) : [{}];
         }
 
