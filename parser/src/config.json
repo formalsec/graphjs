@@ -113,5 +113,15 @@
                 ]
             }
         ]
-    }
+    },
+    "sources": [
+        {
+            "source": "argv",
+            "type": "package",
+            "packages": [
+                {"package": "process", "args": [ 0 ]},
+                {"package": "yargs", "args": [ 0 ]}
+            ]
+        }
+    ]
 }

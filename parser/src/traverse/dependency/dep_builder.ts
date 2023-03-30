@@ -345,7 +345,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         else sinkName = callName;
         sinkPackageName = functionNameMap.split('.')[0];
     }
-    const packageSinks = config.packages.filter((s) => s.sink === sinkName);
+    const packageSinks = config.packagesSinks.filter((s) => s.sink === sinkName);
 
     if (packageSinks.length > 0) {
         const sink = packageSinks.slice(-1)[0];
