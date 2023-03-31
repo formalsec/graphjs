@@ -4,7 +4,7 @@ import { type GraphNode } from "../graph/node";
 import { clone, createThisExpression, getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
 import { DependencyTracker, evalDep, evalSto, type Store } from "./dependency_trackers";
 import { StorageFactory, type StorageObject, type StorageValue } from "./sto_factory";
-import { type Identifier } from "estree";
+import { type Identifier, type ThisExpression } from "estree";
 import { DependencyFactory, type Dependency } from "./dep_factory";
 import { type Config } from "../../utils/config_reader";
 import { type SummaryDependency } from "../../utils/summary_reader";
@@ -222,15 +222,17 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // Get function name
     const callASTNode = getASTNode(callNode, "callee");
-    let callName: string, calleeName: string, callee: Identifier;
+    let callName: string, calleeName: string, callee: Identifier | ThisExpression;
     if (callASTNode.obj.type === "MemberExpression") {
         callName = callASTNode.obj.property.name;
         callee = callASTNode.obj.object;
-        calleeName = callee.name; // Get callee object name (e.g. arr)
+        if (callee.type === "ThisExpression") calleeName = "this";
+        else calleeName = callee.name; // Get callee object name (e.g. arr)
     } else {
         callName = callASTNode.obj.name;
         callee = callASTNode.obj;
-        calleeName = callee.name;
+        if (callee.type === "ThisExpression") calleeName = "this";
+        else calleeName = callee.name;
     }
 
     if (callName === "require") {
@@ -283,12 +285,14 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         } else if (functionSummary && !functionSummary.length) {
             // If called object doesn't exist (e.g. it was the return of a function)
             if (!latestCallObj) {
-                const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callee, trackers);
+                if (callee.type === "Identifier") {
+                    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callee, trackers);
+                    trackers.graphCreateReferenceEdge(stmtId, newObjId);
+                }
                 latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
-                trackers.graphCreateReferenceEdge(stmtId, newObjId);
             }
             // Dependency callee -> ret
-            if (latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, calleeName)
+            if (latestCallObj && latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, calleeName)
             // Call params -> callee
             // get callee dependencies for arr.push()
             if (!deps.filter(d => DependencyFactory.isDCallee(d)).length) {
@@ -403,7 +407,8 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         if (objNameContext) mapName = trackers.checkVariableMap(objNameContext);
     }
     if (mapName && prop.type === "Identifier") {
-        trackers.addVariableMap(variableNameContext, `${mapName}.${prop.obj.name}`);
+        const functionMap = `${mapName}.${prop.obj.name as string}`
+        trackers.addVariableMap(variableNameContext, functionMap);
     }
 
     // evaluate dependency of expression
@@ -763,7 +768,7 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
     const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
     const propName = '*';
 
-    // Check if subobj exists
+    // Check if sub-obj exists
     const subObj = trackers.getObjectVersionsWithProp(objName, right.functionContext, propName);
 
     if (!subObj.length) {

@@ -247,7 +247,7 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
                 resultLeft,
                 resultRight
             ];
-            return normAssignmentPattern(obj, resultData, parent);
+            return normAssignmentPattern(obj, resultData);
         }
 
         // case "ObjectPattern": {}

@@ -22,7 +22,7 @@ type VPMap = Map<string, string>;
 
 export class DependencyTracker {
     // This value represents the current state of the graph
-    private graph: Graph;
+    private readonly graph: Graph;
     // This value represents TODO
     private heap: Heap;
     // This value represents TODO
@@ -107,7 +107,7 @@ export class DependencyTracker {
         return this.intraContextStack.pop();
     }
 
-    addRequireChainEntry(variableName: string, packageName: string) {
+    addRequireChainEntry(variableName: string, packageName: string): void {
         const pChain = this.requireChain.get(packageName);
         let pChainValue: string[] = [variableName];
         if (pChain) pChainValue = [...pChain, variableName];
@@ -115,7 +115,7 @@ export class DependencyTracker {
         this.addVariableMap(variableName, packageName);
     }
 
-    addVariableMap(variableName: string, functionMap: string) {
+    addVariableMap(variableName: string, functionMap: string): void {
         this.variableMap.set(variableName, functionMap);
     }
 
@@ -147,9 +147,11 @@ export class DependencyTracker {
         this.graph.addEdge(source, destination, { type: "SINK", label: "SINK", objName: type })
     }
 
+    /*
     graphCreateReturnEdge(source: number, destination: number): void {
         this.graph.addEdge(source, destination, { type: "REF", label: "RET" });
     }
+     */
 
     graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string): void {
         this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName });
@@ -173,8 +175,8 @@ export class DependencyTracker {
         varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
     }
 
-    graphCreateCallDependencyEdge(source: number, destination: number, objName: string | null): void {
-        this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName: objName ?? "" });
+    graphCreateCallDependencyEdge(source: number, destination: number, objName: string): void {
+        this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName });
     }
 
     graphCreateMemberExpressionDependencies(stmtId: number, newObjId: number, deps: Dependency[]): void {
@@ -190,7 +192,7 @@ export class DependencyTracker {
     /** Methods for adding nodes **/
     addParamNode(stmtId: number, name: string, nameContext: string, index: number): void {
         // add to heap
-        const { pdgObjName, pdgObjNameContext } = this.addNewObjectToHeap(name, nameContext);
+        const pdgObjNameContext = this.addNewObjectToHeap(name, nameContext).pdgObjNameContext;
 
         // store the identifier of the new object
         this.addToStore(nameContext, StorageFactory.StoObject(pdgObjNameContext));
@@ -390,8 +392,7 @@ export class DependencyTracker {
             const objStorage = validObj.storage;
             // filter those versions that are not objects
             const objects = objStorage.filter(sto => StorageFactory.isStorageObject(sto)).map(sto => (sto as StorageObject).location);
-            const objIds = objects.map(o => this.getObjectId(o)) as number[];
-            return objIds;
+            return objects.map(o => this.getObjectId(o)) as number[];
         }
 
         return [];
@@ -457,10 +458,6 @@ export class DependencyTracker {
         console.log("Require Chain:", this.requireChain);
         console.log("Variable Map:", this.variableMap);
     }
-
-    printContext(): void {
-        console.log("Context:", this.intraContextStack);
-    }
 }
 
 export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode, arg?: number): Dependency[] {
@@ -472,7 +469,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
         case "Identifier": {
             const objName = node.obj.name;
             const depObjId = trackers.getObjectVersions(objName, node.functionContext).slice(-1)[0];
-
+            if (depObjId === undefined) return []
             if (arg) {
                 return [DependencyFactory.DVar(objName, depObjId, arg)];
             }
@@ -529,7 +526,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             // of the property as it is a variable, because it influences the object otherwise treat it is a Literal
             if (node.obj.computed && prop.type !== "Literal") {
                 const objDeps: Dependency[] = evalDep(trackers, stmtId, prop);
-                const objIds = trackers.getObjectVersions(objName, obj.functionContext);
+                // const objIds = trackers.getObjectVersions(objName, obj.functionContext);
                 // ...objIds.map(objId => DependencyFactory.DObject("*", stmtId, objId))
                 deps = deps.concat(objDeps.filter((item) => !DependencyFactory.includes(deps, item)));
                 return deps;
@@ -627,8 +624,7 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): StorageVa
         }
 
         case "TemplateLiteral": {
-            const expressionsSto = getAllASTNodes(node, "expression").map((arg) => evalSto(trackers, arg)).flat();
-            return expressionsSto;
+            return getAllASTNodes(node, "expression").map((arg) => evalSto(trackers, arg)).flat();
         }
 
         default: {
