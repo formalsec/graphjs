@@ -1303,6 +1303,7 @@ export function normProperty(obj: Property, children: Normalization[]): Normaliz
         valueStmts.push(decl);
     } else {
         newObj.value = valueExpr;
+        newObj.method = false;
     }
 
     return {
