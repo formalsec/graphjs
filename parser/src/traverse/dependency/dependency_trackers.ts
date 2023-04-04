@@ -1,8 +1,10 @@
 import { type Graph } from "../graph/graph";
 import { type GraphNode } from "../graph/node";
 import { getASTNode, getAllASTNodes, getNextObjectName, type ContextNames, deepCopyStore } from "../../utils/utils";
-import { type Dependency, DependencyFactory } from "./dep_factory";
+import * as DependencyFactory from "./dep_factory";
+import { type Dependency } from "./dep_factory";
 import { type StorageObject, type StorageValue, StorageFactory } from "./sto_factory";
+import { type Identifier } from "estree";
 
 export type HeapObject = Record<string, StorageValue>;
 
@@ -20,6 +22,11 @@ type FContexts = Map<number, number[]>;
 type RequireChain = Map<string, string[]>;
 type VPMap = Map<string, string>;
 
+// First argument is the anon function name and the second argument is an array of the argument names w/ contexts
+type AnonFunc = Map<string, string[]>
+// First argument is the function name and the second argument is the list of anonymous functions inside that argument
+type AnonFunctionMapping = Map<number, AnonFunc>
+
 export class DependencyTracker {
     // This value represents the current state of the graph
     private readonly graph: Graph;
@@ -35,6 +42,8 @@ export class DependencyTracker {
     private funcContexts: FContexts;
     // This value represents TODO
     private intraContextStack: number[];
+    // This value represents the anonymous functions that exist inside a function declaration and a mapping to their arguments
+    private anonFuncMapping: AnonFunctionMapping;
     // This value represents chains of "request" dependencies
     private requireChain: RequireChain;
     // This value represents a map of variable name to package name
@@ -48,6 +57,7 @@ export class DependencyTracker {
         this.gNodes = new Map();
         this.funcContexts = new Map();
         this.intraContextStack = new Array<number>();
+        this.anonFuncMapping = new Map();
         this.requireChain = new Map();
         this.variableMap = new Map();
     }
@@ -80,6 +90,10 @@ export class DependencyTracker {
 
     private setVariableMap(newVariableMap: VPMap): void {
         this.variableMap = new Map(newVariableMap);
+    }
+
+    private setAnonFuncMapping(anonFuncMapping: AnonFunctionMapping): void {
+        this.anonFuncMapping = new Map(anonFuncMapping);
     }
 
     /** Context functions **/
@@ -119,14 +133,52 @@ export class DependencyTracker {
         this.variableMap.set(variableName, functionMap);
     }
 
+    addAnonFunction(functionContext: number, anonFunctionContext: number, anonFunctionName: string, params: GraphNode[]): void {
+        if (this.isInnerFunction(anonFunctionContext)) { // && (funcExpNode.type === "ArrowFunctionExpression" || funcExpNode.type === "FunctionExpression")
+            const anonParams: string[] = [];
+            params.forEach(p => {
+                const paramName = (p.obj as Identifier).name;
+                const paramObj = this.getLastObjectLocation(`${anonFunctionContext}.${paramName}`);
+                if (paramObj) anonParams.push(paramObj);
+            });
+            // trackers = trackers.addAnonFunction(funcDeclarationContext, funcIdentifier.name, anonParams);
+            const anonFunctions: AnonFunc | undefined = this.anonFuncMapping.get(functionContext)
+            let newAnonFunctions: AnonFunc;
+            if (anonFunctions) newAnonFunctions = anonFunctions.set(anonFunctionName, anonParams);
+            else newAnonFunctions = new Map([[anonFunctionName, anonParams]]);
+            this.anonFuncMapping.set(functionContext, newAnonFunctions)
+        }
+    }
+
     checkVariableMap(variableName: string): string | undefined {
         return this.variableMap.get(variableName);
+    }
+
+    checkAnonFunction(functionContext: number, anonFunctionName: string): string[] {
+        const anonFunction: AnonFunc | undefined = this.anonFuncMapping.get(functionContext);
+        if (!anonFunction) {
+            // Get outer function contexts
+            const contexts: number[] = this.funcContexts.get(functionContext)?.reverse() ?? [];
+            const outerFunctionContext: number | undefined = contexts.find(context => this.anonFuncMapping.get(context) && this.anonFuncMapping.get(context)?.get(anonFunctionName))
+            // If there is an anon function declared in the outer scope
+            if (outerFunctionContext) {
+                const outerAnonFunction: AnonFunc | undefined = this.anonFuncMapping.get(outerFunctionContext);
+                return outerAnonFunction?.get(anonFunctionName) ?? [];
+            }
+            return [];
+        }
+        return anonFunction.get(anonFunctionName) ?? [];
     }
 
     getContextNameList(name: string, defaultContext: number): string[] {
         const latestContext = this.intraContextStack.slice(-1)[0] || defaultContext;
         const contextList = this.funcContexts.get(latestContext);
         return contextList ? [...contextList, latestContext].map(ctx => `${ctx}.${name}`) : [`${latestContext.toString()}.${name}`];
+    }
+
+    isInnerFunction(funcContextNumber: number): boolean {
+        const contexts = this.funcContexts.get(funcContextNumber)
+        return contexts !== undefined && contexts.length > 0;
     }
 
     /** Methods for adding edges in the graph **/
@@ -137,6 +189,13 @@ export class DependencyTracker {
 
     graphCreateDependencyEdge(source: number, destination: number, dep: Dependency): void {
         this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name });
+    }
+
+    graphCreateArgumentEdge(source: number, functionArg: number, sourceName?: string): void {
+        if (!sourceName) this.graph.addEdge(source, functionArg, { type: "PDG", label: "ARG", objName: sourceName });
+        else this.graph.addEdge(source, functionArg, { type: "PDG", label: "ARG", objName: sourceName });
+        const node: GraphNode | undefined = this.graph.nodes.get(functionArg);
+        if (node) node.paramOrigin = true;
     }
 
     graphCreateSourceEdge(source: number, destination: number, index: number): void {
@@ -190,15 +249,15 @@ export class DependencyTracker {
     }
 
     /** Methods for adding nodes **/
-    addParamNode(stmtId: number, name: string, nameContext: string, index: number): void {
+    addParamNode(stmtId: number, paramObj: GraphNode, index: number, funcExpNode: GraphNode): void {
+        const paramName = (paramObj.obj as Identifier).name;
+        const latestParamContextName = this.getContextNameList(paramName, funcExpNode.functionContext).slice(-1)[0];
+
         // add to heap
-        const pdgObjNameContext = this.addNewObjectToHeap(name, nameContext).pdgObjNameContext;
+        const pdgObjNameContext = this.addNewObjectToHeap(paramName, latestParamContextName).pdgObjNameContext;
 
         // store the identifier of the new object
-        this.addToStore(nameContext, StorageFactory.StoObject(pdgObjNameContext));
-
-        // // store the stmt id
-        // this.addToPhi(nameContext, stmtId);
+        this.addToStore(latestParamContextName, StorageFactory.StoObject(pdgObjNameContext));
 
         // set changes as creation of new object
         // create node
@@ -206,10 +265,30 @@ export class DependencyTracker {
         this.gNodes.set(pdgObjNameContext, nodeObj.id);
         nodeObj.identifier = pdgObjNameContext;
 
-        // connect taint node
-        this.graph.addEdge(this.graph.taintNode, nodeObj.id, { type: "PDG", label: "TAINT" });
+        // connect taint node (only if it is an outer function)
+        const isTainted = !this.isInnerFunction(funcExpNode.functionContext) // && (funcExpNode.type === "ArrowFunctionExpression" || funcExpNode.type === "FunctionExpression")
+        if (isTainted) { this.addTaintedNodeEdge(nodeObj.id); }
 
         this.graphCreateSourceEdge(stmtId, nodeObj.id, index);
+    }
+
+    addTaintedNodeEdge(nodeId: number): void {
+        this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" });
+        const node: GraphNode | undefined = this.graph.nodes.get(nodeId);
+        if (node) node.paramOrigin = true;
+    }
+
+    // Connects function arguments without origin to taint source
+    addTaintedNodes(): void {
+        const functionDeclarationNodes = this.graph.startNodes.get("CFG")?.map((cfgNode: GraphNode) => this.graph.nodes.get(cfgNode.functionNodeId))
+        functionDeclarationNodes?.forEach(fnExpNode => {
+            if (!fnExpNode) return;
+            const paramNodes = fnExpNode.edges.filter(edge => edge.type === "REF" && edge.label === "param")
+                .map(edge => edge.nodes[1]);
+            paramNodes.forEach(param => {
+                if (!param.paramOrigin) this.addTaintedNodeEdge(param.id)
+            });
+        })
     }
 
     /** Sink node methods **/
@@ -442,6 +521,7 @@ export class DependencyTracker {
         clone.setContext(this.intraContextStack);
         clone.setRequireChain(this.requireChain);
         clone.setVariableMap(this.variableMap);
+        clone.setAnonFuncMapping(this.anonFuncMapping);
         return clone;
     }
 
@@ -455,6 +535,7 @@ export class DependencyTracker {
         console.log("Refs:", this.refs);
         console.log("Graph Nodes:", this.gNodes);
         console.log("Func Contexts:", this.funcContexts);
+        console.log("Anon Functions Map:", this.anonFuncMapping);
         console.log("Require Chain:", this.requireChain);
         console.log("Variable Map:", this.variableMap);
     }

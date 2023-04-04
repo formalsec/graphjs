@@ -7,6 +7,7 @@
 { "function": "push", "deps": [] },
 { "function": "join", "deps": [] },
 { "function": "split", "deps": [] },
+{ "function": "slice", "deps": [] },
 { "function": "reverse", "deps": [] },
 { "function": "reduce", "deps": [] },
 { "function": "reverse", "deps": [] },

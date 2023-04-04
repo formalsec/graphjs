@@ -26,6 +26,7 @@ export class GraphNode {
     private _used: boolean;
     private _cfgEndNodeId: number;
     private _writeAllSubObjects: Dependency[];
+    private _paramOrigin: boolean;
 
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
@@ -41,6 +42,7 @@ export class GraphNode {
         this._used = false;
         this._cfgEndNodeId = -1;
         this._writeAllSubObjects = [];
+        this._paramOrigin = false;
     }
 
     get id(): number {
@@ -125,6 +127,14 @@ export class GraphNode {
 
     get writeAllSubObjects(): Dependency[] {
         return this._writeAllSubObjects;
+    }
+
+    get paramOrigin(): boolean {
+        return this._paramOrigin;
+    }
+
+    set paramOrigin(value: boolean) {
+        this._paramOrigin = value;
     }
 
     addWriteAllSubObjects(dep: Dependency): void {

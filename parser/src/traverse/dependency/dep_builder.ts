@@ -5,7 +5,8 @@ import { clone, createThisExpression, getAllASTEdges, getAllASTNodes, getASTNode
 import { DependencyTracker, evalDep, evalSto, type Store } from "./dependency_trackers";
 import { StorageFactory, type StorageObject, type StorageValue } from "./sto_factory";
 import { type Identifier, type ThisExpression } from "estree";
-import { DependencyFactory, type Dependency } from "./dep_factory";
+import * as DependencyFactory from "./dep_factory";
+import { type Dependency } from "./dep_factory";
 import { type Config } from "../../utils/config_reader";
 import { type SummaryDependency } from "../../utils/summary_reader";
 
@@ -219,6 +220,66 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
     }
 }
 
+function mapCallArguments(callNode: GraphNode, functionContext: number, callName: string, calleeName: string, trackers: DependencyTracker): DependencyTracker {
+    const callArgs = getAllASTNodes(callNode, "arg");
+    const callASTNode = getASTNode(callNode, "callee");
+
+    // Check if calling an inner function
+    if (callASTNode.type === "Identifier") {
+        const args: string[] = trackers.checkAnonFunction(functionContext, callName);
+        // If no match, is not an inner function (at least with args aka relevant)
+        if (args?.length) {
+            callArgs.forEach((callArg: GraphNode, i: number) => {
+                // We need to map the inner function arguments
+                const latestArgObj = trackers.getObjectId(args[i]);
+                let paramObj;
+                if (callArg.identifier !== null) paramObj = trackers.getObjectVersionNodes(callArg.identifier, callNode.functionContext).slice(-1)[0];
+                if (latestArgObj && paramObj && paramObj.identifier) trackers.graphCreateArgumentEdge(paramObj.id, latestArgObj);
+                else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+            })
+        }
+    }
+    // Check if argument of call is an inner function
+    if (callASTNode.type === "MemberExpression") {
+        // Get arguments that are functions
+        const anonFunctions = callArgs.filter(arg => arg.identifier != null && trackers.checkAnonFunction(functionContext, arg.identifier) !== undefined)
+        const anonFunctionsIds = anonFunctions.map(fn => fn.id)
+        // Get arguments that are variables
+        const varFunctions = callArgs.filter(arg => !anonFunctionsIds.includes(arg.id))
+
+        // We need to map the anonFuncArgs - each anon function arg depends on the callee node obj and arguments of functions   TODO: summary for this
+        anonFunctions.forEach((fn: GraphNode) => {
+            const args: string[] = trackers.checkAnonFunction(functionContext, fn.identifier as string);
+            args?.forEach((arg: string, i: number) => {
+                const latestArgObj = trackers.getObjectId(arg);
+                // Dependencies on the callee
+                const latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
+                if (latestArgObj && latestCallObj && latestCallObj.identifier) trackers.graphCreateArgumentEdge(latestCallObj.id, latestArgObj, calleeName);
+                else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+                /*
+                // Dependencies on the arguments
+                varFunctions.forEach(fn => {
+                    const latestVarObj = trackers.getObjectVersionNodes(fn.identifier as string, callNode.functionContext).slice(-1)[0];
+                    if (latestArgObj && latestVarObj) trackers.graphCreateDependencyEdge(latestVarObj.id, latestArgObj, DependencyFactory.DVar(calleeName, latestVarObj.id, i));
+                })
+                 */
+            });
+        });
+    }
+
+    return trackers;
+    /*
+    if (callASTNode.type === "Identifier"calledNode.type === "Identifier") {
+        const args: string[] | undefined = trackers.checkAnonFunction(functionContext, calledNode.obj.name);
+        const latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
+
+        args?.forEach((arg: string, i: number) => {
+            const latestArgObj = trackers.getObjectId(arg);
+            if (latestArgObj) trackers.graphCreateDependencyEdge(latestCallObj.id, latestArgObj, DependencyFactory.DVar(arg, latestArgObj, i));
+        })
+    } */
+}
+
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // Get function name
     const callASTNode = getASTNode(callNode, "callee");
@@ -234,6 +295,8 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         if (callee.type === "ThisExpression") calleeName = "this";
         else calleeName = callee.name;
     }
+
+    trackers = mapCallArguments(callNode, functionContext, callName, calleeName, trackers);
 
     if (callName === "require") {
         const packageName = getAllASTNodes(callNode, "arg")[0];
@@ -502,13 +565,11 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
         } else params.push(p)
     })
 
-    params.forEach((p, i) => {
-        const paramName = (p.obj as Identifier).name;
-        const latestParamContextName = trackers.getContextNameList(paramName, funcNode.functionContext).slice(-1)[0];
+    // create param node and connect to taint source
+    params.forEach((p, i) => { trackers.addParamNode(stmtId, p, i, funcExpNode); });
 
-        // create param node and connect to taint source
-        trackers.addParamNode(stmtId, paramName, latestParamContextName, i);
-    });
+    // If function is an inner function, we add the context to the dependency tracker
+    trackers.addAnonFunction(funcExpNode.functionContext, funcNode.functionContext, funcIdentifier.name, params)
 
     trackers = popContext(trackers);
     return trackers;
@@ -815,6 +876,11 @@ function popContext(trackers: DependencyTracker): DependencyTracker {
     return newTrackers;
 }
 
+function addTaintedNodes(trackers: DependencyTracker): DependencyTracker {
+    trackers.addTaintedNodes();
+    return trackers;
+}
+
 export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
     const graph = cfgGraph;
 
@@ -1005,6 +1071,8 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
         trackers = traverse(node, node.namespace, trackers);
     });
 
+    // Taint parameters without origin
+    trackers = addTaintedNodes(trackers);
     // trackers.print();
     return {
         graph,
