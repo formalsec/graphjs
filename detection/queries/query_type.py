@@ -26,11 +26,11 @@ class QueryType:
                     -[ref_edge:REF]
                         -(param:PDG_OBJECT)
                             -[obj_edges:PDG*0..]
-                                -(obj:PDG_OBJECT)
+                                ->(obj:PDG_OBJECT)
             WHERE 
                 source.Id = "{source}" AND
                 ref_edge.RelationType = "param" AND
-                all(edge IN obj_edges WHERE edge.RelationType = "SO" or edge.RelationType = "NV")
+                all(edge IN obj_edges WHERE edge.RelationType = "SO" or edge.RelationType = "NV" or edge.RelationType = "ARG")
             RETURN *
             ORDER BY 
                 ref_edge.IdentifierName
@@ -49,7 +49,7 @@ class QueryType:
                 params_types = params_types[param_name]
                 for rel in record["obj_edges"]:
                     # TODO: little trick
-                    if rel["RelationType"] == "NV":
+                    if rel["RelationType"] == "NV" or rel["RelationType"] == "ARG":
                         continue
                     prop_name = rel["IdentifierName"]
                     if not prop_name in params_types:

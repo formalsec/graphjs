@@ -39,11 +39,6 @@ class PrototypePollution(QueryType):
 				(sink_cfg)
 					-[:REF]
 						->(sink)
-			MATCH
-				cfg_path=
-					(source_cfg)
-						-[cfg_edges: CFG|FD*1..]
-							->(sink_cfg)
 			WHERE 
 				nv_edge.RelationType = "NV" AND
 				nv_edge.IdentifierName = "*" AND

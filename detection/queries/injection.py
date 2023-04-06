@@ -23,11 +23,6 @@ class Injection(QueryType):
 				(sink_cfg)
 					-[:SINK]
 						->(sink)
-			MATCH
-				cfg_path=
-					(source_cfg)
-						-[cfg_edges: CFG|FD*1..]
-							->(sink_cfg)
 			WHERE 
 				param_edge.RelationType = "TAINT" AND
 				param_ref.RelationType = "param"
