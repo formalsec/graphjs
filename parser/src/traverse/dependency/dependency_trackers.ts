@@ -278,6 +278,27 @@ export class DependencyTracker {
         if (node) node.paramOrigin = true;
     }
 
+    markNodeWithOrigin(nodeId: number): void {
+        const node: GraphNode | undefined = this.graph.nodes.get(nodeId);
+        if (node) node.paramOrigin = true;
+    }
+
+    checkArgumentSource(functionContext: number, trackers: DependencyTracker): Dependency[] {
+        const functionNode: GraphNode | undefined = trackers.getFunctionNode(functionContext);
+        if (functionNode?.arguments) {
+            const functionArgs = functionNode.edges.filter(e => e.type === "REF" && e.label === "param").map(e => e.nodes[1]);
+            const deps: Dependency[] = [];
+            functionArgs.forEach((fnArg: GraphNode, i: number) => {
+                if (fnArg.identifier) {
+                    const depName = fnArg.identifier.split('-')[0].split('.')[1]
+                    deps.push(DependencyFactory.DVar(depName, fnArg.id, i))
+                }
+            });
+            return deps;
+        }
+        return [];
+    }
+
     // Connects function arguments without origin to taint source
     addTaintedNodes(): void {
         const functionDeclarationNodes = this.graph.startNodes.get("CFG")?.map((cfgNode: GraphNode) => this.graph.nodes.get(cfgNode.functionNodeId))
@@ -340,6 +361,11 @@ export class DependencyTracker {
             const locations: StorageValue[] = validObj.storage;
             return locations ? (locations.slice(-1)[0] as StorageObject)?.location : undefined;
         }
+    }
+
+    getFunctionNode(context: number): GraphNode | undefined {
+        const functionCFGNode = this.graph.nodes.get(context);
+        if (functionCFGNode) return this.graph.nodes.get(functionCFGNode.functionNodeId)
     }
 
     /** Object creation **/
@@ -569,10 +595,6 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             }
         }
 
-        // case "Literal": {
-        //     return [ DependencyFactory.DConst(node.obj.value, stmtId) ];
-        // }
-
         case "ObjectExpression": {
             const properties = (node.obj.properties);
             if (properties.length !== 0) return []
@@ -629,7 +651,14 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const args = getAllASTNodes(node, "arg");
 
             // get all argument dependencies
-            const argDeps = args.map((arg, i) => evalDep(trackers, stmtId, arg, i + 1)).flat();
+            const argDeps = args.map((arg, i) => {
+                let deps: Dependency[] = evalDep(trackers, stmtId, arg, i + 1);
+                if (arg.type === "Identifier" && arg.identifier === "arguments") {
+                    const argumentDeps: Dependency[] = trackers.checkArgumentSource(node.functionContext, trackers);
+                    deps = [...deps, ...argumentDeps]
+                }
+                return deps;
+            }).flat();
 
             // get callee dependencies
             const calleeDeps = evalDep(trackers, stmtId, callee).map(cd => {

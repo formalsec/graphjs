@@ -29,7 +29,6 @@ function createNewObjectNodeVariable(stmtId: number, functionContext: number, va
     return trackers.graphCreateNewObject(stmtId, simpleVariableName, pdgObjName, pdgObjNameContext);
 }
 
-// TODO - I think these functions can be merged
 function createSubObject(stmtId: number, objNameContext: string, propName: string, deps: Dependency[], trackers: DependencyTracker): number | undefined {
     // get last location of object (most recent version)
     const lastObjLocation = trackers.getLastObjectLocation(objNameContext);
@@ -235,6 +234,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
                 let paramObj;
                 if (callArg.identifier !== null) paramObj = trackers.getObjectVersionNodes(callArg.identifier, callNode.functionContext).slice(-1)[0];
                 if (latestArgObj && paramObj && paramObj.identifier) trackers.graphCreateArgumentEdge(paramObj.id, latestArgObj);
+                else if (latestArgObj && callArg.type === "Literal") trackers.markNodeWithOrigin(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
                 else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
             })
         }
@@ -242,7 +242,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
     // Check if argument of call is an inner function
     if (callASTNode.type === "MemberExpression") {
         // Get arguments that are functions
-        const anonFunctions = callArgs.filter(arg => arg.identifier != null && trackers.checkAnonFunction(functionContext, arg.identifier) !== undefined)
+        const anonFunctions = callArgs.filter(arg => arg.identifier != null && trackers.checkAnonFunction(functionContext, arg.identifier).length)
         const anonFunctionsIds = anonFunctions.map(fn => fn.id)
         // Get arguments that are variables
         const varFunctions = callArgs.filter(arg => !anonFunctionsIds.includes(arg.id))
@@ -250,19 +250,18 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
         // We need to map the anonFuncArgs - each anon function arg depends on the callee node obj and arguments of functions   TODO: summary for this
         anonFunctions.forEach((fn: GraphNode) => {
             const args: string[] = trackers.checkAnonFunction(functionContext, fn.identifier as string);
-            args?.forEach((arg: string, i: number) => {
+            args?.forEach((arg: string) => {
                 const latestArgObj = trackers.getObjectId(arg);
                 // Dependencies on the callee
                 const latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
                 if (latestArgObj && latestCallObj && latestCallObj.identifier) trackers.graphCreateArgumentEdge(latestCallObj.id, latestArgObj, calleeName);
                 else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
-                /*
+
                 // Dependencies on the arguments
-                varFunctions.forEach(fn => {
+                varFunctions.forEach((fn: GraphNode, i: number) => {
                     const latestVarObj = trackers.getObjectVersionNodes(fn.identifier as string, callNode.functionContext).slice(-1)[0];
-                    if (latestArgObj && latestVarObj) trackers.graphCreateDependencyEdge(latestVarObj.id, latestArgObj, DependencyFactory.DVar(calleeName, latestVarObj.id, i));
+                    if (latestArgObj && latestVarObj) trackers.graphCreateDependencyEdge(latestVarObj.id, latestArgObj, DependencyFactory.DVar(fn.identifier as string, latestVarObj.id, i));
                 })
-                 */
             });
         });
     }
@@ -503,6 +502,16 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
             if (newObjId) subObjId = newObjId;
         }
         deps = evalDep(trackers, stmtId, memExpNode);
+    }
+
+    // If right side of the assignment (memExpNode) is the argument keyword referring to the function arguments, we need to create the object corresponding to the left side
+    if (!subObjId && obj.obj.name === "arguments") {
+        const deps: Dependency[] = trackers.checkArgumentSource(stmt.functionContext, trackers);
+        subObjId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
+        trackers.graphCreateReferenceEdge(stmtId, subObjId);
+        deps.forEach((dep: Dependency) => {
+            trackers.graphCreateDependencyEdge(dep.source, subObjId, dep)
+        })
     }
 
     // check if this expression is already in storage
