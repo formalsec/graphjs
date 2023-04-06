@@ -512,6 +512,10 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         deps.forEach((dep: Dependency) => {
             trackers.graphCreateDependencyEdge(dep.source, subObjId, dep)
         })
+        // If there are no dependencies from the pre-defined arguments, then, we need to taint the left side object
+        if (!deps.length) {
+            trackers.addTaintedNodeEdge(subObjId)
+        }
     }
 
     // check if this expression is already in storage
@@ -817,7 +821,7 @@ function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: Depe
 
 function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // evaluate dependency of right expression
-    const deps = evalDep(trackers, stmtId, left);
+    const deps = evalDep(trackers, stmtId, right);
 
     // We assume identifiers due to normalization
     if (left.type !== "Identifier") {
@@ -842,8 +846,12 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
     const subObj = trackers.getObjectVersionsWithProp(objName, right.functionContext, propName);
 
     if (!subObj.length) {
-        const subObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
-        if (subObjId) deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjId, dep) });
+        const newObjId = createNewObjectNodeVariable(stmtId, right.obj.functionContext, left.obj, trackers)
+        // const subObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
+        if (newObjId) {
+            trackers.graphCreateReferenceEdge(stmtId, newObjId)
+            deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, newObjId, dep) });
+        }
     }
     return trackers;
 }
