@@ -20,6 +20,7 @@ Help()
 
 SILENT_OP=false
 GRAPH_ONLY=false
+FILE_TO_TEST=true
 
 # process arguments
 while getopts f:c:o:n:sgh flag
@@ -44,12 +45,16 @@ if test -f "$FILEPATH"; then
 
     # run cpg construction stage and serialize cpg
     if [ $SILENT_OP = true ]; then
-        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv
+        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --csv
     else
-        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --out --csv 2>&1 | tee $NORM
+        npm start --prefix parser -- -f $ABS_INPUT_FILE -c $ABS_CONFIG_FILE --csv 2>&1 | tee $NORM
+
+        if grep -e 'Error: [A-Za-z]*Error' $NORM; then
+            FILE_TO_TEST=false
+        fi
     fi
 
-    if [ $GRAPH_ONLY = false ]; then
+    if [[ $GRAPH_ONLY = false && $FILE_TO_TEST = true ]]; then
         # get csv output to import dir in neo4j-custom dir
         NEO4J_DIR=$(realpath ./neo4j-custom)
         CPG_ORIGINAL_DIR=$(realpath ./parser/src/graphs)
