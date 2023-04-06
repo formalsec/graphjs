@@ -102,7 +102,7 @@ function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
     function addToConfigME(propName: string, objName: string, id: string, origConfig: Config): Config {
         const newConfig: Config = copyObj(origConfig);
         const fsinks = newConfig.functions.filter(s => s.sink === propName);
-        const psinks = newConfig.packages.filter(s => s.sink === propName);
+        const psinks = newConfig.packagesSinks.filter(s => s.sink === propName);
 
         if (psinks.length > 0) {
             const sink = psinks.slice(-1)[0];

@@ -6,5 +6,16 @@
 },
 { "function": "push", "deps": [] },
 { "function": "join", "deps": [] },
-{ "function": "split", "deps": [] }
+{ "function": "split", "deps": [] },
+{ "function": "slice", "deps": [] },
+{ "function": "reverse", "deps": [] },
+{ "function": "reduce", "deps": [] },
+{ "function": "reverse", "deps": [] },
+{ "function": "map", "deps": [] },
+{ "function": "match", "deps": [] },
+{ "function": "replace", "deps": [] },
+{ "function": "toString", "deps": [] },
+{ "function": "trim", "deps": [] },
+{ "function": "shift", "deps": [] },
+{ "function": "find", "deps": [] }
 ]

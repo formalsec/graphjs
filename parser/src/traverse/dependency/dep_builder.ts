@@ -4,8 +4,9 @@ import { type GraphNode } from "../graph/node";
 import { clone, createThisExpression, getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
 import { DependencyTracker, evalDep, evalSto, type Store } from "./dependency_trackers";
 import { StorageFactory, type StorageObject, type StorageValue } from "./sto_factory";
-import { type Identifier } from "estree";
-import { DependencyFactory, type Dependency } from "./dep_factory";
+import { type Identifier, type ThisExpression } from "estree";
+import * as DependencyFactory from "./dep_factory";
+import { type Dependency } from "./dep_factory";
 import { type Config } from "../../utils/config_reader";
 import { type SummaryDependency } from "../../utils/summary_reader";
 
@@ -146,7 +147,10 @@ function createArrayElement(stmtId: number, objName: string, objNameContext: str
             const subObjectId = trackers.graphCreateNewObject(stmtId, propName, propNamesInHeap.pdgObjName, propNamesInHeap.pdgObjNameContext);
             trackers.graphCreateSubObjectEdge(objVersionId, subObjectId, propName);
 
-            deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep); });
+            deps.forEach(dep => {
+                trackers.graphCreateDependencyEdge(dep.source, subObjectId, dep);
+                trackers.graphCreateDependencyEdge(dep.source, objVersionId, dep);
+            });
             trackers.graphCreateReferenceEdge(stmtId, subObjectId);
         }
     }
@@ -195,27 +199,106 @@ function handleArrayExpression(stmtId: number, functionContext: number, variable
 * 0 is the called object
 * -1 is the return object
 * >1 are the arguments of the functions */
-function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNode, objName: string, ret: number): [number, string | null] {
+function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNode, objName: string, ret: number): Array<{ id: number, name: string }> {
     switch (depNumber) {
         case -1:
-            return [ret, ""]
-        case 0:
-            return [obj.id, objName]
-        default:
+            return [{ id: ret, name: "" }]
+        case 0: {
+            return [{ id: obj.id, name: objName }]
+        }
+        // Consider all arguments
+        case 99: {
+            if (!deps.length) return []
+            else return deps.map(dep => { return { id: dep?.source ?? -1, name: dep?.name ?? "" } })
+        }
+        default: {
             // Here, is only returning the first found argument
             // TODO: support all arguments (e.g. push(x,y,z)
             const dep = deps.find(d => d.arg === depNumber)
-            return [dep?.source ?? -1, dep?.name ?? ""]
+            return [{ id: dep?.source ?? -1, name: dep?.name ?? "" }]
+        }
     }
+}
+
+function mapCallArguments(callNode: GraphNode, functionContext: number, callName: string, calleeName: string, trackers: DependencyTracker): DependencyTracker {
+    const callArgs = getAllASTNodes(callNode, "arg");
+    const callASTNode = getASTNode(callNode, "callee");
+
+    // Check if calling an inner function
+    if (callASTNode.type === "Identifier") {
+        const args: string[] = trackers.checkAnonFunction(functionContext, callName);
+        // If no match, is not an inner function (at least with args aka relevant)
+        if (args?.length) {
+            callArgs.forEach((callArg: GraphNode, i: number) => {
+                // We need to map the inner function arguments
+                const latestArgObj = trackers.getObjectId(args[i]);
+                let paramObj;
+                if (callArg.identifier !== null) paramObj = trackers.getObjectVersionNodes(callArg.identifier, callNode.functionContext).slice(-1)[0];
+                if (latestArgObj && paramObj && paramObj.identifier) trackers.graphCreateArgumentEdge(paramObj.id, latestArgObj);
+                else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+            })
+        }
+    }
+    // Check if argument of call is an inner function
+    if (callASTNode.type === "MemberExpression") {
+        // Get arguments that are functions
+        const anonFunctions = callArgs.filter(arg => arg.identifier != null && trackers.checkAnonFunction(functionContext, arg.identifier) !== undefined)
+        const anonFunctionsIds = anonFunctions.map(fn => fn.id)
+        // Get arguments that are variables
+        const varFunctions = callArgs.filter(arg => !anonFunctionsIds.includes(arg.id))
+
+        // We need to map the anonFuncArgs - each anon function arg depends on the callee node obj and arguments of functions   TODO: summary for this
+        anonFunctions.forEach((fn: GraphNode) => {
+            const args: string[] = trackers.checkAnonFunction(functionContext, fn.identifier as string);
+            args?.forEach((arg: string, i: number) => {
+                const latestArgObj = trackers.getObjectId(arg);
+                // Dependencies on the callee
+                const latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
+                if (latestArgObj && latestCallObj && latestCallObj.identifier) trackers.graphCreateArgumentEdge(latestCallObj.id, latestArgObj, calleeName);
+                else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+                /*
+                // Dependencies on the arguments
+                varFunctions.forEach(fn => {
+                    const latestVarObj = trackers.getObjectVersionNodes(fn.identifier as string, callNode.functionContext).slice(-1)[0];
+                    if (latestArgObj && latestVarObj) trackers.graphCreateDependencyEdge(latestVarObj.id, latestArgObj, DependencyFactory.DVar(calleeName, latestVarObj.id, i));
+                })
+                 */
+            });
+        });
+    }
+
+    return trackers;
+    /*
+    if (callASTNode.type === "Identifier"calledNode.type === "Identifier") {
+        const args: string[] | undefined = trackers.checkAnonFunction(functionContext, calledNode.obj.name);
+        const latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
+
+        args?.forEach((arg: string, i: number) => {
+            const latestArgObj = trackers.getObjectId(arg);
+            if (latestArgObj) trackers.graphCreateDependencyEdge(latestCallObj.id, latestArgObj, DependencyFactory.DVar(arg, latestArgObj, i));
+        })
+    } */
 }
 
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // Get function name
-    const functionIdentifierNode = getASTNode(callNode, "callee");
-    const functionName = functionIdentifierNode.obj.name;
-    const functionNameContext = trackers.getContextNameList(functionName, functionContext).slice(-1)[0];
+    const callASTNode = getASTNode(callNode, "callee");
+    let callName: string, calleeName: string, callee: Identifier | ThisExpression;
+    if (callASTNode.obj.type === "MemberExpression") {
+        callName = callASTNode.obj.property.name;
+        callee = callASTNode.obj.object;
+        if (callee.type === "ThisExpression") calleeName = "this";
+        else calleeName = callee.name; // Get callee object name (e.g. arr)
+    } else {
+        callName = callASTNode.obj.name;
+        callee = callASTNode.obj;
+        if (callee.type === "ThisExpression") calleeName = "this";
+        else calleeName = callee.name;
+    }
 
-    if (functionName === "require") {
+    trackers = mapCallArguments(callNode, functionContext, callName, calleeName, trackers);
+
+    if (callName === "require") {
         const packageName = getAllASTNodes(callNode, "arg")[0];
         const variableName = trackers.getContextNameList(variable.name, functionContext).slice(-1)[0];
         trackers.addRequireChainEntry(variableName, packageName.obj.value);
@@ -223,51 +306,56 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
 
     const calleeObjectDeps = [];
     if (callNode.obj.callee.type === "MemberExpression") {
-        const callASTNode = getASTNode(callNode, "callee");
         const calleeDeps = evalDep(trackers, stmtId, getASTNode(callASTNode, "object"));
         calleeObjectDeps.push(...calleeDeps);
     }
+
+    const deps = evalDep(trackers, stmtId, callNode);
 
     // create new object
     const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
     trackers.graphCreateReferenceEdge(stmtId, newObjId);
 
     // process dependencies of call
-    const deps = evalDep(trackers, stmtId, callNode);
     trackers.graphCreateCallStatementDependencyEdges(stmtId, newObjId, deps);
+
+    // Create sinks when promisify(exec) e.g.
+    const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
+    varDeps.forEach(dep => {
+        const variableMap = trackers.checkVariableMap(`${callNode.functionContext}.${dep.name}`)
+        if (variableMap) trackers.addVariableMap(`${callNode.functionContext}.${variable.name}`, variableMap);
+    })
 
     // Process dependencies between the subjects of the call
     // E.g. dependencies of object (arr) being called upon (e.g. arr.push(x))
     // TODO: Should this create a new version?
     if (callNode.obj.callee.type === "MemberExpression") {
-        // Get call name
-        const callName = callNode.obj.callee.property.name;
-        // Get callee object (e.g. arr)
-        const callObj = callNode.obj.callee.object.name;
-        let latestCallObj = trackers.getObjectVersionNodes(callObj, callNode.functionContext).slice(-1)[0];
+        let latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
         // Get summary for the function
         const functionSummary: SummaryDependency[] | undefined = config.summaries.get(callName);
         if (functionSummary?.length) {
             // For each summary item (obj, dependencies)
             functionSummary.forEach((summaryItem) => {
                 // Get object (destination) information
-                const destination = translateDependency(summaryItem.obj, deps, latestCallObj, callObj, newObjId)
+                const destination = translateDependency(summaryItem.obj, deps, latestCallObj, calleeName, newObjId)[0]
                 // For each dependency, add the corresponding edge
                 summaryItem.deps.forEach(d => {
-                    const source = translateDependency(d, deps, latestCallObj, callObj, newObjId)
-                    trackers.graphCreateCallDependencyEdge(source[0], destination[0], source[1])
+                    const sources = translateDependency(d, deps, latestCallObj, calleeName, newObjId)
+                    sources.forEach(source => { trackers.graphCreateCallDependencyEdge(source.id, destination.id, source.name); });
                 })
             })
         // If there is no function summary available, assume all dependencies
         } else if (functionSummary && !functionSummary.length) {
             // If called object doesn't exist (e.g. it was the return of a function)
             if (!latestCallObj) {
-                const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callObj, trackers);
-                latestCallObj = trackers.getObjectVersionNodes(callObj, callNode.functionContext).slice(-1)[0];
-                trackers.graphCreateReferenceEdge(stmtId, newObjId);
+                if (callee.type === "Identifier") {
+                    const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callee, trackers);
+                    trackers.graphCreateReferenceEdge(stmtId, newObjId);
+                }
+                latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
             }
             // Dependency callee -> ret
-            if (latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, callObj)
+            if (latestCallObj && latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, calleeName)
             // Call params -> callee
             // get callee dependencies for arr.push()
             if (!deps.filter(d => DependencyFactory.isDCallee(d)).length) {
@@ -279,23 +367,18 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         }
     }
 
-    let useFunctionMap = false;
-    const contextFunctionNames = trackers.getContextNameList(functionName, functionContext);
+    const contextFunctionNames = trackers.getContextNameList(calleeName, functionContext);
     const matchedFunctionName = contextFunctionNames
         .sort((a, b) => parseInt(a) - parseInt(b))
         .find(fc => trackers.checkVariableMap(fc))
     const functionNameMap = matchedFunctionName ? trackers.checkVariableMap(matchedFunctionName) : undefined;
-    if (functionNameMap) {
-        useFunctionMap = true;
-    }
 
-    let sinkName = functionName;
+    let sinkName = callName;
     // check sink name
-    let functionSinks;
-    if (useFunctionMap) {
+    if (functionNameMap) {
         sinkName = functionNameMap;
     }
-    functionSinks = config.functions.filter((s) => s.sink === sinkName);
+    const functionSinks = config.functions.filter((s) => s.sink === sinkName);
 
     if (functionSinks.length > 0) {
         const sink = functionSinks.slice(-1)[0];
@@ -323,11 +406,13 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         });
     }
 
-    let packageSinks;
-    if (useFunctionMap) {
-        sinkName = functionNameMap?.split('.')[1];
+    let sinkPackageName: string;
+    if (functionNameMap) {
+        if (callASTNode.obj.type !== "MemberExpression") sinkName = functionNameMap.split('.')[1];
+        else sinkName = callName;
+        sinkPackageName = functionNameMap.split('.')[0];
     }
-    packageSinks = config.packages.filter((s) => s.sink === sinkName);
+    const packageSinks = config.packagesSinks.filter((s) => s.sink === sinkName);
 
     if (packageSinks.length > 0) {
         const sink = packageSinks.slice(-1)[0];
@@ -348,9 +433,9 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         // connect appropriate arguments to sink node
         // I am only connecting potentially vulnerable arguments
         // according to config
+        const sinkArgs = sink.packages.find(p => p.package === sinkPackageName)?.args;
         deps.forEach(dep => {
-            const sinkArgs = sink.packages.slice(-1)[0].args;
-            if (DependencyFactory.isDVar(dep) && dep.arg && sinkArgs.includes(dep.arg)) {
+            if (DependencyFactory.isDVar(dep) && dep.arg && sinkArgs?.includes(dep.arg)) {
                 trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
             }
         });
@@ -385,7 +470,8 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         if (objNameContext) mapName = trackers.checkVariableMap(objNameContext);
     }
     if (mapName && prop.type === "Identifier") {
-        trackers.addVariableMap(variableNameContext, `${mapName}.${prop.obj.name}`);
+        const functionMap = `${mapName}.${prop.obj.name as string}`
+        trackers.addVariableMap(variableNameContext, functionMap);
     }
 
     // evaluate dependency of expression
@@ -469,14 +555,21 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     // }
 
     // track all parameters of this function
-    const params = getAllASTNodes(funcExpNode, "param");
-    params.forEach((p, i) => {
-        const paramName = (p.obj as Identifier).name;
-        const latestParamContextName = trackers.getContextNameList(paramName, funcNode.functionContext).slice(-1)[0];
+    const unpatternedParams = getAllASTNodes(funcExpNode, "param");
+    // in case a parameter is an object expression
+    const params: GraphNode[] = []
+    unpatternedParams.forEach(p => {
+        if (p.type === "ObjectPattern") {
+            const objParams = getAllASTNodes(p, "property").map(prop => getASTNode(prop, "value"));
+            params.push(...objParams)
+        } else params.push(p)
+    })
 
-        // create param node and connect to taint source
-        trackers.addParamNode(stmtId, paramName, latestParamContextName, i);
-    });
+    // create param node and connect to taint source
+    params.forEach((p, i) => { trackers.addParamNode(stmtId, p, i, funcExpNode); });
+
+    // If function is an inner function, we add the context to the dependency tracker
+    trackers.addAnonFunction(funcExpNode.functionContext, funcNode.functionContext, funcIdentifier.name, params)
 
     trackers = popContext(trackers);
     return trackers;
@@ -510,7 +603,7 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
 
     // if the expression does not correspond to an object then
     // we need to create a new object
-    if (!StorageFactory.isStorageObject(storageValue)) {
+    if (!storageValue || !StorageFactory.isStorageObject(storageValue)) {
         // const newObjReturn = createAndStoreNewObjectNode(stmtId, stmt, variable, trackers);
         // newTrackers = newObjReturn.newTrackers;
     } else {
@@ -736,13 +829,38 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
     const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
     const propName = '*';
 
-    // Check if subobj exists
+    // Check if sub-obj exists
     const subObj = trackers.getObjectVersionsWithProp(objName, right.functionContext, propName);
 
     if (!subObj.length) {
         const subObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
         if (subObjId) deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjId, dep) });
     }
+    return trackers;
+}
+
+function handleForOfStatement(stmtId: number, left: GraphNode, right: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // evaluate dependency of left expression
+    const deps = evalDep(trackers, stmtId, left);
+
+    // We assume identifiers due to normalization
+    if (left.type !== "Identifier") {
+        console.trace(`Expression ${left.type} didn't match with case values.`);
+        return trackers;
+    }
+    // Check if iterable variable exists
+    let varObjId = left.obj.id;
+
+    const varObjContextList = trackers.getContextNameList(left.obj.name, left.obj.functionContext);
+    const validVarObj = trackers.getValidObject(varObjContextList)
+    if (!validVarObj) {
+        varObjId = createNewObjectNodeVariable(stmtId, left.obj.functionContext, left.obj, trackers);
+        trackers.graphCreateReferenceEdge(stmtId, varObjId);
+        if (varObjId) deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, varObjId, dep) });
+    }
+    // Create dependency between aux var and iterable array/object
+    const rightDeps = evalDep(trackers, stmtId, right);
+    if (varObjId) rightDeps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, varObjId, dep) });
     return trackers;
 }
 
@@ -756,6 +874,11 @@ function popContext(trackers: DependencyTracker): DependencyTracker {
     const newTrackers = trackers.clone();
     newTrackers.popIntraContext();
     return newTrackers;
+}
+
+function addTaintedNodes(trackers: DependencyTracker): DependencyTracker {
+    trackers.addTaintedNodes();
+    return trackers;
 }
 
 export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
@@ -904,7 +1027,13 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
             //     break;
             // }
 
-            // case "ForOfStatement":
+            case "ForOfStatement": {
+                const left = getASTNode(node, "left");
+                const right = getASTNode(node, "right");
+
+                curTrackers = handleForOfStatement(node.id, left, right, curTrackers);
+                break;
+            }
             case "ForInStatement": {
                 const left = getASTNode(node, "left");
                 const right = getASTNode(node, "right");
@@ -942,6 +1071,8 @@ export function buildPDG(cfgGraph: Graph, config: Config): PDGReturn {
         trackers = traverse(node, node.namespace, trackers);
     });
 
+    // Taint parameters without origin
+    trackers = addTaintedNodes(trackers);
     // trackers.print();
     return {
         graph,

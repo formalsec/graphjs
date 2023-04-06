@@ -87,7 +87,7 @@ function buildCFG(astGraph: Graph): Graph {
                 _start.namespace = cfgNamespace;
                 _start.functionName = node.functionName;
                 _start.functionContext = _start.id;
-                _start.functionNodeId = node.id;
+                if (parentNode) _start.functionNodeId = parentNode.id;
 
                 graph.addStartNodes("CFG", _start);
                 // eslint-disable-next-line no-param-reassign
@@ -242,6 +242,7 @@ function buildCFG(astGraph: Graph): Graph {
                 return defaultNode(node);
 
             // TODO: Not sure if doesn't make changes
+            case "YieldExpression":
             case "AwaitExpression":
                 return defaultNode(node);
 

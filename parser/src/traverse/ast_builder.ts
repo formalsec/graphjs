@@ -96,7 +96,18 @@ export default function buildAST(originalObj: estree.Program): Graph {
                 const resultData = mapReduce(obj.properties, objNode);
 
                 for (let i = 0; i < resultData.length; i++) {
-                    graph.addEdge(objNode.id, resultData[i].id, { type: "AST", label: i + 1 });
+                    graph.addEdge(objNode.id, resultData[i].id, { type: "AST", label: "property", arg: i + 1 });
+                }
+                return objNode;
+            }
+
+            case "ObjectPattern": {
+                const objNode = graph.addNode(obj.type, obj);
+
+                const resultData = mapReduce(obj.properties, objNode);
+
+                for (let i = 0; i < resultData.length; i++) {
+                    graph.addEdge(objNode.id, resultData[i].id, { type: "AST", label: "property", arg: i + 1 });
                 }
                 return objNode;
             }
@@ -138,12 +149,15 @@ export default function buildAST(originalObj: estree.Program): Graph {
                 return objNode;
             }
 
+            case "YieldExpression":
             case "AwaitExpression":
             case "UpdateExpression":
             case "UnaryExpression": {
                 const objNode = graph.addNode(obj.type, obj);
-                const argument = traverse(obj.argument, objNode);
-                graph.addEdge(objNode.id, argument.id, { type: "AST", label: "argument" });
+                if (obj.argument) {
+                    const argument = traverse(obj.argument, objNode);
+                    graph.addEdge(objNode.id, argument.id, { type: "AST", label: "argument" });
+                }
                 return objNode;
             }
 

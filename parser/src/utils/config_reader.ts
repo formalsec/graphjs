@@ -21,18 +21,27 @@ export interface PackageSink {
     packages: Package[]
 }
 
+export interface PackageSource {
+    source: string
+    packages: Package[]
+}
+
 export type Sink = FunctionSink | NewSink | PackageSink;
+export type Source = PackageSource;
 export interface Config {
     functions: FunctionSink[]
     news: NewSink[]
-    packages: PackageSink[]
+    packagesSinks: PackageSink[]
+    packagesSources: PackageSource[]
     summaries: Summaries
 }
+
 
 export function readConfig(filePath: string): Config {
     const functionSinks: FunctionSink[] = [];
     const newSinks: NewSink[] = [];
     const packageSinks: PackageSink[] = [];
+    const packageSources: PackageSource[] = [];
 
     const config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     if (config.sinks) {
@@ -69,12 +78,31 @@ export function readConfig(filePath: string): Config {
         });
     }
 
+    if (config.sources) {
+        const sources = config.sources;
+            sources.forEach((source: any) => {
+                const sourceName: string = source.source;
+                const sourceType: string = source.type;
+
+                switch (sourceType) {
+                    case "package": {
+                        packageSources.push({
+                            source: sourceName,
+                            packages: source.packages
+                        });
+                        break;
+                    }
+                }
+            });
+    }
+
     const summaries = readSummaries("src/summaries.json");
 
     return {
         functions: functionSinks,
         news: newSinks,
-        packages: packageSinks,
+        packagesSinks: packageSinks,
+        packagesSources: packageSources,
         summaries
     };
 }

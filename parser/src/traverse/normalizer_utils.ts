@@ -274,18 +274,6 @@ export function createIfStatementForSwitchCase(test: Expression, consequent: Blo
     };
 }
 
-export function createBlockStatementForSwitchCase(originalBody: Statement[], hasBreak: boolean, extraStmt?: IfStatement | BlockStatement): BlockStatement {
-    if (hasBreak || !extraStmt) {
-        return { type: "BlockStatement", body: originalBody };
-    }
-
-    if (extraStmt.type === "BlockStatement") {
-        return { type: "BlockStatement", body: [...originalBody, ...extraStmt.body] };
-    }
-
-    return { type: "BlockStatement", body: [...originalBody, extraStmt] };
-}
-
 export function createEmptyFunctionExpression(id: Identifier): FunctionExpression {
     return {
         type: "FunctionExpression",
@@ -502,6 +490,16 @@ export function normVariableDeclarator(obj: VariableDeclarator, children: Normal
             }
         }
 
+        if (newInit.expr && newInit.expr.type === "AssignmentExpression" && parent && parent.type === "VariableDeclaration") {
+            const decl = createGenericExpressionAssignment(newInit.expr.left, newInit.expr.right)
+            newObj.init = newInit.expr.left;
+            stmts = [...newInit.stmts, decl];
+            return {
+                stmts,
+                expr: newObj
+            };
+        }
+
         // all other init types
         stmts = [...newInit.stmts];
         newObj.init = newInit.expr;
@@ -602,33 +600,108 @@ export function rearrangeSwitchCases(cases: SwitchCase[]): SwitchCase[] {
 
 export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: Normalization[][], parent: Node | null): Normalization {
     const parentDiscriminant = parent && (parent.type === "Identifier" || parent.type === "Literal") ? parent : createRandomIdentifier();
-
     const previousDecls: Statement[] = [];
-    let ifNode: IfStatement | BlockStatement | undefined;
 
-    for (let j = cases.length - 1; j >= 0; j--) {
-        const switchCase = cases[j];
-        const children = childrenList[j];
+    // The parent if statement, with all the switch cases
+    let ifStatement: IfStatement | undefined;
+    // Stores the last alternate, so we can replace it with new alternates as we go over the switch cases
+    let lastAlternate: { type: string, test: any, consequent: any, alternate?: any };
 
-        const flatChildrenStmts = flatStmts(children);
-        const hasBreak = flatChildrenStmts.filter(stmt => stmt.type === "BreakStatement").length > 0;
-        const newBody = flatChildrenStmts.filter(stmt => stmt.type !== "BreakStatement") as Statement[];
-        const newConsequent = createBlockStatementForSwitchCase(newBody, hasBreak, ifNode);
-
-        if (switchCase.test) {
-            const caseTest = createEqualBinaryExpression(parentDiscriminant, children[0].expr as Expression);
+    function addCaseToIfStatement(testValue: Expression, body: BlockStatement): void {
+        // If it's a switch case (else it is default)
+        if (testValue) {
+            const caseTest = createEqualBinaryExpression(parentDiscriminant, testValue);
             const newTest = createVariableDeclaration(caseTest);
 
-            ifNode = createIfStatementForSwitchCase(newTest.id, newConsequent, ifNode);
-            previousDecls.push(newTest.decl);
-        } else {
-            ifNode = newConsequent;
+            // If the main IfStatement does not have a test, we need to initialize it
+            if (!ifStatement) {
+                ifStatement = {
+                    type: "IfStatement",
+                    test: newTest.id,
+                    consequent: body
+                }
+                previousDecls.push(newTest.decl);
+            } else if (!ifStatement.alternate) { // If the main IfStatement does not have an alternate
+                ifStatement.alternate = {
+                    type: "IfStatement",
+                    test: newTest.id,
+                    consequent: body
+                }
+                lastAlternate = ifStatement.alternate;
+                previousDecls.push(newTest.decl);
+            } else if (lastAlternate && lastAlternate.type === "IfStatement") { // If the main IfStatement already has an alternate
+                lastAlternate.alternate = {
+                    type: "IfStatement",
+                    test: newTest.id,
+                    consequent: body
+                }
+                lastAlternate = lastAlternate.alternate;
+                previousDecls.push(newTest.decl);
+            }
+        } else { // Default case
+            if (!ifStatement) {
+                ifStatement = { type: "IfStatement", test: { type: "Literal", value: true }, consequent: body }
+            } else if (!ifStatement.alternate) { // If the main IfStatement does not have an alternate
+                ifStatement.alternate = { type: "BlockStatement", body: body.body }
+            } else if (lastAlternate && lastAlternate.type === "IfStatement") { // If the main IfStatement already has an alternate
+                lastAlternate.alternate = { type: "BlockStatement", body: body.body }
+            }
         }
     }
 
-    if (ifNode) {
+    cases.forEach((switchCase: SwitchCase, i: number) => {
+        // Get normalized statements
+        const children = childrenList[i];
+        const flatChildrenStmts = flatStmts(children) as Statement[]
+        const testValue: Expression = children[0].expr as Expression;
+
+        // Check if case has a break statement:
+        // 1 - If the first statement is a block, it can be the last one of the block
+        // 2 - If it is a list of statements, it can be the last statement
+        if (flatChildrenStmts.length && flatChildrenStmts[0].type === "BlockStatement" &&
+            flatChildrenStmts[0].body.length && flatChildrenStmts[0].body[flatChildrenStmts[0].body.length - 1].type === "BreakStatement") {
+            // Remove the break statement
+            flatChildrenStmts[0].body.pop();
+            // Add case to main if statement
+            const newBody = createBlockStatement(flatChildrenStmts[0].body);
+            addCaseToIfStatement(testValue, newBody);
+        } else if (flatChildrenStmts.length && flatChildrenStmts[flatChildrenStmts.length - 1].type === "BreakStatement") {
+            // If switch case has a break statement, then it is an isolated if statement
+            // Remove break statement
+            flatChildrenStmts.pop();
+            // Add case to main if statement
+            const newBody = createBlockStatement(flatChildrenStmts);
+            addCaseToIfStatement(testValue, newBody);
+        } else { // If there is no break statement, we need to get the code inside the next cases, until a break occurs
+            // Get next switch cases and add the body until a switch
+            const concatenatedBody: Statement[] = []
+            cases.slice(i).every((nextCase: SwitchCase, j: number) => {
+                // Get normalized statements
+                const childrenNextCase = childrenList[i + j];
+                const flatChildrenNextCaseStmts = flatStmts(childrenNextCase) as Statement[]
+                // If contains a break, remove break
+                if (flatChildrenNextCaseStmts.length && flatChildrenNextCaseStmts[0].type === "BlockStatement" &&
+                    flatChildrenNextCaseStmts[0].body.length && flatChildrenNextCaseStmts[0].body[flatChildrenNextCaseStmts[0].body.length - 1].type === "BreakStatement") {
+                    flatChildrenNextCaseStmts[0].body.pop();
+                    concatenatedBody.push(...flatChildrenNextCaseStmts[0].body);
+                    return false;
+                } else if (flatChildrenNextCaseStmts.length && flatChildrenNextCaseStmts[flatChildrenNextCaseStmts.length - 1].type === "BreakStatement") {
+                    flatChildrenNextCaseStmts.pop();
+                    concatenatedBody.push(...flatChildrenNextCaseStmts);
+                    return false;
+                } else { // If it does not include a break, add statements and continue cycle
+                    concatenatedBody.push(...flatChildrenNextCaseStmts);
+                    return true;
+                }
+            })
+            const newBody = createBlockStatement(concatenatedBody);
+            addCaseToIfStatement(testValue, newBody);
+        }
+    })
+
+    if (ifStatement) {
         return {
-            stmts: [...previousDecls, ifNode],
+            stmts: [...previousDecls, ifStatement],
             expr: null
         };
     }
@@ -764,7 +837,7 @@ export function normDoWhileStatement(obj: DoWhileStatement, children: Normalizat
     // First create test condition = true
     const boolObj: SimpleLiteral = createBooleanLiteral(true);
     const objId: string = (children[0].expr as Identifier).name;
-    const { id, decl } = createVariableDeclaration(boolObj, objId, false);
+    const decl = createVariableDeclaration(boolObj, objId, false).decl;
 
     // Change test declaration to assignment (if exists)
     children[0].stmts.forEach((stmt) => {
@@ -814,21 +887,31 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
     if (leftExpr && rightExpr) {
         newObj.left = leftExpr;
 
-        // If there is an assignment inside the call, we need to add a external statement with the assignment and return the left side of the assignment
+        // If there is an assignment inside the call, we need to add an external statement with the assignment and return the left side of the assignment
         const assignmentStatement = [];
         let assignmentValue;
-        if (parent && parent.type === "CallExpression") {
+        if (parent && parent.type === "CallExpression" && rightExpr.type !== "ConditionalExpression") {
             assignmentValue = newObj.left;
             const newAssignment = createExpressionAssignment(newObj.left.name, newObj.right)
             assignmentStatement.push(newAssignment);
         }
 
-        if (rightExpr.type === "ObjectExpression" && (!parent || parent.type !== "SequenceExpression")) {
+        // If the right expression is an object expression (not empty) and the left expression is a member expression
+        // we need to separate the statements
+        // newObj is memExp = newVar
+        if ((rightExpr.type === "ObjectExpression" && rightExpr.properties.length) && leftExpr.type === "MemberExpression" && (!parent || parent.type !== "SequenceExpression")) {
+            // Create assignment newVar = objExpr (right) and add to statements
+            const { id, decl } = createVariableDeclaration(rightExpr);
+            // Create assignment memExp (left) = newVar
+            newObj.right = id;
+            const stmts = [...children[1].stmts, decl]
+            return { stmts, expr: newObj }
+        } else if (rightExpr.type === "ObjectExpression" && (!parent || parent.type !== "SequenceExpression")) {
             const newAssignments: ExpressionStatement[] = [];
             // push declarations for each property using accesses to new variable
             rightExpr.properties.forEach((prop) => {
                 if (prop.type === "Property") {
-                    const propKey = createIdentifierFromExpression(prop.key as Expression);
+                    const propKey = prop.key.type === "Identifier" || prop.key.type === "Literal" ? prop.key : null;
                     const propValue = prop.value as Expression;
                     if (propKey && propValue) {
                         newAssignments.push(createPropertyAssignment(newObj.left, propKey, propValue));
@@ -871,7 +954,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
 
             const newRightExpr = copyObj(rightExpr);
             delete newRightExpr.id;
-            const { id, decl } = createVariableDeclarationWithIdentifier(functionIdentifier, newRightExpr);
+            const decl = createVariableDeclarationWithIdentifier(functionIdentifier, newRightExpr).decl;
 
             newObj.right = functionIdentifier;
 
@@ -881,15 +964,16 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             };
         } else if (rightExpr.type === "ConditionalExpression") {
             const stmts = [...children[0].stmts, ...children[1].stmts];
-            if (parent && (parent.type === "IfStatement" || parent.type === "SequenceExpression")) return { stmts, expr: leftExpr }
-            else return { stmts, expr: null };
+            if (parent && (parent.type === "IfStatement" || parent.type === "SequenceExpression" || parent.type === "CallExpression")) {
+                return { stmts, expr: leftExpr }
+            } else return { stmts, expr: null };
         } else if (rightExpr.type === "CallExpression") {
             if (leftExpr.type !== "Identifier") {
                 // create new random identifier
                 const newIdentifier = createRandomIdentifier()
                 const newRightExpr = copyObj(rightExpr);
 
-                const { id, decl } = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr);
+                const decl = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr).decl;
 
                 newObj.right = newIdentifier;
 
@@ -909,7 +993,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             const newIdentifier = createRandomIdentifier()
             const newRightExpr = copyObj(rightExpr.left);
 
-            const { id, decl } = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr);
+            const decl = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr).decl;
             newObj.right = newIdentifier;
 
             return {
@@ -919,7 +1003,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
         } else if (rightExpr.type === "MemberExpression" && leftExpr.type === "MemberExpression") {
             const newIdentifier = createRandomIdentifier()
 
-            const { id, decl } = createVariableDeclarationWithIdentifier(newIdentifier, rightExpr);
+            const decl = createVariableDeclarationWithIdentifier(newIdentifier, rightExpr).decl;
             newObj.right = newIdentifier;
 
             return {
@@ -988,7 +1072,7 @@ export function normFunctionDeclaration(obj: FunctionDeclaration, children: Norm
         const funcIdentifier: Identifier = funcId.expr as Identifier;
         newObj.id = null;
 
-        const { id, decl } = createVariableDeclarationWithIdentifier(funcIdentifier, newObj);
+        const decl = createVariableDeclarationWithIdentifier(funcIdentifier, newObj).decl;
 
         return {
             stmts: [decl],
@@ -996,7 +1080,7 @@ export function normFunctionDeclaration(obj: FunctionDeclaration, children: Norm
         };
     }
 
-    const { id, decl } = createVariableDeclaration(newObj);
+    const decl = createVariableDeclaration(newObj).decl;
 
     return {
         stmts: [decl],
@@ -1008,7 +1092,7 @@ export function normLabeledStatement(obj: LabeledStatement, children: Normalizat
     const newObj = copyObj(obj);
     newObj.id = children[0].expr;
 
-    [newObj.body] = children[1].stmts;
+    newObj.body = createBlockStatement(children[1].stmts as Statement[]);
 
     return {
         stmts: [newObj],
@@ -1105,18 +1189,9 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     const callee = children[0].expr;
-    let stmts: Node[] = [];
+    const stmts: Node[] = [];
     newObj.callee = callee;
     newObj.arguments = flatExprs(children.slice(1));
-
-    if (callee && callee.type === "MemberExpression" &&
-        (callee.property.type === "Identifier" && !["join", "push", "split"].includes(callee.property.name))) {
-        // create new variable for member expression assignment
-        // make callee the identifier for that variable
-        const { id, decl } = createVariableDeclaration(callee);
-        stmts.push(decl);
-        newObj.callee = id;
-    }
 
     if (parent &&
         ((parent.type === "VariableDeclarator" && parent.id.type !== "ArrayPattern") ||
@@ -1144,6 +1219,7 @@ export function normMemberExpression(obj: MemberExpression, children: Normalizat
     if (parent &&
         (parent.type === "VariableDeclarator" ||
             // || parent.type === "ExpressionStatement"
+            (parent.type === "NewExpression" && parent.callee === obj) ||
             (parent.type === "CallExpression" && parent.callee === obj) ||
             parent.type === "AssignmentExpression")) {
         return {
@@ -1227,6 +1303,7 @@ export function normProperty(obj: Property, children: Normalization[]): Normaliz
         valueStmts.push(decl);
     } else {
         newObj.value = valueExpr;
+        newObj.method = false;
     }
 
     return {
@@ -1274,7 +1351,7 @@ export function normArrayPattern(obj: ArrayPattern, children: Normalization[], p
 // AssignmentPattern can have an expression of the right side. We need to normalize the expression and add the statements on top
 // children[0] is left element
 // children[1] is the right element
-export function normAssignmentPattern(obj: AssignmentPattern, children: Normalization[], parent: Node | null): Normalization {
+export function normAssignmentPattern(obj: AssignmentPattern, children: Normalization[]): Normalization {
     const newObj = copyObj(obj);
     newObj.left = children[0].expr;
     newObj.right = children[1].expr;
