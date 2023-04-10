@@ -511,6 +511,10 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         const deps: Dependency[] = trackers.checkArgumentSource(stmt.functionContext, trackers);
         subObjId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
         trackers.graphCreateReferenceEdge(stmtId, subObjId);
+       // Connect to CFG
+        const index = prop.type === "Literal" && typeof prop.obj.value === "number" ? prop.obj.value : undefined;
+        const functionNode: GraphNode | undefined = trackers.getFunctionNode(stmt.functionContext);
+        if (functionNode) trackers.graphCreateSourceEdge(functionNode.id, subObjId, index);
         deps.forEach((dep: Dependency) => {
             trackers.graphCreateDependencyEdge(dep.source, subObjId, dep)
         })
