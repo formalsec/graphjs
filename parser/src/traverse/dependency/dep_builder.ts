@@ -233,8 +233,10 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
                 const latestArgObj = trackers.getObjectId(args[i]);
                 let paramObj;
                 if (callArg.identifier !== null) paramObj = trackers.getObjectVersionNodes(callArg.identifier, callNode.functionContext).slice(-1)[0];
-                if (latestArgObj && paramObj && paramObj.identifier) trackers.graphCreateArgumentEdge(paramObj.id, latestArgObj);
-                else if (latestArgObj && callArg.type === "Literal") trackers.markNodeWithOrigin(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+                if (latestArgObj && paramObj && paramObj.identifier) {
+                    trackers.graphCreateArgumentEdge(paramObj.id, latestArgObj);
+                    if (callName === calleeName) trackers.addTaintedNodeEdge(latestArgObj)
+                } else if (latestArgObj && callArg.type === "Literal") trackers.markNodeWithOrigin(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
                 else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
             })
         }
@@ -758,6 +760,20 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
             createNewObjectVersionWithStorage(stmtId, objName, objNameContext, propName, rightStorageValue, deps, trackers);
         } else {
             createNewObjectVersion(stmtId, objName, objNameContext, propName, deps, trackers);
+        }
+    } else {
+        const rightStorage = evalSto(trackers, right);
+
+        if (rightStorage.length > 0 && StorageFactory.isStorageObject(rightStorage[0])) {
+            const newObjId = createNewObjectNodeVariable(stmtId, functionContext, obj.obj, trackers);
+            if (newObjId) {
+                trackers.graphCreateReferenceEdge(stmtId, newObjId)
+                const subObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
+                if (subObjId) {
+                    trackers.graphCreateReferenceEdge(stmtId, subObjId)
+                    deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjId, dep) });
+                }
+            }
         }
     }
 

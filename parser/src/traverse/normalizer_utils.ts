@@ -861,6 +861,13 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
     newObj.test = children[1].expr;
     newObj.body = createBlockStatement([...children[3].stmts, ...children[2].stmts] as Statement[]);
 
+    if (!newObj.test) { // for (;;)
+        newObj.test = { type: "Literal", value: true, raw: "true" }
+        return {
+            stmts: [newObj],
+            expr: null
+        };
+    }
     const objId = newObj.test.name;
     children[1].stmts.forEach((stmt) => {
         if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
@@ -1256,7 +1263,7 @@ export function normObjectExpression(obj: ObjectExpression, children: Normalizat
         // push declarations for each property using accesses to new variable
         newObj.properties.forEach((prop: Property) => {
             if (prop.type === "Property") {
-                const propKey = createIdentifierFromExpression(prop.key as Expression);
+                const propKey = prop.key.type === "Identifier" || prop.key.type === "Literal" ? prop.key : null;
                 const propValue = prop.value as Expression;
                 if (propKey && propValue) {
                     newAssignments.push(createPropertyAssignment(id, propKey, propValue));
