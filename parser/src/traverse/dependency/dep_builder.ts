@@ -219,7 +219,7 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
     }
 }
 
-function mapCallArguments(callNode: GraphNode, functionContext: number, callName: string, calleeName: string, trackers: DependencyTracker): DependencyTracker {
+function mapCallArguments(callNode: GraphNode, functionContext: number, callName: string, calleeName: string, config: Config, trackers: DependencyTracker): DependencyTracker {
     const callArgs = getAllASTNodes(callNode, "arg");
     const callASTNode = getASTNode(callNode, "callee");
 
@@ -235,7 +235,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
                 if (callArg.identifier !== null) paramObj = trackers.getObjectVersionNodes(callArg.identifier, callNode.functionContext).slice(-1)[0];
                 if (latestArgObj && paramObj && paramObj.identifier) {
                     trackers.graphCreateArgumentEdge(paramObj.id, latestArgObj);
-                    if (callName === calleeName) trackers.addTaintedNodeEdge(latestArgObj)
+                    if (trackers.isRecursive(callName, functionContext)) trackers.addTaintedNodeEdge(latestArgObj)
                 } else if (latestArgObj && callArg.type === "Literal") trackers.markNodeWithOrigin(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
                 else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
             })
@@ -243,6 +243,8 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
     }
     // Check if argument of call is an inner function
     if (callASTNode.type === "MemberExpression") {
+        const auxiliaryFunctionSummary: boolean = config.summaries.auxiliary_functions.includes(callName);
+        if (!auxiliaryFunctionSummary) return trackers;
         // Get arguments that are functions
         const anonFunctions = callArgs.filter(arg => arg.identifier != null && trackers.checkAnonFunction(functionContext, arg.identifier).length)
         const anonFunctionsIds = anonFunctions.map(fn => fn.id)
@@ -297,7 +299,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         else calleeName = callee.name;
     }
 
-    trackers = mapCallArguments(callNode, functionContext, callName, calleeName, trackers);
+    trackers = mapCallArguments(callNode, functionContext, callName, calleeName, config, trackers);
 
     if (callName === "require") {
         const packageName = getAllASTNodes(callNode, "arg")[0];
@@ -333,7 +335,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     if (callNode.obj.callee.type === "MemberExpression") {
         let latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
         // Get summary for the function
-        const functionSummary: SummaryDependency[] | undefined = config.summaries.get(callName);
+        const functionSummary: SummaryDependency[] | undefined = config.summaries.arrays.get(callName);
         if (functionSummary?.length) {
             // For each summary item (obj, dependencies)
             functionSummary.forEach((summaryItem) => {
@@ -511,7 +513,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         const deps: Dependency[] = trackers.checkArgumentSource(stmt.functionContext, trackers);
         subObjId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
         trackers.graphCreateReferenceEdge(stmtId, subObjId);
-       // Connect to CFG
+        // Connect to CFG
         const index = prop.type === "Literal" && typeof prop.obj.value === "number" ? prop.obj.value : undefined;
         const functionNode: GraphNode | undefined = trackers.getFunctionNode(stmt.functionContext);
         if (functionNode) trackers.graphCreateSourceEdge(functionNode.id, subObjId, index);

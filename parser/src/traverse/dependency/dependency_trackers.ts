@@ -170,6 +170,15 @@ export class DependencyTracker {
         return anonFunction.get(anonFunctionName) ?? [];
     }
 
+    isRecursive(callName: string, functionContext: number): boolean {
+        const contexts: number[] = this.funcContexts.get(functionContext)?.reverse() ?? [];
+        contexts.forEach((context: number) => {
+            const fnNode: GraphNode | undefined = this.getFunctionNode(context);
+            if (fnNode && fnNode.identifier === callName) return true;
+        })
+        return false;
+    }
+
     getContextNameList(name: string, defaultContext: number): string[] {
         const latestContext = this.intraContextStack.slice(-1)[0] || defaultContext;
         const contextList = this.funcContexts.get(latestContext);

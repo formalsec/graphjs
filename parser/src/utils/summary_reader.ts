@@ -10,13 +10,18 @@ interface SummaryInput {
     deps: SummaryDependency[]
 }
 
-export type Summaries = Map<string, SummaryDependency[]>
+export type ArraySummaries = Map<string, SummaryDependency[]>
+export interface Summaries { "arrays": ArraySummaries, "auxiliary_functions": string[] }
 
 export function readSummaries(filePath: string): Summaries {
-    const summaries: Summaries = new Map<string, SummaryDependency[]>();
+    const summaries: ArraySummaries = new Map<string, SummaryDependency[]>();
     const summaryFileContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    summaryFileContent.forEach((sum: SummaryInput) => {
+    summaryFileContent.arrays?.forEach((sum: SummaryInput) => {
         summaries.set(sum.function, sum.deps);
     })
-    return summaries;
+    const auxFunctions: string[] = summaryFileContent.auxiliary_functions;
+    return {
+        arrays: summaries,
+        auxiliary_functions: auxFunctions
+    };
 }
