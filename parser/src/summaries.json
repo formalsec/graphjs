@@ -6,6 +6,7 @@
         ]
         },
         { "function": "push", "deps": [] },
+        { "function": "pop", "deps": [] },
         { "function": "join", "deps": [] },
         { "function": "split", "deps": [] },
         { "function": "slice", "deps": [] },
@@ -17,6 +18,7 @@
         { "function": "replace", "deps": [] },
         { "function": "toString", "deps": [] },
         { "function": "trim", "deps": [] },
+        { "function": "substring", "deps": [] },
         { "function": "shift", "deps": [] },
         { "function": "find", "deps": [] }
     ],

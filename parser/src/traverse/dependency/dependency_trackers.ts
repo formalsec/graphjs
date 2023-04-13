@@ -5,6 +5,7 @@ import * as DependencyFactory from "./dep_factory";
 import { type Dependency } from "./dep_factory";
 import { type StorageObject, type StorageValue, StorageFactory } from "./sto_factory";
 import { type Identifier } from "estree";
+import {GraphEdge} from "../graph/edge";
 
 export type HeapObject = Record<string, StorageValue>;
 
@@ -187,7 +188,7 @@ export class DependencyTracker {
 
     isInnerFunction(funcContextNumber: number): boolean {
         const contexts = this.funcContexts.get(funcContextNumber)
-        return contexts !== undefined && contexts.length > 0;
+        return contexts !== undefined && contexts.length > 1;
     }
 
     /** Methods for adding edges in the graph **/
@@ -258,8 +259,10 @@ export class DependencyTracker {
     }
 
     /** Methods for adding nodes **/
-    addParamNode(stmtId: number, paramObj: GraphNode, index: number, funcExpNode: GraphNode): void {
-        const paramName = (paramObj.obj as Identifier).name;
+    addParamNode(stmtId: number, paramObj: GraphNode, index: number, funcExpNode: GraphNode, context: number): void {
+        let paramName = "";
+        if (paramObj.type === "AssignmentPattern") paramName = (paramObj.obj.left as Identifier).name;
+        else paramName = (paramObj.obj as Identifier).name;
         const latestParamContextName = this.getContextNameList(paramName, funcExpNode.functionContext).slice(-1)[0];
 
         // add to heap
@@ -275,15 +278,16 @@ export class DependencyTracker {
         nodeObj.identifier = pdgObjNameContext;
 
         // connect taint node (only if it is an outer function)
-        const isTainted = !this.isInnerFunction(funcExpNode.functionContext) // && (funcExpNode.type === "ArrowFunctionExpression" || funcExpNode.type === "FunctionExpression")
+        const isTainted = !this.isInnerFunction(context) // && (funcExpNode.type === "ArrowFunctionExpression" || funcExpNode.type === "FunctionExpression")
         if (isTainted) { this.addTaintedNodeEdge(nodeObj.id); }
 
         this.graphCreateSourceEdge(stmtId, nodeObj.id, index);
     }
 
     addTaintedNodeEdge(nodeId: number): void {
-        this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" });
         const node: GraphNode | undefined = this.graph.nodes.get(nodeId);
+        // if (node && !node.paramOrigin)
+        this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" });
         if (node) node.paramOrigin = true;
     }
 
@@ -310,13 +314,37 @@ export class DependencyTracker {
 
     // Connects function arguments without origin to taint source
     addTaintedNodes(): void {
-        const functionDeclarationNodes = this.graph.startNodes.get("CFG")?.map((cfgNode: GraphNode) => this.graph.nodes.get(cfgNode.functionNodeId))
-        functionDeclarationNodes?.forEach(fnExpNode => {
+        const functionDeclarationNodes: Array<GraphNode | undefined> | undefined = this.graph.startNodes.get("CFG")?.map((cfgNode: GraphNode) => this.graph.nodes.get(cfgNode.functionNodeId))
+        functionDeclarationNodes?.forEach((fnExpNode: GraphNode | undefined) => {
             if (!fnExpNode) return;
-            const paramNodes = fnExpNode.edges.filter(edge => edge.type === "REF" && edge.label === "param")
-                .map(edge => edge.nodes[1]);
-            paramNodes.forEach(param => {
-                if (!param.paramOrigin) this.addTaintedNodeEdge(param.id)
+            const functionParamNodes: GraphNode[] = fnExpNode.edges.filter(edge => edge.type === "REF" && edge.label === "param").map(edge => edge.nodes[1]);
+            functionParamNodes.forEach((paramNode: GraphNode) => {
+                // If a param does not have an origin, connect to taint source
+                if (!paramNode.paramOrigin) this.addTaintedNodeEdge(paramNode.id)
+                // If a param has an origin, it can be an arg loop or a call from a function at the same level - in those cases, we also need to connect them to the origin
+                else {
+                    // If we have an arg loop (fnA calls fnB, which calls fnA), we need to add both arguments as taint sources, otherwise, we won't be able to connect them to the origin
+                    // connectedArgNodes represent the nodes that are connected to paramNode via an ARG edge (e.g. function arguments mapped to paramNode)
+                    const connectedArgNodes: GraphNode[] | undefined = paramNode?.edges.filter((edge: GraphEdge) => edge.type === "PDG" && edge.label === "ARG").map(edge => edge.nodes[1]);
+                    connectedArgNodes?.forEach((argNode: GraphNode) => {
+                        const argNodes: GraphNode[] = argNode?.edges.filter(edge => edge.type === "PDG" && edge.label === "ARG").map(edge => edge.nodes[1]);
+                        const isArgumentLoop: boolean = argNodes.filter(node => node.id === paramNode.id).length > 0;
+                        if (isArgumentLoop) this.addTaintedNodeEdge(paramNode.id);
+                        // If we have two functions at the same level, we also need to add the arguments as taint sources
+                        else {
+                            // paramSameContextNodes represent the arg nodes that have the same context as paramNode
+                            /*
+                            const paramSameContextNodes: GraphNode[] = connectedArgNodes?.filter(node => node.functionContext === paramNode.functionContext);
+                            if (paramSameContextNodes.length) {
+                                this.addTaintedNodeEdge(paramNode.id);
+                                paramSameContextNodes.forEach((paramNode: GraphNode) => {
+                                    paramNode._edges = paramNode.edges.filter((edge: GraphEdge) => !(edge.type === "PDG" && edge.label === "ARG" && edge.nodes[1].id === paramNode.id))
+                                })
+                            }
+                            */
+                        }
+                    })
+                }
             });
         })
     }

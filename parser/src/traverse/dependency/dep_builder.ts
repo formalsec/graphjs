@@ -225,19 +225,23 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
 
     // Check if calling an inner function
     if (callASTNode.type === "Identifier") {
-        const args: string[] = trackers.checkAnonFunction(functionContext, callName);
+        // innerFunctionArgNodes are the argument nodes created when declaring the inner function
+        const innerFunctionArgNodes: string[] = trackers.checkAnonFunction(functionContext, callName)
         // If no match, is not an inner function (at least with args aka relevant)
-        if (args?.length) {
+        if (innerFunctionArgNodes.length) {
             callArgs.forEach((callArg: GraphNode, i: number) => {
-                // We need to map the inner function arguments
-                const latestArgObj = trackers.getObjectId(args[i]);
-                let paramObj;
-                if (callArg.identifier !== null) paramObj = trackers.getObjectVersionNodes(callArg.identifier, callNode.functionContext).slice(-1)[0];
-                if (latestArgObj && paramObj && paramObj.identifier) {
-                    trackers.graphCreateArgumentEdge(paramObj.id, latestArgObj);
-                    if (trackers.isRecursive(callName, functionContext)) trackers.addTaintedNodeEdge(latestArgObj)
-                } else if (latestArgObj && callArg.type === "Literal") trackers.markNodeWithOrigin(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
-                else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+                let callArgumentNode;
+                if (callArg.identifier !== null) callArgumentNode = trackers.getObjectVersionNodes(callArg.identifier, callNode.functionContext).slice(-1)[0];
+                const innerFunctionArgNode: string = innerFunctionArgNodes[i]
+                const innerFunctionArgNodeContext: number | undefined = innerFunctionArgNode ? parseInt(innerFunctionArgNode.split(".")[0]) : undefined;
+                if (callArgumentNode?.identifier && innerFunctionArgNodeContext && innerFunctionArgNodeContext !== functionContext) {
+                    const innerFunctionArgNodeObj = trackers.getObjectId(innerFunctionArgNode)
+                    if (innerFunctionArgNodeObj) {
+                        trackers.graphCreateArgumentEdge(callArgumentNode.id, innerFunctionArgNodeObj);
+                        if (trackers.isRecursive(callName, functionContext)) trackers.addTaintedNodeEdge(innerFunctionArgNodeObj);
+                    }
+                } else if (callArgumentNode && callArg.type === "Literal" && innerFunctionArgNodeContext && innerFunctionArgNodeContext !== functionContext) trackers.markNodeWithOrigin(callArgumentNode.id) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+                else if (callArgumentNode && innerFunctionArgNodeContext && innerFunctionArgNodeContext !== functionContext) trackers.addTaintedNodeEdge(callArgumentNode.id) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
             })
         }
     }
@@ -516,7 +520,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         // Connect to CFG
         const index = prop.type === "Literal" && typeof prop.obj.value === "number" ? prop.obj.value : undefined;
         const functionNode: GraphNode | undefined = trackers.getFunctionNode(stmt.functionContext);
-        if (functionNode) trackers.graphCreateSourceEdge(functionNode.id, subObjId, index);
+        if (functionNode && index) trackers.graphCreateSourceEdge(functionNode.id, subObjId, index);
         deps.forEach((dep: Dependency) => {
             trackers.graphCreateDependencyEdge(dep.source, subObjId, dep)
         })
@@ -587,7 +591,7 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     })
 
     // create param node and connect to taint source
-    params.forEach((p, i) => { trackers.addParamNode(stmtId, p, i, funcExpNode); });
+    params.forEach((p, i) => { trackers.addParamNode(stmtId, p, i, funcExpNode, funcNode.id); });
 
     // If function is an inner function, we add the context to the dependency tracker
     trackers.addAnonFunction(funcExpNode.functionContext, funcNode.functionContext, funcIdentifier.name, params)
@@ -850,18 +854,8 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
         console.trace(`Expression ${left.type} didn't match with case values.`);
         return trackers;
     }
-    /*
-    if (DependencyFactory.isDEmpty(deps[0])) {
-        const newObjReturn = createAndStoreNewObjectNode(left.id, left, left.obj, newTrackers);
-        newTrackers = newObjReturn.newTrackers;
-        deps = [];
-    }
-    deps = [...deps, ...evalDep(newTrackers, stmtId, right)];
-     */
+
     const objName = right.obj.name;
-    const objNameContextList = trackers.getContextNameList(objName, right.obj.functionContext);
-    const validObj = trackers.getValidObject(objNameContextList);
-    const objNameContext = validObj ? validObj.name : objNameContextList.slice(-1)[0];
     const propName = '*';
 
     // Check if sub-obj exists
