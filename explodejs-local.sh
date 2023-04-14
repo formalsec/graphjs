@@ -59,14 +59,14 @@ if test -f "$FILEPATH"; then
     # import cpg to neo4j
     cd $NEO4J_DIR
     $NEO4J_CMD stop
-    $NEO4J_ADMIN_CMD database import full --overwrite-destination --nodes=import-files/nodes.csv --relationships=import-files/rels.csv --delimiter='¿' --skip-bad-relationships=true --skip-duplicate-nodes=true 
+    $NEO4J_ADMIN_CMD database import full --overwrite-destination --nodes=import-files/nodes.csv --relationships=import-files/rels.csv --delimiter='¿' --skip-bad-relationships=true --skip-duplicate-nodes=true > /dev/null
     $NEO4J_CMD console > neo4j_start.txt &
     until (cat neo4j_start.txt | grep "Started"); do sleep 5; done;
 
     cd $(dirname $THIS_DIR)
 
     # run all queries
-    echo "[INFO] - Running queries"
+    echo "[INFO] - Running queries for $FILEPATH"
     QUERIES=$(realpath ./detection)
     python3 $QUERIES/run.py $FILEPATH $OUTPUT
 else

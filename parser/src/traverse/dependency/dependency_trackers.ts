@@ -5,7 +5,7 @@ import * as DependencyFactory from "./dep_factory";
 import { type Dependency } from "./dep_factory";
 import { type StorageObject, type StorageValue, StorageFactory } from "./sto_factory";
 import { type Identifier } from "estree";
-import {GraphEdge} from "../graph/edge";
+import { type GraphEdge } from "../graph/edge";
 
 export type HeapObject = Record<string, StorageValue>;
 
@@ -260,7 +260,7 @@ export class DependencyTracker {
 
     /** Methods for adding nodes **/
     addParamNode(stmtId: number, paramObj: GraphNode, index: number, funcExpNode: GraphNode, context: number): void {
-        let paramName = "";
+        let paramName: string;
         if (paramObj.type === "AssignmentPattern") paramName = (paramObj.obj.left as Identifier).name;
         else paramName = (paramObj.obj as Identifier).name;
         const latestParamContextName = this.getContextNameList(paramName, funcExpNode.functionContext).slice(-1)[0];
@@ -278,16 +278,15 @@ export class DependencyTracker {
         nodeObj.identifier = pdgObjNameContext;
 
         // connect taint node (only if it is an outer function)
-        const isTainted = !this.isInnerFunction(context) // && (funcExpNode.type === "ArrowFunctionExpression" || funcExpNode.type === "FunctionExpression")
-        if (isTainted) { this.addTaintedNodeEdge(nodeObj.id); }
-
-        this.graphCreateSourceEdge(stmtId, nodeObj.id, index);
+        const isTainted = !this.isInnerFunction(context)
+        if (isTainted) this.addTaintedNodeEdge(nodeObj.id, stmtId, index);
+        else this.graphCreateSourceEdge(stmtId, nodeObj.id, index);
     }
 
-    addTaintedNodeEdge(nodeId: number): void {
+    addTaintedNodeEdge(nodeId: number, stmtId: number, index: number, isParam: boolean = true): void {
         const node: GraphNode | undefined = this.graph.nodes.get(nodeId);
-        // if (node && !node.paramOrigin)
-        this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" });
+        this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" }); // this.create source edge
+        if (isParam) this.graphCreateSourceEdge(stmtId, nodeId, index !== undefined ? index : -1); // sources from argv e.g. do not connect as param edge?
         if (node) node.paramOrigin = true;
     }
 
@@ -318,9 +317,9 @@ export class DependencyTracker {
         functionDeclarationNodes?.forEach((fnExpNode: GraphNode | undefined) => {
             if (!fnExpNode) return;
             const functionParamNodes: GraphNode[] = fnExpNode.edges.filter(edge => edge.type === "REF" && edge.label === "param").map(edge => edge.nodes[1]);
-            functionParamNodes.forEach((paramNode: GraphNode) => {
+            functionParamNodes.forEach((paramNode: GraphNode, i: number) => {
                 // If a param does not have an origin, connect to taint source
-                if (!paramNode.paramOrigin) this.addTaintedNodeEdge(paramNode.id)
+                if (!paramNode.paramOrigin) this.addTaintedNodeEdge(paramNode.id, paramNode.functionNodeId, i, true)
                 // If a param has an origin, it can be an arg loop or a call from a function at the same level - in those cases, we also need to connect them to the origin
                 else {
                     // If we have an arg loop (fnA calls fnB, which calls fnA), we need to add both arguments as taint sources, otherwise, we won't be able to connect them to the origin
@@ -329,7 +328,7 @@ export class DependencyTracker {
                     connectedArgNodes?.forEach((argNode: GraphNode) => {
                         const argNodes: GraphNode[] = argNode?.edges.filter(edge => edge.type === "PDG" && edge.label === "ARG").map(edge => edge.nodes[1]);
                         const isArgumentLoop: boolean = argNodes.filter(node => node.id === paramNode.id).length > 0;
-                        if (isArgumentLoop) this.addTaintedNodeEdge(paramNode.id);
+                        if (isArgumentLoop) this.addTaintedNodeEdge(paramNode.id, paramNode.functionNodeId, i);
                         // If we have two functions at the same level, we also need to add the arguments as taint sources
                         else {
                             // paramSameContextNodes represent the arg nodes that have the same context as paramNode

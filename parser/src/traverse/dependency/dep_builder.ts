@@ -219,7 +219,7 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
     }
 }
 
-function mapCallArguments(callNode: GraphNode, functionContext: number, callName: string, calleeName: string, config: Config, trackers: DependencyTracker): DependencyTracker {
+function mapCallArguments(callNode: GraphNode, functionContext: number, callName: string, calleeName: string, stmtId: number, config: Config, trackers: DependencyTracker): DependencyTracker {
     const callArgs = getAllASTNodes(callNode, "arg");
     const callASTNode = getASTNode(callNode, "callee");
 
@@ -238,10 +238,10 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
                     const innerFunctionArgNodeObj = trackers.getObjectId(innerFunctionArgNode)
                     if (innerFunctionArgNodeObj) {
                         trackers.graphCreateArgumentEdge(callArgumentNode.id, innerFunctionArgNodeObj);
-                        if (trackers.isRecursive(callName, functionContext)) trackers.addTaintedNodeEdge(innerFunctionArgNodeObj);
+                        if (trackers.isRecursive(callName, functionContext)) trackers.addTaintedNodeEdge(innerFunctionArgNodeObj, stmtId, i);
                     }
                 } else if (callArgumentNode && callArg.type === "Literal" && innerFunctionArgNodeContext && innerFunctionArgNodeContext !== functionContext) trackers.markNodeWithOrigin(callArgumentNode.id) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
-                else if (callArgumentNode && innerFunctionArgNodeContext && innerFunctionArgNodeContext !== functionContext) trackers.addTaintedNodeEdge(callArgumentNode.id) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+                else if (callArgumentNode && innerFunctionArgNodeContext && innerFunctionArgNodeContext !== functionContext) trackers.addTaintedNodeEdge(callArgumentNode.id, stmtId, i) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
             })
         }
     }
@@ -258,12 +258,12 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
         // We need to map the anonFuncArgs - each anon function arg depends on the callee node obj and arguments of functions   TODO: summary for this
         anonFunctions.forEach((fn: GraphNode) => {
             const args: string[] = trackers.checkAnonFunction(functionContext, fn.identifier as string);
-            args?.forEach((arg: string) => {
+            args?.forEach((arg: string, i: number) => {
                 const latestArgObj = trackers.getObjectId(arg);
                 // Dependencies on the callee
                 const latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
                 if (latestArgObj && latestCallObj && latestCallObj.identifier) trackers.graphCreateArgumentEdge(latestCallObj.id, latestArgObj, calleeName);
-                else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
+                else if (latestArgObj) trackers.addTaintedNodeEdge(latestArgObj, stmtId, i) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
 
                 // Dependencies on the arguments
                 varFunctions.forEach((fn: GraphNode, i: number) => {
@@ -303,7 +303,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         else calleeName = callee.name;
     }
 
-    trackers = mapCallArguments(callNode, functionContext, callName, calleeName, config, trackers);
+    trackers = mapCallArguments(callNode, functionContext, callName, calleeName, stmtId, config, trackers);
 
     if (callName === "require") {
         const packageName = getAllASTNodes(callNode, "arg")[0];
@@ -514,20 +514,17 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
 
     // If right side of the assignment (memExpNode) is the argument keyword referring to the function arguments, we need to create the object corresponding to the left side
     if (!subObjId && obj.obj.name === "arguments") {
-        const deps: Dependency[] = trackers.checkArgumentSource(stmt.functionContext, trackers);
+        // const deps: Dependency[] = trackers.checkArgumentSource(stmt.functionContext, trackers);
         subObjId = createNewObjectNodeVariable(stmtId, stmt.functionContext, variable, trackers);
         trackers.graphCreateReferenceEdge(stmtId, subObjId);
-        // Connect to CFG
-        const index = prop.type === "Literal" && typeof prop.obj.value === "number" ? prop.obj.value : undefined;
-        const functionNode: GraphNode | undefined = trackers.getFunctionNode(stmt.functionContext);
-        if (functionNode && index) trackers.graphCreateSourceEdge(functionNode.id, subObjId, index);
         deps.forEach((dep: Dependency) => {
             trackers.graphCreateDependencyEdge(dep.source, subObjId, dep)
         })
         // If there are no dependencies from the pre-defined arguments, then, we need to taint the left side object
-        if (!deps.length) {
-            trackers.addTaintedNodeEdge(subObjId)
-        }
+        const functionNode: GraphNode | undefined = trackers.getFunctionNode(stmt.functionContext);
+        const index = prop.type === "Literal" && typeof prop.obj.value === "number" ? prop.obj.value : undefined;
+        if (functionNode) trackers.addTaintedNodeEdge(subObjId, functionNode.id, index)
+
     }
 
     // check if this expression is already in storage
