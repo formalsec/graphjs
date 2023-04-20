@@ -8,8 +8,8 @@ import time
 import argparse
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-25"
-INJECTION_DATASET = "datasets/injection-dataset/CWE-94/1021"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-41"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -27,7 +27,7 @@ def clean(dataset):
             os.mkdir(explodejs)
         else:
             for file_name in os.listdir(explodejs):
-                if "expected_output.json" not in file_name:
+                if "expected_output" not in file_name:
                     file_path = os.path.join(explodejs, file_name)
                     os.remove(file_path)
 
