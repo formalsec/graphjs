@@ -3,6 +3,25 @@ import my_utils.utils as my_utils
 import json
 
 class Injection(QueryType):
+	injection_query = f"""
+		MATCH
+			(source:TAINT_SOURCE)
+				-[param_edge:PDG]
+					->(param:PDG_OBJECT)
+						-[pdg_edges:PDG*1..]
+							->(sink:TAINT_SINK),
+			(source_cfg)
+				-[param_ref:REF]
+					->(param),
+			(sink_cfg)
+				-[:SINK]
+					->(sink)
+		WHERE 
+			param_edge.RelationType = "TAINT" AND
+			param_ref.RelationType = "param"
+		RETURN *
+	"""
+	
 	def __init__(self):
 		QueryType.__init__(self, "Injection")
 
@@ -10,26 +29,7 @@ class Injection(QueryType):
 		"""
 		Find injection vulnerabilities paths.
 		"""
-		query = f"""
-			MATCH
-				(source:TAINT_SOURCE)
-					-[param_edge:PDG]
-						->(param:PDG_OBJECT)
-							-[pdg_edges:PDG*1..]
-								->(sink:TAINT_SINK),
-				(source_cfg)
-					-[param_ref:REF]
-						->(param),
-				(sink_cfg)
-					-[:SINK]
-						->(sink)
-			WHERE 
-				param_edge.RelationType = "TAINT" AND
-				param_ref.RelationType = "param"
-			RETURN *
-		"""
-
-		results = session.run(query)
+		results = session.run(self.injection_query)
 
 		for record in results:
 			sink_name = record["sink"]["IdentifierName"]
@@ -46,7 +46,6 @@ class Injection(QueryType):
 				"sink_lineno": sink_location["start"]["line"],
 				"tainted_params": tainted_params,
 				"params_types": params_types,
-				# "lines": self.find_vulnerable_lines(record["cfg_path"])
 			}
 			if vuln_path not in vuln_paths:
 				vuln_paths.append(vuln_path)

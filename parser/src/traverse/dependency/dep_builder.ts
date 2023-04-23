@@ -461,7 +461,7 @@ function handleObjectExpression(stmtId: number, functionContext: number, variabl
     return trackers;
 }
 
-function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Identifier, memExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Identifier, memExpNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     const variableName = variable.name;
     const variableNameContext = trackers.getContextNameList(variableName, stmt.functionContext).slice(-1)[0];
 
@@ -508,6 +508,11 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         if (!subObj.length) {
             const newObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
             if (newObjId) subObjId = newObjId;
+            
+            const packageSources = config.packagesSources.filter((s) => s.source === prop.identifier);
+            if (packageSources.length > 0) { 
+                trackers.addTaintedNodeEdge(subObjId, stmtId, -1, true);
+            }    
         }
         deps = evalDep(trackers, stmtId, memExpNode);
     }
@@ -681,7 +686,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         }
 
         case "MemberExpression": {
-            return handleMemberExpression(stmtId, stmt, leftIdentifier, right, trackers);
+            return handleMemberExpression(stmtId, stmt, leftIdentifier, right, config, trackers);
         }
 
         case "ArrowFunctionExpression":

@@ -6,10 +6,8 @@ class QueryType:
     def __init__(self, str_type):
         self.type = str_type
 
-
     def get_type(self):
         return self.type
-
 
     @abstractmethod
     def find_vulnerable_paths(self, session, vuln_paths):
@@ -24,7 +22,11 @@ class QueryType:
         for query in queries:
             results = session.run(query)
             for record in results:
-                param_name = record["param"]["IdentifierName"].split(".")[1].split("-")[0]
+                param_name = record["param"]["IdentifierName"]
+                if "argv" not in param_name:
+                    param_name = param_name.split(".")[1].split("-")[0]
+                else:
+                    param_name = "argv"
 
                 if param_name not in params_types:
                     params_types[param_name] = {}
@@ -46,25 +48,6 @@ class QueryType:
         return list(params_types.keys()), params_types
     
     def get_queries(self, session, source):
-        # recon_query = f"""
-        #     MATCH
-        #         (source)
-        #             -[ref_edge:REF]
-        #                 ->(param:PDG_OBJECT)
-        #                     -[obj_edges:PDG*0..]
-        #                         ->(:PDG_OBJECT)
-        #     WHERE 
-        #         source.Id = "{source}" AND
-        #         ref_edge.RelationType = "param" AND
-        #         (
-        #             (obj_edges[0].RelationType = "DEP" AND size(obj_edges[1..]) > 0) OR
-        #             (obj_edges[0].RelationType = "ARG" AND obj_edges[1].RelationType = "DEP" AND size(obj_edges[2..]) > 0) OR
-        #             all(edge IN obj_edges WHERE edge.RelationType = "SO" or edge.RelationType = "NV" or edge.RelationType = "ARG")
-        #         )
-        #     RETURN *
-        #     ORDER BY 
-        #         ref_edge.IdentifierName
-        # """
         recon_query = f"""
             MATCH
                 (source)
