@@ -77,6 +77,7 @@ else
       (echo $password | sudo -S tail -f -n0 `docker inspect --format='{{.LogPath}}' $NEO4J_EXPLODEJS_CONTAINER` &) | grep -q "Started."
     fi
     echo "[INFO] - Neo4j server started..."
+    (echo $password | sudo killall tail)
 
     # # Stop container
     # echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"

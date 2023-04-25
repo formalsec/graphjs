@@ -1,0 +1,2 @@
+package, vulnerable_file_path, norm_file, graph_construction, detection
+request-2.88.2.tgz, /home/tiago/Documents/IST/phd/phd-research/js-cpg/datasets/package-dataset/packages-src/request-2.88.2.tgz/index.js, /home/tiago/Documents/IST/phd/phd-research/js-cpg/datasets/package-dataset/packages-src/request-2.88.2.tgz/tool_outputs/explodejs/index.js.norm, C, 1
