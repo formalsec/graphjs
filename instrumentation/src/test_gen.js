@@ -78,6 +78,22 @@ function remove_unused(prog, optim) {
 }
 
 /**
+ * Instrument vulnerable function code
+ * @param {Object} ast
+ * Esprima AST representation of JavaScript code
+ * @param {Object} stmt
+ * Esprima AST statement
+ */
+function instrument_code(ast, stmt) {
+	var arg_check = "";
+	stmt.forEach((argument) => {
+		let test_var = fresh_test_var();
+		arg_check += "const " + test_var + " = !is_symbolic(" + ast2js(argument) + ");\n" + "Assert(" + test_var + ");\n";
+	})
+	return js2ast("{\n" + arg_check + ast2js(ast) + "};");
+}
+
+/**
  * Remove module.exports and add a test before each vulnerable sink to see if 
  * input is safe (i.e. not symbolic)
  * @param {Object} ast_prog
@@ -85,27 +101,50 @@ function remove_unused(prog, optim) {
  * @param {Object} sink 
  * Unsafe sink name
  */
- function module_exp_rm_sink_safeguard(ast_prog, sink) {
+ function module_exp_rm_sink_safeguard(ast_prog, sink, sink_lineno) {
 	/* Replace member expression sinks with the corresponding variables */
 	// var sinks = config.sink.concat(get_additional_sinks(ast_prog, config.sink));
 	// sinks = sinks.filter((e) => !(e.includes("."))); 
 
 	/* Mapping function  */
+	// function f(ast) {
+	// 	switch (ast.type) {
+	// 		case "VariableDeclaration":
+	// 			/* let <var> = <sink>(<var>) */
+	// 			if (ast.declarations[0].init.type === "CallExpression" && sink === ast.declarations[0].init.callee.name) {
+	// 				var test_var = fresh_test_var();
+	// 				const arg_check = ast.declarations[0].init.arguments.map((e) => "const " + test_var + " = !is_symbolic(" + ast2js(e) + ");\n" +
+	// 					"Assert(" + test_var + ");\n");
+	// 				return js2ast("{\n" + arg_check + ast2js(ast) + "};");
+	// 			}
+	// 			return null;
+	// 		case "ExpressionStatement":
+	// 			/* module.exports = {} */
+	// 			if (ast.expression.type === "AssignmentExpression" && ast2js(ast.expression.left) === "module.exports") {
+	// 				return { type: "EmptyStatement" };
+	// 			}
+	// 			return null;
+	// 		default: 
+	// 			return null;
+	// 	}
+	// };
 	function f(ast) {
 		switch (ast.type) {
 			case "VariableDeclaration":
 				/* let <var> = <sink>(<var>) */
-				if (ast.declarations[0].init.type === "CallExpression" && sink === ast.declarations[0].init.callee.name) {
-					var test_var = fresh_test_var();
-					const arg_check = ast.declarations[0].init.arguments.map((e) => "const " + test_var + " = !is_symbolic(" + ast2js(e) + ");\n" +
-						"Assert(" + test_var + ");\n");
-					return js2ast("{\n" + arg_check + ast2js(ast) + "};");
+				if (ast.declarations[0].init && (ast.declarations[0].init.type === "CallExpression" || ast.declarations[0].init.type === "NewExpression") 
+				&& ast.loc.start.line === sink_lineno) {
+					return instrument_code(ast, ast.declarations[0].init.arguments)
 				}
 				return null;
 			case "ExpressionStatement":
 				/* module.exports = {} */
-				if(ast.expression.type === "AssignmentExpression" && ast2js(ast.expression.left) === "module.exports") {
+				if (ast.expression.type === "AssignmentExpression" && ast2js(ast.expression.left) === "module.exports") {
 					return { type: "EmptyStatement" };
+				} else if (ast.expression.type === "AssignmentExpression" && ast.expression.right.type === "CallExpression" 
+				&& ast.loc.start.line === sink_lineno) {
+					/* let <var> = <package>.<sink>(<var>) */
+					return instrument_code(ast, ast.expression.right.arguments)
 				}
 				return null;
 			default: 
@@ -239,7 +278,7 @@ function generate_symb_assignment(param_name, param_type, prefix = "") {
  */
 function generate_test(prog, config) {
 	/* Remove module.exports and check if sink type is symbolic */
-	 var parsed_prog = format_pretty(js2ast(ast2js(module_exp_rm_sink_safeguard(prog, config.sink))));
+	 var parsed_prog = format_pretty(js2ast(ast2js(module_exp_rm_sink_safeguard(prog, config.sink, config.sink_lineno))));
 	/* Add definitions and assignments of the variables needed for the program */
 	var assignments = Object.entries(config.params_types).map(([param, param_type]) => generate_symb_assignment(param, param_type, ""));
 	/* Get function parameter names */

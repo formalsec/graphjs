@@ -8,8 +8,8 @@ import time
 import argparse
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-41"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-28"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-78/54"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -36,7 +36,7 @@ def test_odgen(dataset_path, dataset, update_sheets):
     print(Fore.MAGENTA + f"Running ODGen for vulnerabilities in {dataset_path}" + Fore.RESET)
 
 
-def test_explodejs(dataset_path, dataset, update_sheets):
+def test_explodejs(dataset_path, dataset, update_sheets, exploit):
     print(Fore.MAGENTA + f"Running Explode.js for vulnerabilities in {dataset_path}" + Fore.RESET)
     vulnerabilities = glob(dataset_path)
     count = 1 
@@ -46,6 +46,10 @@ def test_explodejs(dataset_path, dataset, update_sheets):
             continue
 
         print(Fore.MAGENTA + f"{vulnerability_path} ({count}/{len(vulnerabilities)})" + Fore.RESET)
+
+        # skip = ["./datasets/injection-dataset/CWE-471/577", "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq", "./datasets/injection-dataset/CWE-471/1065"]
+        # if vulnerability_path in skip:
+        #     continue
 
         explodejs_path = os.path.join(vulnerability_path, "tool_outputs/explodejs")
         if not os.path.exists(explodejs_path):
@@ -60,12 +64,16 @@ def test_explodejs(dataset_path, dataset, update_sheets):
             if (vulnerable_file.endswith(".js") or vulnerable_file.endswith(".cjs")) \
             and "-normalized.js" not in vulnerable_file and "simplified.js" not in vulnerable_file:
                 vulnerable_file_path = os.path.join(vulnerability_path, vulnerable_file)
-                output_file = os.path.join(explodejs_path, f"{vulnerable_file}_taint_summary.json")
+                taint_summary_file = os.path.join(explodejs_path, f"{vulnerable_file}_taint_summary.json")
                 norm_file = os.path.join(explodejs_path, f"{vulnerable_file}.norm")
                 expected_output_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output.json")
-                os.system(f"./explodejs.sh -f {vulnerable_file_path} -c detection/config.json -o {output_file} -n {norm_file}")
+                symbolic_test_file = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test.js")
+                if not exploit:
+                    os.system(f"./explodejs.sh -f {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -n {norm_file}")
+                else:
+                    os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
                 check_graph_construction(grades, norm_file)
-                comapre_outputs(grades, expected_output_file, output_file)
+                comapre_outputs(grades, expected_output_file, taint_summary_file)
                 print("Intermdiate grades:", grades)
         print("Final grades:", grades)
 
@@ -184,17 +192,19 @@ if __name__ == "__main__":
                         help="What dataset should be tested?")
     parser.add_argument("-u", action="store_true",
                         help="Update google sheets?")
+    parser.add_argument("-x", action="store_true",
+                        help="Update google sheets?")
     args = parser.parse_args()
 
     if args.tool == "explode.js" and ("d" not in args or args.d == "example"):
         clean(VULNERABLE_EXAMPLE_DATASET)
-        test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
+        test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x)
     elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
         clean(VULNERABLE_EXAMPLE_DATASET)
         test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "explode.js" and args.d == "injection":
         clean(INJECTION_DATASET)
-        test_explodejs(INJECTION_DATASET, "Injection Dataset", args.u)
+        test_explodejs(INJECTION_DATASET, "Injection Dataset", args.u, args.x)
     elif args.tool == "odgen" and args.d == "injection":
         clean(INJECTION_DATASET)
         test_odgen(INJECTION_DATASET, "Injection Dataset", args.u)

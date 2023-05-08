@@ -70,17 +70,20 @@ if (argv.optim && config.lines) {
 
 /******************      Step 3 - Generate specific test      *****************/
 
-let test = test_gen.generate_test(ast, config);
+for (let i = 0; i < config.length; i++){
+	let test = test_gen.generate_test(ast, config[i]);
 
-
-/************************        Step 4 - output        ***********************/
-if (argv.output) {
-	fs.writeFile(argv.output, test, err => {
-		if (err) {
-			console.error(err);
-			return;
-		}
-	})
-} else {
-	console.log(test)
+	/********************* Step 4 - output ********************/
+	if (argv.output) {
+		let filename = argv.output.replace(/\.[^.]+$/, `_${i}.js`);
+		fs.writeFile(filename, test, err => {
+			if (err) {
+				console.error(err);
+				return;
+			}
+		})
+	} else {
+		console.log(`-------- Symbolic Test for vulnerability ${i} --------`);
+		console.log(test)
+	}
 }

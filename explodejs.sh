@@ -7,28 +7,36 @@ Help()
     # Display Help
     echo "Run Explode.js CPG construction and query execution stages."
     echo
-    echo "Syntax: explodejs.sh [-f|-o|s|h]"
+    echo "Syntax: explodejs.sh [-f|-c|-o|-t|-n|-x|s|h]"
     echo "options:"
-    echo "f     Path to JavaScript file for analysis."
-    echo "c     Path to JSON file containing the unsafe sinks."
-    echo "o     Path to Explode.js output file."
+    echo "f     Path to JavaScript file (.js) for analysis."
+    echo "c     Path to JSON file (.json) containing the unsafe sinks."
+    echo "o     Path to Explode.js taint summary file (.json)."
+    echo "t     Path to Explode.js symbolic test (.js)."
     echo "n     Path to normalization output file."
+    echo "x     Create an exploit."
     echo "s     Silent mode - no console output."
     echo "h     Print this Help."
     echo
 }
 
+# Default values
+TAINT_SUMMARY="taint_summary.js"
+SYMBOLIC_TEST="symbolic_test.js"
+EXPLOIT=false
 SILENT_OP=false
 GRAPH_ONLY=false
 
 # process arguments
-while getopts f:c:o:n:sgh flag
+while getopts f:c:o:t:n:xsgh flag
 do
     case "${flag}" in
         f) FILEPATH=$OPTARG;;
         c) CONFIGPATH=$OPTARG;;
-        o) OUTPUT=$OPTARG;;
+        o) TAINT_SUMMARY=$OPTARG;;
+        t) SYMBOLIC_TEST=$OPTARG;;
         n) NORM=$OPTARG;;
+        x) EXPLOIT=true;;
         s) SILENT_OP=true;;
         g) GRAPH_ONLY=true;;
         h) #display Help
@@ -70,11 +78,22 @@ if test -f "$FILEPATH"; then
         # run all queries
         echo "[INFO] - Running queries"
         QUERIES=$(realpath ./detection)
-        python3 $QUERIES/run.py $FILEPATH $OUTPUT
+        python3 $QUERIES/run.py $FILEPATH $TAINT_SUMMARY
 
         # stop Neo4J container
         echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
         docker stop $NEO4J_EXPLODEJS_CONTAINER
+
+        # Create an exploit
+        if $EXPLOIT; then
+            echo "[INFO] - Creating exploit"
+            
+            # create symbolic tests
+            echo "[INFO] - Creating symbolic tests"
+            NORMALIZED_FILEPATH=${FILEPATH/.js/-normalized.js}
+            node instrumentation/src/instrumenter.js -i $NORMALIZED_FILEPATH -c $TAINT_SUMMARY -o $SYMBOLIC_TEST
+        fi
+
     fi
 
     # output result to command line and serialize results

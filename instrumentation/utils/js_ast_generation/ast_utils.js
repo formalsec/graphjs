@@ -46,7 +46,7 @@ function ast2js(obj) {
  * Corresponding Esprima AST object
  */
 function js2ast(str) {
-	return esprima.parseScript(str);
+	return esprima.parseScript(str, {loc:true});
 }
 
 
