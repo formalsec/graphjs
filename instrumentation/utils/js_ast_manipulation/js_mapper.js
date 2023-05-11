@@ -147,6 +147,7 @@ function mapJS(f, p, fo) {
 
 		case 'FunctionDeclaration':
 		case 'FunctionExpression':
+		case 'ArrowFunctionExpression':
 			var params = p.params.map((s) => mapJS(f, s, fo));
 			var body = mapJS(f, p.body, fo);
 			return fo({

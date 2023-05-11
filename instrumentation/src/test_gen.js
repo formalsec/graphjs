@@ -57,6 +57,7 @@ function get_additional_sinks(ast, sinks) {
 
 let fresh_symb_var = var_gen.fresh_symb_var_gen();
 let fresh_obj_var = var_gen.fresh_obj_var_gen();
+let fresh_obj_prop_var = var_gen.fresh_obj_prop_var_gen();
 let fresh_array_var = var_gen.fresh_array_var_gen();
 let fresh_symb_num_var = var_gen.fresh_symb_num_var_gen();
 let fresh_symb_str_var = var_gen.fresh_symb_str_var_gen();
@@ -187,7 +188,7 @@ function generate_symb_assignment(param_name, param_type, prefix = "") {
 			/* Templates of properties */
 			properties_assignment.map((p) => p.tmplt).join(''),
 			/* Assignments of properties to created vars */
-			properties_assignment.map((p, index) => `${name}.${sub_properties_arr[index]} = ${p.name};\n`).join('')); 
+			properties_assignment.map((p, index) => `${name}.${sub_properties_arr[index] != "*" ? sub_properties_arr[index] : fresh_obj_prop_var()} = ${p.name};\n`).join('')); 
 		return {name: name, tmplt: tmplt};
 	} else if (Array.isArray(param_type)) {
 			// var var_name = [];

@@ -8,15 +8,15 @@ import time
 import argparse
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-28"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-78/54"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/*"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-22/*"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
 sheet = service_account.open("explode.js-vs-odgen")
 
 
-def clean(dataset):
+def clean(dataset, exploit):
     for vulnerability in glob(dataset):
         print(Fore.MAGENTA + f"Cleaning explodejs results for {vulnerability}" + Fore.RESET)
         explodejs = os.path.join(vulnerability, "tool_outputs/explodejs")
@@ -27,7 +27,7 @@ def clean(dataset):
             os.mkdir(explodejs)
         else:
             for file_name in os.listdir(explodejs):
-                if "expected_output" not in file_name:
+                if not ("expected_output" in file_name or ("symbolic_test" in file_name and not exploit) or "symbolic_test_types" in file_name):
                     file_path = os.path.join(explodejs, file_name)
                     os.remove(file_path)
 
@@ -65,15 +65,19 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
             and "-normalized.js" not in vulnerable_file and "simplified.js" not in vulnerable_file:
                 vulnerable_file_path = os.path.join(vulnerability_path, vulnerable_file)
                 taint_summary_file = os.path.join(explodejs_path, f"{vulnerable_file}_taint_summary.json")
+                # expected_types_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output_types.json")
                 norm_file = os.path.join(explodejs_path, f"{vulnerable_file}.norm")
                 expected_output_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output.json")
                 symbolic_test_file = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test.js")
+                # symb_test_types = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test_types.js")
                 if not exploit:
                     os.system(f"./explodejs.sh -f {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -n {norm_file}")
                 else:
                     os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
+                    # os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c detection/config.json -o {expected_types_file} -t {symb_test_types} -n {norm_file}")
                 check_graph_construction(grades, norm_file)
                 comapre_outputs(grades, expected_output_file, taint_summary_file)
+                check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
                 print("Intermdiate grades:", grades)
         print("Final grades:", grades)
 
@@ -95,7 +99,20 @@ def check_graph_construction(grades, norm_file):
             grades["graph_construction"] = chr(max(ord(grades.get("graph_construction", "0")), ord("C")))
         else:
             grades["graph_construction"] = chr(max(ord(grades.get("graph_construction", "0")), ord("A")))
-        
+
+def check_symb_test_generation(grades, symb_test_file, explodejs_path):
+    symb_test_file = os.path.basename(os.path.splitext(symb_test_file)[0])
+    for file in os.listdir(explodejs_path):
+        if symb_test_file in file:
+            with open(os.path.join(explodejs_path, file), "r") as f:
+                symb_test_str = f.read()
+                if "Assert" in symb_test_str and "!is_symbolic" in symb_test_str:
+                    grades["symb_test"] = "A"
+                else:
+                    grades["symb_test"] = "C"
+            break
+    else:
+        grades["symb_test"] = "D"
 
 def comapre_outputs(grades, expected_output, output):
     try:
@@ -170,14 +187,16 @@ def update_sheet(ws, dataset, vulnerable_file, grades):
         ws.update_cell(cell.row, cell.col + 1, grades.get("graph_construction", "NaN"))
         ws.update_cell(cell.row, cell.col + 2, grades.get("detection", "NaN"))
         ws.update_cell(cell.row, cell.col + 3, grades.get("data_reconstruction", "NaN"))
-        ws.update_cell(cell.row, cell.col + 4, grades.get("confirmation", "NaN"))
+        ws.update_cell(cell.row, cell.col + 4, grades.get("symb_test", "NaN"))
+        ws.update_cell(cell.row, cell.col + 5, grades.get("confirmation", "NaN"))
     elif dataset == "Injection Dataset":
         vulnerable_file = vulnerable_file.split("/")[-2]
-        cell = ws.find(vulnerable_file)
+        cell = ws.find(vulnerable_file, in_column=1) 
         ws.update_cell(cell.row, cell.col + 2, grades.get("graph_construction", "NaN"))
         ws.update_cell(cell.row, cell.col + 3, grades.get("detection", "NaN"))
         ws.update_cell(cell.row, cell.col + 4, grades.get("data_reconstruction", "NaN"))
-        ws.update_cell(cell.row, cell.col + 5, grades.get("confirmation", "NaN"))
+        ws.update_cell(cell.row, cell.col + 5, grades.get("symb_test", "NaN"))
+        ws.update_cell(cell.row, cell.col + 6, grades.get("confirmation", "NaN"))
     else:
         print(Fore.RED + "The given dataset is not present in the sheet" + Fore.RESET)
         return
@@ -197,13 +216,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.tool == "explode.js" and ("d" not in args or args.d == "example"):
-        clean(VULNERABLE_EXAMPLE_DATASET)
+        clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x)
     elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
         clean(VULNERABLE_EXAMPLE_DATASET)
         test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "explode.js" and args.d == "injection":
-        clean(INJECTION_DATASET)
+        clean(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset", args.u, args.x)
     elif args.tool == "odgen" and args.d == "injection":
         clean(INJECTION_DATASET)
