@@ -21,7 +21,7 @@ Help()
 }
 
 # Default values
-TAINT_SUMMARY="taint_summary.js"
+TAINT_SUMMARY="taint_summary.json"
 SYMBOLIC_TEST="symbolic_test.js"
 EXPLOIT=false
 SILENT_OP=false

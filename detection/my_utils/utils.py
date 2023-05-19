@@ -82,14 +82,6 @@ def get_injection_type(sink):
 				return injection_type 
 
 
-def change_dict_value_recursively(d, value):
-	for i, v in d.items():
-		if not v:
-			d[i] = value
-		else:
-			change_dict_value_recursively(d[i], value)
-
-
 def get_code_line_from_file(filename, lineno):
 	line = linecache.getline(filename, lineno)
 	return line.lstrip().replace("\n", "")
