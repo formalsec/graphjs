@@ -11,7 +11,6 @@ const { js2ast, ast2js } = require("../utils/js_ast_generation/ast_utils");
 const map_reduceJS = require("../utils/js_ast_manipulation/js_map_reduce");
 const mapJS = require("../utils/js_ast_manipulation/js_mapper");
 const format_pretty = require("../utils/format_pretty");
-const { parsed } = require("yargs");
 const instr_const = require("../constants/instr_constants");
 
 /**
@@ -103,49 +102,24 @@ function instrument_code(ast, stmt) {
  * Unsafe sink name
  */
  function module_exp_rm_sink_safeguard(ast_prog, sink, sink_lineno) {
-	/* Replace member expression sinks with the corresponding variables */
-	// var sinks = config.sink.concat(get_additional_sinks(ast_prog, config.sink));
-	// sinks = sinks.filter((e) => !(e.includes("."))); 
-
-	/* Mapping function  */
-	// function f(ast) {
-	// 	switch (ast.type) {
-	// 		case "VariableDeclaration":
-	// 			/* let <var> = <sink>(<var>) */
-	// 			if (ast.declarations[0].init.type === "CallExpression" && sink === ast.declarations[0].init.callee.name) {
-	// 				var test_var = fresh_test_var();
-	// 				const arg_check = ast.declarations[0].init.arguments.map((e) => "const " + test_var + " = !is_symbolic(" + ast2js(e) + ");\n" +
-	// 					"Assert(" + test_var + ");\n");
-	// 				return js2ast("{\n" + arg_check + ast2js(ast) + "};");
-	// 			}
-	// 			return null;
-	// 		case "ExpressionStatement":
-	// 			/* module.exports = {} */
-	// 			if (ast.expression.type === "AssignmentExpression" && ast2js(ast.expression.left) === "module.exports") {
-	// 				return { type: "EmptyStatement" };
-	// 			}
-	// 			return null;
-	// 		default: 
-	// 			return null;
-	// 	}
-	// };
 	function f(ast) {
 		switch (ast.type) {
 			case "VariableDeclaration":
 				/* let <var> = <sink>(<var>) */
 				if (ast.declarations[0].init && (ast.declarations[0].init.type === "CallExpression" || ast.declarations[0].init.type === "NewExpression") 
 				&& ast.loc.start.line === sink_lineno) {
-					return instrument_code(ast, ast.declarations[0].init.arguments)
+					ast.declarations[0].init.callee.name = `esl_symbolic.${ast.declarations[0].init.callee.name}Wrapper`
 				}
 				return null;
 			case "ExpressionStatement":
-				/* module.exports = {} */
+				/* Remove module.exports = {} */
 				if (ast.expression.type === "AssignmentExpression" && ast2js(ast.expression.left) === "module.exports") {
 					return { type: "EmptyStatement" };
 				} else if (ast.expression.type === "AssignmentExpression" && ast.expression.right.type === "CallExpression" 
 				&& ast.loc.start.line === sink_lineno) {
 					/* let <var> = <package>.<sink>(<var>) */
-					return instrument_code(ast, ast.expression.right.arguments)
+					ast.expression.right.callee.object.name = "esl_symbolic"
+					ast.expression.right.callee.property.name = `${ast.expression.right.callee.property.name}Wrapper`
 				}
 				return null;
 			default: 
@@ -192,50 +166,61 @@ function generate_symb_assignment(param_name, param_type, prefix = "") {
 		return {name: name, tmplt: tmplt};
 	} else if (Array.isArray(param_type)) {
 			// var var_name = [];
-			prefix = name;
-			name += `_${fresh_array_var()}`;
-			var tmplt = `var ${name} = [];\n`;
-			var length = param_type.length ? param_type.length: instr_const.symb_array_length;
-			var specified;
-			var aux_assign;
-			for(i = 0; i < length; ++i) {
-				// if(var_info.spec_element && (specified = var_info.spec_element.findIndex((e) => e.index === i)) != -1) {
-				// 	// Element structure is specified
-				// 	aux_assign = generate_symb_assignment(var_info.spec_element[specified], `${prefix}${i}_`);
+			// prefix = name;
+			// name += `_${fresh_array_var()}`;
+			// var tmplt = `var ${name} = [];\n`;
+			// var length = param_type.length ? param_type.length: instr_const.symb_array_length;
+			// var specified;
+			// var aux_assign;
+			// for(i = 0; i < length; ++i) {
+			// 	// if(var_info.spec_element && (specified = var_info.spec_element.findIndex((e) => e.index === i)) != -1) {
+			// 	// 	// Element structure is specified
+			// 	// 	aux_assign = generate_symb_assignment(var_info.spec_element[specified], `${prefix}${i}_`);
 					
-				// } else {
-				// 	// Use default structure
-				// 	aux_assign = generate_symb_assignment(var_info.def_element, `${prefix}${i}_`);
-				// }
-				aux_assign = generate_symb_assignment("", param_type[i], `${prefix}${i}_`);
-				tmplt.concat(aux_assign.tmplt);
-				tmplt = tmplt.concat(aux_assign.tmplt, `${name}.push(${aux_assign.name});\n`);
-			}
-			return {name: name, tmplt: tmplt}
+			// 	// } else {
+			// 	// 	// Use default structure
+			// 	// 	aux_assign = generate_symb_assignment(var_info.def_element, `${prefix}${i}_`);
+			// 	// }
+			// 	aux_assign = generate_symb_assignment("", param_type[i], `${prefix}${i}_`);
+			// 	tmplt.concat(aux_assign.tmplt);
+			// 	tmplt = tmplt.concat(aux_assign.tmplt, `${name}.push(${aux_assign.name});\n`);
+			// }
+			// prefix = name;
+			// name += `_${fresh_array_var()}`;
+			// var tmplt = `var ${name} = [];\n`;
+			// if (!param_type.length) {
+			// 	for(i = 0; i < instr_const.symb_array_length; i++) {
+			// 		tmplt.concat(`${name}.push(${prefix}${i}_)`);	
+			// 	}
+
+			// } 
+			// return {name: name, tmplt: tmplt}
 	} else {
 		switch (param_type) {
 			case "any":
-				//var var_name = symb(var_name);
 				name += `_${fresh_symb_var()}`;
-				var tmplt = `var ${name} = symb(${name});\n`;
+				var tmplt = `var ${name} = esl_symbolic.symb("${name}");\n`;
 				return {name: name, tmplt: tmplt};
 
 			case "number":
-				// var param_name = symb_number(param_name);
 				name += `_${fresh_symb_num_var()}`;
-				var tmplt = `var ${name} = symb_number(${name});\n`;
+				var tmplt = `var ${name} = esl_symbolic.number("${name}");\n`;
 				return {name: name, tmplt: tmplt};
 
 			case "string":
-				// var param_name = symb_string(param_name);
 				name += `_${fresh_symb_str_var()}`;
-				var tmplt = `var ${name} = symb_string(${name});\n`;
+				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`;
+				return {name:name, tmplt: tmplt};
+
+			case "array":
+				name += `_${fresh_array_var()}`;
+				var tmplt = `var ${name} = [];\n`;
+				for (i = 0; i < instr_const.symb_array_length; i++) {
+					tmplt += `${name}.push(esl_symbolic.string("${name}_${i}"));\n`;
+				}
 				return {name:name, tmplt: tmplt};
 
 			case "prop_string":
-				/* Same as string, but assume it is not the default attributes 
-				"valueOf", "toString", "hasOwnProperty", "constructor" 
-				(mostly used to access attributes of objects) */
 				name += `_${fresh_symb_str_var()}`;
 				var tmplt = `var ${name} = symb_string(${name});\n` +
 								`Assume(not(${name} = "valueOf"));\n` +
@@ -245,24 +230,22 @@ function generate_symb_assignment(param_name, param_type, prefix = "") {
 				return {name: name, tmplt: tmplt};
 
 			case "bool":
-				// var param_name = symb_bool(param_name);
 				name += `_${fresh_symb_bool_var()}`;
-				var tmplt = `var ${name} = symb_bool(${name});\n`;
+				var tmplt = `var ${name} = esl_symbolic.bool("${name}");\n`;
 				return {name: name, tmplt: tmplt};
 
 			case "concrete":
 				name += `_${fresh_concrete_var()}`;
 				var tmplt;
 				if (var_info.value) {
-					// var param_name = <value>;
 					tmplt = `var ${name} = ${var_info.value};\n`;
 				} else {
-					//var param_name;
 					tmplt = `var ${name};\n`
 				}
 				return {name: name, tmplt: tmplt };
 
-			default: throw new Error("Unsupported: generate_symb_assignment")
+			default: 
+				throw new Error("Unsupported: generate_symb_assignment")
 		}
 	}
 }
