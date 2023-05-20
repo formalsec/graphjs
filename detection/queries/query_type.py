@@ -185,13 +185,32 @@ class QueryType:
         
         return "any"
     
+    def object_to_array(self, params_types):
+        for i, v in params_types.items():
+            if isinstance(v, dict) and "length" in params_types[i].keys() and all(key.isdigit() or key == "length" or key == "*" for key in params_types[i].keys()):
+                arr = []
+                for key, value in params_types[i].items():
+                    if key.isdigit() and (index := int(key)) > len(arr):
+                        arr.extend(["any"] * (index - len(arr)))
+                    if key.isdigit():
+                        arr.insert(int(key), value)
+                params_types[i] = arr
+            elif isinstance(v, dict):
+                self.object_to_array(params_types[i])
+    
     def assign_types(self, session, d):
         if isinstance(d, dict):
             for i, v in d.items():
                 if isinstance(v, dict) and len(v) == 1:
                     d[i] = self.assign_type(session, i, d[i]["pdg_node_id"])
-                elif "length" in d[i].keys():
-                    d[i] = "array"
+                # elif all(key.isdigit() or key == "length" or key == "pdg_node_id" for key in d[i].keys()):
+                #     arr = []
+                #     for key, value in d[i].items():
+                #         if key.isdigit() and int(key) > len(arr):
+                #             arr.extend(["any"] * (int(key) - len(arr)))
+                #         elif key.isdigit():
+                #             arr.insert(int(key), value)
+                #     d[i] = arr
                 else:
                     d[i].pop("pdg_node_id", None)
                     self.assign_types(session, d[i])
@@ -236,6 +255,7 @@ class QueryType:
                     params_types = param_types_pointer
             
         self.assign_types(session, params_types)
+        self.object_to_array(params_types)
 
         return list(params_types.keys()), params_types
     

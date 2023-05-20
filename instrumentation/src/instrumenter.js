@@ -11,7 +11,7 @@
 const yargs = require("yargs");
 const fs = require("fs");
 const utils = require("../utils/js_ast_generation/ast_utils");
-const test_gen = require("./test_gen");
+const generate_test = require("./test_gen");
 const optim = require("./optim");
 
 /**
@@ -71,7 +71,7 @@ if (argv.optim && config.lines) {
 /******************      Step 3 - Generate specific test      *****************/
 
 for (let i = 0; i < config.length; i++){
-	let test = test_gen.generate_test(ast, config[i]);
+	let test = generate_test(ast, config[i]);
 
 	/********************* Step 4 - output ********************/
 	if (argv.output) {

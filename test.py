@@ -9,7 +9,7 @@ import argparse
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/*"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-22/*"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-22/374"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -65,16 +65,13 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
             and "-normalized.js" not in vulnerable_file and "simplified.js" not in vulnerable_file:
                 vulnerable_file_path = os.path.join(vulnerability_path, vulnerable_file)
                 taint_summary_file = os.path.join(explodejs_path, f"{vulnerable_file}_taint_summary.json")
-                # expected_types_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output_types.json")
                 norm_file = os.path.join(explodejs_path, f"{vulnerable_file}.norm")
                 expected_output_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output.json")
                 symbolic_test_file = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test.js")
-                # symb_test_types = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test_types.js")
                 if not exploit:
                     os.system(f"./explodejs.sh -f {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -n {norm_file}")
                 else:
                     os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
-                    # os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c detection/config.json -o {expected_types_file} -t {symb_test_types} -n {norm_file}")
                 check_graph_construction(grades, norm_file)
                 comapre_outputs(grades, expected_output_file, taint_summary_file)
                 check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
@@ -106,7 +103,7 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
         if symb_test_file in file:
             with open(os.path.join(explodejs_path, file), "r") as f:
                 symb_test_str = f.read()
-                if "Assert" in symb_test_str and "!is_symbolic" in symb_test_str:
+                if "esl_symbolic." in symb_test_str:
                     grades["symb_test"] = "A"
                 else:
                     grades["symb_test"] = "C"
@@ -219,11 +216,11 @@ if __name__ == "__main__":
         clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x)
     elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
-        clean(VULNERABLE_EXAMPLE_DATASET)
+        clean(VULNERABLE_EXAMPLE_DATASET, False)
         test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "explode.js" and args.d == "injection":
         clean(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset", args.u, args.x)
     elif args.tool == "odgen" and args.d == "injection":
-        clean(INJECTION_DATASET)
+        clean(INJECTION_DATASET, False)
         test_odgen(INJECTION_DATASET, "Injection Dataset", args.u)

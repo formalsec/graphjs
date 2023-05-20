@@ -68,14 +68,6 @@ let fresh_test_var = var_gen.fresh_test_var_gen();
  * Main functions
  */
 /**
- * TODO
- * @param {*} prog 
- * @param {*} optim 
- * @returns 
- */
-function remove_unused(prog, optim) {
-	return;
-}
 
 /**
  * Instrument vulnerable function code
@@ -142,20 +134,13 @@ function instrument_code(ast, stmt) {
  * @returns {string}
  * Variable assignment
  */
-function generate_symb_assignment(param_name, param_type, prefix = "") {
+function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrArr=false) {
 	param_name = param_name === "*" ? "any_property" : param_name;
-	if (param_name) {
-		var name = prefix + `${param_name}__`;
-	} else {
-		var name = prefix;
-	}
+	var name = prefix + `${param_name}__`;
+
 	if (typeof param_type === 'object' && !Array.isArray(param_type) && param_type !== null) {
-		// var var_name = {};
-		// var_name.prop = var;
-		prefix = name;
+		var properties_assignment = Object.entries(param_type).map(([param, param_type]) => generate_symb_assignment(param, param_type, `${name}__`));
 		name += `_${fresh_obj_var()}`;
-		// var properties_assignment = var_info.properties.map(x => generate_symb_assignment(x, `${prefix}_`));
-		var properties_assignment = Object.entries(param_type).map(([param, param_type]) => generate_symb_assignment(param, param_type, ""));
 		var tmplt = `var ${name} = {};\n`;
 		var sub_properties_arr = Object.keys(param_type)
 		tmplt = tmplt.concat(
@@ -165,40 +150,19 @@ function generate_symb_assignment(param_name, param_type, prefix = "") {
 			properties_assignment.map((p, index) => `${name}.${sub_properties_arr[index] != "*" ? sub_properties_arr[index] : fresh_obj_prop_var()} = ${p.name};\n`).join('')); 
 		return {name: name, tmplt: tmplt};
 	} else if (Array.isArray(param_type)) {
-			// var var_name = [];
-			// prefix = name;
-			// name += `_${fresh_array_var()}`;
-			// var tmplt = `var ${name} = [];\n`;
-			// var length = param_type.length ? param_type.length: instr_const.symb_array_length;
-			// var specified;
-			// var aux_assign;
-			// for(i = 0; i < length; ++i) {
-			// 	// if(var_info.spec_element && (specified = var_info.spec_element.findIndex((e) => e.index === i)) != -1) {
-			// 	// 	// Element structure is specified
-			// 	// 	aux_assign = generate_symb_assignment(var_info.spec_element[specified], `${prefix}${i}_`);
-					
-			// 	// } else {
-			// 	// 	// Use default structure
-			// 	// 	aux_assign = generate_symb_assignment(var_info.def_element, `${prefix}${i}_`);
-			// 	// }
-			// 	aux_assign = generate_symb_assignment("", param_type[i], `${prefix}${i}_`);
-			// 	tmplt.concat(aux_assign.tmplt);
-			// 	tmplt = tmplt.concat(aux_assign.tmplt, `${name}.push(${aux_assign.name});\n`);
-			// }
-			// prefix = name;
-			// name += `_${fresh_array_var()}`;
-			// var tmplt = `var ${name} = [];\n`;
-			// if (!param_type.length) {
-			// 	for(i = 0; i < instr_const.symb_array_length; i++) {
-			// 		tmplt.concat(`${name}.push(${prefix}${i}_)`);	
-			// 	}
-
-			// } 
-			// return {name: name, tmplt: tmplt}
+			name += `_${fresh_array_var()}`;
+			var tmplt = `var ${name} = [\n`;
+			param_type = param_type.length ? param_type : Array(instr_const.symb_array_length).fill("any")
+			tmplt = tmplt.concat(
+				param_type.map((type, index) => generate_symb_assignment(index, type, `${name}__`, true)).join(''),
+				"];\n"
+			);
+			return {name: name, tmplt: tmplt}
 	} else {
 		switch (param_type) {
 			case "any":
 				name += `_${fresh_symb_var()}`;
+				if (isObjOrArr) return `\tesl_symbolic.symb("${name}"),\n`;
 				var tmplt = `var ${name} = esl_symbolic.symb("${name}");\n`;
 				return {name: name, tmplt: tmplt};
 
@@ -209,20 +173,14 @@ function generate_symb_assignment(param_name, param_type, prefix = "") {
 
 			case "string":
 				name += `_${fresh_symb_str_var()}`;
+				if (isObjOrArr) return `\tesl_symbolic.string("${name}"),\n`;
 				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`;
-				return {name:name, tmplt: tmplt};
-
-			case "array":
-				name += `_${fresh_array_var()}`;
-				var tmplt = `var ${name} = [];\n`;
-				for (i = 0; i < instr_const.symb_array_length; i++) {
-					tmplt += `${name}.push(esl_symbolic.string("${name}_${i}"));\n`;
-				}
 				return {name:name, tmplt: tmplt};
 
 			case "prop_string":
 				name += `_${fresh_symb_str_var()}`;
-				var tmplt = `var ${name} = symb_string(${name});\n` +
+				if (isObjOrArr) return `\tesl_symbolic.prop_string("${name}"),\n`;
+				var tmplt = `var ${name} = esl_symbolic.prop_string("${name}");\n` +
 								`Assume(not(${name} = "valueOf"));\n` +
 								`Assume(not(${name} = "toString"));\n` +
 								`Assume(not(${name} = "hasOwnProperty"));\n` +
@@ -231,6 +189,7 @@ function generate_symb_assignment(param_name, param_type, prefix = "") {
 
 			case "bool":
 				name += `_${fresh_symb_bool_var()}`;
+				if (isObjOrArr) return `\tesl_symbolic.bool("${name}"),\n`;
 				var tmplt = `var ${name} = esl_symbolic.bool("${name}");\n`;
 				return {name: name, tmplt: tmplt};
 
@@ -275,4 +234,4 @@ function generate_test(prog, config) {
 	return assignment_templates + '\n' + ast2js(parsed_prog) + '\n\n' + func_call;
 }
 
-module.exports = { remove_unused, generate_test };
+module.exports = generate_test;
