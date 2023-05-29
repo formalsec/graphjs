@@ -123,5 +123,62 @@
                 {"package": "yargs", "args": [ 0 ]}
             ]
         }
-    ]
+    ],
+    "prototypes": {
+        "array": [
+            "concat",
+            "every",
+            "filter",
+            "find",
+            "findIndex",
+            "forEach",
+            "includes",
+            "indexOf",
+            "join",
+            "lastIndexOf",
+            "map",
+            "pop",
+            "push",
+            "reduce",
+            "reduceRight",
+            "reverse",
+            "shift",
+            "slice",
+            "some",
+            "sort",
+            "splice",
+            "unshift"
+        ],
+        "string": [
+            "charAt",
+            "charCodeAt",
+            "codePointAt",
+            "concat",
+            "endsWith",
+            "includes",
+            "indexOf",
+            "lastIndexOf",
+            "localeCompare",
+            "match",
+            "normalize",
+            "padEnd",
+            "padStart",
+            "repeat",
+            "replace",
+            "search",
+            "slice",
+            "split",
+            "startsWith",
+            "substring",
+            "toLocaleLowerCase",
+            "toLocaleUpperCase",
+            "toLowerCase",
+            "toString",
+            "toUpperCase",
+            "trim",
+            "trimEnd",
+            "trimStart",
+            "valueOf"
+        ]
+    }
 }

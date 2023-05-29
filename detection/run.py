@@ -15,7 +15,7 @@ if len(argv) < 2:
 with neo_driver.session() as session:
 	vuln_paths = []
 	for query_type in Queries().get_query_types():
-		query_type.find_vulnerable_paths(session, vuln_paths)
+		query_type.find_vulnerable_paths(session, vuln_paths, config)
 
 	if len(vuln_paths) > 0:
 		my_utils.console(vuln_paths)

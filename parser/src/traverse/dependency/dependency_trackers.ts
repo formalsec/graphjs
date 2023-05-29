@@ -209,7 +209,7 @@ export class DependencyTracker {
     }
 
     graphCreateSourceEdge(source: number, destination: number, index: number): void {
-        this.graph.addEdge(source, destination, { type: "REF", label: "param", paramIndex: index })
+        this.graph.addEdge(source, destination, { type: "REF", label: "param", paramIndex: index.toString()})
     }
 
     graphCreateSinkEdge(source: number, destination: number, type: string): void {

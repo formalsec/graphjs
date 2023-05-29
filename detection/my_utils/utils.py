@@ -12,7 +12,6 @@ def console(s, debug=True):
 		except:
 			pprint(s)
 
-
 def save_output(results):
 	if len(argv) >= 3:
 		output = argv[2]
@@ -54,33 +53,30 @@ def get_all_sinks_from_config(config):
 		raise Exception("Config file is missing the sinks")
 	return sinks, new_sinks, package_sinks, packages
 
+def get_sinks_from_config(config):
+	if "sinks" in config:
+		sinks = []
+		for injection_type in config["sinks"].values():
+			for sink in injection_type:
+				sinks.append(sink["sink"])
+		return sinks
+	else:
+		raise Exception("Config file is missing the sinks")
+
 def get_all_sources_from_config(config):
 	if "sources" in config:
 		return config["sources"]
 	else:
 		raise Exception("Config file is missing the sources")
 
-
-def format_properties(tmp_properties):
-	properties = []
-	for i, key in enumerate(tmp_properties):
-		properties.append({"name": key})
-		prop = properties[i]
-		prop.update(tmp_properties[key])
-		prop.pop("context", None)
-		if "properties" in prop:
-			prop["properties"] = format_properties(prop["properties"])
-
-	return properties 
-
-
-def get_injection_type(sink):
-	config = read_config()
-	for injection_type, vulns in config["sinks"].items():
-		for vuln in vulns:
-			if vuln["sink"] == sink:
-				return injection_type 
-
+def get_injection_type(sink, config):
+	if "sinks" in config:
+		for injection_type, vulns in config["sinks"].items():
+			for vuln in vulns:
+				if vuln["sink"] == sink:
+					return injection_type 
+	else:
+		raise Exception("Config file is missing the sinks")
 
 def get_code_line_from_file(filename, lineno):
 	line = linecache.getline(filename, lineno)
