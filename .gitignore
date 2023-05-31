@@ -3,12 +3,14 @@ parser/if.json
 parser/coverage/*
 parser/built/*
 parser/src/graphs/graph.svg
+instrumentation/node_modules/*
 virtual_py/*
 neo4j-custom/.config
 neo4j-custom/import.report
 neo4j-custom/neo4j_start.txt
 neo4j-custom/import-files/*
 __pycache__/
+node_modules/*
 .vscode/
 .idea/
 .DS_Store

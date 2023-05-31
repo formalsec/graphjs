@@ -12,11 +12,9 @@ def console(s, debug=True):
 		except:
 			pprint(s)
 
-def save_output(results):
-	if len(argv) >= 3:
-		output = argv[2]
-		with open(output, "w") as f:
-			f.write(json.dumps(results, indent=4) + '\n')
+def save_output(vuln_paths, output_file):
+	with open(output_file, "w") as f:
+		f.write(json.dumps(vuln_paths, indent=4) + '\n')
 
 def save_output_multi_files(argv, results):
 	if len(argv) >= 2:

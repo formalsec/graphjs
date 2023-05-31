@@ -151,12 +151,12 @@ function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrAr
 		return {name: name, tmplt: tmplt};
 	} else if (Array.isArray(param_type)) {
 			name += `_${fresh_array_var()}`;
-			var tmplt = `var ${name} = [\n`;
+			var tmplt = `var ${name} = []\n`;
 			param_type = param_type.length ? param_type : Array(instr_const.symb_array_length).fill("any")
-			tmplt = tmplt.concat(
-				param_type.map((type, index) => generate_symb_assignment(index, type, `${name}__`, true)).join(''),
-				"];\n"
-			);
+			for (i = 0; i < param_type.length; i++) {
+				element = generate_symb_assignment(i, param_type[i], `${name}__`);
+				tmplt = tmplt.concat(element.tmplt, `${name}.push(${element.name});\n`);
+			}
 			return {name: name, tmplt: tmplt}
 	} else {
 		switch (param_type) {
@@ -177,15 +177,15 @@ function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrAr
 				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`;
 				return {name:name, tmplt: tmplt};
 
-			case "prop_string":
-				name += `_${fresh_symb_str_var()}`;
-				if (isObjOrArr) return `\tesl_symbolic.prop_string("${name}"),\n`;
-				var tmplt = `var ${name} = esl_symbolic.prop_string("${name}");\n` +
-								`Assume(not(${name} = "valueOf"));\n` +
-								`Assume(not(${name} = "toString"));\n` +
-								`Assume(not(${name} = "hasOwnProperty"));\n` +
-								`Assume(not(${name} = "constructor"));\n`;
-				return {name: name, tmplt: tmplt};
+			// case "prop_string":
+			// 	name += `_${fresh_symb_str_var()}`;
+			// 	if (isObjOrArr) return `\tesl_symbolic.prop_string("${name}"),\n`;
+			// 	var tmplt = `var ${name} = esl_symbolic.prop_string("${name}");\n` +
+			// 					`Assume(not(${name} = "valueOf"));\n` +
+			// 					`Assume(not(${name} = "toString"));\n` +
+			// 					`Assume(not(${name} = "hasOwnProperty"));\n` +
+			// 					`Assume(not(${name} = "constructor"));\n`;
+			// 	return {name: name, tmplt: tmplt};
 
 			case "bool":
 				name += `_${fresh_symb_bool_var()}`;

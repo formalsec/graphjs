@@ -1,25 +1,29 @@
 from neo4j import GraphDatabase
 from queries.queries import Queries
 import my_utils.utils as my_utils
+import argparse
 from sys import argv
 
 NEO4J_CONN_STRING="bolt://127.0.0.1:7687"
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-f", "--file", type=str, required=True,
+					help="Path to the file being tested.")
+parser.add_argument("-o", "--output", type=str,
+					help="Taint summary output file.")
+args = parser.parse_args()
+
 config = my_utils.read_config()
 neo_driver = GraphDatabase.driver(NEO4J_CONN_STRING, auth=('', ''))
-
-if len(argv) < 2:
-	print("Please provide the path to the file being tested!")
-	exit(0)	
 
 with neo_driver.session() as session:
 	vuln_paths = []
 	for query_type in Queries().get_query_types():
-		query_type.find_vulnerable_paths(session, vuln_paths, config)
+		query_type.find_vulnerable_paths(session, vuln_paths, args.file, config)
 
 	if len(vuln_paths) > 0:
 		my_utils.console(vuln_paths)
-		my_utils.save_output(vuln_paths)
+		my_utils.save_output(vuln_paths, args.output)
 	else:
 		print("No vulnerabilities detected.")
-		my_utils.save_output(vuln_paths)
+		my_utils.save_output(vuln_paths, args.output)

@@ -25,7 +25,7 @@ class Injection(QueryType):
 	def __init__(self):
 		QueryType.__init__(self, "Injection")
 
-	def find_vulnerable_paths(self, session, vuln_paths, config):
+	def find_vulnerable_paths(self, session, vuln_paths, vuln_file, config):
 		"""
 		Find injection vulnerabilities paths.
 		"""

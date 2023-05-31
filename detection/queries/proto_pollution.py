@@ -85,7 +85,7 @@ class PrototypePollution(QueryType):
 	def __init__(self):
 		QueryType.__init__(self, "Prototype Pollution")
 
-	def find_vulnerable_paths(self, session, vuln_paths, config):
+	def find_vulnerable_paths(self, session, vuln_paths, vuln_file, config):
 		"""
 		Find prototype pollution vulnerabilities paths.
 		"""
@@ -95,7 +95,7 @@ class PrototypePollution(QueryType):
 				source_cfg = record["source_cfg"]
 				source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
 				sink_lineno = json.loads(record["sink_cfg"]["Location"])["start"]["line"]
-				filename = argv[1][0:-len(os.path.splitext(argv[1])[1])] + "-normalized.js"
+				filename = vuln_file[0:-len(os.path.splitext(vuln_file)[1])] + "-normalized.js"
 				sink = my_utils.get_code_line_from_file(filename, sink_lineno)
 				tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"], config) 
 

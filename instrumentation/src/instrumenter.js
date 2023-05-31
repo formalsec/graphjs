@@ -10,9 +10,10 @@
  */
 const yargs = require("yargs");
 const fs = require("fs");
-const utils = require("../utils/js_ast_generation/ast_utils");
+const astUtils = require("../utils/js_ast_generation/ast_utils");
 const generate_test = require("./test_gen");
 const optim = require("./optim");
+const utils = require('../utils/utils');
 
 /**
  * Command line interface
@@ -48,7 +49,7 @@ const argv = yargs
 
 try {
 	var data = fs.readFileSync(argv.input, "utf-8");
-	var ast = utils.js2ast(data);
+	var ast = astUtils.js2ast(data);
 	data = fs.readFileSync(argv.config, "utf-8");
 	var config = JSON.parse(data);
 	if (argv.optim) {
@@ -69,21 +70,26 @@ if (argv.optim && config.lines) {
 }
 
 /******************      Step 3 - Generate specific test      *****************/
-
 for (let i = 0; i < config.length; i++){
-	let test = generate_test(ast, config[i]);
 
-	/********************* Step 4 - output ********************/
-	if (argv.output) {
-		let filename = argv.output.replace(/\.[^.]+$/, `_${i}.js`);
-		fs.writeFile(filename, test, err => {
-			if (err) {
-				console.error(err);
-				return;
-			}
-		})
-	} else {
-		console.log(`-------- Symbolic Test for vulnerability ${i} --------`);
-		console.log(test)
+	/********************* Step 4 - Types Cartesian Product ********************/
+	const subTaintSummaries = utils.generateCartesianProduct(config[i]["params_types"])
+	for (let j = 0; j < subTaintSummaries.length; j++) {
+		config[i]["params_types"] = subTaintSummaries[j]
+		let test = generate_test(ast, config[i]);
+
+		/********************* Step 5 - output ********************/
+		if (argv.output) {
+			let filename = argv.output.replace(/\.[^.]+$/, `_${i}_${j}.js`);
+			fs.writeFile(filename, test, err => {
+				if (err) {
+					console.error(err);
+					return;
+				}
+			})
+		} else {
+			console.log(`-------- Symbolic Test for vulnerability ${i}.${j} --------`);
+			console.log(test)
+		}
 	}
 }
