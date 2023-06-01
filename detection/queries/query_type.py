@@ -125,7 +125,7 @@ class QueryType:
         """
         results = session.run(arr_proto_func_call_query)
         if results.peek():
-            types.add("[]")
+            types.add("array")
         # Array: ForOfStatement, e.g. for i of param
         arr_proto_func_call_query = f"""
             MATCH
@@ -139,7 +139,7 @@ class QueryType:
         """
         results = session.run(arr_proto_func_call_query)
         if results.peek():
-            types.add("[]")
+            types.add("array")
         # ================================ Boolean ================================
         # Boolean: Binary Expression, e.g. param === true 
         bool_bin_exp_query = f"""
@@ -562,11 +562,9 @@ class QueryType:
                     if key.isdigit(): 
                         arr.extend(["any"] * (int(key) - len(arr)))
                         arr.insert(int(key), value)
-                    # elif key.isdigit():
-                        # arr.insert(int(key), value)
-                    elif key == "*":
-                        arr.append(value)
-                params_types[i] = arr
+                    # elif key == "*":
+                    #     arr.append(value)
+                params_types[i] = arr if arr != [] else "array"
             elif isinstance(v, dict):
                 self.object_to_array(params_types[i])
     

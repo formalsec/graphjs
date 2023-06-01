@@ -137,7 +137,6 @@ function instrument_code(ast, stmt) {
 function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrArr=false) {
 	param_name = param_name === "*" ? "any_property" : param_name;
 	var name = prefix + `${param_name}__`;
-
 	if (typeof param_type === 'object' && !Array.isArray(param_type) && param_type !== null) {
 		var properties_assignment = Object.entries(param_type).map(([param, param_type]) => generate_symb_assignment(param, param_type, `${name}__`));
 		name += `_${fresh_obj_var()}`;
@@ -149,15 +148,15 @@ function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrAr
 			/* Assignments of properties to created vars */
 			properties_assignment.map((p, index) => `${name}.${sub_properties_arr[index] != "*" ? sub_properties_arr[index] : fresh_obj_prop_var()} = ${p.name};\n`).join('')); 
 		return {name: name, tmplt: tmplt};
-	} else if (Array.isArray(param_type)) {
-			name += `_${fresh_array_var()}`;
-			var tmplt = `var ${name} = []\n`;
-			param_type = param_type.length ? param_type : Array(instr_const.symb_array_length).fill("any")
-			for (i = 0; i < param_type.length; i++) {
-				element = generate_symb_assignment(i, param_type[i], `${name}__`);
-				tmplt = tmplt.concat(element.tmplt, `${name}.push(${element.name});\n`);
-			}
-			return {name: name, tmplt: tmplt}
+	} else if (Array.isArray(param_type) || param_type === "array") {
+		name += `_${fresh_array_var()}`;
+		var tmplt = `var ${name} = []\n`;
+		param_type = param_type != "array" ? param_type : Array(instr_const.symb_array_length).fill("any")
+		for (i = 0; i < param_type.length; i++) {
+			element = generate_symb_assignment(i, param_type[i], `${name}__`);
+			tmplt = tmplt.concat(element.tmplt, `${name}.push(${element.name});\n`);
+		}
+		return {name: name, tmplt: tmplt}
 	} else {
 		switch (param_type) {
 			case "any":

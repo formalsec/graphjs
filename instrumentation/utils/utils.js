@@ -13,7 +13,24 @@ const isStringArray = (value) => {
 };
 
 const generateCartesianProduct = (data) => {
-    if (typeof data === 'object' && !Array.isArray(data)) {
+    if (Array.isArray(data)) {
+        const cartesianProduct = data.map((value) => {
+            if (typeof value === 'string') {
+                const convertedArray = value.split(" | ").map((value) => {
+                    if (isStringArray(value)) {
+                        return JSON.parse(value);
+                    }
+                    return value;
+                });
+                return convertedArray;
+            } else if (typeof value === 'object') {
+                return generateCartesianProduct(value);
+            }
+            return value;
+        });
+
+        return cartesian(cartesianProduct);
+    } else if (typeof data === 'object') {
         const cartesianProduct = {};
 
         for (const key in data) {
@@ -22,13 +39,15 @@ const generateCartesianProduct = (data) => {
             if (typeof value === 'string') {
                 const convertedArray = value.split(" | ").map((value) => {
                     if (isStringArray(value)) {
-                        return JSON.parse(value)
+                        return JSON.parse(value);
                     }
-                    return value
+                    return value;
                 });
-                cartesianProduct[key] = convertedArray
-            } else {
+                cartesianProduct[key] = convertedArray;
+            } else if (typeof value === 'object') {
                 cartesianProduct[key] = generateCartesianProduct(value);
+            } else {
+                cartesianProduct[key] = value;
             }
         }
 
