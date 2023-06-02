@@ -9,14 +9,13 @@ import escodegen from "escodegen";
 
 export class CSVOutput extends OutputWriter {
     private showCode: any;
-    output(graph: Graph, options: any, filename: string) {
+    output(graph: Graph, options: any, filename: string): void {
         this.showCode = options.show_code || false;
         // NODES
-        // Id:ID¿Type¿Raw¿Location¿Label:LABEL
+        // Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL
 
         const nodesWriteStream = fs.createWriteStream(`${filename}_nodes.csv`);
-        nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL\n");
-        // nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n");
+        nodesWriteStream.write("Id:ID¿Type¿SubType¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL\n");
 
         graph.nodes.forEach((node: GraphNode) => {
             const n = [];
@@ -26,6 +25,9 @@ export class CSVOutput extends OutputWriter {
 
             // node type
             n.push(node.type);
+
+            // node subtype
+            n.push(node.subtype)
 
             // node identifier name
             switch (node.type) {
@@ -45,7 +47,7 @@ export class CSVOutput extends OutputWriter {
             }
 
             // Raw
-            if (node.type == "Literal") {
+            if (node.type === "Literal") {
                 const lit = node.obj as Literal;
                 n.push(lit.raw);
             } else n.push("");

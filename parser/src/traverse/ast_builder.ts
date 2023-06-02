@@ -125,6 +125,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
 
             case "MemberExpression": {
                 const objNode = graph.addNode(obj.type, obj);
+                objNode.subtype = obj.computed ? "computed" : "";
 
                 const object = traverse(obj.object, objNode);
                 const property = traverse(obj.property, objNode);
@@ -165,6 +166,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
             case "LogicalExpression":
             case "AssignmentExpression": {
                 const objNode = graph.addNode(obj.type, obj);
+                objNode.subtype = obj.operator;
 
                 const left = traverse(obj.left, objNode);
                 const right = traverse(obj.right, objNode);
@@ -246,6 +248,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
                     rawObj.name = obj.raw;
                 }
                 const objNode = graph.addNode(obj.type, rawObj);
+                objNode.subtype = typeof obj.value;
                 return objNode;
             }
 

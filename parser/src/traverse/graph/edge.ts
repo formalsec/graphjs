@@ -1,18 +1,18 @@
 import { type GraphNode } from "./node";
 
+/*
+ * This interface represents the information that can be associated with each graph edge
+ * EdgeInfo is one of the arguments of GraphEdge constructor
+ */
 export interface EdgeInfo {
-    /*
-    This value can be:
-    - AST: between AST nodes
-    - CFG: between CFG nodes
-    - FD: between the function declaration (AST) and the start of the flow (CFG)
-    */
+    /* This value can be:
+    - AST: edge between AST nodes
+    - CFG: edge between CFG nodes
+    - FD: edge between the function declaration (AST) and the start of the flow (CFG) */
     type: string
-    /*
-    This value can represent:
+    /* This value can represent:
     - Number of the statement (AST)
-    - Type of the statement (AST)
-    */
+    - Type of the statement (AST) */
     label: string
     objName: string
     // This value represents the argument index for AST nodes (CallExpression, NewExpression)

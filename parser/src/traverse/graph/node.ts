@@ -1,14 +1,15 @@
 import { type Dependency } from "../dependency/dep_factory";
 import { type GraphEdge } from "./edge";
 
+/*
+ * This class represents the graph nodes
+ */
 export class GraphNode {
     private _id: number;
-    /*
-    This value can be:
+    /* This value can be:
     - [AST, CFG] for starter nodes
     - Type of AST statement, for AST nodes
-    - CFG_F_START, CFG_END, CFG_IF_END, CFG_WHILE_END, CFG_TRY_STMT_END, FOR_END, for CFG nodes
-     */
+    - CFG_F_START, CFG_END, CFG_IF_END, CFG_WHILE_END, CFG_TRY_STMT_END, FOR_END, for CFG nodes */
     private _type: string;
     private _obj: any;
     private _edges: GraphEdge[];
@@ -28,6 +29,8 @@ export class GraphNode {
     private _writeAllSubObjects: Dependency[];
     private _paramOrigin: boolean;
     private _arguments: boolean;
+    // This value represents additional information for AST nodes: object type for Literal, operator type for BinaryExpression and computation type for MemberExpression
+    private _subtype: string;
 
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
@@ -45,6 +48,7 @@ export class GraphNode {
         this._writeAllSubObjects = [];
         this._paramOrigin = false;
         this._arguments = false;
+        this._subtype = ""
     }
 
     get id(): number {
@@ -157,6 +161,14 @@ export class GraphNode {
 
     addEdge(edge: GraphEdge): void {
         this._edges.push(edge);
+    }
+
+    get subtype(): string {
+        return this._subtype;
+    }
+
+    set subtype(value: string) {
+        this._subtype = value;
     }
 
     accept(visitor: any): void {
