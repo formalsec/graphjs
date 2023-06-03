@@ -14,6 +14,7 @@ const astUtils = require("../utils/js_ast_generation/ast_utils");
 const generate_test = require("./test_gen");
 const optim = require("./optim");
 const utils = require('../utils/utils');
+const clone = require('lodash.clonedeep');
 
 /**
  * Command line interface
@@ -76,7 +77,7 @@ for (let i = 0; i < config.length; i++){
 	const subTaintSummaries = utils.generateCartesianProduct(config[i]["params_types"])
 	for (let j = 0; j < subTaintSummaries.length; j++) {
 		config[i]["params_types"] = subTaintSummaries[j]
-		let test = generate_test(ast, config[i]);
+		let test = generate_test(clone(ast), config[i]);
 
 		/********************* Step 5 - output ********************/
 		if (argv.output) {

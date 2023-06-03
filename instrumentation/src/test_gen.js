@@ -107,7 +107,7 @@ function instrument_code(ast, stmt) {
 				/* Remove module.exports = {} */
 				if (ast.expression.type === "AssignmentExpression" && ast2js(ast.expression.left) === "module.exports") {
 					return { type: "EmptyStatement" };
-				} else if (ast.expression.type === "AssignmentExpression" && ast.expression.right.type === "CallExpression" 
+				} else if (ast.expression.type === "AssignmentExpression" && ast.expression.right.type === "CallExpression"
 				&& ast.loc.start.line === sink_lineno) {
 					/* let <var> = <package>.<sink>(<var>) */
 					ast.expression.right.callee.object.name = "esl_symbolic"
@@ -137,7 +137,9 @@ function instrument_code(ast, stmt) {
 function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrArr=false) {
 	param_name = param_name === "*" ? "any_property" : param_name;
 	var name = prefix + `${param_name}__`;
-	if (typeof param_type === 'object' && !Array.isArray(param_type) && param_type !== null) {
+
+	if ((typeof param_type === 'object' && !Array.isArray(param_type) && param_type !== null) || (param_type === "object")) {
+		param_type = param_type === "object" ? {} : param_type;
 		var properties_assignment = Object.entries(param_type).map(([param, param_type]) => generate_symb_assignment(param, param_type, `${name}__`));
 		name += `_${fresh_obj_var()}`;
 		var tmplt = `var ${name} = {};\n`;
@@ -165,6 +167,12 @@ function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrAr
 				var tmplt = `var ${name} = esl_symbolic.symb("${name}");\n`;
 				return {name: name, tmplt: tmplt};
 
+			case "bool":
+				name += `_${fresh_symb_bool_var()}`;
+				if (isObjOrArr) return `\tesl_symbolic.bool("${name}"),\n`;
+				var tmplt = `var ${name} = esl_symbolic.bool("${name}");\n`;
+				return {name: name, tmplt: tmplt};
+
 			case "number":
 				name += `_${fresh_symb_num_var()}`;
 				var tmplt = `var ${name} = esl_symbolic.number("${name}");\n`;
@@ -175,22 +183,6 @@ function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrAr
 				if (isObjOrArr) return `\tesl_symbolic.string("${name}"),\n`;
 				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`;
 				return {name:name, tmplt: tmplt};
-
-			// case "prop_string":
-			// 	name += `_${fresh_symb_str_var()}`;
-			// 	if (isObjOrArr) return `\tesl_symbolic.prop_string("${name}"),\n`;
-			// 	var tmplt = `var ${name} = esl_symbolic.prop_string("${name}");\n` +
-			// 					`Assume(not(${name} = "valueOf"));\n` +
-			// 					`Assume(not(${name} = "toString"));\n` +
-			// 					`Assume(not(${name} = "hasOwnProperty"));\n` +
-			// 					`Assume(not(${name} = "constructor"));\n`;
-			// 	return {name: name, tmplt: tmplt};
-
-			case "bool":
-				name += `_${fresh_symb_bool_var()}`;
-				if (isObjOrArr) return `\tesl_symbolic.bool("${name}"),\n`;
-				var tmplt = `var ${name} = esl_symbolic.bool("${name}");\n`;
-				return {name: name, tmplt: tmplt};
 
 			case "concrete":
 				name += `_${fresh_concrete_var()}`;
