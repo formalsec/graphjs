@@ -106,6 +106,27 @@
                 ]
             },
             {
+                "sink": "readFileSync",
+                "type": "package",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "writeFile",
+                "type": "package",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "writeFileSync",
+                "type": "package",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            },
+            {
                 "sink": "createReadStream",
                 "type": "package",
                 "packages": [
@@ -124,6 +145,50 @@
             ]
         }
     ],
+    "built-in-functions": {
+        "normalize": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "join": {
+            "package": "path",
+            "args_types": ["string"],
+            "rest?": true
+        },
+        "resolve": {
+            "package": "path",
+            "args_types": ["string"],
+            "rest?": true
+        },
+        "isAbsolute": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "relative": {
+            "package": "path",
+            "args_types": ["string", "string"]
+        },
+        "dirname": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "basename": {
+            "package": "path",
+            "args_types": ["string", "string"]
+        },
+        "extname": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "parse": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "format": {
+            "package": "path",
+            "args_types": ["Object"]
+        }
+    },
     "prototypes": {
         "array": [
             "concat",

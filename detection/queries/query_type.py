@@ -3,6 +3,7 @@ import json
 import my_utils.utils as my_utils
 
 class QueryType:
+    debug = False #TODO: Delete
     def __init__(self, str_type):
         self.type = str_type
 
@@ -86,9 +87,59 @@ class QueryType:
         Assign a JavaScript type to the attacker-controlled parameter param_name.
         """
         var_decls = self.find_variable_declarators(session, param_name, list(obj_ids))
+        # print(var_decls)
         sinks = my_utils.get_sinks_from_config(config)
         prototypes = config["prototypes"]
+        built_in_functions = config["built-in-functions"]
         types = set()
+        # ============================ Several Types ===============================
+        # Array, Number, Object: Static Methdos, e.g. Array.isArray(param)
+        arr_static_methods_query = f"""
+            MATCH
+                (call_exp:CallExpression)
+                    -[:AST]
+                        ->(mem_exp:MemberExpression)
+                            -[object:AST]
+                                ->(type:Identifier),
+                (call_exp)
+                    -[arg:AST]
+                        ->(id:Identifier)
+            WHERE
+                object.RelationType = "object" AND
+                type.IdentifierName in ["Array", "Number", "Object"] AND
+                arg.RelationType = "arg" AND
+                id.IdentifierName in {var_decls}
+            RETURN type.IdentifierName
+        """
+        results = session.run(arr_static_methods_query)
+        for result in results:
+            if self.debug: print("Array, Number, Object: Static Methdos, e.g. Array.isArray(param)") 
+            types.add(result["type.IdentifierName"].lower())
+        # Array, Boolean, Function, Number, Object, String: Node.js Built-in Functions, e.g. fs.join(arr)
+        any_built_in_functions_query = f"""
+            MATCH
+                (call_exp:CallExpression)
+                    -[:AST]
+                        ->(function:Identifier),
+                (call_exp)
+                    -[arg:AST]
+                        ->(id:Identifier)
+            WHERE
+                function.IdentifierName in {list(built_in_functions.keys())} AND
+                arg.RelationType = "arg" AND
+                id.IdentifierName in {var_decls}
+            RETURN function.IdentifierName, arg
+        """
+        results = session.run(any_built_in_functions_query)
+        for result in results:
+            if self.debug: print("Array, Boolean, Function, Number, Object, String: Node.js Built-in Functions, e.g. fs.join(arr)") 
+            function = built_in_functions[result["function.IdentifierName"]]
+            args_types = function["args_types"]
+            arg = int(result["arg"]["ArgumentIndex"])
+            if len(args_types) >= arg: 
+                types.add(args_types[arg - 1])
+            elif arg > len(args_types) and "rest?" in function:
+                types.add(args_types[0])
         # ================================= Function ================================
         # Function (Any): Function call, e.g. param()
         func_func_call_query = f"""
@@ -103,43 +154,48 @@ class QueryType:
         """
         results = session.run(func_func_call_query)
         if results.peek():
+            if self.debug: print("Function (Any): Function call, e.g. param()") 
             return "any" #TODO: Any or function?
         # ================================== Array ==================================
         # Array: Prototype function call, e.g. param.join('')
-        arr_proto_func_call_query = f"""
-            MATCH
-                (:CallExpression)
-                    -[:AST]
-                        ->(mem_exp:MemberExpression)
-                            -[object:AST]
-                                ->(id:Identifier),
-                (mem_exp)
-                    -[property:AST]
-                        ->(proto_func:Identifier)
-            WHERE
-                object.RelationType = "object" AND
-                id.IdentifierName = "{var_decls[0]}" AND
-                property.RelationType = "property" AND
-                proto_func.IdentifierName in {prototypes["array"]}
-            RETURN true
-        """
-        results = session.run(arr_proto_func_call_query)
-        if results.peek():
-            types.add("array")
+        if "array" not in types:
+            arr_proto_func_call_query = f"""
+                MATCH
+                    (:CallExpression)
+                        -[:AST]
+                            ->(mem_exp:MemberExpression)
+                                -[object:AST]
+                                    ->(id:Identifier),
+                    (mem_exp)
+                        -[property:AST]
+                            ->(proto_func:Identifier)
+                WHERE
+                    object.RelationType = "object" AND
+                    id.IdentifierName in {var_decls} AND
+                    property.RelationType = "property" AND
+                    proto_func.IdentifierName in {prototypes["array"]}
+                RETURN true
+            """
+            results = session.run(arr_proto_func_call_query)
+            if results.peek():
+                if self.debug: print("Array: Prototype function call, e.g. param.join('')") 
+                types.add("array")
         # Array: ForOfStatement, e.g. for i of param
-        arr_proto_func_call_query = f"""
-            MATCH
-                (:ForOfStatement)
-                    -[right:AST]
-                        ->(id:Identifier)    
-            WHERE
-                right.RelationType = "right" AND
-                id.IdentifierName in {var_decls} 
-            RETURN true
-        """
-        results = session.run(arr_proto_func_call_query)
-        if results.peek():
-            types.add("array")
+        if "array" not in types:
+            arr_proto_func_call_query = f"""
+                MATCH
+                    (:ForOfStatement)
+                        -[right:AST]
+                            ->(id:Identifier)    
+                WHERE
+                    right.RelationType = "right" AND
+                    id.IdentifierName in {var_decls}
+                RETURN true
+            """
+            results = session.run(arr_proto_func_call_query)
+            if results.peek():
+                if self.debug: print("Array: ForOfStatement, e.g. for i of param") 
+                types.add("array")
         # ================================ Boolean ================================
         # Boolean: Binary Expression, e.g. param === true 
         bool_bin_exp_query = f"""
@@ -151,14 +207,14 @@ class QueryType:
                     -[:AST]
                         ->(literal:Literal)    
             WHERE
-                (literal.Raw = "false" OR literal.Raw = "true") AND
-                //(bin_exp.Sign = "==" OR bin_exp.Sign = "===") AND
-                //literal.Type = "boolean" AND
+                bin_exp.SubType in ["==", "==="] AND
+                literal.SubType = "boolean" AND
                 id.IdentifierName in {var_decls}
             RETURN true
         """
         results = session.run(bool_bin_exp_query)
         if results.peek():
+            if self.debug: print("Boolean: Binary Expression, e.g. param === true ") 
             types.add("bool")
         # Bool: Logical Expression, e.g. param || param2
         # bool_log_exp_query = f"""
@@ -185,16 +241,30 @@ class QueryType:
                     -[:AST]
                         ->(literal:Literal)    
             WHERE
-                //bin_exp.Sign = "+" AND
-                //literal.Type = "number" AND
-                toInteger(literal.Raw) IS NOT NULL AND
+                literal.SubType = "number" AND
                 id.IdentifierName in {var_decls}
             RETURN true
         """
         results = session.run(num_bin_exp_query)
         if results.peek():
+            if self.debug: print("Number: Binary Expression, e.g. param + 4") 
             types.add("number")
-            # return "number"
+        # Number: Binary Expression with number operators, e.g. param / num
+        if "number" not in types:
+            num_bin_exp_query = f"""
+                MATCH
+                    (bin_exp:BinaryExpression)
+                        -[:AST]
+                            ->(id:Identifier)
+                WHERE
+                    bin_exp.SubType in ["*", "-", "/", "**", "%", ">", "<", ">=", "<="] AND
+                    id.IdentifierName in {var_decls}
+                RETURN true
+            """
+            results = session.run(num_bin_exp_query)
+            if results.peek():
+                if self.debug: print("Number: Binary Expression with number operators, e.g. param / num") 
+                types.add("number")
         # ================================= String ==================================
         # String: Prototype function call, e.g. param.charAt(0)
         str_proto_func_call_query = f"""
@@ -209,336 +279,121 @@ class QueryType:
                         ->(proto_func:Identifier)
             WHERE
                 object.RelationType = "object" AND
-                id.IdentifierName in {var_decls} AND
+                id.IdentifierName = "{var_decls[0]}" AND
                 property.RelationType = "property" AND
                 proto_func.IdentifierName in {prototypes["string"]}
             RETURN true
         """
         results = session.run(str_proto_func_call_query)
         if results.peek():
-            # print("# String: Prototype function call, e.g. param.charAt(0)")
+            if self.debug: print("String: Prototype function call, e.g. param.charAt(0)") 
             types.add("string")
         # String: Binary Expression concatenation, e.g. param + "string"
-        str_bin_exp_query = f"""
-            MATCH
-                (bin_exp:BinaryExpression)
-                    -[:AST]
-                        ->(id:Identifier),
-                (bin_exp)
-                    -[:AST]
-                        ->(literal:Literal)    
-            WHERE
-                //bin_exp.Sign in ["+", "==", "==="] AND
-                //literal.Type = "string" AND
-                toString(literal.Raw) = literal.Raw AND
-                id.IdentifierName in {var_decls} 
-            RETURN true
-        """
-        results = session.run(str_bin_exp_query)
-        if results.peek():
-            # print("# String: Binary Expression, e.g. param + string")
-            types.add("string")
+        if "string" not in types:
+            str_bin_exp_query = f"""
+                MATCH
+                    (bin_exp:BinaryExpression)
+                        -[:AST]
+                            ->(id:Identifier),
+                    (bin_exp)
+                        -[:AST]
+                            ->(literal:Literal)    
+                WHERE
+                    bin_exp.SubType in ["+", "=="] AND
+                    literal.SubType = "string" AND
+                    id.IdentifierName in {var_decls} 
+                RETURN true
+            """
+            results = session.run(str_bin_exp_query)
+            if results.peek():
+                if self.debug: print("String: Binary Expression concatenation, e.g. param + \"string\"") 
+                types.add("string")
         # String: Template Literal, e.g. `This is a string ${param}`
-        str_tmplt_literal_query = f"""
-            MATCH
-                (:TemplateLiteral)
-                    -[:AST]
-                        ->(id:Identifier)
-            WHERE
-                id.IdentifierName in {var_decls} 
-            RETURN true
-        """
-        results = session.run(str_tmplt_literal_query)
-        if results.peek():
-            # print("# String: Template Literal, e.g. `This is a string $param`")
-            types.add("string")
+        if "string" not in types:
+            str_tmplt_literal_query = f"""
+                MATCH
+                    (:TemplateLiteral)
+                        -[:AST]
+                            ->(id:Identifier)
+                WHERE
+                    id.IdentifierName = "{var_decls[0]}"
+                RETURN true
+            """
+            results = session.run(str_tmplt_literal_query)
+            if results.peek():
+                # print("# String: Template Literal, e.g. `This is a string $param`")
+                if self.debug: print("String: Template Literal, e.g. `This is a string ${param}") 
+                types.add("string")
         # String: Function call argument, e.g. eval(param)
-        str_func_call_query = f"""
-            MATCH
-                (call_or_new_exp)
-                    -[arg:AST]
-                        ->(id:Identifier),
-                (call_or_new_exp)
-                    -[callee:AST]
-                        ->(sink:Identifier)
-            WHERE
-                (call_or_new_exp:CallExpression OR call_or_new_exp:NewExpression) AND
-                arg.RelationType = "arg" AND
-                arg.ArgumentIndex = "1" AND
-                id.IdentifierName in {var_decls} AND
-                callee.RelationType = "callee" AND
-                sink.IdentifierName in {sinks}
-            RETURN true
-        """
-        results = session.run(str_func_call_query)
-        if results.peek():
-            # print("# String: Function call argument, e.g. eval(param)")
-            types.add("string")
+        if "string" not in types:
+            str_func_call_query = f"""
+                MATCH
+                    (call_or_new_exp)
+                        -[arg:AST]
+                            ->(id:Identifier),
+                    (call_or_new_exp)
+                        -[callee:AST]
+                            ->(sink:Identifier)
+                WHERE
+                    (call_or_new_exp:CallExpression OR call_or_new_exp:NewExpression) AND
+                    arg.RelationType = "arg" AND
+                    arg.ArgumentIndex = "1" AND
+                    id.IdentifierName in {var_decls} AND
+                    callee.RelationType = "callee" AND
+                    sink.IdentifierName in {sinks}
+                RETURN true
+            """
+            results = session.run(str_func_call_query)
+            if results.peek():
+                if self.debug: print("String: Function call argument, e.g. eval(param)") 
+                types.add("string")
         # String: Member expression function call argument, e.g. child_process.exec(param)
-        str_mem_exp_func_call_query = f"""
-            MATCH
-                (call_exp:CallExpression)
-                    -[arg:AST]
-                        ->(id:Identifier),    
-                (call_exp)
-                    -[callee:AST]
-                        ->(:MemberExpression)
-                            -[property:AST]
-                                ->(sink:Identifier)
-            WHERE
-                arg.RelationType = "arg" AND
-                arg.ArgumentIndex = "1" AND
-                id.IdentifierName in {var_decls} AND
-                callee.RelationType = "callee" AND
-                property.RelationType = "property" AND
-                sink.IdentifierName in {sinks}
-            RETURN true
-        """
-        results = session.run(str_mem_exp_func_call_query)
-        if results.peek():
-            # print("# String: Member expression function call argument, e.g. child_process.exec(param)")
-            types.add("string")
-        # String: Member Expression property, e.g. obj[param] TODO: This query can lead to wrong typing obj[param] != obj.param
-        # prop_str_query = f"""
-        #     MATCH
-        #         (:MemberExpression)
-        #             -[property:AST]
-        #                 ->(id:Identifier)
-        #     WHERE
-        #         property.RelationType = "property" AND
-        #         id.IdentifierName in {var_decls}
-        #     RETURN true
-        # """
-        # results = session.run(prop_str_query)
-        # if results.peek():
-        #     return "string"
+        if "string" not in types:
+            str_mem_exp_func_call_query = f"""
+                MATCH
+                    (call_exp:CallExpression)
+                        -[arg:AST]
+                            ->(id:Identifier),    
+                    (call_exp)
+                        -[callee:AST]
+                            ->(:MemberExpression)
+                                -[property:AST]
+                                    ->(sink:Identifier)
+                WHERE
+                    arg.RelationType = "arg" AND
+                    arg.ArgumentIndex = "1" AND
+                    id.IdentifierName in {var_decls} AND
+                    callee.RelationType = "callee" AND
+                    property.RelationType = "property" AND
+                    sink.IdentifierName in {sinks}
+                RETURN true
+            """
+            results = session.run(str_mem_exp_func_call_query)
+            if results.peek():
+                if self.debug: print("String: Member expression function call argument, e.g. child_process.exec(param)") 
+                types.add("string")
+        # String: Member Expression Computed property, e.g. obj[param]
+        if "string" not in types:
+            prop_str_query = f"""
+                MATCH
+                    (mem_exp:MemberExpression)
+                        -[property:AST]
+                            ->(id:Identifier)
+                WHERE
+                    mem_exp.SubType = "computed" AND
+                    property.RelationType = "property" AND
+                    id.IdentifierName in {var_decls}
+                RETURN true
+            """
+            results = session.run(prop_str_query)
+            if results.peek():
+                if self.debug: print("String: Member Expression Computed property, e.g. obj[param]") 
+                types.add("string")
+
         types = list(types)
         types.sort()
         return " | ".join(types) if len(types) else "any"
 
-        # # Function (Any): Function call, e.g. param()
-        # func_func_call_query = f"""
-        #     MATCH
-        #         (:CallExpression)
-        #             -[callee:AST]
-        #                 ->(id:Identifier)    
-        #     WHERE
-        #         callee.RelationType = "callee" AND
-        #         id.IdentifierName  = "{var_decls[0]}" 
-        #     RETURN true
-        # """
-        # results = session.run(func_func_call_query)
-        # if results.peek():
-        #     return "any" #TODO
-        # # String: Prototype function call, e.g. param.charAt(0)
-        # str_proto_func_call_query = f"""
-        #     MATCH
-        #         (:CallExpression)
-        #             -[:AST]
-        #                 ->(mem_exp:MemberExpression)
-        #                     -[object:AST]
-        #                         ->(id:Identifier),
-        #         (mem_exp)
-        #             -[property:AST]
-        #                 ->(proto_func:Identifier)
-        #     WHERE
-        #         object.RelationType = "object" AND
-        #         id.IdentifierName in {var_decls} AND
-        #         property.RelationType = "property" AND
-        #         proto_func.IdentifierName in {prototypes["string"]}
-        #     RETURN true
-        # """
-        # results = session.run(str_proto_func_call_query)
-        # if results.peek():
-        #     # print("# String: Prototype function call, e.g. param.charAt(0)")
-        #     types.add("string")
-        #     # return "string"
-        # # Number: Binary Expression, e.g. param + 4
-        # num_bin_exp_query = f"""
-        #     MATCH
-        #         (bin_exp:BinaryExpression)
-        #             -[:AST]
-        #                 ->(id:Identifier),
-        #         (bin_exp)
-        #             -[:AST]
-        #                 ->(literal:Literal)    
-        #     WHERE
-        #         toInteger(literal.Raw) IS NOT NULL AND
-        #         id.IdentifierName in {var_decls}
-        #     RETURN true
-        # """
-        # results = session.run(num_bin_exp_query)
-        # if results.peek():
-        #     types.add("number")
-        #     # return "number"
-        # # String: Binary Expression concatenation, e.g. param + "string"
-        # str_bin_exp_query = f"""
-        #     MATCH
-        #         (bin_exp:BinaryExpression)
-        #             -[:AST]
-        #                 ->(id:Identifier),
-        #         (bin_exp)
-        #             -[:AST]
-        #                 ->(literal:Literal)    
-        #     WHERE
-        #         toString(literal.Raw) = literal.Raw AND
-        #         id.IdentifierName in {var_decls} 
-        #     RETURN true
-        # """
-        # results = session.run(str_bin_exp_query)
-        # if results.peek():
-        #     # print("# String: Binary Expression, e.g. param + string")
-        #     types.add("string")
-        #     # return "string"
-        # # Array: Prototype function call, e.g. param.join('')
-        # arr_proto_func_call_query = f"""
-        #     MATCH
-        #         (:CallExpression)
-        #             -[:AST]
-        #                 ->(mem_exp:MemberExpression)
-        #                     -[object:AST]
-        #                         ->(id:Identifier),
-        #         (mem_exp)
-        #             -[property:AST]
-        #                 ->(proto_func:Identifier)
-        #     WHERE
-        #         object.RelationType = "object" AND
-        #         id.IdentifierName in {var_decls} AND
-        #         property.RelationType = "property" AND
-        #         proto_func.IdentifierName in {prototypes["array"]}
-        #     RETURN true
-        # """
-        # results = session.run(arr_proto_func_call_query)
-        # if results.peek():
-        #     types.add("[]")
-        #     # return []
-        # # Array: ForOfStatement, e.g. for i of param
-        # arr_proto_func_call_query = f"""
-        #     MATCH
-        #         (:ForOfStatement)
-        #             -[right:AST]
-        #                 ->(id:Identifier)    
-        #     WHERE
-        #         right.RelationType = "right" AND
-        #         id.IdentifierName in {var_decls} 
-        #     RETURN true
-        # """
-        # results = session.run(arr_proto_func_call_query)
-        # if results.peek():
-        #     types.add("[]")
-        #     # return []
-        # # String: Template Literal, e.g. `This is a string ${param}`
-        # str_tmplt_literal_query = f"""
-        #     MATCH
-        #         (:TemplateLiteral)
-        #             -[:AST]
-        #                 ->(id:Identifier)
-        #     WHERE
-        #         id.IdentifierName in {var_decls} 
-        #     RETURN true
-        # """
-        # results = session.run(str_tmplt_literal_query)
-        # if results.peek():
-        #     # print("# String: Template Literal, e.g. `This is a string $param`")
-        #     types.add("string")
-        #     return "string"
-        # # String: Function call argument, e.g. eval(param)
-        # str_func_call_query = f"""
-        #     MATCH
-        #         (call_or_new_exp)
-        #             -[arg:AST]
-        #                 ->(id:Identifier),
-        #         (call_or_new_exp)
-        #             -[callee:AST]
-        #                 ->(sink:Identifier)
-        #     WHERE
-        #         (call_or_new_exp:CallExpression OR call_or_new_exp:NewExpression) AND
-        #         arg.RelationType = "arg" AND
-        #         arg.ArgumentIndex = "1" AND
-        #         id.IdentifierName in {var_decls} AND
-        #         callee.RelationType = "callee" AND
-        #         sink.IdentifierName in {sinks}
-        #     RETURN true
-        # """
-        # results = session.run(str_func_call_query)
-        # if results.peek():
-        #     # print("# String: Function call argument, e.g. eval(param)")
-        #     types.add("string")
-        #     # return "string"
-        # # String: Member expression function call argument, e.g. child_process.exec(param)
-        # str_mem_exp_func_call_query = f"""
-        #     MATCH
-        #         (call_exp:CallExpression)
-        #             -[arg:AST]
-        #                 ->(id:Identifier),    
-        #         (call_exp)
-        #             -[callee:AST]
-        #                 ->(:MemberExpression)
-        #                     -[property:AST]
-        #                         ->(sink:Identifier)
-        #     WHERE
-        #         arg.RelationType = "arg" AND
-        #         arg.ArgumentIndex = "1" AND
-        #         id.IdentifierName in {var_decls} AND
-        #         callee.RelationType = "callee" AND
-        #         property.RelationType = "property" AND
-        #         sink.IdentifierName in {sinks}
-        #     RETURN true
-        # """
-        # results = session.run(str_mem_exp_func_call_query)
-        # if results.peek():
-        #     # print("# String: Member expression function call argument, e.g. child_process.exec(param)")
-        #     types.add("string")
-        #     # return "string"
-        # # String: Member Expression property, e.g. obj[param] TODO: This query can lead to wrong typing
-        # # prop_str_query = f"""
-        # #     MATCH
-        # #         (:MemberExpression)
-        # #             -[property:AST]
-        # #                 ->(id:Identifier)
-        # #     WHERE
-        # #         property.RelationType = "property" AND
-        # #         id.IdentifierName in {var_decls}
-        # #     RETURN true
-        # # """
-        # # results = session.run(prop_str_query)
-        # # if results.peek():
-        # #     return "string"
-        # # Bool: Binary Expression, e.g. param === true 
-        # bool_bin_exp_query = f"""
-        #     MATCH
-        #         (bin_exp:BinaryExpression)
-        #             -[:AST]
-        #                 ->(id:Identifier),
-        #         (bin_exp)
-        #             -[:AST]
-        #                 ->(literal:Literal)    
-        #     WHERE
-        #         (literal.Raw = "false" OR literal.Raw = "true") AND
-        #         id.IdentifierName in {var_decls}
-        #     RETURN true
-        # """
-        # results = session.run(bool_bin_exp_query)
-        # if results.peek():
-        #     types.add("bool")
-        #     # return "bool"
-        # # Bool: Logical Expression, e.g. param || param2
-        # # bool_log_exp_query = f"""
-        # #     MATCH
-        # #         (:LogicalExpression)
-        # #             -[:AST]
-        # #                 ->(id:Identifier)
-        # #     WHERE
-        # #         id.IdentifierName in {var_decls}
-        # #     RETURN true
-        # # """
-        # # results = session.run(bool_log_exp_query)
-        # # if results.peek():
-        # #     return "bool"
-        # # return "any"
-        # return " | ".join(list(types)) if len(types) else "any"
-    
-    
     def assign_types(self, session, d, config):
         """
         Traverse the attacker-controlled data and assign a JavaScript type to each parameter.

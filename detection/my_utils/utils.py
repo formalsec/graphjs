@@ -67,6 +67,16 @@ def get_all_sources_from_config(config):
 	else:
 		raise Exception("Config file is missing the sources")
 
+def get_built_in_functions(config):
+	if "sinks" in config:
+		sinks = []
+		for injection_type in config["sinks"].values():
+			for sink in injection_type:
+				sinks.append(sink["sink"])
+		return sinks
+	else:
+		raise Exception("Config file is missing the sinks")
+
 def get_injection_type(sink, config):
 	if "sinks" in config:
 		for injection_type, vulns in config["sinks"].items():
