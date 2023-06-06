@@ -155,6 +155,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
             case "UpdateExpression":
             case "UnaryExpression": {
                 const objNode = graph.addNode(obj.type, obj);
+                if (obj.type === "UnaryExpression") objNode.subtype = obj.operator;
                 if (obj.argument) {
                     const argument = traverse(obj.argument, objNode);
                     graph.addEdge(objNode.id, argument.id, { type: "AST", label: "argument" });
