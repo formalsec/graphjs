@@ -145,7 +145,7 @@
             ]
         }
     ],
-    "built-in-functions": {
+    "functions-signatures": {
         "normalize": {
             "package": "path",
             "args_types": ["string"]

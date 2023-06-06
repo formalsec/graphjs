@@ -61,6 +61,7 @@ let fresh_array_var = var_gen.fresh_array_var_gen();
 let fresh_symb_num_var = var_gen.fresh_symb_num_var_gen();
 let fresh_symb_str_var = var_gen.fresh_symb_str_var_gen();
 let fresh_symb_bool_var = var_gen.fresh_symb_bool_var_gen();
+let fresh_symb_func_var = var_gen.fresh_symb_func_var_gen();
 let fresh_concrete_var = var_gen.fresh_concrete_var_gen();
 let fresh_test_var = var_gen.fresh_test_var_gen();
 
@@ -134,7 +135,7 @@ function instrument_code(ast, stmt) {
  * @returns {string}
  * Variable assignment
  */
-function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrArr=false) {
+function generate_symb_assignment(param_name, param_type, prefix = "") {
 	param_name = param_name === "*" ? "any_property" : param_name;
 	var name = prefix + `${param_name}__`;
 
@@ -163,14 +164,17 @@ function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrAr
 		switch (param_type) {
 			case "any":
 				name += `_${fresh_symb_var()}`;
-				if (isObjOrArr) return `\tesl_symbolic.symb("${name}"),\n`;
-				var tmplt = `var ${name} = esl_symbolic.symb("${name}");\n`;
+				var tmplt = `var ${name} = esl_symbolic.symbolic("${name}");\n`;
 				return {name: name, tmplt: tmplt};
 
 			case "bool":
 				name += `_${fresh_symb_bool_var()}`;
-				if (isObjOrArr) return `\tesl_symbolic.bool("${name}"),\n`;
-				var tmplt = `var ${name} = esl_symbolic.bool("${name}");\n`;
+				var tmplt = `var ${name} = esl_symbolic.boolean("${name}");\n`;
+				return {name: name, tmplt: tmplt};
+
+			case "function":
+				name += `_${fresh_symb_func_var()}`;
+				var tmplt = `var ${name} = esl_symbolic.function("${name}");\n`;
 				return {name: name, tmplt: tmplt};
 
 			case "number":
@@ -180,7 +184,6 @@ function generate_symb_assignment(param_name, param_type, prefix = "", isObjOrAr
 
 			case "string":
 				name += `_${fresh_symb_str_var()}`;
-				if (isObjOrArr) return `\tesl_symbolic.string("${name}"),\n`;
 				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`;
 				return {name:name, tmplt: tmplt};
 

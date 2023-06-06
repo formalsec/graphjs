@@ -9,7 +9,7 @@ NEO4J_CONN_STRING="bolt://127.0.0.1:7687"
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--file", type=str, required=True,
 					help="Path to the file being tested.")
-parser.add_argument("-o", "--output", type=str,
+parser.add_argument("-o", "--output", type=str, default="taint_summary.json",
 					help="Taint summary output file.")
 args = parser.parse_args()
 

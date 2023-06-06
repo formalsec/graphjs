@@ -3,7 +3,7 @@ import json
 import my_utils.utils as my_utils
 
 class QueryType:
-    debug = False #TODO: Delete
+    debug = True #TODO: Delete
     def __init__(self, str_type):
         self.type = str_type
 
@@ -90,7 +90,7 @@ class QueryType:
         # print(var_decls)
         sinks = my_utils.get_sinks_from_config(config)
         prototypes = config["prototypes"]
-        built_in_functions = config["built-in-functions"]
+        functions_signatures = config["functions-signatures"]
         types = set()
         # ============================ Several Types ===============================
         # Array, Number, Object: Static Methdos, e.g. Array.isArray(param)
@@ -125,7 +125,7 @@ class QueryType:
                     -[arg:AST]
                         ->(id:Identifier)
             WHERE
-                function.IdentifierName in {list(built_in_functions.keys())} AND
+                function.IdentifierName in {list(functions_signatures.keys())} AND
                 arg.RelationType = "arg" AND
                 id.IdentifierName in {var_decls}
             RETURN function.IdentifierName, arg
@@ -133,13 +133,40 @@ class QueryType:
         results = session.run(any_built_in_functions_query)
         for result in results:
             if self.debug: print("Array, Boolean, Function, Number, Object, String: Node.js Built-in Functions, e.g. fs.join(arr)") 
-            function = built_in_functions[result["function.IdentifierName"]]
+            function = functions_signatures[result["function.IdentifierName"]]
             args_types = function["args_types"]
             arg = int(result["arg"]["ArgumentIndex"])
             if len(args_types) >= arg: 
                 types.add(args_types[arg - 1])
             elif arg > len(args_types) and "rest?" in function:
                 types.add(args_types[0])
+        # Array, Boolean, Function, Number, Object, String: typeof keyword, e.g. typeof param === "function"
+        any_built_in_functions_query = f"""
+            MATCH
+                (var_decl:VariableDeclarator)
+                    -[:AST]
+                        ->(una_exp:UnaryExpression)
+                            -[:AST]
+                                ->(id:Identifier),
+                (bin_exp:BinaryExpression)
+                    -[right:AST]
+                        ->(literal:Literal),
+                (bin_exp)
+                    -[left:AST]
+                        ->(var:Identifier)
+            WHERE
+                una_exp.SubType = "typeof" AND
+                id.IdentifierName in {var_decls} AND
+                bin_exp.SubType in ["==", "==="] AND
+                right.RelationType = "right" AND
+                left.RelationType = "left" AND
+                var_decl.IdentifierName = var.IdentifierName
+            RETURN literal.Raw
+        """
+        results = session.run(any_built_in_functions_query)
+        for result in results:
+            if self.debug: print("Array, Boolean, Function, Number, Object, String: typeof keyword, e.g. typeof param === \"function\"") 
+            types.add(result["literal.Raw"].replace("'", ""))
         # ================================= Function ================================
         # Function (Any): Function call, e.g. param()
         func_func_call_query = f"""
@@ -155,7 +182,7 @@ class QueryType:
         results = session.run(func_func_call_query)
         if results.peek():
             if self.debug: print("Function (Any): Function call, e.g. param()") 
-            return "any" #TODO: Any or function?
+            return "function"
         # ================================== Array ==================================
         # Array: Prototype function call, e.g. param.join('')
         if "array" not in types:
