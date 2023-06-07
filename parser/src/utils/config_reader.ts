@@ -80,20 +80,20 @@ export function readConfig(filePath: string): Config {
 
     if (config.sources) {
         const sources = config.sources;
-            sources.forEach((source: any) => {
-                const sourceName: string = source.source;
-                const sourceType: string = source.type;
+        sources.forEach((source: any) => {
+            const sourceName: string = source.source;
+            const sourceType: string = source.type;
 
-                switch (sourceType) {
-                    case "package": {
-                        packageSources.push({
-                            source: sourceName,
-                            packages: source.packages
-                        });
-                        break;
-                    }
+            switch (sourceType) {
+                case "package": {
+                    packageSources.push({
+                        source: sourceName,
+                        packages: source.packages
+                    });
+                    break;
                 }
-            });
+            }
+        });
     }
 
     const summaries = readSummaries("src/summaries.json");

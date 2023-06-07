@@ -8,9 +8,21 @@ let VAR_COUNT = 1;
 let NODE_COUNT = 1;
 let OBJ_COUNT = 1;
 
+function replacer(key: any, value: any): object {
+    if (value instanceof Map) {
+        return { dataType: 'Map', value: [...value] };
+    } else { return value; }
+}
+
+function reviver(key: any, value: any): object {
+    if (typeof value === 'object' && value !== null && value.dataType === 'Map') {
+        return new Map(value.value);
+    }
+    return value;
+}
+
 export function copyObj(obj: any): any {
-    const newObj = JSON.parse(JSON.stringify(obj));
-    return newObj;
+    return JSON.parse(JSON.stringify(obj, replacer), reviver);
 }
 
 export const getNextNodeId = (): number => NODE_COUNT++;

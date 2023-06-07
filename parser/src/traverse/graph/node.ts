@@ -27,7 +27,6 @@ export class GraphNode {
     private _used: boolean;
     private _cfgEndNodeId: number;
     private _writeAllSubObjects: Dependency[];
-    private _paramOrigin: boolean;
     private _arguments: boolean;
     // This value represents additional information for AST nodes: object type for Literal, operator type for BinaryExpression and computation type for MemberExpression
     private _subtype: string;
@@ -46,7 +45,6 @@ export class GraphNode {
         this._used = false;
         this._cfgEndNodeId = -1;
         this._writeAllSubObjects = [];
-        this._paramOrigin = false;
         this._arguments = false;
         this._subtype = ""
     }
@@ -133,14 +131,6 @@ export class GraphNode {
 
     get writeAllSubObjects(): Dependency[] {
         return this._writeAllSubObjects;
-    }
-
-    get paramOrigin(): boolean {
-        return this._paramOrigin;
-    }
-
-    set paramOrigin(value: boolean) {
-        this._paramOrigin = value;
     }
 
     get arguments(): boolean {
