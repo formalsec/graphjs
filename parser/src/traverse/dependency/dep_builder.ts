@@ -288,7 +288,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
 }
 
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
-    // Get function name
+    // Get function name (depends on the type of callee --> MemberExpression or Identifier)
     const callASTNode = getASTNode(callNode, "callee");
     let callName: string, calleeName: string, callee: Identifier | ThisExpression;
     if (callASTNode.obj.type === "MemberExpression") {
@@ -303,74 +303,54 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         else calleeName = callee.name;
     }
 
+    // Map call arguments (variables passed to the call map to the arguments of the called function definition)
     trackers = mapCallArguments(callNode, functionContext, callName, calleeName, stmtId, config, trackers);
 
-    if (callName === "require") {
-        const packageName = getAllASTNodes(callNode, "arg")[0];
-        const variableName = trackers.getContextNameList(variable.name, functionContext).slice(-1)[0];
-        trackers.addRequireChainEntry(variableName, packageName.obj.value);
-    }
-
-    const calleeObjectDeps = [];
-    if (callNode.obj.callee.type === "MemberExpression") {
-        const calleeDeps = evalDep(trackers, stmtId, getASTNode(callASTNode, "object"));
-        calleeObjectDeps.push(...calleeDeps);
-    }
-
-    const deps = evalDep(trackers, stmtId, callNode);
-
-    // create new object
+    // Create new object for the new variable (return of the call)
     const newObjId = createNewObjectNodeVariable(stmtId, functionContext, variable, trackers);
     trackers.graphCreateReferenceEdge(stmtId, newObjId);
 
-    // process dependencies of call
-    trackers.graphCreateCallStatementDependencyEdges(stmtId, newObjId, deps);
-
-    // Create sinks when promisify(exec) e.g.
-    const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
-    varDeps.forEach(dep => {
-        const variableMap = trackers.checkVariableMap(`${callNode.functionContext}.${dep.name}`)
-        if (variableMap) trackers.addVariableMap(`${callNode.functionContext}.${variable.name}`, variableMap);
-    })
-
-    // Process dependencies between the subjects of the call
-    // E.g. dependencies of object (arr) being called upon (e.g. arr.push(x))
-    // TODO: Should this create a new version?
-    if (callNode.obj.callee.type === "MemberExpression") {
-        let latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
+    // Process dependencies of the call
+    // 1. If callee is not a member expression, get dependencies of the arguments
+    // 2. If callee is a member expression, also process dependencies between the subjects of the call
+    //    E.g. dependencies of object (arr) being called upon (e.g. arr.push(x))
+    const deps = evalDep(trackers, stmtId, callNode); // Dependencies of the arguments
+    if (callNode.obj.callee.type !== "MemberExpression") {
+        trackers.graphCreateCallStatementDependencyEdges(stmtId, newObjId, deps);
+    } else if (callNode.obj.callee.type === "MemberExpression") {
+        let latestCalleeObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
         // Get summary for the function
         const functionSummary: SummaryDependency[] | undefined = config.summaries.arrays.get(callName);
+        // If summary exists
         if (functionSummary?.length) {
             // For each summary item (obj, dependencies)
             functionSummary.forEach((summaryItem) => {
                 // Get object (destination) information
-                const destination = translateDependency(summaryItem.obj, deps, latestCallObj, calleeName, newObjId)[0]
+                const destination = translateDependency(summaryItem.obj, deps, latestCalleeObj, calleeName, newObjId)[0]
                 // For each dependency, add the corresponding edge
                 summaryItem.deps.forEach(d => {
-                    const sources = translateDependency(d, deps, latestCallObj, calleeName, newObjId)
+                    const sources = translateDependency(d, deps, latestCalleeObj, calleeName, newObjId)
                     sources.forEach(source => { trackers.graphCreateCallDependencyEdge(source.id, destination.id, source.name); });
                 })
             })
         // If there is no function summary available, assume all dependencies
-        } else if (functionSummary && !functionSummary.length) {
+        } else if ((functionSummary && !functionSummary.length) ?? !functionSummary) {
             // If called object doesn't exist (e.g. it was the return of a function)
-            if (!latestCallObj) {
+            if (!latestCalleeObj) {
                 if (callee.type === "Identifier") {
                     const newObjId = createNewObjectNodeVariable(stmtId, functionContext, callee, trackers);
                     trackers.graphCreateReferenceEdge(stmtId, newObjId);
                 }
-                latestCallObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
+                latestCalleeObj = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
             }
-            // Dependency callee -> ret
-            if (latestCallObj && latestCallObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCallObj.id, newObjId, calleeName)
-            // Call params -> callee
-            // get callee dependencies for arr.push()
-            if (!deps.filter(d => DependencyFactory.isDCallee(d)).length) {
-                deps.push(...calleeObjectDeps);
-            }
+            // Dependency ret <-- callee
+            if (latestCalleeObj && latestCalleeObj.id !== newObjId) trackers.graphCreateCallDependencyEdge(latestCalleeObj.id, newObjId, calleeName)
+            // Dependency callee <-- arguments
             deps.forEach(d => {
-                if (d.source !== latestCallObj.id) trackers.graphCreateCallDependencyEdge(d.source, latestCallObj.id, d.name)
+                if (latestCalleeObj && d.source !== latestCalleeObj.id) trackers.graphCreateCallDependencyEdge(d.source, latestCalleeObj.id, d.name)
             })
+            // Dependency ret <-- arguments
+            trackers.graphCreateCallStatementDependencyEdges(stmtId, newObjId, deps)
         }
     }
 
@@ -446,6 +426,19 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
                 trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
             }
         });
+    }
+
+    // Create sinks when promisify(exec) e.g.
+    const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
+    varDeps.forEach(dep => {
+        const variableMap = trackers.checkVariableMap(`${callNode.functionContext}.${dep.name}`)
+        if (variableMap) trackers.addVariableMap(`${callNode.functionContext}.${variable.name}`, variableMap);
+    })
+
+    if (callName === "require") {
+        const packageName = getAllASTNodes(callNode, "arg")[0];
+        const variableName = trackers.getContextNameList(variable.name, functionContext).slice(-1)[0];
+        trackers.addRequireChainEntry(variableName, packageName.obj.value);
     }
 
     return trackers;

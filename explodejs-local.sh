@@ -1,8 +1,8 @@
 #!/bin/bash
 
 THIS_DIR=$(realpath "$0")
-NEO4J_CMD=/opt/homebrew/Cellar/neo4j/5.5.0/bin/neo4j
-NEO4J_ADMIN_CMD=/opt/homebrew/Cellar/neo4j/5.5.0/bin/neo4j-admin
+NEO4J_CMD=/opt/homebrew/Cellar/neo4j/5.8.0/bin/neo4j
+NEO4J_ADMIN_CMD=/opt/homebrew/Cellar/neo4j/5.8.0/bin/neo4j-admin
 
 Help()
 {
@@ -68,7 +68,8 @@ if test -f "$FILEPATH"; then
     # run all queries
     echo "[INFO] - Running queries for $FILEPATH"
     QUERIES=$(realpath ./detection)
-    python3 $QUERIES/run.py $FILEPATH $OUTPUT
+    python3 $QUERIES/run.py -f $FILEPATH -o $OUTPUT
+
 else
     Help
 fi
