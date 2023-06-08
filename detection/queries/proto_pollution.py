@@ -97,7 +97,7 @@ class PrototypePollution(QueryType):
 				sink_lineno = json.loads(record["sink_cfg"]["Location"])["start"]["line"]
 				filename = vuln_file[0:-len(os.path.splitext(vuln_file)[1])] + "-normalized.js"
 				sink = my_utils.get_code_line_from_file(filename, sink_lineno)
-				tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"], config) 
+				tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"], record["sink_cfg"]["Id"], config) 
 
 				vuln_path = {
 					"vuln_type": "prototype-pollution",
