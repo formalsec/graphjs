@@ -60,6 +60,27 @@ class QueryType:
                 ref_edge.ParamIndex
         """
         return [recon_query, recon_logical_expr_query]
+    
+    def find_cfg_node_id(self, session, obj_id):
+        """
+        Find the CFG node that connects to the PDG_OBJECT node.
+        """
+        find_cfg_node_query = f"""
+            MATCH
+                (var_decl:VariableDeclarator)
+                    -[ref]
+                        ->(obj)
+            WHERE
+                (ref:REF or ref:SINK) AND
+                obj.Id = "{obj_id}"
+            RETURN var_decl.Id 
+        """
+        results = session.run(find_cfg_node_query)
+        if results.peek():
+            smallest_record = min(results, key=lambda record: int(record["var_decl.Id"]))
+            return int(smallest_record["var_decl.Id"])
+        else:
+            return None
 
     def find_variable_declarators(self, session, param_name, obj_ids):
         """
@@ -87,7 +108,7 @@ class QueryType:
         Assign a JavaScript type to the attacker-controlled parameter param_name.
         """
         var_decls = self.find_variable_declarators(session, param_name, list(obj_ids))
-        # print(var_decls)
+        if self.debug: print(var_decls)
         sinks = my_utils.get_sinks_from_config(config)
         prototypes = config["prototypes"]
         functions_signatures = config["functions-signatures"]
@@ -115,7 +136,7 @@ class QueryType:
         for result in results:
             if self.debug: print("Array, Number, Object: Static Methdos, e.g. Array.isArray(param)") 
             types.add(result["type.IdentifierName"].lower())
-        # Array, Boolean, Function, Number, Object, String: Node.js Built-in Functions, e.g. fs.join(arr)
+        # Array, Boolean, Function, Number, Object, String: Node.js Built-in Functions, e.g. path.join(arr)
         any_built_in_functions_query = f"""
             MATCH
                 (call_exp:CallExpression)
@@ -141,7 +162,7 @@ class QueryType:
             elif arg > len(args_types) and "rest?" in function:
                 types.add(args_types[0])
         # Array, Boolean, Function, Number, Object, String: typeof keyword, e.g. typeof param === "function"
-        any_built_in_functions_query = f"""
+        any_typeof_query = f"""
             MATCH
                 (var_decl:VariableDeclarator)
                     -[:AST]
@@ -163,26 +184,27 @@ class QueryType:
                 var_decl.IdentifierName = var.IdentifierName
             RETURN literal.Raw
         """
-        results = session.run(any_built_in_functions_query)
+        results = session.run(any_typeof_query)
         for result in results:
             if self.debug: print("Array, Boolean, Function, Number, Object, String: typeof keyword, e.g. typeof param === \"function\"") 
             types.add(result["literal.Raw"].replace("'", ""))
         # ================================= Function ================================
         # Function (Any): Function call, e.g. param()
-        func_func_call_query = f"""
-            MATCH
-                (:CallExpression)
-                    -[callee:AST]
-                        ->(id:Identifier)    
-            WHERE
-                callee.RelationType = "callee" AND
-                id.IdentifierName  = "{var_decls[0]}" 
-            RETURN true
-        """
-        results = session.run(func_func_call_query)
-        if results.peek():
-            if self.debug: print("Function (Any): Function call, e.g. param()") 
-            return "function"
+        if "function" not in types:
+            func_func_call_query = f"""
+                MATCH
+                    (:CallExpression)
+                        -[callee:AST]
+                            ->(id:Identifier)    
+                WHERE
+                    callee.RelationType = "callee" AND
+                    id.IdentifierName  = "{var_decls[0]}" 
+                RETURN true
+            """
+            results = session.run(func_func_call_query)
+            if results.peek():
+                if self.debug: print("Function (Any): Function call, e.g. param()") 
+                return "function"
         # ================================== Array ==================================
         # Array: Prototype function call, e.g. param.join('')
         if "array" not in types:
@@ -225,24 +247,25 @@ class QueryType:
                 types.add("array")
         # ================================ Boolean ================================
         # Boolean: Binary Expression, e.g. param === true 
-        bool_bin_exp_query = f"""
-            MATCH
-                (bin_exp:BinaryExpression)
-                    -[:AST]
-                        ->(id:Identifier),
-                (bin_exp)
-                    -[:AST]
-                        ->(literal:Literal)    
-            WHERE
-                bin_exp.SubType in ["==", "==="] AND
-                literal.SubType = "boolean" AND
-                id.IdentifierName in {var_decls}
-            RETURN true
-        """
-        results = session.run(bool_bin_exp_query)
-        if results.peek():
-            if self.debug: print("Boolean: Binary Expression, e.g. param === true ") 
-            types.add("bool")
+        if "bool" not in types:
+            bool_bin_exp_query = f"""
+                MATCH
+                    (bin_exp:BinaryExpression)
+                        -[:AST]
+                            ->(id:Identifier),
+                    (bin_exp)
+                        -[:AST]
+                            ->(literal:Literal)    
+                WHERE
+                    bin_exp.SubType in ["==", "==="] AND
+                    literal.SubType = "boolean" AND
+                    id.IdentifierName in {var_decls}
+                RETURN true
+            """
+            results = session.run(bool_bin_exp_query)
+            if results.peek():
+                if self.debug: print("Boolean: Binary Expression, e.g. param === true ") 
+                types.add("bool")
         # Bool: Logical Expression, e.g. param || param2
         # bool_log_exp_query = f"""
         #     MATCH
@@ -259,23 +282,24 @@ class QueryType:
         # return "any"
         # ================================= Number ==================================
         # Number: Binary Expression, e.g. param + 4
-        num_bin_exp_query = f"""
-            MATCH
-                (bin_exp:BinaryExpression)
-                    -[:AST]
-                        ->(id:Identifier),
-                (bin_exp)
-                    -[:AST]
-                        ->(literal:Literal)    
-            WHERE
-                literal.SubType = "number" AND
-                id.IdentifierName in {var_decls}
-            RETURN true
-        """
-        results = session.run(num_bin_exp_query)
-        if results.peek():
-            if self.debug: print("Number: Binary Expression, e.g. param + 4") 
-            types.add("number")
+        if "number" not in types:
+            num_bin_exp_query = f"""
+                MATCH
+                    (bin_exp:BinaryExpression)
+                        -[:AST]
+                            ->(id:Identifier),
+                    (bin_exp)
+                        -[:AST]
+                            ->(literal:Literal)    
+                WHERE
+                    literal.SubType = "number" AND
+                    id.IdentifierName in {var_decls}
+                RETURN true
+            """
+            results = session.run(num_bin_exp_query)
+            if results.peek():
+                if self.debug: print("Number: Binary Expression, e.g. param + 4") 
+                types.add("number")
         # Number: Binary Expression with number operators, e.g. param / num
         if "number" not in types:
             num_bin_exp_query = f"""
@@ -294,27 +318,28 @@ class QueryType:
                 types.add("number")
         # ================================= String ==================================
         # String: Prototype function call, e.g. param.charAt(0)
-        str_proto_func_call_query = f"""
-            MATCH
-                (:CallExpression)
-                    -[:AST]
-                        ->(mem_exp:MemberExpression)
-                            -[object:AST]
-                                ->(id:Identifier),
-                (mem_exp)
-                    -[property:AST]
-                        ->(proto_func:Identifier)
-            WHERE
-                object.RelationType = "object" AND
-                id.IdentifierName = "{var_decls[0]}" AND
-                property.RelationType = "property" AND
-                proto_func.IdentifierName in {prototypes["string"]}
-            RETURN true
-        """
-        results = session.run(str_proto_func_call_query)
-        if results.peek():
-            if self.debug: print("String: Prototype function call, e.g. param.charAt(0)") 
-            types.add("string")
+        if "string" not in types:
+            str_proto_func_call_query = f"""
+                MATCH
+                    (:CallExpression)
+                        -[:AST]
+                            ->(mem_exp:MemberExpression)
+                                -[object:AST]
+                                    ->(id:Identifier),
+                    (mem_exp)
+                        -[property:AST]
+                            ->(proto_func:Identifier)
+                WHERE
+                    object.RelationType = "object" AND
+                    id.IdentifierName = "{var_decls[0]}" AND
+                    property.RelationType = "property" AND
+                    proto_func.IdentifierName in {prototypes["string"]}
+                RETURN true
+            """
+            results = session.run(str_proto_func_call_query)
+            if results.peek():
+                if self.debug: print("String: Prototype function call, e.g. param.charAt(0)") 
+                types.add("string")
         # String: Binary Expression concatenation, e.g. param + "string"
         if "string" not in types:
             str_bin_exp_query = f"""
@@ -450,12 +475,13 @@ class QueryType:
             elif isinstance(v, dict):
                 self.object_to_array(params_types[i])
     
-    def reconstruct_attacker_controlled_data(self, session, source, config):
+    def reconstruct_attacker_controlled_data(self, session, source_id, sink_id, config):
         """
         Find and reconstruct the parameters controlled by an attacker.
         """
         params_types = {}
-        queries = self.get_obj_recon_queries(source)
+        cfg_node_ids = {}
+        queries = self.get_obj_recon_queries(source_id)
         for query in queries:
             results = session.run(query)
             for record in results:
@@ -475,18 +501,22 @@ class QueryType:
                     param_types_pointer = params_types
                     params_types = params_types[param_name]
                     for rel in record["obj_edges"]:
-                        if rel["RelationType"] == "SO" and obj_recon_flag:
-                            prop_name = rel["IdentifierName"]
-                            if prop_name not in params_types:
-                                params_types[prop_name] = {
-                                    "pdg_node_id": set([ rel.nodes[1]["Id"] ])
-                                }
-                            else:
-                                params_types[prop_name]["pdg_node_id"].add(rel.nodes[1]["Id"])
-                            params_types = params_types[prop_name]
-                        elif rel["RelationType"] == "DEP":
-                            obj_recon_flag = False
-                            params_types["pdg_node_id"].add(rel.nodes[1]["Id"])
+                        node_id = rel.nodes[1]["Id"]
+                        if node_id not in cfg_node_ids.keys():
+                            cfg_node_ids[node_id] = self.find_cfg_node_id(session, node_id)
+                        if cfg_node_ids[node_id] and cfg_node_ids[node_id] <= int(sink_id):
+                            if rel["RelationType"] == "SO" and obj_recon_flag:
+                                prop_name = rel["IdentifierName"]
+                                if prop_name not in params_types: 
+                                    params_types[prop_name] = {
+                                        "pdg_node_id": set([ node_id ])
+                                    }
+                                else:
+                                    params_types[prop_name]["pdg_node_id"].add(node_id)
+                                params_types = params_types[prop_name]
+                            elif rel["RelationType"] == "DEP":
+                                obj_recon_flag = False
+                                params_types["pdg_node_id"].add(node_id)
                     params_types = param_types_pointer
             
         self.assign_types(session, params_types, config)

@@ -36,7 +36,7 @@ class Injection(QueryType):
 			source_cfg = record["source_cfg"]
 			source_location = json.loads(source_cfg["Location"])
 			sink_location = json.loads(record["sink_cfg"]["Location"])
-			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"], config) 
+			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"], record["sink_cfg"]["Id"], config) 
 
 			vuln_path = {
 				"vuln_type": my_utils.get_injection_type(sink_name, config),

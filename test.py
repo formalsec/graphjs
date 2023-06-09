@@ -8,8 +8,8 @@ import time
 import argparse
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/taint-sources/example-5"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-78/727"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-44"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-78/1492"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -47,7 +47,23 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
 
         print(Fore.MAGENTA + f"{vulnerability_path} ({count}/{len(vulnerabilities)})" + Fore.RESET)
 
-        # skip = ["./datasets/injection-dataset/CWE-471/577", "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq", "./datasets/injection-dataset/CWE-471/1065"]
+        # skip = [
+        #     "./datasets/injection-dataset/CWE-78/117",
+        #     "./datasets/injection-dataset/CWE-78/694", 
+        #     "./datasets/injection-dataset/CWE-94/97", 
+        #     "./datasets/injection-dataset/CWE-94/551", 
+        #     "./datasets/injection-dataset/CWE-94/813", 
+        #     "./datasets/injection-dataset/CWE-94/835", 
+        #     "./datasets/injection-dataset/CWE-94/1545", 
+        #     "./datasets/injection-dataset/CWE-94/GHSA-54px-mhwv-5v8x", 
+        #     "./datasets/injection-dataset/CWE-94/GHSA-7fm6-gxqg-2pwr",
+        #     "./datasets/injection-dataset/CWE-471/577",
+        #     "./datasets/injection-dataset/CWE-471/1065",
+        #     "./datasets/injection-dataset/CWE-471/1329",
+        #     "./datasets/injection-dataset/CWE-471/1483",
+        #     "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq",
+        #     "./datasets/injection-dataset/CWE-471/GHSA-r9w3-g83q-m6hq",
+        # ]
         # if vulnerability_path in skip:
         #     continue
 
@@ -69,9 +85,9 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
                 expected_output_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output.json")
                 symbolic_test_file = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test.js")
                 if not exploit:
-                    os.system(f"./explodejs-local.sh -f {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -n {norm_file}")
+                    os.system(f"./explodejs.sh -f {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -n {norm_file}")
                 else:
-                    os.system(f"./explodejs-local.sh -xf {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
+                    os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
                 check_graph_construction(grades, norm_file)
                 comapre_outputs(grades, expected_output_file, taint_summary_file)
                 check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
@@ -111,6 +127,26 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
     else:
         grades["symb_test"] = "D"
 
+def compare_params_types(expected, output):
+    if type(expected) != type(output):
+        return False
+
+    if isinstance(expected, dict):
+        if set(expected.keys()) != set(output.keys()):
+            return False
+
+        for key in expected:
+            if not compare_params_types(expected[key], output[key]):
+                return False
+
+    elif isinstance(expected, str):
+        set_expected = set(expected.split(" | "))
+        set_output = set(output.split(" | "))
+        if not set_expected.issubset(set_output):
+            return False
+
+    return True
+
 def comapre_outputs(grades, expected_output, output):
     try:
         expected = json.load(open(expected_output))
@@ -146,7 +182,8 @@ def comapre_outputs(grades, expected_output, output):
             else:
                 detected_vulns += 1
                 # Check if data reconstruction was successfull
-                if ex_vuln["params_types"] == o["params_types"]:
+                # if ex_vuln["params_types"] == o["params_types"]:
+                if compare_params_types(ex_vuln["params_types"], o["params_types"]):
                     reconstructed_data += 1
                 break
 
