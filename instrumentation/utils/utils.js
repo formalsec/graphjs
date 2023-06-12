@@ -12,21 +12,23 @@ const isStringArray = (value) => {
     return false;
 };
 
+const parseStringValue = (value) => {
+    value = value.replace(/'/g, '"');
+    if (isStringArray(value)) {
+        return JSON.parse(value);
+    } else {
+        try {
+            return JSON.parse(value);
+        } catch (error) {
+            return value;
+        }
+    }
+};
+
 const generateCartesianProduct = (data) => {
     if (Array.isArray(data)) {
         const cartesianProduct = data.map((value) => {
-            if (typeof value === 'string') {
-                const convertedArray = value.split(" | ").map((value) => {
-                    if (isStringArray(value)) {
-                        return JSON.parse(value);
-                    }
-                    return value;
-                });
-                return convertedArray;
-            } else if (typeof value === 'object') {
-                return generateCartesianProduct(value);
-            }
-            return value;
+            return parseStringValue(value);
         });
 
         return cartesian(cartesianProduct);
@@ -38,10 +40,7 @@ const generateCartesianProduct = (data) => {
 
             if (typeof value === 'string') {
                 const convertedArray = value.split(" | ").map((value) => {
-                    if (isStringArray(value)) {
-                        return JSON.parse(value);
-                    }
-                    return value;
+                    return parseStringValue(value);
                 });
                 cartesianProduct[key] = convertedArray;
             } else if (typeof value === 'object') {
@@ -58,6 +57,13 @@ const generateCartesianProduct = (data) => {
                 return [key, p[index]];
             }));
         });
+    } else if (typeof data === 'string') {
+        try {
+            const parsedObject = JSON.parse(data);
+            return parsedObject;
+        } catch (error) {
+            return parseStringValue(data);
+        }
     } else {
         return [];
     }

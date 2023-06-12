@@ -6,10 +6,11 @@ import json
 from colorama import Fore
 import time
 import argparse
+import ast
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-44"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-78/1492"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-94/1122"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -47,25 +48,25 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
 
         print(Fore.MAGENTA + f"{vulnerability_path} ({count}/{len(vulnerabilities)})" + Fore.RESET)
 
-        # skip = [
-        #     "./datasets/injection-dataset/CWE-78/117",
-        #     "./datasets/injection-dataset/CWE-78/694", 
-        #     "./datasets/injection-dataset/CWE-94/97", 
-        #     "./datasets/injection-dataset/CWE-94/551", 
-        #     "./datasets/injection-dataset/CWE-94/813", 
-        #     "./datasets/injection-dataset/CWE-94/835", 
-        #     "./datasets/injection-dataset/CWE-94/1545", 
-        #     "./datasets/injection-dataset/CWE-94/GHSA-54px-mhwv-5v8x", 
-        #     "./datasets/injection-dataset/CWE-94/GHSA-7fm6-gxqg-2pwr",
-        #     "./datasets/injection-dataset/CWE-471/577",
-        #     "./datasets/injection-dataset/CWE-471/1065",
-        #     "./datasets/injection-dataset/CWE-471/1329",
-        #     "./datasets/injection-dataset/CWE-471/1483",
-        #     "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq",
-        #     "./datasets/injection-dataset/CWE-471/GHSA-r9w3-g83q-m6hq",
-        # ]
-        # if vulnerability_path in skip:
-        #     continue
+        skip = [
+            "./datasets/injection-dataset/CWE-78/117",
+            "./datasets/injection-dataset/CWE-78/694", 
+            "./datasets/injection-dataset/CWE-94/97", 
+            "./datasets/injection-dataset/CWE-94/551", 
+            "./datasets/injection-dataset/CWE-94/813", 
+            "./datasets/injection-dataset/CWE-94/835", 
+            "./datasets/injection-dataset/CWE-94/1545", 
+            "./datasets/injection-dataset/CWE-94/GHSA-54px-mhwv-5v8x", 
+            "./datasets/injection-dataset/CWE-94/GHSA-7fm6-gxqg-2pwr",
+            "./datasets/injection-dataset/CWE-471/577",
+            "./datasets/injection-dataset/CWE-471/1065",
+            "./datasets/injection-dataset/CWE-471/1329",
+            "./datasets/injection-dataset/CWE-471/1483",
+            "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq",
+            "./datasets/injection-dataset/CWE-471/GHSA-r9w3-g83q-m6hq",
+        ]
+        if vulnerability_path in skip:
+            continue
 
         explodejs_path = os.path.join(vulnerability_path, "tool_outputs/explodejs")
         if not os.path.exists(explodejs_path):
@@ -127,23 +128,71 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
     else:
         grades["symb_test"] = "D"
 
-def compare_params_types(expected, output):
-    if type(expected) != type(output):
+def split_string_with_nested_structures(string, separator):
+    result = []
+    nested_level = 0
+    current_item = ''
+
+    for char in string:
+        if char == separator and nested_level == 0:
+            result.append(current_item.strip())
+            current_item = ''
+        else:
+            current_item += char
+            if char == '[' or char == '{':
+                nested_level += 1
+            elif char == ']' or char == '}':
+                nested_level -= 1
+
+    result.append(current_item.strip())
+
+    return result
+
+def is_valid_list_or_dict(string):
+    try:
+        ast.literal_eval(string)
+        return True
+    except (ValueError, SyntaxError):
         return False
 
+def compare_params_types(expected, output):
     if isinstance(expected, dict):
-        if set(expected.keys()) != set(output.keys()):
-            return False
-
-        for key in expected:
-            if not compare_params_types(expected[key], output[key]):
+        if isinstance(output, str):
+            for ty in split_string_with_nested_structures(output, "|"):
+                if is_valid_list_or_dict(ty) and isinstance(ast.literal_eval(ty), dict):
+                    if not compare_params_types(expected, ast.literal_eval(ty)):
+                        return False
+        elif isinstance(output, dict):
+            if set(expected.keys()) != set(output.keys()):
                 return False
 
-    elif isinstance(expected, str):
+            for key in expected:
+                if not compare_params_types(expected[key], output[key]):
+                    return False
+        else:
+            return False 
+    
+    elif isinstance(expected, list):
+        if isinstance(output, str):
+            for ty in split_string_with_nested_structures(output, "|"):
+                if is_valid_list_or_dict(ty) and isinstance(ast.literal_eval(ty), list):
+                    if not compare_params_types(expected, ast.literal_eval(ty)):
+                        return False
+        elif isinstance(output, list):
+            for i in range(len(expected)):
+                if not compare_params_types(expected[i], output[i]):
+                    return False
+        else:
+            return False 
+
+    elif isinstance(expected, str) and isinstance(output, str):
         set_expected = set(expected.split(" | "))
         set_output = set(output.split(" | "))
         if not set_expected.issubset(set_output):
             return False
+    
+    else:
+        return False
 
     return True
 
