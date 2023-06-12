@@ -2,13 +2,14 @@ import { type Graph } from "./graph/graph";
 import { type GraphNode } from "./graph/node";
 import { copyObj, getASTNode, getFDNode } from "../utils/utils";
 import { type Config } from "../utils/config_reader";
+import { type FContexts } from "./cfg_builder";
 
 interface CallGraphReturn {
     callGraph: Graph
     config: Config
 }
 
-function buildCallGraph(pdgGraph: Graph, origConfig: Config): CallGraphReturn {
+function buildCallGraph(pdgGraph: Graph, functionContexts: FContexts, origConfig: Config): CallGraphReturn {
     const graph = pdgGraph;
     let newConfig: Config = copyObj(origConfig);
     const visitedNodes: number[] = [];

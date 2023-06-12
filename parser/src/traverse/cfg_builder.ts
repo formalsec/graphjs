@@ -7,10 +7,33 @@ interface CFGReturnObject {
     exit: GraphNode
 }
 
-function buildCFG(astGraph: Graph): Graph {
-    const graph = astGraph;
-    const intraContextStack: number[] = new Array<number>();
+// FContexts represents a map of function ids to the contexts in which they exist
+// This is important to check if a function can be called from a given instance?
+export type FContexts = Map<number, number[]>;
+// CFGraphReturn represents the return of the CFG analysis -> graph and function contexts
+export interface CFGraphReturn { graph: Graph, functionContexts: FContexts }
 
+function buildCFG(astGraph: Graph): CFGraphReturn {
+    const graph: Graph = astGraph;
+    const intraContextStack: number[] = new Array<number>();
+    const functionContexts: FContexts = new Map();
+    // string is function name <context>.<name>, number is nodeId (function declaration node) --> to be able to quickly find the param nodes
+    const functionList: Map<string, number> = new Map<string, number>();
+
+    // This function adds the
+    function addFunctionContext(functionId: number): void {
+        if (intraContextStack.length > 0) {
+            const lastContext = intraContextStack.slice(-1)[0];
+            const contextFunctions = functionContexts.get(lastContext)
+            if (contextFunctions) {
+                functionContexts.set(functionId, [...contextFunctions, lastContext]);
+            } else {
+                functionContexts.set(functionId, [lastContext]);
+            }
+        } else {
+            functionContexts.set(functionId, []);
+        }
+    }
 
     function traverse(node: GraphNode, context: number, parentNode?: GraphNode): CFGReturnObject {
         function defaultNode(defNode: GraphNode): CFGReturnObject {
@@ -90,6 +113,7 @@ function buildCFG(astGraph: Graph): Graph {
                 _start.namespace = cfgNamespace;
                 _start.functionName = node.functionName;
                 _start.functionContext = _start.id;
+                addFunctionContext(_start.id)
                 intraContextStack.push(_start.id);
                 if (parentNode) _start.functionNodeId = parentNode.id;
                 if ((node.type === "FunctionDeclaration" || node.type === "FunctionExpression")) {
@@ -97,9 +121,18 @@ function buildCFG(astGraph: Graph): Graph {
                     const functionNode = graph.nodes.get(_start.functionNodeId)
                     if (functionNode) functionNode.arguments = true;
                 }
+                // Add function to functionList
+                if ((node.type === "FunctionDeclaration" || node.type === "FunctionExpression") && parentNode) {
+                    const functionContextName = `${node.functionContext}.${node.functionName ?? ""}`
+                    functionList.set(functionContextName, parentNode.id);
+                    // if (intraContextStack.length < 3 && node.functionName) outerFunctions.push(node.functionName)
+                } else if (node.type === "ArrowFunctionExpression" && parentNode && parentNode.type === "VariableDeclarator") { // && parent && parent.type === "VariableDeclarator"
+                    const functionContextName = `${node.functionContext}.${parentNode.obj.id.name}`
+                    functionList.set(functionContextName, parentNode.id)
+                    // if (intraContextStack.length === 1 && node.functionName) outerFunctions.push(node.functionName):
+                }
 
                 graph.addStartNodes("CFG", _start);
-                // eslint-disable-next-line no-param-reassign
                 node.namespace = cfgNamespace;
 
                 const _end = graph.addNode("CFG_F_END", { type: "CFG" });
@@ -121,6 +154,25 @@ function buildCFG(astGraph: Graph): Graph {
                     root: node,
                     exit: node
                 };
+            }
+
+            case "CallExpression": {
+                let calledFunction: string = ""
+                if (node.obj.callee.type === "Identifier") calledFunction = node.obj.callee.name;
+                else if (node.obj.callee.type === "MemberExpression") calledFunction = node.obj.callee.object.name;
+                const functionContextList: number[] = functionContexts.get(node.functionContext) ?? []
+                functionContextList.push(node.functionContext)
+                let isFunctionDeclared: boolean = false;
+                functionContextList.reverse().forEach((currentContext: number) => {
+                    const calledFunctionId = functionList.get(`${currentContext}.${calledFunction}`)
+                    if (calledFunctionId !== undefined && parentNode && !isFunctionDeclared) {
+                        graph.addEdge(parentNode.id, calledFunctionId, { type: "CG", label: "CG" })
+                        graph.addEdge(node.id, calledFunctionId, { type: "CG", label: "CG" })
+                        isFunctionDeclared = true;
+                    }
+                });
+                // if (!isFunctionDeclared) unknownCalls.push([callee: ])
+                return defaultNode(node);
             }
 
             case "IfStatement":
@@ -238,7 +290,6 @@ function buildCFG(astGraph: Graph): Graph {
             case "ExpressionStatement":
             case "AssignmentExpression":
             case "MemberExpression":
-            case "CallExpression":
             case "ReturnStatement":
             case "BinaryExpression":
             case "ArrayExpression":
@@ -271,7 +322,7 @@ function buildCFG(astGraph: Graph): Graph {
 
     const startASTNodes = graph.startNodes.get("AST");
     if (startASTNodes) traverse(startASTNodes[0], -1);
-    return graph;
+    return { graph, functionContexts };
 }
 
 module.exports = { buildCFG };
