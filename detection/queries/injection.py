@@ -25,18 +25,20 @@ class Injection(QueryType):
 	def __init__(self):
 		QueryType.__init__(self, "Injection")
 
-	def find_vulnerable_paths(self, session, vuln_paths, vuln_file, config):
+	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, config):
 		"""
 		Find injection vulnerabilities paths.
 		"""
+		print("[INFO] - Running injection query")
 		results = session.run(self.injection_query)
 
+		print("[INFO] - Reconstructing attacker-controlled data")
 		for record in results:
 			sink_name = record["sink"]["IdentifierName"]
 			source_cfg = record["source_cfg"]
 			source_location = json.loads(source_cfg["Location"])
 			sink_location = json.loads(record["sink_cfg"]["Location"])
-			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"], record["sink_cfg"]["Id"], config) 
+			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"], record["sink_cfg"]["Id"], attacker_controlled_data, config) 
 
 			vuln_path = {
 				"vuln_type": my_utils.get_injection_type(sink_name, config),

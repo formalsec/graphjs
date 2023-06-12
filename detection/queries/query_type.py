@@ -3,7 +3,7 @@ import json
 import my_utils.utils as my_utils
 
 class QueryType:
-    debug = True #TODO: Delete
+    debug = False #TODO: Delete
     def __init__(self, str_type):
         self.type = str_type
 
@@ -67,18 +67,18 @@ class QueryType:
         """
         find_cfg_node_query = f"""
             MATCH
-                (var_decl:VariableDeclarator)
+                (cfg_stmt)
                     -[ref]
                         ->(obj)
             WHERE
                 (ref:REF or ref:SINK) AND
                 obj.Id = "{obj_id}"
-            RETURN var_decl.Id 
+            RETURN cfg_stmt.Id 
         """
         results = session.run(find_cfg_node_query)
         if results.peek():
-            smallest_record = min(results, key=lambda record: int(record["var_decl.Id"]))
-            return int(smallest_record["var_decl.Id"])
+            smallest_record = min(results, key=lambda record: int(record["cfg_stmt.Id"]))
+            return int(smallest_record["cfg_stmt.Id"])
         else:
             return None
 
@@ -266,20 +266,6 @@ class QueryType:
             if results.peek():
                 if self.debug: print("Boolean: Binary Expression, e.g. param === true ") 
                 types.add("bool")
-        # Bool: Logical Expression, e.g. param || param2
-        # bool_log_exp_query = f"""
-        #     MATCH
-        #         (:LogicalExpression)
-        #             -[:AST]
-        #                 ->(id:Identifier)
-        #     WHERE
-        #         id.IdentifierName in {var_decls}
-        #     RETURN true
-        # """
-        # results = session.run(bool_log_exp_query)
-        # if results.peek():
-        #     return "bool"
-        # return "any"
         # ================================= Number ==================================
         # Number: Binary Expression, e.g. param + 4
         if "number" not in types:
@@ -463,48 +449,54 @@ class QueryType:
         Transform an object into its correct type: array.
         """
         for i, v in params_types.items():
-            if isinstance(v, dict) and (("length" in params_types[i].keys() and  all(key.isdigit() or key == "length" or key == "*" for key in params_types[i].keys())) or (any(key.isdigit() for key in params_types[i].keys()) and all(key.isdigit() or key == "*" for key in params_types[i].keys()))):
+            if isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()): 
                 arr = []
                 for key, value in params_types[i].items():
                     if key.isdigit(): 
                         arr.extend(["any"] * (int(key) - len(arr)))
                         arr.insert(int(key), value)
-                    # elif key == "*":
-                    #     arr.append(value)
-                params_types[i] = arr if arr != [] else "array"
+                if all(key == "length" or key.isdigit() or key == "*" for key in params_types[i].keys()):
+                    params_types[i] = arr
+                else:
+                    params_types[i] = f"{params_types[i]} | {arr}"
+            elif isinstance(v, dict) and ("length" in params_types[i] or all(key == "*" for key in params_types[i].keys())):
+                params_types[i] = f"{params_types[i]} | array"
             elif isinstance(v, dict):
                 self.object_to_array(params_types[i])
     
-    def reconstruct_attacker_controlled_data(self, session, source_id, sink_id, config):
+    def reconstruct_attacker_controlled_data(self, session, source_id, sink_id, attacker_controlled_data, config):
         """
         Find and reconstruct the parameters controlled by an attacker.
         """
         params_types = {}
         cfg_node_ids = {}
         queries = self.get_obj_recon_queries(source_id)
-        for query in queries:
-            results = session.run(query)
-            for record in results:
-                param = record["param"]
-                param_name = param["IdentifierName"]
-                if "argv" not in param_name:
-                    param_name = param_name.split(".")[1].split("-")[0]
-                else:
-                    param_name = "argv"
+        if source_id not in attacker_controlled_data:
+            for query in queries:
+                results = session.run(query)
+                for record in results:
+                    param = record["param"]
+                    param_name = param["IdentifierName"]
+                    if "argv" not in param_name:
+                        param_name = param_name.split(".")[1].split("-")[0]
+                    else:
+                        param_name = "argv"
 
-                obj_recon_flag = True
-                if param_name not in params_types:
-                    params_types[param_name] = {
-                        "pdg_node_id": set([ param["Id"] ])
-                    }
-                else:
-                    param_types_pointer = params_types
-                    params_types = params_types[param_name]
-                    for rel in record["obj_edges"]:
-                        node_id = rel.nodes[1]["Id"]
-                        if node_id not in cfg_node_ids.keys():
-                            cfg_node_ids[node_id] = self.find_cfg_node_id(session, node_id)
-                        if cfg_node_ids[node_id] and cfg_node_ids[node_id] <= int(sink_id):
+                    obj_recon_flag = True
+                    if param_name not in params_types:
+                        params_types[param_name] = {
+                            "pdg_node_id": set([ param["Id"] ])
+                        }
+                    else:
+                        param_types_pointer = params_types
+                        params_types = params_types[param_name]
+                        for rel in record["obj_edges"]:
+                            node_id = rel.nodes[1]["Id"]
+                            # Ignore attacker-controlled data accessed after the sink
+                            # if node_id not in cfg_node_ids.keys():
+                            #     cfg_node_ids[node_id] = self.find_cfg_node_id(session, node_id)
+
+                            # if cfg_node_ids[node_id] and cfg_node_ids[node_id] <= int(sink_id) and \
                             if rel["RelationType"] == "SO" and obj_recon_flag:
                                 prop_name = rel["IdentifierName"]
                                 if prop_name not in params_types: 
@@ -517,9 +509,13 @@ class QueryType:
                             elif rel["RelationType"] == "DEP":
                                 obj_recon_flag = False
                                 params_types["pdg_node_id"].add(node_id)
-                    params_types = param_types_pointer
-            
-        self.assign_types(session, params_types, config)
-        self.object_to_array(params_types)
+                        params_types = param_types_pointer
+
+            print("[INFO] - Assigning types to attacker-controlled data") 
+            self.assign_types(session, params_types, config)
+            self.object_to_array(params_types)
+            attacker_controlled_data[source_id] = params_types
+        else:        
+            params_types = attacker_controlled_data[source_id]
 
         return list(params_types.keys()), params_types 

@@ -18,8 +18,10 @@ neo_driver = GraphDatabase.driver(NEO4J_CONN_STRING, auth=('', ''))
 
 with neo_driver.session() as session:
 	vuln_paths = []
+	# Optimization: Data reconstruction takes some time, by using this data structure, the same data is only constructed once
+	attacker_controlled_data = {}
 	for query_type in Queries().get_query_types():
-		query_type.find_vulnerable_paths(session, vuln_paths, args.file, config)
+		query_type.find_vulnerable_paths(session, vuln_paths, attacker_controlled_data, args.file, config)
 
 	if len(vuln_paths) > 0:
 		my_utils.console(vuln_paths)
