@@ -12,6 +12,7 @@ const { buildPDG } = require("./traverse/dependency/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
+import { type CFGraphReturn } from "./traverse/cfg_builder";
 
 import { printStatus } from "./utils/utils";
 import { readConfig, type Config } from "./utils/config_reader";
@@ -47,20 +48,20 @@ function parse(filename: string, config: Config, fileOutput: boolean): Graph {
         normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true });
         const astGraph = buildAST(normalizedAst);
         printStatus("Build AST");
-        const cfgGraph = buildCFG(astGraph);
+        const cfGraphReturn: CFGraphReturn = buildCFG(astGraph);
         printStatus("Build CFG");
-        const callGraphReturn = buildCallGraph(cfgGraph, config);
+        const callGraphReturn = buildCallGraph(cfGraphReturn.graph, cfGraphReturn.functionContexts, config);
         printStatus("Build CG");
         const callGraph = callGraphReturn.callGraph;
         config = callGraphReturn.config;
-        const pdgReturn: PDGReturn = buildPDG(callGraph, config);
+        const pdgReturn: PDGReturn = buildPDG(callGraph, cfGraphReturn.functionContexts, config);
         printStatus("Build PDG");
         const pdgGraph = pdgReturn.graph;
         const trackers = pdgReturn.trackers;
-        const finalGraph = buildTypes(pdgGraph, trackers);
-        printStatus("Build Types")
+        // const finalGraph = buildTypes(pdgGraph, trackers);
+        // printStatus("Build Types")
         trackers.print();
-        return finalGraph;
+        return pdgGraph;
     } catch (e: any) {
         console.log("Error:", e.stack);
     }
