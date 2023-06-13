@@ -71,8 +71,8 @@ def test_explodejs(dataset_path, dataset, update_sheets):
             norm_file = os.path.join(explodejs_path, f"{vulnerable_file_name}.norm")
             # expected_output_file = os.path.join(explodejs_path, f"{vulnerable_file_name}_expected_output.json")
 
-            os.system(f"./explodejs-2.sh -f {vulnerable_file_path} -c detection/config.json -o {output_file} -n {norm_file} >/dev/null 2>&1")
-            # os.system(f"./explodejs-2.sh -f {vulnerable_file_path} -c detection/config.json -o {output_file} -n {norm_file} -g >/dev/null 2>&1")
+            os.system(f"./explodejs-2.sh -f {vulnerable_file_path} -c config.json -o {output_file} -n {norm_file} >/dev/null 2>&1")
+            # os.system(f"./explodejs-2.sh -f {vulnerable_file_path} -c config.json -o {output_file} -n {norm_file} -g >/dev/null 2>&1")
             check_graph_construction(grades, norm_file)
             evaluate_outputs(grades, norm_file, output_file)
             # print("Intermdiate grades:", grades)

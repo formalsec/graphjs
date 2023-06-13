@@ -9,8 +9,8 @@ import argparse
 import ast
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-94/1122"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/*"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-94/GHSA-j665-rvj7-2jv9"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -48,24 +48,26 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
 
         print(Fore.MAGENTA + f"{vulnerability_path} ({count}/{len(vulnerabilities)})" + Fore.RESET)
 
-        skip = [
+        excluded = [
             "./datasets/injection-dataset/CWE-78/117",
-            "./datasets/injection-dataset/CWE-78/694", 
-            "./datasets/injection-dataset/CWE-94/97", 
             "./datasets/injection-dataset/CWE-94/551", 
             "./datasets/injection-dataset/CWE-94/813", 
             "./datasets/injection-dataset/CWE-94/835", 
             "./datasets/injection-dataset/CWE-94/1545", 
             "./datasets/injection-dataset/CWE-94/GHSA-54px-mhwv-5v8x", 
+            "./datasets/injection-dataset/CWE-471/1329",
+            "./datasets/injection-dataset/CWE-471/1483",
+            "./datasets/injection-dataset/CWE-471/GHSA-r9w3-g83q-m6hq",
+        ]
+        time_limit_exceeded = [
+            "./datasets/injection-dataset/CWE-78/694", 
+            "./datasets/injection-dataset/CWE-94/97", 
             "./datasets/injection-dataset/CWE-94/GHSA-7fm6-gxqg-2pwr",
             "./datasets/injection-dataset/CWE-471/577",
             "./datasets/injection-dataset/CWE-471/1065",
-            "./datasets/injection-dataset/CWE-471/1329",
-            "./datasets/injection-dataset/CWE-471/1483",
             "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq",
-            "./datasets/injection-dataset/CWE-471/GHSA-r9w3-g83q-m6hq",
         ]
-        if vulnerability_path in skip:
+        if vulnerability_path in time_limit_exceeded or vulnerability_path in excluded:
             continue
 
         explodejs_path = os.path.join(vulnerability_path, "tool_outputs/explodejs")
@@ -86,9 +88,9 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
                 expected_output_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output.json")
                 symbolic_test_file = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test.js")
                 if not exploit:
-                    os.system(f"./explodejs.sh -f {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -n {norm_file}")
+                    os.system(f"./explodejs.sh -f {vulnerable_file_path} -c config.json -o {taint_summary_file} -n {norm_file}")
                 else:
-                    os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c detection/config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
+                    os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
                 check_graph_construction(grades, norm_file)
                 comapre_outputs(grades, expected_output_file, taint_summary_file)
                 check_symb_test_generation(grades, symbolic_test_file, explodejs_path)

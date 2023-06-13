@@ -215,7 +215,7 @@ function generate_symb_assignment(param_name, param_type, prefix = "") {
  */
 function generate_test(prog, config) {
 	/* Remove module.exports and check if sink type is symbolic */
-	 var parsed_prog = format_pretty(js2ast(ast2js(module_exp_rm_sink_safeguard(prog, config.sink, config.sink_lineno))));
+	var parsed_prog = format_pretty(js2ast(ast2js(module_exp_rm_sink_safeguard(prog, config.sink, config.sink_lineno))));
 	/* Add definitions and assignments of the variables needed for the program */
 	var assignments = Object.entries(config.params_types).map(([param, param_type]) => generate_symb_assignment(param, param_type, ""));
 	/* Get function parameter names */
