@@ -10,7 +10,7 @@ import ast
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/*"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-94/GHSA-j665-rvj7-2jv9"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/1332"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -164,6 +164,11 @@ def compare_params_types(expected, output):
                 if is_valid_list_or_dict(ty) and isinstance(ast.literal_eval(ty), dict):
                     if not compare_params_types(expected, ast.literal_eval(ty)):
                         return False
+                    else:
+                        break
+            else:
+                return False
+
         elif isinstance(output, dict):
             if set(expected.keys()) != set(output.keys()):
                 return False
@@ -188,10 +193,11 @@ def compare_params_types(expected, output):
             return False 
 
     elif isinstance(expected, str) and isinstance(output, str):
-        set_expected = set(expected.split(" | "))
-        set_output = set(output.split(" | "))
-        if not set_expected.issubset(set_output):
-            return False
+        if expected != "any":
+            set_expected = set(expected.split(" | "))
+            set_output = set(output.split(" | "))
+            if not set_expected.issubset(set_output):
+                return False
     
     else:
         return False

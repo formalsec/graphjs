@@ -444,7 +444,7 @@ class QueryType:
                     d[i].pop("pdg_node_id", None)
                     self.assign_types(session, d[i], config)
 
-    def object_to_array(self, params_types):
+    def object_to_array(self, params_types, config):
         """
         Transform an object into its correct type: array.
         """
@@ -459,10 +459,12 @@ class QueryType:
                     params_types[i] = arr
                 else:
                     params_types[i] = f"{params_types[i]} | {arr}"
+            elif isinstance(v, dict) and "length" in params_types[i] and all(key == "length" or key == "*" or key in config["prototypes"]["string"]  for key in params_types[i].keys()):
+                params_types[i] = f"{params_types[i]} | array | string"
             elif isinstance(v, dict) and ("length" in params_types[i] or all(key == "*" for key in params_types[i].keys())):
                 params_types[i] = f"{params_types[i]} | array"
             elif isinstance(v, dict):
-                self.object_to_array(params_types[i])
+                self.object_to_array(params_types[i], config)
     
     def reconstruct_attacker_controlled_data(self, session, source_id, sink_id, attacker_controlled_data, config):
         """
@@ -513,7 +515,7 @@ class QueryType:
 
             print("[INFO] - Assigning types to attacker-controlled data") 
             self.assign_types(session, params_types, config)
-            self.object_to_array(params_types)
+            self.object_to_array(params_types, config)
             attacker_controlled_data[source_id] = params_types
         else:        
             params_types = attacker_controlled_data[source_id]
