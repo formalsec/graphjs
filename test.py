@@ -9,8 +9,8 @@ import argparse
 import ast
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/*"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/1332"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/ipt/*"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/GHSA-23wx-cgxq-vpwx"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -185,6 +185,11 @@ def compare_params_types(expected, output):
                 if is_valid_list_or_dict(ty) and isinstance(ast.literal_eval(ty), list):
                     if not compare_params_types(expected, ast.literal_eval(ty)):
                         return False
+                    else:
+                        break
+            else:
+                return False
+
         elif isinstance(output, list):
             for i in range(len(expected)):
                 if not compare_params_types(expected[i], output[i]):
