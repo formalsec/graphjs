@@ -12,6 +12,7 @@ const map_reduceJS = require("../utils/js_ast_manipulation/js_map_reduce");
 const mapJS = require("../utils/js_ast_manipulation/js_mapper");
 const format_pretty = require("../utils/format_pretty");
 const instr_const = require("../constants/instr_constants");
+const utils = require("../utils/utils");
 
 /**
  * Auxiliary functions
@@ -95,13 +96,22 @@ function instrument_code(ast, stmt) {
  * @param {Object} sink 
  * Unsafe sink name
  */
+const util = require('util')
+
  function module_exp_rm_sink_safeguard(ast_prog, sink, sink_lineno) {
+	// console.log(util.inspect(ast_prog, {depth: null}));
+
 	function f(ast) {
 		switch (ast.type) {
 			case "VariableDeclaration":
-				/* let <var> = <sink>(<var>) */
-				if (ast.declarations[0].init && (ast.declarations[0].init.type === "CallExpression" || ast.declarations[0].init.type === "NewExpression") 
+				if (ast.declarations[0].init && ast.declarations[0].init.type === "CallExpression" && ast.declarations[0].init.callee.type === "MemberExpression" && ast.loc.start.line === sink_lineno) {
+					/* var <var> = <package>.<sink>(<var>) */
+					ast.declarations[0].init.callee.object.name = "esl_symbolic"
+					ast.declarations[0].init.callee.property.name = `${ast.declarations[0].init.callee.property.name}Wrapper`
+				}
+				else if (ast.declarations[0].init && (ast.declarations[0].init.type === "CallExpression" || ast.declarations[0].init.type === "NewExpression") 
 				&& ast.loc.start.line === sink_lineno) {
+					/* let <var> = <sink>(<var>) */
 					ast.declarations[0].init.callee.name = `esl_symbolic.${ast.declarations[0].init.callee.name}Wrapper`
 				}
 				return null;
@@ -111,7 +121,7 @@ function instrument_code(ast, stmt) {
 					return { type: "EmptyStatement" };
 				} else if (ast.expression.type === "AssignmentExpression" && ast.expression.right.type === "CallExpression"
 				&& ast.loc.start.line === sink_lineno) {
-					/* let <var> = <package>.<sink>(<var>) */
+					/*<package>.<sink>(<var>) */
 					ast.expression.right.callee.object.name = "esl_symbolic"
 					ast.expression.right.callee.property.name = `${ast.expression.right.callee.property.name}Wrapper`
 				}
@@ -164,7 +174,7 @@ function generate_symb_assignment(param_name, param_type, prefix = "", vuln_type
 	} else if (Array.isArray(param_type) || param_type === "array") {
 		name += `_${fresh_array_var()}`;
 		var tmplt = `var ${name} = []\n`;
-		param_type = param_type != "array" ? param_type : Array(instr_const.symb_array_length).fill("any")
+		param_type = utils.fillArrayUntilLength(param_type, "string", instr_const.symb_array_length)
 		for (i = 0; i < param_type.length; i++) {
 			element = generate_symb_assignment(i, param_type[i], `${name}__`, vuln_type);
 			tmplt = tmplt.concat(element.tmplt, `${name}.push(${element.name});\n`);
@@ -179,7 +189,7 @@ function generate_symb_assignment(param_name, param_type, prefix = "", vuln_type
 		switch (param_type) {
 			case "any":
 				name += `_${fresh_symb_var()}`;
-				var tmplt = `var ${name} = esl_symbolic.symbolic("${name}");\n`;
+				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`; // any is string for simplifications purposes
 				return {name: name, tmplt: tmplt};
 
 			case "bool":
@@ -213,7 +223,10 @@ function generate_symb_assignment(param_name, param_type, prefix = "", vuln_type
 				return {name: name, tmplt: tmplt };
 
 			default: 
-				throw new Error("Unsupported: generate_symb_assignment")
+				name += `_${fresh_symb_var()}`;
+				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`; // simplification purposes
+				return {name: name, tmplt: tmplt};
+				// throw new Error("Unsupported: generate_symb_assignment")
 		}
 	}
 }

@@ -1,6 +1,19 @@
 const cartesian = require('cartesian');
 const isObject = require('isobject');
 
+function fillArrayUntilLength(array, defaultValue, targetLength) {
+  if (typeof array === "string") {
+    array = [];
+  }
+
+  const remainingLength = targetLength - array.length;
+  if (remainingLength > 0) {
+    const fillArray = Array(remainingLength).fill(defaultValue);
+    return array.concat(fillArray);
+  }
+  return array;
+}
+
 function isStringObject(str) {
     if (typeof str === 'string') {
         str = str.replace(/'/g, '"');
@@ -99,4 +112,4 @@ const generateCartesianProduct = (data) => {
     }
 };
 
-module.exports = { generateCartesianProduct };
+module.exports = { generateCartesianProduct, fillArrayUntilLength };
