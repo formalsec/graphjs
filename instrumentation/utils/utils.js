@@ -1,29 +1,68 @@
 const cartesian = require('cartesian');
+const isObject = require('isobject');
 
-const isStringArray = (value) => {
-    if (typeof value === 'string') {
+function fillArrayUntilLength(array, defaultValue, targetLength) {
+  if (typeof array === "string") {
+    array = [];
+  }
+
+  const remainingLength = targetLength - array.length;
+  if (remainingLength > 0) {
+    const fillArray = Array(remainingLength).fill(defaultValue);
+    return array.concat(fillArray);
+  }
+  return array;
+}
+
+function isStringObject(str) {
+    if (typeof str === 'string') {
+        str = str.replace(/'/g, '"');
         try {
-            const parsedArray = JSON.parse(value);
-            return Array.isArray(parsedArray);
+            var obj = JSON.parse(str);
+            return isObject(obj)
         } catch (error) {
             return false;
         }
     }
     return false;
-};
+}
 
 const parseStringValue = (value) => {
-    value = value.replace(/'/g, '"');
-    if (isStringArray(value)) {
+    try {
+        value = value.replace(/'/g, '"');
         return JSON.parse(value);
-    } else {
-        try {
-            return JSON.parse(value);
-        } catch (error) {
-            return value;
-        }
+    } catch (error) {
+        return value;
     }
 };
+
+function splitStringIgnoringBraces(str) {
+  var result = [];
+  var openBraceCount = 0;
+  var currentChunk = '';
+
+  for (var i = 0; i < str.length; i++) {
+    var char = str[i];
+
+    if (char === '|' && openBraceCount === 0) {
+      result.push(currentChunk.trim());
+      currentChunk = '';
+    } else {
+      currentChunk += char;
+      if (char === '{') {
+        openBraceCount++;
+      } else if (char === '}') {
+        openBraceCount--;
+      }
+    }
+  }
+
+  if (currentChunk.trim() !== '') {
+    result.push(currentChunk.trim());
+  }
+
+  return result;
+}
 
 const generateCartesianProduct = (data) => {
     if (Array.isArray(data)) {
@@ -39,8 +78,12 @@ const generateCartesianProduct = (data) => {
             const value = data[key];
 
             if (typeof value === 'string') {
-                const convertedArray = value.split(" | ").map((value) => {
-                    return parseStringValue(value);
+                const convertedArray = splitStringIgnoringBraces(value).map((val) => {
+                    if (isStringObject(val)) {
+                        return generateCartesianProduct(parseStringValue(val))       
+                    } else {
+                        return parseStringValue(val);
+                    }
                 });
                 cartesianProduct[key] = convertedArray;
             } else if (typeof value === 'object') {
@@ -69,4 +112,4 @@ const generateCartesianProduct = (data) => {
     }
 };
 
-module.exports = { generateCartesianProduct };
+module.exports = { generateCartesianProduct, fillArrayUntilLength };

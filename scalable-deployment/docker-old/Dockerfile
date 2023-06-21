@@ -124,4 +124,4 @@ RUN mkdir -p input_file
 RUN mkdir -p output_files
 
 # ENTRYPOINT "/bin/bash"
-CMD ["./explodejs-run.sh", "-f", "input_file/index.js", "-c", "detection/config.json", "-o", "output_files/index.json", "-n", "output_files/index.txt"]
+CMD ["./explodejs-run.sh", "-f", "input_file/index.js", "-c", "config.json", "-o", "output_files/index.json", "-n", "output_files/index.txt"]
