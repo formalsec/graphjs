@@ -193,6 +193,7 @@ function generate_symb_assignment(param_name, param_type, prefix = "", vuln_type
 				return {name: name, tmplt: tmplt};
 
 			case "bool":
+			case "boolean":
 				name += `_${fresh_symb_bool_var()}`;
 				var tmplt = `var ${name} = esl_symbolic.boolean("${name}");\n`;
 				return {name: name, tmplt: tmplt};
@@ -223,10 +224,10 @@ function generate_symb_assignment(param_name, param_type, prefix = "", vuln_type
 				return {name: name, tmplt: tmplt };
 
 			default: 
-				name += `_${fresh_symb_var()}`;
-				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`; // simplification purposes
-				return {name: name, tmplt: tmplt};
-				// throw new Error("Unsupported: generate_symb_assignment")
+				throw new Error("Unsupported: generate_symb_assignment")
+				// name += `_${fresh_symb_var()}`;
+				// var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`; // simplification purposes
+				// return {name: name, tmplt: tmplt};
 		}
 	}
 }

@@ -78,9 +78,9 @@ const generateCartesianProduct = (data) => {
             const value = data[key];
 
             if (typeof value === 'string') {
-                const convertedArray = splitStringIgnoringBraces(value).map((val) => {
+                const convertedArray = splitStringIgnoringBraces(value).flatMap((val) => {
                     if (isStringObject(val)) {
-                        return generateCartesianProduct(parseStringValue(val))       
+                        return generateCartesianProduct(parseStringValue(val));
                     } else {
                         return parseStringValue(val);
                     }
