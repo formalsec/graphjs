@@ -61,27 +61,6 @@ class QueryType:
         """
         return [recon_query, recon_logical_expr_query]
     
-    def find_cfg_node_id(self, session, obj_id):
-        """
-        Find the CFG node that connects to the PDG_OBJECT node.
-        """
-        find_cfg_node_query = f"""
-            MATCH
-                (cfg_stmt)
-                    -[ref]
-                        ->(obj)
-            WHERE
-                (ref:REF or ref:SINK) AND
-                obj.Id = "{obj_id}"
-            RETURN cfg_stmt.Id 
-        """
-        results = session.run(find_cfg_node_query)
-        if results.peek():
-            smallest_record = min(results, key=lambda record: int(record["cfg_stmt.Id"]))
-            return int(smallest_record["cfg_stmt.Id"])
-        else:
-            return None
-
     def find_variable_declarators(self, session, param_name, obj_ids):
         """
         Find variable declarators in the graph that depend on param_name
@@ -494,11 +473,6 @@ class QueryType:
                         params_types = params_types[param_name]
                         for rel in record["obj_edges"]:
                             node_id = rel.nodes[1]["Id"]
-                            # Ignore attacker-controlled data accessed after the sink
-                            # if node_id not in cfg_node_ids.keys():
-                            #     cfg_node_ids[node_id] = self.find_cfg_node_id(session, node_id)
-
-                            # if cfg_node_ids[node_id] and cfg_node_ids[node_id] <= int(sink_id) and \
                             if rel["RelationType"] == "SO" and obj_recon_flag:
                                 prop_name = rel["IdentifierName"]
                                 if prop_name not in params_types: 
