@@ -1,0 +1,59 @@
+{
+    "advisory": {
+        "ghsa_id": "GHSA-m639-9whg-fw97", 
+        "cve_id": "CVE-2021-23702",
+        "cwe": "CWE-1321"
+    },
+    "correct_cwe": ["CWE-471", "CWE-1321"],
+    "correct_package_link": "https://registry.npmjs.org/object-extend/-/object-extend-0.5.0.tgz",
+    "vulnerability": {
+        "vulnerability_location": [
+            {
+                "source": {
+                    "file": "lib/extend.js",
+                    "lineno": 21,
+                    "code": "module.exports = function extend(a, b) {"
+                },
+                "sink": {
+                    "file": "lib/extend.js",
+                    "lineno": 42,
+                    "code": "a[key] = b[key];"
+                }
+            },
+            {
+                "source": {
+                    "file": "lib/extend.js",
+                    "lineno": 21,
+                    "code": "module.exports = function extend(a, b) {"
+                },
+                "sink": {
+                    "file": "lib/extend.js",
+                    "lineno": 37,
+                    "code": "a[key] = b[key];"
+                }
+            },
+            {
+                "source": {
+                    "file": "lib/extend.js",
+                    "lineno": 21,
+                    "code": "module.exports = function extend(a, b) {"
+                },
+                "sink": {
+                    "file": "lib/extend.js",
+                    "lineno": 39,
+                    "code": "a[key] = extend(a[key], b[key]);"
+                }
+            }
+        ]
+    },
+    "poc": [
+        {
+            "url": "https://security.snyk.io/vuln/SNYK-JS-OBJECTEXTEND-2401470"
+        }
+    ],
+    "patch": [
+        {
+            "url": ""
+        }
+    ]
+}

@@ -1,0 +1,410 @@
+
+> parser@0.0.1 start
+> ts-node-dev --transpile-only ./src/parser.ts "-f" "/home/mikeelbyte/inesc/js-cpg/datasets/injection-dataset/CWE-471/GHSA-g954-5hwp-pp24/src/example.js" "-c" "/home/mikeelbyte/inesc/js-cpg/config.json" "--out" "--csv"
+
+[INFO] 18:06:52 ts-node-dev ver. 1.1.8 (using ts-node ver. 9.1.1, typescript ver. 4.5.5)
+Step - AST Parsing - concluded.
+Step - AST Normalization - concluded.
+
+Normalized code:
+const setProperty = function (dst, path, value) {
+    const setProp = function (dst, path, value) {
+        var part = path.shift();
+        const v1 = path.length;
+        const v2 = v1 > 0;
+        if (v2) {
+            const v3 = dst[part];
+            const v4 = {};
+            const v5 = v3 || v4;
+            const v6 = setProp(v5, path, value);
+            dst[part] = v6;
+        } else {
+            var prevValue = dst[part];
+            if (prevValue) {
+                const v7 = [];
+                const v8 = v7.concat(prevValue);
+                value = v8.concat(value);
+            }
+            dst[part] = value;
+        }
+        return dst;
+    };
+    const v9 = typeof dst;
+    const v10 = v9 !== 'object';
+    if (v10) {
+        const v11 = TypeError('dst must be an object');
+        throw v11;
+    }
+    const v12 = !path;
+    if (v12) {
+        const v13 = TypeError('path must be specified');
+        throw v13;
+    }
+    path = path.split('.');
+    const v14 = setProp(dst, path, value);
+    return v14;
+};
+;
+const v15 = {};
+v15['*'] = 'any';
+const v16 = {};
+v16['*'] = v15;
+dst['*'] = v16;
+dst = {};
+dst = {};
+const v17 = {};
+const v18 = {};
+v18['b'] = v17;
+obj['a'] = v18;
+obj = {};
+obj = {};
+const v19 = console.log(obj);
+v19;
+const v20 = setProperty(obj, 'a.b.c', 'Value After setProperty!');
+v20;
+const v21 = console.log(obj);
+v21;
+const v22 = console.log('Proof of Concept:');
+v22;
+const v23 = {};
+const v24 = v23.polluted;
+const v25 = console.log(v24);
+v25;
+const v26 = {};
+const v27 = setProperty(v26, '__proto__.polluted', 'Hacked!');
+v27;
+const v28 = {};
+const v29 = v28.polluted;
+const v30 = console.log(v29);
+v30;
+
+===============
+Trace: Expression didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/ast_builder.ts:463:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/ast_builder.ts:11:38
+    at Array.map (<anonymous>)
+    at mapReduce (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/ast_builder.ts:11:24)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/ast_builder.ts:21:36)
+    at buildAST (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/ast_builder.ts:470:5)
+    at parse (/home/mikeelbyte/inesc/js-cpg/parser/src/parser.ts:49:34)
+    at Object.<anonymous> (/home/mikeelbyte/inesc/js-cpg/parser/src/parser.ts:120:23)
+    at Module._compile (node:internal/modules/cjs/loader:1101:14)
+    at Module._compile (/home/mikeelbyte/inesc/js-cpg/parser/node_modules/source-map-support/source-map-support.js:568:25)
+Step - Build AST - concluded.
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:318:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:80
+    at Array.map (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:66)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:318:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:80
+    at Array.map (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:66)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+Trace: Expression EmptyStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:318:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:71:44
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:69:28)
+    at buildCFG (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:324:24)
+    at parse (/home/mikeelbyte/inesc/js-cpg/parser/src/parser.ts:51:46)
+    at Object.<anonymous> (/home/mikeelbyte/inesc/js-cpg/parser/src/parser.ts:120:23)
+    at Module._compile (node:internal/modules/cjs/loader:1101:14)
+    at Module._compile (/home/mikeelbyte/inesc/js-cpg/parser/node_modules/source-map-support/source-map-support.js:568:25)
+    at Module.m._compile (/tmp/ts-node-dev-hook-33845343825111973.js:69:33)
+Step - Build CFG - concluded.
+Step - Build CG - concluded.
+Trace: Expression EmptyStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1145:20
+    at Array.forEach (<anonymous>)
+    at buildPDG (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1144:17)
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1027:31)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1027:31)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+Step - Build PDG - concluded.
+
+Heap: Map(57) {
+  '254.this-o1' => {},
+  '254.dst-o2' => {},
+  '254.path-o3' => {},
+  '254.value-o4' => {},
+  '252.v15-o5' => {},
+  '252.v15-o6' => { "'*'": { location: "252.v15-o6.'*'-o7" } },
+  "252.v15-o6.'*'-o7" => {},
+  '252.v16-o8' => {},
+  '252.v16-o9' => { "'*'": { location: '252.v15-o6' } },
+  "252.v16-o9.'*'-o10" => {},
+  '252.dst-o11' => { "'*'": { location: "252.dst-o11.'*'-o12" } },
+  "252.dst-o11.'*'-o12" => {},
+  '252.dst-o13' => {},
+  '252.dst-o14' => {},
+  '252.v17-o15' => {},
+  '252.v18-o16' => {},
+  '252.v18-o17' => { "'b'": { location: '252.v17-o15' } },
+  "252.v18-o17.'b'-o18" => {},
+  '252.obj-o19' => { "'a'": { location: "252.obj-o19.'a'-o20" } },
+  "252.obj-o19.'a'-o20" => {},
+  '252.obj-o21' => {},
+  '252.obj-o22' => {},
+  '252.v19-o23' => {},
+  '252.v20-o24' => {},
+  '252.v21-o25' => {},
+  '252.v22-o26' => {},
+  '252.v23-o27' => { polluted: { location: '252.v23-o27.polluted-o28' } },
+  '252.v23-o27.polluted-o28' => {},
+  '252.v25-o29' => {},
+  '252.v26-o30' => {},
+  '252.v27-o31' => {},
+  '252.v28-o32' => { polluted: { location: '252.v28-o32.polluted-o33' } },
+  '252.v28-o32.polluted-o33' => {},
+  '252.v30-o34' => {},
+  '256.this-o35' => {},
+  '256.dst-o36' => { '*': { location: '256.dst-o36.*-o47' } },
+  '256.path-o37' => { length: { location: '256.path-o37.length-o45' } },
+  '256.value-o38' => {},
+  '254.v10-o39' => {},
+  '254.v11-o40' => {},
+  '254.v13-o41' => {},
+  '254.path-o42' => {},
+  '254.v14-o43' => {},
+  '256.part-o44' => {},
+  '256.path-o37.length-o45' => {},
+  '256.v2-o46' => {},
+  '256.dst-o36.*-o47' => {},
+  '256.v4-o48' => {},
+  '256.v5-o49' => {},
+  '256.v6-o50' => {},
+  '256.dst-o51' => { '*': { location: '256.v6-o50' } },
+  '256.dst-o51.*-o52' => {},
+  '256.v7-o53' => {},
+  '256.v8-o54' => {},
+  '256.value-o55' => {},
+  '256.dst-o56' => { '*': { location: '256.value-o55' } },
+  '256.dst-o56.*-o57' => {}
+}
+Store: Map(42) {
+  '254.this' => [ { location: '254.this-o1' } ],
+  '254.dst' => [ { location: '254.dst-o2' } ],
+  '254.path' => [ { location: '254.path-o3' }, { location: '254.path-o42' } ],
+  '254.value' => [ { location: '254.value-o4' } ],
+  '252.v15' => [
+    { location: '252.v15-o5' },
+    { location: '252.v15-o6' },
+    { location: "252.v16-o9.'*'-o10" }
+  ],
+  '252.v16' => [ { location: '252.v16-o8' }, { location: '252.v16-o9' } ],
+  '252.dst' => [
+    { location: '252.dst-o11' },
+    { location: '252.dst-o13' },
+    { location: '252.dst-o14' }
+  ],
+  '252.v17' => [ { location: '252.v17-o15' }, { location: "252.v18-o17.'b'-o18" } ],
+  '252.v18' => [ { location: '252.v18-o16' }, { location: '252.v18-o17' } ],
+  '252.obj' => [
+    { location: '252.obj-o19' },
+    { location: '252.obj-o21' },
+    { location: '252.obj-o22' }
+  ],
+  '252.v19' => [ { location: '252.v19-o23' } ],
+  '252.v20' => [ { location: '252.v20-o24' } ],
+  '252.v21' => [ { location: '252.v21-o25' } ],
+  '252.v22' => [ { location: '252.v22-o26' } ],
+  '252.v23' => [ { location: '252.v23-o27' } ],
+  '252.v24' => [ { location: '252.v23-o27.polluted-o28' } ],
+  '252.v25' => [ { location: '252.v25-o29' } ],
+  '252.v26' => [ { location: '252.v26-o30' } ],
+  '252.v27' => [ { location: '252.v27-o31' } ],
+  '252.v28' => [ { location: '252.v28-o32' } ],
+  '252.v29' => [ { location: '252.v28-o32.polluted-o33' } ],
+  '252.v30' => [ { location: '252.v30-o34' } ],
+  '256.this' => [ { location: '256.this-o35' } ],
+  '256.dst' => [
+    { location: '256.dst-o36' },
+    { location: '256.dst-o51' },
+    { location: '256.dst-o56' }
+  ],
+  '256.path' => [ { location: '256.path-o37' } ],
+  '256.value' => [ { location: '256.value-o38' }, { location: '256.value-o55' } ],
+  '254.v9' => [ { location: '254.dst-o2' } ],
+  '254.v10' => [ { location: '254.v10-o39' } ],
+  '254.v11' => [ { location: '254.v11-o40' } ],
+  '254.v12' => [ { location: '254.path-o3' } ],
+  '254.v13' => [ { location: '254.v13-o41' } ],
+  '254.v14' => [ { location: '254.v14-o43' } ],
+  '256.part' => [ { location: '256.part-o44' } ],
+  '256.v1' => [ { location: '256.path-o37.length-o45' } ],
+  '256.v2' => [ { location: '256.v2-o46' } ],
+  '256.v3' => [
+    { location: '256.dst-o36.*-o47' },
+    { location: '256.dst-o51.*-o52' },
+    { location: '256.dst-o56.*-o57' }
+  ],
+  '256.v4' => [ { location: '256.v4-o48' } ],
+  '256.v5' => [ { location: '256.v5-o49' } ],
+  '256.v6' => [ { location: '256.v6-o50' } ],
+  '256.prevValue' => [
+    { location: '256.dst-o36.*-o47' },
+    { location: '256.dst-o56.*-o57' }
+  ],
+  '256.v7' => [ { location: '256.v7-o53' } ],
+  '256.v8' => [ { location: '256.v8-o54' } ]
+}
+Refs: Map(54) {
+  '254.this-o1' => [ '254.this' ],
+  '254.dst-o2' => [ '254.dst', '254.v9' ],
+  '254.path-o3' => [ '254.path', '254.v12' ],
+  '254.value-o4' => [ '254.value' ],
+  '252.v15-o5' => [ '252.v15' ],
+  '252.v15-o6' => [ '252.v15' ],
+  '252.v16-o8' => [ '252.v16' ],
+  '252.v16-o9' => [ '252.v16' ],
+  "252.v16-o9.'*'-o10" => [ '252.v15' ],
+  '252.dst-o11' => [ '252.dst' ],
+  '252.dst-o13' => [ '252.dst' ],
+  '252.dst-o14' => [ '252.dst' ],
+  '252.v17-o15' => [ '252.v17' ],
+  '252.v18-o16' => [ '252.v18' ],
+  '252.v18-o17' => [ '252.v18' ],
+  "252.v18-o17.'b'-o18" => [ '252.v17' ],
+  '252.obj-o19' => [ '252.obj' ],
+  '252.obj-o21' => [ '252.obj' ],
+  '252.obj-o22' => [ '252.obj' ],
+  '252.v19-o23' => [ '252.v19' ],
+  '252.v20-o24' => [ '252.v20' ],
+  '252.v21-o25' => [ '252.v21' ],
+  '252.v22-o26' => [ '252.v22' ],
+  '252.v23-o27' => [ '252.v23' ],
+  '252.v23-o27.polluted-o28' => [ '252.v24' ],
+  '252.v25-o29' => [ '252.v25' ],
+  '252.v26-o30' => [ '252.v26' ],
+  '252.v27-o31' => [ '252.v27' ],
+  '252.v28-o32' => [ '252.v28' ],
+  '252.v28-o32.polluted-o33' => [ '252.v29' ],
+  '252.v30-o34' => [ '252.v30' ],
+  '256.this-o35' => [ '256.this' ],
+  '256.dst-o36' => [ '256.dst' ],
+  '256.path-o37' => [ '256.path' ],
+  '256.value-o38' => [ '256.value' ],
+  '254.v10-o39' => [ '254.v10' ],
+  '254.v11-o40' => [ '254.v11' ],
+  '254.v13-o41' => [ '254.v13' ],
+  '254.path-o42' => [ '254.path' ],
+  '254.v14-o43' => [ '254.v14' ],
+  '256.part-o44' => [ '256.part' ],
+  '256.path-o37.length-o45' => [ '256.v1' ],
+  '256.v2-o46' => [ '256.v2' ],
+  '256.dst-o36.*-o47' => [ '256.v3', '256.prevValue' ],
+  '256.v4-o48' => [ '256.v4' ],
+  '256.v5-o49' => [ '256.v5' ],
+  '256.v6-o50' => [ '256.v6' ],
+  '256.dst-o51' => [ '256.dst' ],
+  '256.dst-o51.*-o52' => [ '256.v3' ],
+  '256.v7-o53' => [ '256.v7' ],
+  '256.v8-o54' => [ '256.v8' ],
+  '256.value-o55' => [ '256.value' ],
+  '256.dst-o56' => [ '256.dst' ],
+  '256.dst-o56.*-o57' => [ '256.v3', '256.prevValue' ]
+}
+Graph Nodes: Map(57) {
+  '254.this-o1' => 263,
+  '254.dst-o2' => 264,
+  '254.path-o3' => 265,
+  '254.value-o4' => 266,
+  '252.v15-o5' => 267,
+  '252.v15-o6' => 268,
+  "252.v15-o6.'*'-o7" => 269,
+  '252.v16-o8' => 270,
+  '252.v16-o9' => 271,
+  "252.v16-o9.'*'-o10" => 272,
+  '252.dst-o11' => 273,
+  "252.dst-o11.'*'-o12" => 274,
+  '252.dst-o13' => 275,
+  '252.dst-o14' => 276,
+  '252.v17-o15' => 277,
+  '252.v18-o16' => 278,
+  '252.v18-o17' => 279,
+  "252.v18-o17.'b'-o18" => 280,
+  '252.obj-o19' => 281,
+  "252.obj-o19.'a'-o20" => 282,
+  '252.obj-o21' => 283,
+  '252.obj-o22' => 284,
+  '252.v19-o23' => 285,
+  '252.v20-o24' => 286,
+  '252.v21-o25' => 287,
+  '252.v22-o26' => 288,
+  '252.v23-o27' => 289,
+  '252.v23-o27.polluted-o28' => 290,
+  '252.v25-o29' => 291,
+  '252.v26-o30' => 292,
+  '252.v27-o31' => 293,
+  '252.v28-o32' => 294,
+  '252.v28-o32.polluted-o33' => 295,
+  '252.v30-o34' => 296,
+  '256.this-o35' => 297,
+  '256.dst-o36' => 298,
+  '256.path-o37' => 299,
+  '256.value-o38' => 300,
+  '254.v10-o39' => 301,
+  '254.v11-o40' => 302,
+  '254.v13-o41' => 303,
+  '254.path-o42' => 304,
+  '254.v14-o43' => 305,
+  '256.part-o44' => 306,
+  '256.path-o37.length-o45' => 307,
+  '256.v2-o46' => 308,
+  '256.dst-o36.*-o47' => 309,
+  '256.v4-o48' => 310,
+  '256.v5-o49' => 311,
+  '256.v6-o50' => 312,
+  '256.dst-o51' => 313,
+  '256.dst-o51.*-o52' => 314,
+  '256.v7-o53' => 315,
+  '256.v8-o54' => 316,
+  '256.value-o55' => 317,
+  '256.dst-o56' => 318,
+  '256.dst-o56.*-o57' => 319
+}
+Func Contexts: Map(2) {
+  254 => [ 254, 254, 252, 254, 254 ],
+  256 => [ 256, 256, 252, 254, 256, 256 ]
+}
+Require Chain: Map(0) {}
+Variable Map: Map(2) { '254.v9' => undefined, '254.v12' => undefined }

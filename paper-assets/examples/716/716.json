@@ -1,0 +1,87 @@
+{
+    "advisory": {
+        "id": 716,
+        "cwe": "CWE-471"
+    },
+    "correct_cwe": "CWE-471",
+    "correct_package_link": "https://registry.npmjs.org/merge-objects/-/merge-objects-1.0.5.tgz",
+    "vulnerability": {
+        "vulnerability_location": [
+            {
+                "source": {
+                    "file": "lib/merge-objects.js",
+                    "lineno": 10,
+                    "code": "mergeObjects = function(object1, object2) {"
+                },
+                "sink": {
+                    "file": "lib/merge-objects.js",
+                    "lineno": 28,
+                    "code": "object1[key] = object1[key].concat(object2[key]);"
+                }
+            },
+            {
+                "source": {
+                    "file": "lib/merge-objects.js",
+                    "lineno": 10,
+                    "code": "mergeObjects = function(object1, object2) {"
+                },
+                "sink": {
+                    "file": "lib/merge-objects.js",
+                    "lineno": 31,
+                    "code": "object1[key] = mergeObjects(object1[key], object2[key]);"
+                }
+            },
+            {
+                "source": {
+                    "file": "lib/merge-objects.js",
+                    "lineno": 10,
+                    "code": "mergeObjects = function(object1, object2) {"
+                },
+                "sink": {
+                    "file": "lib/merge-objects.js",
+                    "lineno": 33,
+                    "code": "object1[key] = object2[key];"
+                }
+            }
+        ]
+    },
+    "poc": [
+        {
+            "url": "https://hackerone.com/reports/310706#steps-to-reproduce"
+        }
+    ],
+    "patch": [
+        {
+            "file_path": "716.patch"
+        }
+    ],
+    "tools": {
+        "codeql": {
+            "score": "A"
+        },
+        "njsscan": {
+            "score": "D"
+        },
+        "graudit": {
+            "score": "D"
+        },
+        "insidersec": {
+            "score": "D"
+        },
+        "eslint": {
+            "score": "B"
+        },
+        "appinspector": {
+            "score": "D"
+        },
+        "msdevskim": {
+            "score": "D"
+        },
+        "drek": {
+            "score": "D"
+        },
+        "mosca": {
+            "score": "D"
+        }
+    }
+}
