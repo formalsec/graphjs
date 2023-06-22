@@ -1,0 +1,22 @@
+[
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProperty",
+        "source_lineno": 182,
+        "sink": "dst[part] = value;",
+        "sink_lineno": 200,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": {
+                "*": "any"
+            },
+            
+            "path": "string",
+            "value": "any"
+        }
+    }
+]

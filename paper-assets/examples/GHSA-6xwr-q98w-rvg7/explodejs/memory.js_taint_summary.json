@@ -1,0 +1,432 @@
+[
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v88",
+        "source_lineno": 185,
+        "sink": "target[key] = {};",
+        "sink_lineno": 85,
+        "tainted_params": [
+            "nested"
+        ],
+        "params_types": {
+            "nested": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v88",
+        "source_lineno": 185,
+        "sink": "target[key] = value;",
+        "sink_lineno": 96,
+        "tainted_params": [
+            "nested"
+        ],
+        "params_types": {
+            "nested": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v88",
+        "source_lineno": 185,
+        "sink": "const v78 = typeof v77;",
+        "sink_lineno": 175,
+        "tainted_params": [
+            "nested"
+        ],
+        "params_types": {
+            "nested": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v88",
+        "source_lineno": 185,
+        "sink": "target[key] = {};",
+        "sink_lineno": 168,
+        "tainted_params": [
+            "nested"
+        ],
+        "params_types": {
+            "nested": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v88",
+        "source_lineno": 185,
+        "sink": "target[key] = value;",
+        "sink_lineno": 181,
+        "tainted_params": [
+            "nested"
+        ],
+        "params_types": {
+            "nested": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v90",
+        "source_lineno": 139,
+        "sink": "target[key] = {};",
+        "sink_lineno": 85,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "{'*': 'array | number'} | array"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v90",
+        "source_lineno": 139,
+        "sink": "target[key] = value;",
+        "sink_lineno": 96,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "{'*': 'array | number'} | array"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v90",
+        "source_lineno": 139,
+        "sink": "const v78 = typeof v77;",
+        "sink_lineno": 175,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "{'*': 'array | number'} | array"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v90",
+        "source_lineno": 139,
+        "sink": "target[key] = {};",
+        "sink_lineno": 168,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "{'*': 'array | number'} | array"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v90",
+        "source_lineno": 139,
+        "sink": "target[key] = value;",
+        "sink_lineno": 181,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "{'*': 'array | number'} | array"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v60",
+        "source_lineno": 100,
+        "sink": "target[key] = {};",
+        "sink_lineno": 85,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v60",
+        "source_lineno": 100,
+        "sink": "target[key] = value;",
+        "sink_lineno": 96,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v60",
+        "source_lineno": 100,
+        "sink": "const v78 = typeof v77;",
+        "sink_lineno": 175,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v60",
+        "source_lineno": 100,
+        "sink": "target[key] = {};",
+        "sink_lineno": 168,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v60",
+        "source_lineno": 100,
+        "sink": "target[key] = value;",
+        "sink_lineno": 181,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v42",
+        "source_lineno": 48,
+        "sink": "target[key] = {};",
+        "sink_lineno": 85,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "array | object"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v42",
+        "source_lineno": 48,
+        "sink": "target[key] = value;",
+        "sink_lineno": 96,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "array | object"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v42",
+        "source_lineno": 48,
+        "sink": "const v78 = typeof v77;",
+        "sink_lineno": 175,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "array | object"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v42",
+        "source_lineno": 48,
+        "sink": "target[key] = {};",
+        "sink_lineno": 168,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "array | object"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v42",
+        "source_lineno": 48,
+        "sink": "target[key] = value;",
+        "sink_lineno": 181,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "array | number | string",
+            "value": "array | object"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v19",
+        "source_lineno": 24,
+        "sink": "target[key] = {};",
+        "sink_lineno": 85,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v19",
+        "source_lineno": 24,
+        "sink": "target[key] = value;",
+        "sink_lineno": 96,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v19",
+        "source_lineno": 24,
+        "sink": "const v78 = typeof v77;",
+        "sink_lineno": 175,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v19",
+        "source_lineno": 24,
+        "sink": "target[key] = {};",
+        "sink_lineno": 168,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v19",
+        "source_lineno": 24,
+        "sink": "target[key] = value;",
+        "sink_lineno": 181,
+        "tainted_params": [
+            "key"
+        ],
+        "params_types": {
+            "key": "array | number | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v8",
+        "source_lineno": 2,
+        "sink": "target[key] = {};",
+        "sink_lineno": 85,
+        "tainted_params": [
+            "options"
+        ],
+        "params_types": {
+            "options": {
+                "loadFrom": "array | number",
+                "logicalSeparator": "any",
+                "parseValues": "any"
+            }
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v8",
+        "source_lineno": 2,
+        "sink": "target[key] = value;",
+        "sink_lineno": 96,
+        "tainted_params": [
+            "options"
+        ],
+        "params_types": {
+            "options": {
+                "loadFrom": "array | number",
+                "logicalSeparator": "any",
+                "parseValues": "any"
+            }
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v8",
+        "source_lineno": 2,
+        "sink": "const v78 = typeof v77;",
+        "sink_lineno": 175,
+        "tainted_params": [
+            "options"
+        ],
+        "params_types": {
+            "options": {
+                "loadFrom": "array | number",
+                "logicalSeparator": "any",
+                "parseValues": "any"
+            }
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v8",
+        "source_lineno": 2,
+        "sink": "target[key] = {};",
+        "sink_lineno": 168,
+        "tainted_params": [
+            "options"
+        ],
+        "params_types": {
+            "options": {
+                "loadFrom": "array | number",
+                "logicalSeparator": "any",
+                "parseValues": "any"
+            }
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v8",
+        "source_lineno": 2,
+        "sink": "target[key] = value;",
+        "sink_lineno": 181,
+        "tainted_params": [
+            "options"
+        ],
+        "params_types": {
+            "options": {
+                "loadFrom": "array | number",
+                "logicalSeparator": "any",
+                "parseValues": "any"
+            }
+        }
+    }
+]

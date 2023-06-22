@@ -1,0 +1,17 @@
+[
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v42",
+        "source_lineno": 48,
+        "sink": "target[key] = value;",
+        "sink_lineno": 96,
+        "tainted_params": [
+            "key",
+            "value"
+        ],
+        "params_types": {
+            "key": "string",
+            "value": "any"
+        }
+    }
+]

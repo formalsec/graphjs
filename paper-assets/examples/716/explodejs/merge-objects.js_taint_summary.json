@@ -1,0 +1,47 @@
+[
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v29",
+        "source_lineno": 2,
+        "sink": "object1[key] = v17;",
+        "sink_lineno": 35,
+        "tainted_params": [
+            "object1",
+            "object2"
+        ],
+        "params_types": {
+            "object1": "{'*': 'any'} | array",
+            "object2": "{'*': 'any'} | array"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v29",
+        "source_lineno": 2,
+        "sink": "object1[key] = v27;",
+        "sink_lineno": 48,
+        "tainted_params": [
+            "object1",
+            "object2"
+        ],
+        "params_types": {
+            "object1": "{'*': 'any'} | array",
+            "object2": "{'*': 'any'} | array"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v29",
+        "source_lineno": 2,
+        "sink": "object1[key] = v28;",
+        "sink_lineno": 51,
+        "tainted_params": [
+            "object1",
+            "object2"
+        ],
+        "params_types": {
+            "object1": "{'*': 'any'} | array",
+            "object2": "{'*': 'any'} | array"
+        }
+    }
+]

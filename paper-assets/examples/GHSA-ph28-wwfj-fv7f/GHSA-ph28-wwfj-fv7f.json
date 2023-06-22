@@ -1,0 +1,35 @@
+{
+    "advisory": {
+        "ghsa_id": "GHSA-ph28-wwfj-fv7f", 
+        "cve_id": "CVE-2022-25862",
+        "cwe": "CWE-1321"
+    },
+    "correct_cwe": ["CWE-471", "CWE-1321"],
+    "correct_package_link": "https://registry.npmjs.org/sds/-/sds-4.4.0.tgz",
+    "vulnerability": {
+        "vulnerability_location": [
+            {
+                "source": {
+                    "file": "js/set.js",
+                    "lineno": 13,
+                    "code": "set = function(object, keypath, value) {"
+                },
+                "sink": {
+                    "file": "js/set.js",
+                    "lineno": 42,
+                    "code": "o[kp[0]] = value;"
+                }
+            }
+        ]
+    },
+    "poc": [
+        {
+            "url": "https://security.snyk.io/vuln/SNYK-JS-SDS-2385944"
+        }
+    ],
+    "patch": [
+        {
+            "url": ""
+        }
+    ]
+}
