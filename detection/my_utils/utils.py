@@ -3,6 +3,7 @@ import json
 from pprint import pprint
 from sys import argv 
 import linecache
+import re
 
 
 def console(s, debug=True):
@@ -89,3 +90,15 @@ def get_injection_type(sink, config):
 def get_code_line_from_file(filename, lineno):
 	line = linecache.getline(filename, lineno)
 	return line.lstrip().replace("\n", "")
+
+
+def format_name(input_str):
+	parts = input_str.split('.')
+	desired_words = []
+	for part in parts:
+		if part.startswith('-o'):
+			break
+		elif part[0].isdigit():
+			continue
+		desired_words.append(part.split('-')[0])
+	return '.'.join(desired_words)

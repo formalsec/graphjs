@@ -13,12 +13,15 @@ class Injection(QueryType):
 			(source_cfg)
 				-[param_ref:REF]
 					->(param),
+			(source_cfg)
+				-[:AST]
+					->(source_ast),
 			(sink_cfg)
 				-[:SINK]
 					->(sink)
 		WHERE 
 			param_edge.RelationType = "TAINT" AND
-			param_ref.RelationType = "param"
+			param_ref.RelationType = "param" 
 		RETURN *
 	"""
 	
@@ -36,13 +39,15 @@ class Injection(QueryType):
 		for record in results:
 			sink_name = record["sink"]["IdentifierName"]
 			source_cfg = record["source_cfg"]
+			source_ast = record["source_ast"]
+			param_name = my_utils.format_name(record["param"]["IdentifierName"])
 			source_location = json.loads(source_cfg["Location"])
 			sink_location = json.loads(record["sink_cfg"]["Location"])
 			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, source_cfg["Id"], record["sink_cfg"]["Id"], attacker_controlled_data, config) 
 
 			vuln_path = {
 				"vuln_type": my_utils.get_injection_type(sink_name, config),
-				"source": source_cfg["IdentifierName"],
+				"source":  source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" else param_name,
 				"source_lineno": source_location["start"]["line"],
 				"sink": sink_name,
 				"sink_lineno": sink_location["start"]["line"],

@@ -9,8 +9,8 @@ import argparse
 import ast
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/ipt/*"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/GHSA-23wx-cgxq-vpwx"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/injection/example-31"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-78/958"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -60,9 +60,9 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
             "./datasets/injection-dataset/CWE-471/GHSA-r9w3-g83q-m6hq",
         ]
         time_limit_exceeded = [
-            "./datasets/injection-dataset/CWE-78/694", 
             "./datasets/injection-dataset/CWE-94/97", 
             "./datasets/injection-dataset/CWE-94/GHSA-7fm6-gxqg-2pwr",
+            "./datasets/injection-dataset/CWE-471/566",
             "./datasets/injection-dataset/CWE-471/577",
             "./datasets/injection-dataset/CWE-471/1065",
             "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq",
@@ -88,9 +88,9 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
                 expected_output_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output.json")
                 symbolic_test_file = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test.js")
                 if not exploit:
-                    os.system(f"./explodejs-local.sh -f {vulnerable_file_path} -c config.json -o {taint_summary_file} -n {norm_file}")
+                    os.system(f"./explodejs.sh -f {vulnerable_file_path} -c config.json -o {taint_summary_file} -n {norm_file}")
                 else:
-                    os.system(f"./explodejs-local.sh -xf {vulnerable_file_path} -c config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
+                    os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
                 check_graph_construction(grades, norm_file)
                 comapre_outputs(grades, expected_output_file, taint_summary_file)
                 check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
