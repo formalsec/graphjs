@@ -47,7 +47,7 @@ class Injection(QueryType):
 
 			vuln_path = {
 				"vuln_type": my_utils.get_injection_type(sink_name, config),
-				"source":  source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" else param_name,
+				"source":  source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" or source_ast["Type"] == "ArrowFunctionExpression" else param_name,
 				"source_lineno": source_location["start"]["line"],
 				"sink": sink_name,
 				"sink_lineno": sink_location["start"]["line"],

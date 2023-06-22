@@ -120,10 +120,14 @@ const util = require('util')
 				if (ast.expression.type === "AssignmentExpression" && ast2js(ast.expression.left) === "module.exports") {
 					return { type: "EmptyStatement" };
 				} else if (ast.expression.type === "AssignmentExpression" && ast.expression.right.type === "CallExpression"
-				&& ast.loc.start.line === sink_lineno) {
+				&& ast.expression.right.callee.object && ast.expression.right.callee.object && ast.loc.start.line === sink_lineno) {
 					/*<package>.<sink>(<var>) */
 					ast.expression.right.callee.object.name = "esl_symbolic"
 					ast.expression.right.callee.property.name = `${ast.expression.right.callee.property.name}Wrapper`
+				} else if (ast.expression.type === "AssignmentExpression" && ast.expression.right.type === "CallExpression"
+				&& ast.loc.start.line === sink_lineno) {
+					/*<sink>(<var>) */
+					ast.expression.right.callee.name = `esl_symbolic.${ast.expression.right.callee.name}Wrapper`
 				}
 				return null;
 			default: 
