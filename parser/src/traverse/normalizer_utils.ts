@@ -974,7 +974,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             newObj.right = functionIdentifier;
 
             return {
-                stmts: [...children[1].stmts, decl],
+                stmts: [...children[0].stmts, ...children[1].stmts, decl],
                 expr: newObj
             };
         } else if (rightExpr.type === "ConditionalExpression") {

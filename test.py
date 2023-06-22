@@ -74,7 +74,7 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
         if not os.path.exists(explodejs_path):
             os.mkdir(explodejs_path)
 
-        if dataset == "Injection Dataset":
+        if dataset == "Injection Dataset" or dataset == "Injection Dataset - Test":
             vulnerability_path = os.path.join(vulnerability_path, "src")
 
         start = time.time()
@@ -88,9 +88,9 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit):
                 expected_output_file = os.path.join(explodejs_path, f"{vulnerable_file}_expected_output.json")
                 symbolic_test_file = os.path.join(explodejs_path, f"{vulnerable_file}_symbolic_test.js")
                 if not exploit:
-                    os.system(f"./explodejs.sh -f {vulnerable_file_path} -c config.json -o {taint_summary_file} -n {norm_file}")
+                    os.system(f"./explodejs-local.sh -f {vulnerable_file_path} -c config.json -o {taint_summary_file} -n {norm_file}")
                 else:
-                    os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
+                    os.system(f"./explodejs-local.sh -xf {vulnerable_file_path} -c config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
                 check_graph_construction(grades, norm_file)
                 comapre_outputs(grades, expected_output_file, taint_summary_file)
                 check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
@@ -277,7 +277,7 @@ def load_sheet(sheet_name):
 
 
 def update_sheet(ws, dataset, vulnerable_file, grades):
-    if dataset == "Example Dataset":
+    if dataset == "Example Dataset" or dataset == "Example Dataset - Test":
         vulnerable_file = "/".join(vulnerable_file.split("/")[2:])
         cell = ws.find(vulnerable_file)
         ws.update_cell(cell.row, cell.col + 1, grades.get("graph_construction", "NaN"))
@@ -285,14 +285,19 @@ def update_sheet(ws, dataset, vulnerable_file, grades):
         ws.update_cell(cell.row, cell.col + 3, grades.get("data_reconstruction", "NaN"))
         ws.update_cell(cell.row, cell.col + 4, grades.get("symb_test", "NaN"))
         ws.update_cell(cell.row, cell.col + 5, grades.get("confirmation", "NaN"))
-    elif dataset == "Injection Dataset":
+    elif dataset == "Injection Dataset" or dataset == "Injection Dataset - Test":
         vulnerable_file = vulnerable_file.split("/")[-2]
-        cell = ws.find(vulnerable_file, in_column=1) 
-        ws.update_cell(cell.row, cell.col + 2, grades.get("graph_construction", "NaN"))
-        ws.update_cell(cell.row, cell.col + 3, grades.get("detection", "NaN"))
-        ws.update_cell(cell.row, cell.col + 4, grades.get("data_reconstruction", "NaN"))
-        ws.update_cell(cell.row, cell.col + 5, grades.get("symb_test", "NaN"))
-        ws.update_cell(cell.row, cell.col + 6, grades.get("confirmation", "NaN"))
+        cell = ws.find(vulnerable_file, in_column=1)
+        if ws.cell(cell.row, cell.col + 2).value != grades.get("graph_construction", "NaN"):
+            ws.update_cell(cell.row, cell.col + 2, grades.get("graph_construction", "NaN"))
+        if ws.cell(cell.row, cell.col + 3).value != grades.get("detection", "NaN"):
+            ws.update_cell(cell.row, cell.col + 3, grades.get("detection", "NaN"))
+        if ws.cell(cell.row, cell.col + 4).value != grades.get("data_reconstruction", "NaN"):
+            ws.update_cell(cell.row, cell.col + 4, grades.get("data_reconstruction", "NaN"))
+        if ws.cell(cell.row, cell.col + 5).value != grades.get("symb_test", "NaN"):
+            ws.update_cell(cell.row, cell.col + 5, grades.get("symb_test", "NaN"))
+        ws.update_cell(cell.row, cell.col, vulnerable_file)
+
     else:
         print(Fore.RED + "The given dataset is not present in the sheet" + Fore.RESET)
         return
@@ -307,19 +312,26 @@ if __name__ == "__main__":
                         help="What dataset should be tested?")
     parser.add_argument("-u", action="store_true",
                         help="Update google sheets?")
+    parser.add_argument("-t", action="store_true")
     parser.add_argument("-x", action="store_true",
                         help="Update google sheets?")
     args = parser.parse_args()
 
-    if args.tool == "explode.js" and ("d" not in args or args.d == "example"):
+    if args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x)
+    elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and args.t:
+        clean(VULNERABLE_EXAMPLE_DATASET, args.x)
+        test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset - Test", args.u, args.x)
     elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
         clean(VULNERABLE_EXAMPLE_DATASET, False)
         test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
-    elif args.tool == "explode.js" and args.d == "injection":
+    elif args.tool == "explode.js" and args.d == "injection" and not args.t:
         clean(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset", args.u, args.x)
+    elif args.tool == "explode.js" and args.d == "injection" and args.t:
+        clean(INJECTION_DATASET, args.x)
+        test_explodejs(INJECTION_DATASET, "Injection Dataset - Test", args.u, args.x)
     elif args.tool == "odgen" and args.d == "injection":
         clean(INJECTION_DATASET, False)
         test_odgen(INJECTION_DATASET, "Injection Dataset", args.u)
