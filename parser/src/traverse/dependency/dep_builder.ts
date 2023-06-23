@@ -257,7 +257,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
         }
     }
     // Check if argument of call is an inner function
-    if (callASTNode.type === "MemberExpression") {
+    else if (callASTNode.type === "MemberExpression") {
         // If function is not js native, we don't know its behaviour, so, we do not map
         const auxiliaryFunctionSummary: boolean = config.summaries.auxiliary_functions.includes(callName);
         if (!auxiliaryFunctionSummary) return trackers;

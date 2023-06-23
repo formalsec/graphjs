@@ -1,8 +1,8 @@
 #!/bin/bash
 
 THIS_DIR=$(realpath "$0")
-NEO4J_CMD=/opt/homebrew/Cellar/neo4j/5.8.0/bin/neo4j
-NEO4J_ADMIN_CMD=/opt/homebrew/Cellar/neo4j/5.8.0/bin/neo4j-admin
+NEO4J_CMD=/opt/homebrew/Cellar/neo4j/5.9.0/bin/neo4j
+NEO4J_ADMIN_CMD=/opt/homebrew/Cellar/neo4j/5.9.0/bin/neo4j-admin
 
 Help()
 {
