@@ -1,6 +1,6 @@
 import fs from "fs";
 import { OutputWriter } from "./output_writer";
-
+import path from "path";
 import { Graph } from "../traverse/graph/graph";
 import { GraphNode } from "../traverse/graph/node";
 import { GraphEdge } from "../traverse/graph/edge";
@@ -9,12 +9,12 @@ import escodegen from "escodegen";
 
 export class CSVOutput extends OutputWriter {
     private showCode: any;
-    output(graph: Graph, options: any, filename: string): void {
+    output(graph: Graph, options: any, fileDir: string): void {
         this.showCode = options.show_code || false;
         // NODES
         // Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL
 
-        const nodesWriteStream = fs.createWriteStream(`${filename}_nodes.csv`);
+        const nodesWriteStream = fs.createWriteStream(path.join(fileDir, "nodes.csv"));
         nodesWriteStream.write("Id:ID¿Type¿SubType¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL\n");
 
         graph.nodes.forEach((node: GraphNode) => {
@@ -76,7 +76,7 @@ export class CSVOutput extends OutputWriter {
         // RELS
         // FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿ArgumentIndex
 
-        const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
+        const edgesWriteStream = fs.createWriteStream(path.join(fileDir, "rels.csv"));
         edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex¿ParamIndex¿StmtIndex¿ElementIndex¿ExpressionIndex¿MethodIndex¿SourceObjName\n");
 
         graph.edges.forEach((edge: GraphEdge) => {

@@ -20,7 +20,7 @@ import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
 
 // Returns a graph object
-function parse(filename: string, config: Config, fileOutput: boolean): Graph {
+function parse(filename: string, config: Config, fileOutput: string): Graph {
     try {
         let data = fs.readFileSync(filename, "utf8");
         // Remove shebang line
@@ -36,11 +36,8 @@ function parse(filename: string, config: Config, fileOutput: boolean): Graph {
         const code = escodegen.generate(normalizedAst);
         console.log(`\nNormalized code:\n${code}\n`);
 
-        const normalizedFilename = path.basename(filename).slice(0, -path.extname(filename).length) + "-normalized";
-        const normalizedFilepath = path.join(path.dirname(filename), normalizedFilename + path.extname(filename));
-
         if (fileOutput) {
-            fs.writeFileSync(normalizedFilepath, code);
+            fs.writeFileSync(fileOutput, code);
             console.log("===============");
         }
 
@@ -81,8 +78,16 @@ const { argv } = yargs(process.argv.slice(2))
     .demandOption(['f', 'c'])
     .string('config')
     .example('$0 -f ./foo.js -c ../config.json', 'process the foo.js file using the config.json options')
-    .boolean('out')
-    .describe('out', 'Output the normalized file')
+    .option('o', {
+        alias: 'output',
+        type: 'string',
+        description: 'Specify the normalized filepath',
+    })
+    .option('g', {
+        alias: 'graph_dir',
+        type: 'string',
+        description: 'Specify the graph output directory',
+    })
     .boolean('graph')
     .describe('graph', 'Output the graph figure')
     .boolean('csv')
@@ -110,9 +115,9 @@ if (fs.existsSync(filename)) {
         show_code: argv.sc ?? false
     };
 
-    let fileOutput = false;
-    if (argv.out) {
-        fileOutput = argv.out;
+    let fileOutput = "";
+    if (argv.o) {
+        fileOutput = argv.o;
     }
 
     if (fs.existsSync(configFile)) {
@@ -122,12 +127,18 @@ if (fs.existsSync(filename)) {
         if (graph) {
             if (argv.csv) {
                 graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
-                graph.output("src/graphs/graph");
+                graph.output("src/graphs/");
+                if (argv.g) {
+                    graph.output(argv.g);
+                }
             }
 
             if (argv.graph) {
                 graph.outputManager = new OutputManager(graphOptions, new DotOutput());
-                graph.output("src/graphs/graph");
+                graph.output("src/graphs/");
+                if (argv.g) {
+                    graph.output(argv.g);
+                }
             }
         }
     } else {
