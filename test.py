@@ -1,6 +1,8 @@
 import gspread
+import subprocess
 import re
 from glob import glob
+from glob import iglob
 import os
 import json
 from colorama import Fore
@@ -308,12 +310,132 @@ def update_sheet(ws, dataset, vulnerable_file, grades):
     else:
         print(Fore.RED + "The given dataset is not present in the sheet" + Fore.RESET)
         return
-    
 
+def check_vulnerability_detection(grades, taint_summary_file):
+    vulnerabilities = ['command-injection', 'path-traversal', 'code-injection', 'prototype-pollution']
+    found_vulns = []
+
+    with open(taint_summary_file, 'r') as file:
+        content = file.read()
+
+    for vuln in vulnerabilities:
+        if vuln in content:
+            found_vulns.append(vuln)
+
+    grades["detection"] = ", ".join(found_vulns) if len(found_vulns) > 0 else "D"
+
+def check_graph_construction_zeroday(grades, norm_file):
+    with open(norm_file, "r") as f:
+        file_content = f.read()
+        regex = re.compile(r'Error: [A-Za-z]*Error')
+        if regex.search(file_content):
+            grades["graph_construction"] = "D"
+        elif "Trace: Expression" in file_content:
+            grades["graph_construction"] = "C"
+        else:
+            grades["graph_construction"] = "A"
+
+
+def check_if_package_was_tested(package):
+    with open("./datasets/zeroday-dataset/packages-tested.txt", 'r') as file:
+        for line in file:
+            words = line.strip().split()
+            if package in words:
+                return True
+    return False
+
+def add_package_to_tested_list(package):
+    with open("./datasets/zeroday-dataset/packages-tested.txt", 'a') as file:
+        file.write(package + '\n')
+
+def add_package_to_sheet(ws, package):
+    package_cell = ws.find(package)
+    empty_row_index = max(len(ws.col_values(2)) + 1, 6)
+    if not package_cell:
+        ws.update_cell(empty_row_index, 1, package)
+
+def update_zeroday_sheet(ws, package, file, grades):
+    file = "/".join(file.split("/")[5:])
+    empty_row_index = max(len(ws.col_values(2)) + 1, 6)
+    file_cell = ws.find(file)
+    if not file_cell:
+        ws.update_cell(empty_row_index, 2, file)
+        ws.update_cell(empty_row_index, 3, grades["graph_construction"])
+        ws.update_cell(empty_row_index, 4, grades["detection"])
+        ws.update_cell(empty_row_index, 6, grades["symb_test"])
+    else:
+        ws.update_cell(file_cell.row, 3, grades["graph_construction"])
+        ws.update_cell(file_cell.row, 4, grades["detection"])
+        ws.update_cell(file_cell.row, 6, grades["symb_test"])
+
+def get_js_files(package_path):
+    js_files = []
+    for root, dirs, files in os.walk(package_path):
+        # Exclude directories ending with "_explodejs"
+        dirs[:] = [d for d in dirs if not d.endswith("_explodejs")]
+
+        # Filter and collect JS files
+        js_files.extend([os.path.join(root, file) for file in files if file.endswith(".js") or file.endswith(".cjs")])
+
+    return js_files
+    
+def test_zeroday_dataset():
+    ws = load_sheet("ZeroDay Dataset")
+    for package_path in glob(ZERODAY_DATASET):
+        package = os.path.basename(package_path)
+        if not check_if_package_was_tested(package):
+            print(Fore.MAGENTA + f'Running Explode.js for PACKAGE: {package}' + Fore.RESET)
+            add_package_to_sheet(ws, package)
+            for file in get_js_files(package_path):
+                print(Fore.MAGENTA + f'Running Explode.js for FILE: {file}' + Fore.RESET)
+                grades = {}
+                explodejs_path = f"{file}_explodejs"
+                taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
+                norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
+                symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
+
+                try:
+                    start = time.time()
+                    subprocess.run(f"./explodejs.sh -xf {file} -c config.json -e {explodejs_path}", shell=True, check=True, timeout=300)
+                    end = time.time()
+                    with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
+                        f.write(f"{end - start:.2f} seconds\n")
+                    check_graph_construction_zeroday(grades, norm_file)
+                    check_vulnerability_detection(grades, taint_summary_file)
+                    check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
+                except subprocess.TimeoutExpired:
+                    if os.path.exists(norm_file):
+                        check_graph_construction_zeroday(grades, norm_file)
+                    else: 
+                        grades["graph_construction"] = "TIMEOUT"
+                    if os.path.exists(taint_summary_file):
+                        check_graph_construction_zeroday(grades, taint_summary_file)
+                    else:
+                        grades["detection"] = "TIMEOUT"
+                    grades["symb_test"] = "TIMEOUT"
+                    subprocess.run(f"docker stop neo4j-explodejs", shell=True, check=True)
+                    print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET)
+                except subprocess.CalledProcessError as e:
+                    if os.path.exists(norm_file):
+                        check_graph_construction_zeroday(grades, norm_file)
+                    else: 
+                        grades["graph_construction"] = "ERROR"
+                    if os.path.exists(taint_summary_file):
+                        check_vulnerability_detection(grades, taint_summary_file)
+                    else:
+                        grades["detection"] = "ERROR"
+                    grades["symb_test"] = "ERROR"
+
+                print("Grades:", grades)
+                update_zeroday_sheet(ws, package, file, grades)
+            add_package_to_tested_list(package)
+        else:
+            print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
+            
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("tool", choices=["explode.js", "odgen"], 
+    parser.add_argument("tool", choices=["explode.js", "odgen", "zeroday"], 
                         help="Which tool should be tested?")
     parser.add_argument("-d", type=str, default="example",
                         help="What dataset should be tested?")
@@ -344,3 +466,5 @@ if __name__ == "__main__":
     elif args.tool == "odgen" and args.d == "injection":
         clean(INJECTION_DATASET, False)
         test_odgen(INJECTION_DATASET, "Injection Dataset", args.u)
+    elif args.tool == "zeroday":
+        test_zeroday_dataset()

@@ -10,7 +10,7 @@ neo4j-custom/import.report
 neo4j-custom/neo4j_start.txt
 neo4j-custom/import-files/*
 __pycache__/
-node_modules/*
+node_modules*
 .vscode/
 .idea/
 .DS_Store
