@@ -454,6 +454,8 @@ if __name__ == "__main__":
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset - Test", args.u, args.x, args.l)
+    elif args.tool == "explode.js" and args.d == "zeroday":
+        test_zeroday_dataset()
     elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
         clean(VULNERABLE_EXAMPLE_DATASET, False)
         test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
