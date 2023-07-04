@@ -11,8 +11,8 @@ import argparse
 import ast
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/ipt/*"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/*"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/717"
 ZERODAY_DATASET = "./datasets/zeroday-dataset/packages/src/*"
 
 # Google Sheets Config
@@ -68,15 +68,16 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit, local):
             "./datasets/injection-dataset/CWE-94/GHSA-7fm6-gxqg-2pwr",
             "./datasets/injection-dataset/CWE-471/566",
             "./datasets/injection-dataset/CWE-471/577",
+            # "./datasets/injection-dataset/CWE-471/995", # Should not be here TODO
+            "./datasets/injection-dataset/CWE-471/1312", # Should not be here TODO
             "./datasets/injection-dataset/CWE-471/1065",
             "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq",
         ]
 
-        vulnerability_dir = vulnerability_path
+        if vulnerability_path in excluded or vulnerability_path in time_limit_exceeded:
+            continue
 
-        explodejs_path = os.path.join(vulnerability_path, "tool_outputs/explodejs")
-        if not os.path.exists(explodejs_path):
-            os.mkdir(explodejs_path)
+        vulnerability_dir = vulnerability_path
 
         if dataset == "Injection Dataset" or dataset == "Injection Dataset - Test":
             vulnerability_path = os.path.join(vulnerability_path, "src")
@@ -468,5 +469,5 @@ if __name__ == "__main__":
     elif args.tool == "odgen" and args.d == "injection":
         clean(INJECTION_DATASET, False)
         test_odgen(INJECTION_DATASET, "Injection Dataset", args.u)
-    elif args.tool == "zeroday":
+    elif args.tool == "explode.js" and args.d == "zeroday":
         test_zeroday_dataset()

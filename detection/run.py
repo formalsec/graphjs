@@ -7,8 +7,8 @@ from sys import argv
 NEO4J_CONN_STRING="bolt://127.0.0.1:7687"
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-f", "--file", type=str, required=True,
-					help="Path to the file being tested.")
+parser.add_argument("-f", "--normalized_file", type=str, required=True,
+					help="Path to the normalized version of the file being tested.")
 parser.add_argument("-o", "--output", type=str, default="taint_summary.json",
 					help="Taint summary output file.")
 args = parser.parse_args()
@@ -21,7 +21,7 @@ with neo_driver.session() as session:
 	# Optimization: Data reconstruction takes some time, by using this data structure, the same data is only constructed once
 	attacker_controlled_data = {}
 	for query_type in Queries().get_query_types():
-		query_type.find_vulnerable_paths(session, vuln_paths, attacker_controlled_data, args.file, config)
+		query_type.find_vulnerable_paths(session, vuln_paths, attacker_controlled_data, args.normalized_file, config)
 
 	if len(vuln_paths) > 0:
 		my_utils.console(vuln_paths)

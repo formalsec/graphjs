@@ -13,8 +13,6 @@ __pycache__/
 node_modules*
 
 datasets/zeroday-dataset/packages/
-datasets/zeroday-dataset/packages-list.txt
-
 
 .vscode/
 .idea/

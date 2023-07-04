@@ -2,7 +2,7 @@ import { OutputWriter } from "./output_writer";
 import { Graph } from "../traverse/graph/graph";
 import { GraphNode } from "../traverse/graph/node";
 import { GraphEdge } from "../traverse/graph/edge";
-
+import path from "path";
 import graphviz from "graphviz";
 import escodegen from "escodegen";
 
@@ -306,6 +306,6 @@ export class DotOutput extends OutputWriter {
         }
 
         // console.log(gDot.to_dot());
-        gDot.output("svg", `${filename}.svg`);
+        gDot.output("svg", path.join(filename, "graph.svg"));
     }
 }
