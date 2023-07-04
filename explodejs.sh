@@ -11,6 +11,7 @@ Help()
     echo ""
     echo "Required:"
     echo "-f     Path to JavaScript file (.js) or directory containing JavaScript files for analysis."
+    echo "-p     Docker container name."
     echo "-c     Path to JSON file (.json) containing the unsafe sinks."
     echo ""
     echo "Options:"
@@ -27,6 +28,7 @@ Help()
 
 # Default values
 EXPLODEJS_DIR=$(realpath "$(pwd)/explodejs")
+CONTAINER_NAME="noname"
 GRAPH_DIR="$EXPLODEJS_DIR/graph"
 NORM="$GRAPH_DIR/normalization.norm"
 NORMALIZED="$EXPLODEJS_DIR/normalized.js"
@@ -37,10 +39,11 @@ SILENT_OP=false
 GRAPH_ONLY=false
 
 # process arguments
-while getopts f:c:e:n:o:t:g:xsgh flag
+while getopts f:p:c:e:n:o:t:g:xsgh flag
 do
     case "${flag}" in
         f) FILEPATH=$OPTARG;;
+        p) CONTAINER_NAME=$OPTARG;;
         c) CONFIGPATH=$OPTARG;;
         e) EXPLODEJS_DIR=$OPTARG
             EXPLODEJS_DIR=$(realpath $EXPLODEJS_DIR)
@@ -93,12 +96,13 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         NEO4J_DIR=$(realpath ./neo4j-custom)
 
         # import cpg to neo4j
-        NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
+        NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs_$CONTAINER_NAME
+
         cd $NEO4J_DIR
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER
         else
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER
         fi
         cd $(dirname $THIS_DIR)
 

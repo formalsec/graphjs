@@ -26,8 +26,9 @@ if [[ $GRAPH_DIR_BASE =~ \.zip$ ]]; then
     GRAPH_DIR_PATH=$PARENT_DIR/$GRAPH_DIR_BASE
 fi
 
-
+# TODO: Need to check if there is a second argument if run_neo4j.sh is called from other places
 NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
+NEO4J_EXPLODEJS_CONTAINER=$2
 
 RESULTS_DIR=execution-results
 
@@ -37,6 +38,32 @@ if [[ "$OSTYPE" =~ ^darwin ]]; then
 else
   echo $password | sudo -S chown $UID:$UID -R $GRAPH_DIR_PATH
 fi
+
+# Function to find free ports for the Docker Neo4j image.
+# See: https://stackoverflow.com/a/45539101
+function get_free_port(){
+  port=$1
+  isfree=$(netstat -taln | grep $port)
+  
+  INCREMENT=$2
+  
+  while [[ -n "$isfree" ]]; do
+    port=$[port+INCREMENT]
+    isfree=$(netstat -taln | grep $port)
+  done
+
+  echo "$port"
+}
+
+# Find two free ports for the host-mapped HTTP and Bolt protocol ports.
+# See: https://neo4j.com/docs/operations-manual/current/configuration/ports/
+BASE_PORT=16998
+INCREMENT=1
+NEO4J_HTTP_PORT=$(get_free_port $BASE_PORT $INCREMENT)
+NEO4J_BOLT_PORT=$(get_free_port $[$NEO4J_HTTP_PORT+1] $INCREMENT)
+
+# On 'docker run -p HOST_PORT:CONTAINER_INNER_PORT' mapping:
+# https://www.baeldung.com/linux/assign-port-docker-container
 
 if [ "$DEBUG" = true ]; then
     # Build and Run container
@@ -49,12 +76,18 @@ if [ "$DEBUG" = true ]; then
       docker build . -t neo4j-docker
     fi
     echo "[INFO] - Running container $NEO4J_EXPLODEJS_CONTAINER"
+    # docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
+    #     -e NEO4J_dbms_query__cache__size=0 \
+    #     -e NEO4J_apoc_export_file_enabled=true \
+    #     -e NEO4J_apoc_import_file_enabled=true \
+    #     -e NEO4J_apoc_import_file_use__neo4j__config=true \
+    #     -p 7474:7474 -p 7687:7687 neo4j-docker
     docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
         -e NEO4J_dbms_query__cache__size=0 \
         -e NEO4J_apoc_export_file_enabled=true \
         -e NEO4J_apoc_import_file_enabled=true \
         -e NEO4J_apoc_import_file_use__neo4j__config=true \
-        -p 7474:7474 -p 7687:7687 neo4j-docker
+        -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
 else
     # Build and Run container
     echo "[INFO] - Building image for container $NEO4j_EXPLODEJS_CONTAINER"
@@ -69,7 +102,7 @@ else
         -e NEO4J_apoc_export_file_enabled=true \
         -e NEO4J_apoc_import_file_enabled=true \
         -e NEO4J_apoc_import_file_use__neo4j__config=true \
-        -p 7474:7474 -p 7687:7687 neo4j-docker
+        -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
 
     if [[ "$OSTYPE" =~ ^darwin ]]; then
       until (docker logs -n 1 $NEO4J_EXPLODEJS_CONTAINER | grep "Started."); do sleep 20; done;

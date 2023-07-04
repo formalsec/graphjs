@@ -9,6 +9,10 @@ from colorama import Fore
 import time
 import argparse
 import ast
+import multiprocessing
+from multiprocessing.managers import DictProxy
+import pprint
+import sys
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/ipt/*"
@@ -378,9 +382,143 @@ def get_js_files(package_path):
         js_files.extend([os.path.join(root, file) for file in files if file.endswith(".js") or file.endswith(".cjs")])
 
     return js_files
+
+
+def test_zeroday_task_TESTING(package: str, file: str, 
+                      package_f_paths: DictProxy, 
+                      io_lock: multiprocessing.Lock,
+                      ws: gspread.Spreadsheet):
+    print("HELLO")
+
+def test_zeroday_task(package: str, file: str, 
+                      package_f_paths: DictProxy, 
+                      io_lock: multiprocessing.Lock,
+                      ws: gspread.Spreadsheet):
+
+    io_lock.acquire()
+    print(Fore.MAGENTA + f'Running Explode.js for PACKAGE: {package} || FILE: {file}' + Fore.RESET)
+    io_lock.release()
+
+    grades = {}
+    explodejs_path = f"{file}_explodejs"
+    taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
+    norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
+    symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
+
+    try:
+        start = time.time()
+        
+        f_name: str = f[f.rfind(os.path.sep) + 1:]
+        neo4j_container_name: str = package + "_" + f_name
+        subprocess.run(f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path}", shell=True, check=True, timeout=300)
+        end = time.time()
+        with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
+            f.write(f"{end - start:.2f} seconds\n")
+        check_graph_construction_zeroday(grades, norm_file)
+        check_vulnerability_detection(grades, taint_summary_file)
+        check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
+    except subprocess.TimeoutExpired:
+        if os.path.exists(norm_file):
+            check_graph_construction_zeroday(grades, norm_file)
+        else: 
+            grades["graph_construction"] = "TIMEOUT"
+        if os.path.exists(taint_summary_file):
+            check_graph_construction_zeroday(grades, taint_summary_file)
+        else:
+            grades["detection"] = "TIMEOUT"
+        grades["symb_test"] = "TIMEOUT"
+
+        docker_neo4j_container: str = "neo4j-explodejs_{}".format(container_name) 
+        subprocess.run(f"docker stop {docker_neo4j_container}", shell=True, check=True)
+        print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET)
+    except subprocess.CalledProcessError as e:
+        if os.path.exists(norm_file):
+            check_graph_construction_zeroday(grades, norm_file)
+        else: 
+            grades["graph_construction"] = "ERROR"
+        if os.path.exists(taint_summary_file):
+            check_vulnerability_detection(grades, taint_summary_file)
+        else:
+            grades["detection"] = "ERROR"
+        grades["symb_test"] = "ERROR"
+
+    io_lock.acquire()
+
+    package_f_paths[package] -= 1
+
+    print("Grades:", grades)
+    update_zeroday_sheet(ws, package, file, grades)
+
+    if package_f_paths[package] == 0:
+        add_package_to_tested_list(package)
+
+    io_lock.release()
+
     
-def test_zeroday_dataset():
-    ws = load_sheet("ZeroDay Dataset")
+
+
+
+def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1):
+
+    # Create worksheet if it does not exist.
+    try:
+        ws: gspread.Spreadsheet = load_sheet(target_sheet_name)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sheet.add_worksheet(target_sheet_name,"999","20")
+
+    
+    package_paths: List[str] = glob(ZERODAY_DATASET)
+
+    # Manager to share dictionary among processes.
+    with multiprocessing.Manager() as manager:
+
+        # This lock is to avoid garbled output of multiple processes.
+        io_lock: multiprocessing.Lock = manager.Lock()
+        
+        package_f_paths: DictProxy = manager.dict()
+
+        package_f_tuples: List[Tuple[str, str, DictProxy, multiprocessing.Lock, gspread.Spreadsheet]] = []
+        
+        # First we iterate the set of packages to know how many files each package has.
+        for package_path in package_paths:
+            package = os.path.basename(package_path)
+            # Skipping those that have been tested before first.
+            if check_if_package_was_tested(package):
+                print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
+                continue
+            else:
+                file_paths: List[str] = get_js_files(package_path)
+                package_f_paths[package] = len(file_paths)
+                for f in file_paths:
+                    package_f_tuples.append((package, f, package_f_paths, io_lock, ws))
+        
+        # Create a process pool with the specified 'concurrency_level'.
+        # Argument 'maxtasksperchild' limits how many task 'test_zeroday_task' executions
+        # will occur before the process is killed and a new one is created.
+        # This improves resource efficiency.
+        # See: https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool
+        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=10)
+
+
+        #for result in pool.map(test_zeroday_task, package_f_tuples):
+        #    pass
+        #pool.map(test_zeroday_task, package_f_tuples)
+
+        test_list = package_f_tuples[0:1]
+        pprint.pprint(test_list)
+        pool.map(test_zeroday_task_TESTING, test_list)
+
+        
+        pool.close()
+        pool.join()
+                
+
+    
+            
+
+
+def test_zeroday_dataset(target_sheet_name: str = "ZeroDay Dataset", concurrent_packages: int = 1):
+    ws = load_sheet(target_sheet_name)
     for package_path in glob(ZERODAY_DATASET):
         package = os.path.basename(package_path)
         if not check_if_package_was_tested(package):
@@ -444,18 +582,24 @@ if __name__ == "__main__":
     parser.add_argument("-t", action="store_true")
     parser.add_argument("-x", action="store_true",
                         help="Update google sheets?")
-    parser.add_argument("-l", action="store_true",
+    parser.add_argument("-l", "--local-neo4j", action="store_true",
                         help="Run neo4j locally")
+    parser.add_argument("-p", "--parallelism", type=int, default=1)
     args = parser.parse_args()
 
-    if args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
+    #pprint.pprint(args)
+    #sys.exit(0)
+    if args.tool == "explode.js" and args.d == "zeroday":
+        #test_zeroday_dataset()
+        test_zeroday_dataset_p(target_sheet_name = "ZeroDay Concurrent Test", concurrency_level = 2)
+    elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x, args.l)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset - Test", args.u, args.x, args.l)
-    elif args.tool == "explode.js" and args.d == "zeroday":
-        test_zeroday_dataset()
+    
+
     elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
         clean(VULNERABLE_EXAMPLE_DATASET, False)
         test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
@@ -468,5 +612,5 @@ if __name__ == "__main__":
     elif args.tool == "odgen" and args.d == "injection":
         clean(INJECTION_DATASET, False)
         test_odgen(INJECTION_DATASET, "Injection Dataset", args.u)
-    elif args.tool == "zeroday":
-        test_zeroday_dataset()
+    #elif args.tool == "zeroday":
+    #    test_zeroday_dataset()
