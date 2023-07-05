@@ -15,8 +15,8 @@ import pprint
 import sys
 
 # Default datasets
-VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/ipt/*"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/*"
+VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/717"
 ZERODAY_DATASET = "./datasets/zeroday-dataset/packages/src/*"
 
 # Google Sheets Config
@@ -72,9 +72,14 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit, local):
             "./datasets/injection-dataset/CWE-94/GHSA-7fm6-gxqg-2pwr",
             "./datasets/injection-dataset/CWE-471/566",
             "./datasets/injection-dataset/CWE-471/577",
+            # "./datasets/injection-dataset/CWE-471/995", # Should not be here TODO
+            "./datasets/injection-dataset/CWE-471/1312", # Should not be here TODO
             "./datasets/injection-dataset/CWE-471/1065",
             "./datasets/injection-dataset/CWE-471/GHSA-8g4m-cjm2-96wq",
         ]
+
+        if vulnerability_path in excluded or vulnerability_path in time_limit_exceeded:
+            continue
 
         vulnerability_dir = vulnerability_path
 
@@ -455,70 +460,8 @@ def test_zeroday_task(package: str, file: str,
     io_lock.release()
 
     
-
-
-
-def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1):
-
-    # Create worksheet if it does not exist.
-    try:
-        ws: gspread.Spreadsheet = load_sheet(target_sheet_name)
-    except gspread.exceptions.WorksheetNotFound:
-        ws = sheet.add_worksheet(target_sheet_name,"999","20")
-
-    
-    package_paths: List[str] = glob(ZERODAY_DATASET)
-
-    # Manager to share dictionary among processes.
-    with multiprocessing.Manager() as manager:
-
-        # This lock is to avoid garbled output of multiple processes.
-        io_lock: multiprocessing.Lock = manager.Lock()
-        
-        package_f_paths: DictProxy = manager.dict()
-
-        package_f_tuples: List[Tuple[str, str, DictProxy, multiprocessing.Lock, gspread.Spreadsheet]] = []
-        
-        # First we iterate the set of packages to know how many files each package has.
-        for package_path in package_paths:
-            package = os.path.basename(package_path)
-            # Skipping those that have been tested before first.
-            if check_if_package_was_tested(package):
-                print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
-                continue
-            else:
-                file_paths: List[str] = get_js_files(package_path)
-                package_f_paths[package] = len(file_paths)
-                for f in file_paths:
-                    package_f_tuples.append((package, f, package_f_paths, io_lock, ws))
-        
-        # Create a process pool with the specified 'concurrency_level'.
-        # Argument 'maxtasksperchild' limits how many task 'test_zeroday_task' executions
-        # will occur before the process is killed and a new one is created.
-        # This improves resource efficiency.
-        # See: https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool
-        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=10)
-
-
-        #for result in pool.map(test_zeroday_task, package_f_tuples):
-        #    pass
-        #pool.map(test_zeroday_task, package_f_tuples)
-
-        test_list = package_f_tuples[0:1]
-        pprint.pprint(test_list)
-        pool.map(test_zeroday_task_TESTING, test_list)
-
-        
-        pool.close()
-        pool.join()
-                
-
-    
-            
-
-
-def test_zeroday_dataset(target_sheet_name: str = "ZeroDay Dataset", concurrent_packages: int = 1):
-    ws = load_sheet(target_sheet_name)
+def test_zeroday_dataset():
+    ws = load_sheet("ZeroDay Dataset")
     for package_path in glob(ZERODAY_DATASET):
         package = os.path.basename(package_path)
         if not check_if_package_was_tested(package):
@@ -582,7 +525,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", action="store_true")
     parser.add_argument("-x", action="store_true",
                         help="Update google sheets?")
-    parser.add_argument("-l", "--local-neo4j", action="store_true",
+    parser.add_argument("-l", action="store_true",
                         help="Run neo4j locally")
     parser.add_argument("-p", "--parallelism", type=int, default=1)
     args = parser.parse_args()

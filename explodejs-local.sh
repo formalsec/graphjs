@@ -29,7 +29,7 @@ Help()
 }
 
 # Default values
-EXPLODEJS_DIR=$(realpath "$(pwd)/explodejs")
+EXPLODEJS_DIR="$(pwd)/explodejs"
 GRAPH_DIR="$EXPLODEJS_DIR/graph"
 NORM="$GRAPH_DIR/normalization.norm"
 NORMALIZED="$EXPLODEJS_DIR/normalized.js"
