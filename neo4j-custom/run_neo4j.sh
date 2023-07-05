@@ -95,6 +95,7 @@ if [ "$DEBUG" = true ]; then
       docker build . -t neo4j-docker
     fi
     echo "[INFO] - Running container $NEO4J_EXPLODEJS_CONTAINER"
+    echo "[INFO] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
     # docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
     #     -e NEO4J_dbms_query__cache__size=0 \
     #     -e NEO4J_apoc_export_file_enabled=true \

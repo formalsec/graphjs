@@ -11,6 +11,7 @@ from multiprocessing.managers import DictProxy
 import os
 import pprint
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -25,6 +26,7 @@ VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollutio
 INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/717"
 ZERODAY_DATASET = "./datasets/zeroday-dataset/packages/src/*"
 ZERODAY_TESTED_LIST = "./datasets/zeroday-dataset/packages-tested.txt"
+ZERODAY_CONCURRENT_LOGS = "./datasets/zeroday-dataset/concurrency-logs"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -353,7 +355,10 @@ def check_graph_construction_zeroday(grades, norm_file):
 
 
 def check_if_package_was_tested(package: str, packages_tested_file_path: str):
-    package_test_list_file: str =
+    if not os.path.isfile(packages_tested_file_path):
+        f = open(packages_tested_file_path, 'w')
+        f.close()
+
     with open(packages_tested_file_path, 'r') as file:
         for line in file:
             words = line.strip().split()
@@ -418,78 +423,126 @@ def mp_dummy_int(val: int):
 def test_zeroday_task_star(args):
     return test_zeroday_task(*args)
 
-def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock):
+def next_free_port( port: int = 1024, max_port: int = 65535 ):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    while port <= max_port:
+        try:
+            sock.bind(('', port))
+            sock.close()
+            return port
+        except OSError:
+            port += 1
+    raise IOError('no free ports')
+
+def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 1024) -> int:
+    port: int = -1
+    while True:
+        if port == -1:
+            port = next_free_port(port=base_port)
+        
+        if port in process_port_map.keys() and (not process_port_map[port] == pid):
+            base_port = port + 1
+            port = -1
+        else:
+            process_port_map[port] = pid
+            return port
+
+def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy):
 # def test_zeroday_task(package: str, file: str, 
 #                       package_f_paths: DictProxy, 
 #                       io_lock: multiprocessing.Lock,
 #                       ws: gspread.Spreadsheet):
 
-    io_lock.acquire()
-    print(Fore.MAGENTA + f'PID {os.getpid()} - Running Explode.js for PACKAGE: {package} || FILE: {file}' + Fore.RESET)
-    io_lock.release()
+    f_name: str = file[file.rfind(f"src{os.path.sep}") + 4:].replace(os.path.sep, "-")
 
-    grades = {}
-    explodejs_path = f"{file}_explodejs"
-    taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
-    norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
-    symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
+    pid: int = os.getpid()
 
-    try:
-        start = time.time()
-        
-        f_name: str = file[file.rfind(os.path.sep) + 1:]
-        neo4j_container_name: str = package + "_" + f_name
-        explode_js_cmd = f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path}"
+    log_file: str = f"PID-{pid}-{package}-{f_name}.log"
+
+    log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
+    with open(log_path, 'w') as sys.stdout:
+        #print('test')
+
+        #time.sleep(5)
+
         io_lock.acquire()
-        print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET)
+
+        # Get ports for process.
+        http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
+        bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
+        
+        print(Fore.MAGENTA + f'PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file}' + Fore.RESET, flush=True)
+        print(f"PID {pid} HTTP {http_port} BOLT {bolt_port}")
         io_lock.release()
 
-        subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300)
         
         
-        end = time.time()
-        with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
-            f.write(f"{end - start:.2f} seconds\n")
-        check_graph_construction_zeroday(grades, norm_file)
-        check_vulnerability_detection(grades, taint_summary_file)
-        check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
-    except subprocess.TimeoutExpired:
-        io_lock.acquire()
-        print(Fore.MAGENTA + f'PID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET)
-        io_lock.release()
 
-        if os.path.exists(norm_file):
+        grades = {}
+
+        #return (package, file, grades)
+    
+        explodejs_path = f"{file}_explodejs"
+        taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
+        norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
+        symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
+
+        try:
+            start = time.time()
+            
+            
+            neo4j_container_name: str = package + "_" + f_name
+            explode_js_cmd = f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path} -w {http_port} -b {bolt_port}"
+            io_lock.acquire()
+            print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
+            io_lock.release()
+
+            subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300, stdout=sys.stdout, stderr=sys.stdout)
+            
+            
+            end = time.time()
+            with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
+                f.write(f"{end - start:.2f} seconds\n")
             check_graph_construction_zeroday(grades, norm_file)
-        else: 
-            grades["graph_construction"] = "TIMEOUT"
-        if os.path.exists(taint_summary_file):
-            check_graph_construction_zeroday(grades, taint_summary_file)
-        else:
-            grades["detection"] = "TIMEOUT"
-        grades["symb_test"] = "TIMEOUT"
-
-        docker_neo4j_container: str = "neo4j-explodejs_{}".format(neo4j_container_name) 
-        docker_stop_cmd = f"docker stop {docker_neo4j_container}"
-
-        io_lock.acquire()
-        print(Fore.MAGENTA + f'PID {os.getpid()} - {docker_stop_cmd}' + Fore.RESET)
-        io_lock.release()
-        subprocess.run(docker_stop_cmd, shell=True, check=True)
-        print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET)
-    except subprocess.CalledProcessError as e:
-        io_lock.acquire()
-        print(Fore.MAGENTA + f'PID {os.getpid()} - subprocess.CalledProcessError' + Fore.RESET)
-        io_lock.release()
-
-        if os.path.exists(norm_file):
-            check_graph_construction_zeroday(grades, norm_file)
-        else: 
-            grades["graph_construction"] = "ERROR"
-        if os.path.exists(taint_summary_file):
             check_vulnerability_detection(grades, taint_summary_file)
-        else:
-            grades["detection"] = "ERROR"
-        grades["symb_test"] = "ERROR"
+            check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
+        except subprocess.TimeoutExpired:
+            io_lock.acquire()
+            print(Fore.MAGENTA + f'PID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET, flush=True)
+            io_lock.release()
+
+            if os.path.exists(norm_file):
+                check_graph_construction_zeroday(grades, norm_file)
+            else: 
+                grades["graph_construction"] = "TIMEOUT"
+            if os.path.exists(taint_summary_file):
+                check_graph_construction_zeroday(grades, taint_summary_file)
+            else:
+                grades["detection"] = "TIMEOUT"
+            grades["symb_test"] = "TIMEOUT"
+
+            docker_neo4j_container: str = "neo4j-explodejs_{}".format(neo4j_container_name) 
+            docker_stop_cmd = f"docker stop {docker_neo4j_container}"
+
+            io_lock.acquire()
+            print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
+            io_lock.release()
+            subprocess.run(docker_stop_cmd, shell=True, check=True, stdout=sys.stdout, stderr=sys.stdout)
+            print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET, flush=True)
+        except subprocess.CalledProcessError as e:
+            io_lock.acquire()
+            print(Fore.MAGENTA + f'PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True)
+            io_lock.release()
+
+            if os.path.exists(norm_file):
+                check_graph_construction_zeroday(grades, norm_file)
+            else: 
+                grades["graph_construction"] = "ERROR"
+            if os.path.exists(taint_summary_file):
+                check_vulnerability_detection(grades, taint_summary_file)
+            else:
+                grades["detection"] = "ERROR"
+            grades["symb_test"] = "ERROR"
 
     return (package, file, grades)
 
@@ -506,6 +559,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
     
     package_paths: List[str] = glob(ZERODAY_DATASET)
 
+    
+
     # Manager to share dictionary among processes.
     multiprocessing.set_start_method("spawn")
     with multiprocessing.Manager() as manager:
@@ -515,7 +570,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         
         package_file_count: DictProxy = manager.dict()
 
-        package_f_tuples: List[Tuple[str, str, DictProxy, multiprocessing.Lock, gspread.Spreadsheet]] = []
+        process_map: DictProxy = manager.dict()
+
+        package_f_tuples: List[Tuple[str, multiprocessing.Lock]] = []
         
         # First we iterate the set of packages to know how many files each package has.
         for package_path in package_paths:
@@ -528,10 +585,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
                 for f in file_paths:
-                    #package_f_tuples.append((package, f, package_f_paths, io_lock, ws))
-                    #package_f_tuples.append((package, f, package_f_paths, io_lock))
-                    package_f_tuples.append((package, f, io_lock))
+                    package_f_tuples.append((package, f, io_lock, process_map))
         
+
         # Create a process pool with the specified 'concurrency_level'.
         # Argument 'maxtasksperchild' limits how many task 'test_zeroday_task' executions
         # will occur before the process is killed and a new one is created.
@@ -539,74 +595,45 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         # See: https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool
         
         
-        #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=10)
         print("Creating pool with {} workers.".format(concurrency_level))
         pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level)
 
         print("Concurrency: {}".format(concurrency_level))
-        #test_list = package_f_tuples[0:1]
-        # pprint.pprint(test_list)
-
-        # The dill package can be used to detect if any object is not picklable, 
-        # which is required by some 'multiprocessing' package invocations.
-        # #dill.detect.badtypes(test_list)
-        # pprint.pprint(dill.pickles(test_list[0][0]))
-        # pprint.pprint(dill.pickles(test_list[0][1]))
-        # pprint.pprint(dill.pickles(test_list[0][2]))
-        # pprint.pprint(dill.pickles(test_list[0][3]))
-        # pprint.pprint(dill.pickles(test_list[0][4]))
-
-        # callback function
-
-        # def zeroday_callback(task_result):
-
-        #     print("{}: callback done".format(os. getpid()), flush=True)
-        #     print(task_result, flush=True)
-
-        #     return
-
-        #     grades = task_result[0]
-        #     file = task_result[1]
-
-        #     io_lock.acquire()
-
-        #     package_file_count[package] -= 1
-
-
-
-        #     print("Grades:", grades)
-        #     update_zeroday_sheet(ws, package, file, grades)
-
-        #     if package_file_count[package] == 0:
-        #         add_package_to_tested_list(package, ZERODAY_TESTED_LIST)
-
-        #     io_lock.release()
-
-        # def custom_callback(result):
-        #     print(f'Got result: {result}')
-
-        #chunk_sz: int = len(test_list) / concurrency_level
-        # Using starmap_async to pass multiple arguments to the function.
 
         package_grades: Dict[str, Dict[str, Dict]] = {}
+
+        os.makedirs(ZERODAY_CONCURRENT_LOGS, exist_ok=True)
         
-        for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
+
+        # test_list = package_f_tuples[0:7]
+
+        # print("TEST TUPLES")
+        # pprint.pprint(test_list)
+        # print("")
+        # print("")
+
         #for result in pool.imap_unordered(test_zeroday_task_star, test_list):
+        for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
             res_package = result[0]
             res_file = result[1]
             res_grades = result[2]
+
+            print("")
+            print("")
+            pprint.pprint(f"{res_package} | {res_file}")
+            pprint.pprint(res_grades)
             
             # This lock may be unnecessary
             io_lock.acquire()
 
-            if not package in package_grades:
-                package_grades[package] = {}
-            package_grades[package][res_file] = res_grades
+            if not res_package in package_grades:
+                package_grades[res_package] = {}
+            package_grades[res_package][res_file] = res_grades
 
-            package_file_count[package] -= 1
+            package_file_count[res_package] -= 1
 
 
-            if package_file_count[package] == 0:
+            if package_file_count[res_package] == 0:
                 print("Grades:", res_grades)
 
                 for curr_file, curr_grades in package_grades[res_package].items():
