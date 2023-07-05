@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import time
+from typing import List, Dict
 
 
 
@@ -23,6 +24,7 @@ import time
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
 INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/717"
 ZERODAY_DATASET = "./datasets/zeroday-dataset/packages/src/*"
+ZERODAY_TESTED_LIST = "./datasets/zeroday-dataset/packages-tested.txt"
 
 # Google Sheets Config
 service_account = gspread.service_account(filename=".config/service_account.json")
@@ -350,16 +352,17 @@ def check_graph_construction_zeroday(grades, norm_file):
             grades["graph_construction"] = "A"
 
 
-def check_if_package_was_tested(package):
-    with open("./datasets/zeroday-dataset/packages-tested.txt", 'r') as file:
+def check_if_package_was_tested(package: str, packages_tested_file_path: str):
+    package_test_list_file: str =
+    with open(packages_tested_file_path, 'r') as file:
         for line in file:
             words = line.strip().split()
             if package in words:
                 return True
     return False
 
-def add_package_to_tested_list(package):
-    with open("./datasets/zeroday-dataset/packages-tested.txt", 'a') as file:
+def add_package_to_tested_list(package: str, packages_tested_file_path: str):
+    with open(packages_tested_file_path, 'a') as file:
         file.write(package + '\n')
 
 def add_package_to_sheet(ws, package):
@@ -415,8 +418,7 @@ def mp_dummy_int(val: int):
 def test_zeroday_task_star(args):
     return test_zeroday_task(*args)
 
-def test_zeroday_task(package: str, file: str,  
-                      io_lock: multiprocessing.Lock):
+def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock):
 # def test_zeroday_task(package: str, file: str, 
 #                       package_f_paths: DictProxy, 
 #                       io_lock: multiprocessing.Lock,
@@ -425,10 +427,6 @@ def test_zeroday_task(package: str, file: str,
     io_lock.acquire()
     print(Fore.MAGENTA + f'PID {os.getpid()} - Running Explode.js for PACKAGE: {package} || FILE: {file}' + Fore.RESET)
     io_lock.release()
-
-    #time.sleep(5)
-
-    #return (1, 2)
 
     grades = {}
     explodejs_path = f"{file}_explodejs"
@@ -448,7 +446,7 @@ def test_zeroday_task(package: str, file: str,
 
         subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300)
         
-        #subprocess.run(f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path}", shell=True, #check=True, timeout=300)
+        
         end = time.time()
         with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
             f.write(f"{end - start:.2f} seconds\n")
@@ -495,29 +493,15 @@ def test_zeroday_task(package: str, file: str,
 
     return (package, file, grades)
 
-    # io_lock.acquire()
-
-    # package_f_paths[package] -= 1
-
-
-
-    # print("Grades:", grades)
-    # update_zeroday_sheet(ws, package, file, grades)
-
-    # if package_f_paths[package] == 0:
-    #     add_package_to_tested_list(package)
-
-    # io_lock.release()
-
-    #return grades
-
 def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1):
 
     # Create worksheet if it does not exist.
     try:
         ws: gspread.Spreadsheet = load_sheet(target_sheet_name)
+        print("Loaded gspread.Spreadsheet: {}".format(target_sheet_name))
     except gspread.exceptions.WorksheetNotFound:
         ws = sheet.add_worksheet(target_sheet_name,"999","20")
+        print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
 
     
     package_paths: List[str] = glob(ZERODAY_DATASET)
@@ -529,7 +513,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         # This lock is to avoid garbled output of multiple processes.
         io_lock: multiprocessing.Lock = manager.Lock()
         
-        package_f_paths: DictProxy = manager.dict()
+        package_file_count: DictProxy = manager.dict()
 
         package_f_tuples: List[Tuple[str, str, DictProxy, multiprocessing.Lock, gspread.Spreadsheet]] = []
         
@@ -537,12 +521,12 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         for package_path in package_paths:
             package = os.path.basename(package_path)
             # Skipping those that have been tested before first.
-            if check_if_package_was_tested(package):
+            if check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
                 print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
                 continue
             else:
                 file_paths: List[str] = get_js_files(package_path)
-                package_f_paths[package] = len(file_paths)
+                package_file_count[package] = len(file_paths)
                 for f in file_paths:
                     #package_f_tuples.append((package, f, package_f_paths, io_lock, ws))
                     #package_f_tuples.append((package, f, package_f_paths, io_lock))
@@ -556,8 +540,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         
         
         #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=10)
-        #TODO: switch back 'processes' value to 'concurrency_level' argument 
-        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=1)
+        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level)
 
 
         #for result in pool.map(test_zeroday_task, package_f_tuples):
@@ -568,6 +551,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         test_list = package_f_tuples[0:1]
         # pprint.pprint(test_list)
 
+        # The dill package can be used to detect if any object is not picklable, 
+        # which is required by some 'multiprocessing' package invocations.
         # #dill.detect.badtypes(test_list)
         # pprint.pprint(dill.pickles(test_list[0][0]))
         # pprint.pprint(dill.pickles(test_list[0][1]))
@@ -577,56 +562,61 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
         # callback function
 
-        def zeroday_callback(task_result):
+        # def zeroday_callback(task_result):
 
-            print("{}: callback done".format(os. getpid()), flush=True)
-            print(task_result, flush=True)
+        #     print("{}: callback done".format(os. getpid()), flush=True)
+        #     print(task_result, flush=True)
 
-            return
+        #     return
 
-            grades = task_result[0]
-            file = task_result[1]
+        #     grades = task_result[0]
+        #     file = task_result[1]
 
-            io_lock.acquire()
+        #     io_lock.acquire()
 
-            package_f_paths[package] -= 1
+        #     package_file_count[package] -= 1
 
 
 
-            print("Grades:", grades)
-            update_zeroday_sheet(ws, package, file, grades)
+        #     print("Grades:", grades)
+        #     update_zeroday_sheet(ws, package, file, grades)
 
-            if package_f_paths[package] == 0:
-                add_package_to_tested_list(package)
+        #     if package_file_count[package] == 0:
+        #         add_package_to_tested_list(package, ZERODAY_TESTED_LIST)
 
-            io_lock.release()
+        #     io_lock.release()
 
-        def custom_callback(result):
-            print(f'Got result: {result}')
+        # def custom_callback(result):
+        #     print(f'Got result: {result}')
 
         #chunk_sz: int = len(test_list) / concurrency_level
         # Using starmap_async to pass multiple arguments to the function.
 
-        for result in pool.imap_unordered(test_zeroday_task_star, test_list):
+        package_grades: Dict[str, Dict[str, Dict]] = {}
+        
+        for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
+        #for result in pool.imap_unordered(test_zeroday_task_star, test_list):
             res_package = result[0]
             res_file = result[1]
-            grades = result[2]
-            print("{} | {}".format(res_package, res_file))
-            pprint.pprint(grades)
-            #print(f'Got result: {result}', flush=True)
+            res_grades = result[2]
+            
+            io_lock.acquire()
 
-        #result = pool.starmap_async(test_zeroday_task, test_list, callback=zeroday_callback) #.get()
-        #result = pool.starmap_async(test_zeroday_task_TESTING_2, test_list, callback=custom_callback).get()
+            if not package in package_grades:
+                package_grades[package] = {}
+            package_grades[package][res_file] = res_grades
 
-        #result = pool.map_async(test_zeroday_task_TESTING_2, test_list, callback=custom_callback).get()
-        #result = pool.map_async(test_zeroday_task_TESTING_2, test_list, chunksize=chunk_sz, callback=custom_callback).get()
+            package_file_count[package] -= 1
 
-        ##### This dummy example below works, keep it commented forn now.
-        # dummy_list = list(range(0, 10))
-        # result = pool.map_async(mp_dummy_int, dummy_list, callback=custom_callback).get()
-        # result.wait(timeout=5)
-        # print(result)
-        
+
+            if package_file_count[package] == 0:
+                print("Grades:", res_grades)
+
+                for curr_file, curr_grades in package_grades[res_package].items():
+                    update_zeroday_sheet(ws, res_package, curr_file, curr_grades)
+                add_package_to_tested_list(package, ZERODAY_TESTED_LIST)
+
+            io_lock.release()       
 
         
         pool.close()
@@ -637,7 +627,7 @@ def test_zeroday_dataset():
     ws = load_sheet("ZeroDay Dataset")
     for package_path in glob(ZERODAY_DATASET):
         package = os.path.basename(package_path)
-        if not check_if_package_was_tested(package):
+        if not check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
             print(Fore.MAGENTA + f'Running Explode.js for PACKAGE: {package}' + Fore.RESET)
             add_package_to_sheet(ws, package)
             for file in get_js_files(package_path):
@@ -682,7 +672,7 @@ def test_zeroday_dataset():
 
                 print("Grades:", grades)
                 update_zeroday_sheet(ws, package, file, grades)
-            add_package_to_tested_list(package)
+            add_package_to_tested_list(package, ZERODAY_TESTED_LIST)
         else:
             print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
 
