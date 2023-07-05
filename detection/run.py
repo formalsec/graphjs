@@ -4,14 +4,19 @@ import my_utils.utils as my_utils
 import argparse
 from sys import argv
 
-NEO4J_CONN_STRING="bolt://127.0.0.1:7687"
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--normalized_file", type=str, required=True,
 					help="Path to the normalized version of the file being tested.")
 parser.add_argument("-o", "--output", type=str, default="taint_summary.json",
 					help="Taint summary output file.")
+parser.add_argument("-b", "--bolt-port", type=str, default="7687",
+					help="Target Neo4j container bolt port.")
+
 args = parser.parse_args()
+
+NEO4J_CONN_STRING="bolt://127.0.0.1:" + args.bolt_port
 
 config = my_utils.read_config()
 neo_driver = GraphDatabase.driver(NEO4J_CONN_STRING, auth=('', ''))

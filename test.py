@@ -1,18 +1,23 @@
-import gspread
-import subprocess
-import re
-from glob import glob
-from glob import iglob
-import os
-import json
-from colorama import Fore
-import time
 import argparse
 import ast
+from colorama import Fore
+import dill
+from glob import glob
+from glob import iglob
+import json
+import gspread
 import multiprocessing
 from multiprocessing.managers import DictProxy
+import os
 import pprint
+import re
+import subprocess
 import sys
+import time
+
+
+
+
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
@@ -391,18 +396,39 @@ def get_js_files(package_path):
 
 def test_zeroday_task_TESTING(package: str, file: str, 
                       package_f_paths: DictProxy, 
-                      io_lock: multiprocessing.Lock,
-                      ws: gspread.Spreadsheet):
-    print("HELLO")
+                      io_lock: multiprocessing.Lock):
+    print("{}_{}".format(package, file), flush=True)
+    return "{}_{}".format(package, file)
 
-def test_zeroday_task(package: str, file: str, 
-                      package_f_paths: DictProxy, 
-                      io_lock: multiprocessing.Lock,
-                      ws: gspread.Spreadsheet):
+def test_zeroday_task_TESTING_2(package: str, file: str, 
+                      io_lock: multiprocessing.Lock):
+    print("{}_{}".format(package, file), flush=True)
+
+    return "{}_{}".format(package, file)
+
+
+def mp_dummy_int(val: int):
+    print("{}".format(val), flush=True)
+
+    return val
+
+def test_zeroday_task_star(args):
+    return test_zeroday_task(*args)
+
+def test_zeroday_task(package: str, file: str,  
+                      io_lock: multiprocessing.Lock):
+# def test_zeroday_task(package: str, file: str, 
+#                       package_f_paths: DictProxy, 
+#                       io_lock: multiprocessing.Lock,
+#                       ws: gspread.Spreadsheet):
 
     io_lock.acquire()
-    print(Fore.MAGENTA + f'Running Explode.js for PACKAGE: {package} || FILE: {file}' + Fore.RESET)
+    print(Fore.MAGENTA + f'PID {os.getpid()} - Running Explode.js for PACKAGE: {package} || FILE: {file}' + Fore.RESET)
     io_lock.release()
+
+    #time.sleep(5)
+
+    #return (1, 2)
 
     grades = {}
     explodejs_path = f"{file}_explodejs"
@@ -413,9 +439,16 @@ def test_zeroday_task(package: str, file: str,
     try:
         start = time.time()
         
-        f_name: str = f[f.rfind(os.path.sep) + 1:]
+        f_name: str = file[file.rfind(os.path.sep) + 1:]
         neo4j_container_name: str = package + "_" + f_name
-        subprocess.run(f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path}", shell=True, check=True, timeout=300)
+        explode_js_cmd = f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path}"
+        io_lock.acquire()
+        print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET)
+        io_lock.release()
+
+        subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300)
+        
+        #subprocess.run(f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path}", shell=True, #check=True, timeout=300)
         end = time.time()
         with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
             f.write(f"{end - start:.2f} seconds\n")
@@ -423,6 +456,10 @@ def test_zeroday_task(package: str, file: str,
         check_vulnerability_detection(grades, taint_summary_file)
         check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
     except subprocess.TimeoutExpired:
+        io_lock.acquire()
+        print(Fore.MAGENTA + f'PID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET)
+        io_lock.release()
+
         if os.path.exists(norm_file):
             check_graph_construction_zeroday(grades, norm_file)
         else: 
@@ -433,10 +470,19 @@ def test_zeroday_task(package: str, file: str,
             grades["detection"] = "TIMEOUT"
         grades["symb_test"] = "TIMEOUT"
 
-        docker_neo4j_container: str = "neo4j-explodejs_{}".format(container_name) 
-        subprocess.run(f"docker stop {docker_neo4j_container}", shell=True, check=True)
+        docker_neo4j_container: str = "neo4j-explodejs_{}".format(neo4j_container_name) 
+        docker_stop_cmd = f"docker stop {docker_neo4j_container}"
+
+        io_lock.acquire()
+        print(Fore.MAGENTA + f'PID {os.getpid()} - {docker_stop_cmd}' + Fore.RESET)
+        io_lock.release()
+        subprocess.run(docker_stop_cmd, shell=True, check=True)
         print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET)
     except subprocess.CalledProcessError as e:
+        io_lock.acquire()
+        print(Fore.MAGENTA + f'PID {os.getpid()} - subprocess.CalledProcessError' + Fore.RESET)
+        io_lock.release()
+
         if os.path.exists(norm_file):
             check_graph_construction_zeroday(grades, norm_file)
         else: 
@@ -447,17 +493,144 @@ def test_zeroday_task(package: str, file: str,
             grades["detection"] = "ERROR"
         grades["symb_test"] = "ERROR"
 
-    io_lock.acquire()
+    return (package, file, grades)
 
-    package_f_paths[package] -= 1
+    # io_lock.acquire()
 
-    print("Grades:", grades)
-    update_zeroday_sheet(ws, package, file, grades)
+    # package_f_paths[package] -= 1
 
-    if package_f_paths[package] == 0:
-        add_package_to_tested_list(package)
 
-    io_lock.release()
+
+    # print("Grades:", grades)
+    # update_zeroday_sheet(ws, package, file, grades)
+
+    # if package_f_paths[package] == 0:
+    #     add_package_to_tested_list(package)
+
+    # io_lock.release()
+
+    #return grades
+
+def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1):
+
+    # Create worksheet if it does not exist.
+    try:
+        ws: gspread.Spreadsheet = load_sheet(target_sheet_name)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sheet.add_worksheet(target_sheet_name,"999","20")
+
+    
+    package_paths: List[str] = glob(ZERODAY_DATASET)
+
+    # Manager to share dictionary among processes.
+    multiprocessing.set_start_method("spawn")
+    with multiprocessing.Manager() as manager:
+
+        # This lock is to avoid garbled output of multiple processes.
+        io_lock: multiprocessing.Lock = manager.Lock()
+        
+        package_f_paths: DictProxy = manager.dict()
+
+        package_f_tuples: List[Tuple[str, str, DictProxy, multiprocessing.Lock, gspread.Spreadsheet]] = []
+        
+        # First we iterate the set of packages to know how many files each package has.
+        for package_path in package_paths:
+            package = os.path.basename(package_path)
+            # Skipping those that have been tested before first.
+            if check_if_package_was_tested(package):
+                print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
+                continue
+            else:
+                file_paths: List[str] = get_js_files(package_path)
+                package_f_paths[package] = len(file_paths)
+                for f in file_paths:
+                    #package_f_tuples.append((package, f, package_f_paths, io_lock, ws))
+                    #package_f_tuples.append((package, f, package_f_paths, io_lock))
+                    package_f_tuples.append((package, f, io_lock))
+        
+        # Create a process pool with the specified 'concurrency_level'.
+        # Argument 'maxtasksperchild' limits how many task 'test_zeroday_task' executions
+        # will occur before the process is killed and a new one is created.
+        # This improves resource efficiency.
+        # See: https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool
+        
+        
+        #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=10)
+        #TODO: switch back 'processes' value to 'concurrency_level' argument 
+        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=1)
+
+
+        #for result in pool.map(test_zeroday_task, package_f_tuples):
+        #    pass
+        #pool.map(test_zeroday_task, package_f_tuples)
+
+        print("Concurrency: {}".format(concurrency_level))
+        test_list = package_f_tuples[0:1]
+        # pprint.pprint(test_list)
+
+        # #dill.detect.badtypes(test_list)
+        # pprint.pprint(dill.pickles(test_list[0][0]))
+        # pprint.pprint(dill.pickles(test_list[0][1]))
+        # pprint.pprint(dill.pickles(test_list[0][2]))
+        # pprint.pprint(dill.pickles(test_list[0][3]))
+        # pprint.pprint(dill.pickles(test_list[0][4]))
+
+        # callback function
+
+        def zeroday_callback(task_result):
+
+            print("{}: callback done".format(os. getpid()), flush=True)
+            print(task_result, flush=True)
+
+            return
+
+            grades = task_result[0]
+            file = task_result[1]
+
+            io_lock.acquire()
+
+            package_f_paths[package] -= 1
+
+
+
+            print("Grades:", grades)
+            update_zeroday_sheet(ws, package, file, grades)
+
+            if package_f_paths[package] == 0:
+                add_package_to_tested_list(package)
+
+            io_lock.release()
+
+        def custom_callback(result):
+            print(f'Got result: {result}')
+
+        #chunk_sz: int = len(test_list) / concurrency_level
+        # Using starmap_async to pass multiple arguments to the function.
+
+        for result in pool.imap_unordered(test_zeroday_task_star, test_list):
+            res_package = result[0]
+            res_file = result[1]
+            grades = result[2]
+            print("{} | {}".format(res_package, res_file))
+            pprint.pprint(grades)
+            #print(f'Got result: {result}', flush=True)
+
+        #result = pool.starmap_async(test_zeroday_task, test_list, callback=zeroday_callback) #.get()
+        #result = pool.starmap_async(test_zeroday_task_TESTING_2, test_list, callback=custom_callback).get()
+
+        #result = pool.map_async(test_zeroday_task_TESTING_2, test_list, callback=custom_callback).get()
+        #result = pool.map_async(test_zeroday_task_TESTING_2, test_list, chunksize=chunk_sz, callback=custom_callback).get()
+
+        ##### This dummy example below works, keep it commented forn now.
+        # dummy_list = list(range(0, 10))
+        # result = pool.map_async(mp_dummy_int, dummy_list, callback=custom_callback).get()
+        # result.wait(timeout=5)
+        # print(result)
+        
+
+        
+        pool.close()
+        pool.join()
 
     
 def test_zeroday_dataset():
@@ -512,7 +685,8 @@ def test_zeroday_dataset():
             add_package_to_tested_list(package)
         else:
             print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
-            
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

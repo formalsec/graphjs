@@ -98,18 +98,41 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         # import cpg to neo4j
         NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs_$CONTAINER_NAME
 
+        # Function to find free ports for the Docker Neo4j image.
+        # See: https://stackoverflow.com/a/45539101
+        function get_free_port(){
+            port=$1
+            isfree=$(netstat -taln | grep $port)
+            
+            INCREMENT=$2
+            
+            while [[ -n "$isfree" ]]; do
+                port=$[port+INCREMENT]
+                isfree=$(netstat -taln | grep $port)
+            done
+
+            echo "$port"
+        }
+
+        # Find two free ports for the host-mapped HTTP and Bolt protocol ports.
+        # See: https://neo4j.com/docs/operations-manual/current/configuration/ports/
+        BASE_PORT=16998
+        INCREMENT=1
+        NEO4J_HTTP_PORT=$(get_free_port $BASE_PORT $INCREMENT)
+        NEO4J_BOLT_PORT=$(get_free_port $[$NEO4J_HTTP_PORT+1] $INCREMENT)
+
         cd $NEO4J_DIR
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
         else
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
         fi
         cd $(dirname $THIS_DIR)
 
         # run all queries
         echo "[INFO] - Running queries"
         QUERIES=$(realpath ./detection)
-        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY
+        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY --bolt-port $NEO4J_BOLT_PORT
 
         # stop Neo4J container
         echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"

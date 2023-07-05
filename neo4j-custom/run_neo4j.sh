@@ -30,6 +30,9 @@ fi
 NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
 NEO4J_EXPLODEJS_CONTAINER=$2
 
+NEO4J_HTTP_PORT=$3
+NEO4J_BOLT_PORT=$4
+
 RESULTS_DIR=execution-results
 
 # Make sure we have permissions to use graph files (auto chowned by docker...)
@@ -39,28 +42,28 @@ else
   echo $password | sudo -S chown $UID:$UID -R $GRAPH_DIR_PATH
 fi
 
-# Function to find free ports for the Docker Neo4j image.
-# See: https://stackoverflow.com/a/45539101
-function get_free_port(){
-  port=$1
-  isfree=$(netstat -taln | grep $port)
+# # Function to find free ports for the Docker Neo4j image.
+# # See: https://stackoverflow.com/a/45539101
+# function get_free_port(){
+#   port=$1
+#   isfree=$(netstat -taln | grep $port)
   
-  INCREMENT=$2
+#   INCREMENT=$2
   
-  while [[ -n "$isfree" ]]; do
-    port=$[port+INCREMENT]
-    isfree=$(netstat -taln | grep $port)
-  done
+#   while [[ -n "$isfree" ]]; do
+#     port=$[port+INCREMENT]
+#     isfree=$(netstat -taln | grep $port)
+#   done
 
-  echo "$port"
-}
+#   echo "$port"
+# }
 
-# Find two free ports for the host-mapped HTTP and Bolt protocol ports.
-# See: https://neo4j.com/docs/operations-manual/current/configuration/ports/
-BASE_PORT=16998
-INCREMENT=1
-NEO4J_HTTP_PORT=$(get_free_port $BASE_PORT $INCREMENT)
-NEO4J_BOLT_PORT=$(get_free_port $[$NEO4J_HTTP_PORT+1] $INCREMENT)
+# # Find two free ports for the host-mapped HTTP and Bolt protocol ports.
+# # See: https://neo4j.com/docs/operations-manual/current/configuration/ports/
+# BASE_PORT=16998
+# INCREMENT=1
+# NEO4J_HTTP_PORT=$(get_free_port $BASE_PORT $INCREMENT)
+# NEO4J_BOLT_PORT=$(get_free_port $[$NEO4J_HTTP_PORT+1] $INCREMENT)
 
 # On 'docker run -p HOST_PORT:CONTAINER_INNER_PORT' mapping:
 # https://www.baeldung.com/linux/assign-port-docker-container
