@@ -27,11 +27,27 @@ if [[ $GRAPH_DIR_BASE =~ \.zip$ ]]; then
 fi
 
 # TODO: Need to check if there is a second argument if run_neo4j.sh is called from other places
-NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
+#NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
 NEO4J_EXPLODEJS_CONTAINER=$2
-
 NEO4J_HTTP_PORT=$3
 NEO4J_BOLT_PORT=$4
+
+if [ -z "$2" ]
+  then
+    NEO4J_EXPLODEJS_CONTAINER="neo4j-explodejs"
+fi
+
+if [ -z "$3" ]
+  then
+    NEO4J_HTTP_PORT="7474"
+fi
+
+if [ -z "$4" ]
+  then
+    NEO4J_BOLT_PORT="7687"
+fi
+
+
 
 RESULTS_DIR=execution-results
 
