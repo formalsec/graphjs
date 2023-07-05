@@ -540,15 +540,11 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         
         
         #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=10)
+        print("Creating pool with {} workers.".format(concurrency_level))
         pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level)
 
-
-        #for result in pool.map(test_zeroday_task, package_f_tuples):
-        #    pass
-        #pool.map(test_zeroday_task, package_f_tuples)
-
         print("Concurrency: {}".format(concurrency_level))
-        test_list = package_f_tuples[0:1]
+        #test_list = package_f_tuples[0:1]
         # pprint.pprint(test_list)
 
         # The dill package can be used to detect if any object is not picklable, 
@@ -600,6 +596,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
             res_file = result[1]
             res_grades = result[2]
             
+            # This lock may be unnecessary
             io_lock.acquire()
 
             if not package in package_grades:
