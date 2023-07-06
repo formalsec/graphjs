@@ -590,10 +590,23 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         for package_path in package_paths:
             package = os.path.basename(package_path)
             # Skipping those that have been tested before first.
+
+            # TODO: we are currently checking on a package level.
+            # As soon as the result of a file is available, it should be stored locally (already done)
+            # When we launch test_zeroday_dataset_p again, it should read those values stored in disk 
+            # for incomplete NPM packages.
+            # That way, an NPM package can be completed without redoing all its files.
+            
+            
+
             if check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
                 print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
                 continue
             else:
+                # TODO: we are only an NPM package's results to Google Sheet when the package is finished.
+                # When this code is changed to enable resuming a package whose analysis was interrupted, 
+                # we need to filter from get_js_files the files for which results are found in the file system.
+
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
                 for f in file_paths:
@@ -648,6 +661,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
             package_file_count[res_package] -= 1
 
 
+            
             if package_file_count[res_package] == 0:
                 print("Grades:", res_grades)
 
