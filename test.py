@@ -17,13 +17,9 @@ import sys
 import time
 from typing import List, Dict
 
-
-
-
-
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
-INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/717"
+INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/*"
 ZERODAY_DATASET = "./datasets/zeroday-dataset/packages/src/*"
 ZERODAY_TESTED_LIST = "./datasets/zeroday-dataset/packages-tested.txt"
 ZERODAY_CONCURRENT_LOGS = "./datasets/zeroday-dataset/concurrency-logs"
@@ -735,10 +731,10 @@ if __name__ == "__main__":
         clean(VULNERABLE_EXAMPLE_DATASET, False)
         test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "explode.js" and args.d == "injection" and not args.t:
-        # clean(INJECTION_DATASET, args.x)
+        clean(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset", args.u, args.x, args.l)
     elif args.tool == "explode.js" and args.d == "injection" and args.t:
-        # clean(INJECTION_DATASET, args.x)
+        clean(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset - Test", args.u, args.x, args.l)
     elif args.tool == "odgen" and args.d == "injection":
         clean(INJECTION_DATASET, False)
