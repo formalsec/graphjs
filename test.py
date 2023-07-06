@@ -11,11 +11,13 @@ from multiprocessing.managers import DictProxy
 import os
 import pprint
 import re
+import shutil
 import socket
 import subprocess
 import sys
 import time
-from typing import List, Dict
+from typing import Dict, List, Tuple
+
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
@@ -398,39 +400,28 @@ def get_js_files(package_path):
     return js_files
 
 
-def test_zeroday_task_TESTING(package: str, file: str, 
-                      package_f_paths: DictProxy, 
-                      io_lock: multiprocessing.Lock):
-    print("{}_{}".format(package, file), flush=True)
-    return "{}_{}".format(package, file)
-
-def test_zeroday_task_TESTING_2(package: str, file: str, 
-                      io_lock: multiprocessing.Lock):
-    print("{}_{}".format(package, file), flush=True)
-
-    return "{}_{}".format(package, file)
-
-
-def mp_dummy_int(val: int):
-    print("{}".format(val), flush=True)
-
-    return val
-
-def test_zeroday_task_star(args):
-    return test_zeroday_task(*args)
-
-def next_free_port( port: int = 1024, max_port: int = 65535 ):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    while port <= max_port:
-        try:
-            sock.bind(('', port))
-            sock.close()
-            return port
-        except OSError:
-            port += 1
-    raise IOError('no free ports')
-
 def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 1024) -> int:
+    """
+    Identify an exclusive port and return it.
+    To be used within a :class:`multiprocessing.Lock` returned from :method:`multiprocessing.Manager.Lock()`.
+
+    @param: pid Current worker process PID. 
+    @param: process_port_map Used to check if a port is already reserved for a specific pool process when this function is called again.
+    @param: base_port The search for free TCP ports starts from this one and proceeds in increments of one.
+
+    """
+
+    def next_free_port( port: int = 1024, max_port: int = 65535 ):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        while port <= max_port:
+            try:
+                sock.bind(('', port))
+                sock.close()
+                return port
+            except OSError:
+                port += 1
+        raise IOError('no free ports')
+
     port: int = -1
     while True:
         if port == -1:
@@ -444,23 +435,35 @@ def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 
             return port
 
 def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy):
-# def test_zeroday_task(package: str, file: str, 
-#                       package_f_paths: DictProxy, 
-#                       io_lock: multiprocessing.Lock,
-#                       ws: gspread.Spreadsheet):
+    """
+    Function to be run by each concurrent process.
+
+    @param: package The name of the NPM package. 
+    @param: file The name of the file to inspect within the NPM package. 
+    @param: io_lock A multiprocessing.Lock for coordination between processes.
+
+    For every NPM package and individual file, this function is executed by one of the processes of :class:`multiprocessing.Pool`.
+    This function is currently being called from within :func:`test_zeroday_dataset_p()` with :method:`multiprocessing.Pool.imap_unordered()` over a list of tuples like this::
+
+
+    for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
+        res_package = result[0]
+        res_file = result[1]
+        res_grades = result[2]
+       
+    
+    """
 
     f_name: str = file[file.rfind(f"src{os.path.sep}") + 4:].replace(os.path.sep, "-")
-
     pid: int = os.getpid()
-
     log_file: str = f"PID-{pid}-{package}-{f_name}.log"
-
     log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
+
     with open(log_path, 'w') as sys.stdout:
-        #print('test')
 
-        #time.sleep(5)
-
+        # Exclusion zone to avoid concurrent multiprocessing.Pool 'test_zeroday_task' workers 
+        # picking the same free ports. 
+        # This would make concurrent Docker Neo4j containers not work properly.
         io_lock.acquire()
 
         # Get ports for process.
@@ -542,7 +545,22 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
 
     return (package, file, grades)
 
+def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy]):
+    """
+    Receives a tuple which containing arguments for :func:`test_zeroday_task` which are passed with `*args`.
+    This is needed due to :func:`imap_unordered` being able to pass only one argument to the worker function.
+
+    @param: args A tuple with an NPM package's individual file to process. 
+    """
+    return test_zeroday_task(*args)
+
 def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1):
+    """
+    Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
+
+    @param: target_sheet_name The name of the Google Sheets sheet to use.
+    @param concurrency_level: the size of the :class:`multiprocessing.Pool` to use for concurrent processses.
+    """
 
     # Create worksheet if it does not exist.
     try:
@@ -554,8 +572,6 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
     
     package_paths: List[str] = glob(ZERODAY_DATASET)
-
-    
 
     # Manager to share dictionary among processes.
     multiprocessing.set_start_method("spawn")
@@ -598,6 +614,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
         package_grades: Dict[str, Dict[str, Dict]] = {}
 
+        # Create directory for individual worker process logs.
         os.makedirs(ZERODAY_CONCURRENT_LOGS, exist_ok=True)
         
 
@@ -608,18 +625,20 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         # print("")
         # print("")
 
-        #for result in pool.imap_unordered(test_zeroday_task_star, test_list):
+        # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
+        # Using pool.imap_unordered to be able to pass more than one argument to 'test_zeroday_task_star'.
         for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
             res_package = result[0]
             res_file = result[1]
             res_grades = result[2]
 
-            print("")
-            print("")
-            pprint.pprint(f"{res_package} | {res_file}")
-            pprint.pprint(res_grades)
+            # Debug prints, left here in case they are needed.
+            # print("")
+            # print("")
+            # pprint.pprint(f"{res_package} | {res_file}")
+            # pprint.pprint(res_grades)
             
-            # This lock may be unnecessary
+            # NOTE: This lock.aquire() may be unnecessary
             io_lock.acquire()
 
             if not res_package in package_grades:
@@ -636,6 +655,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                     update_zeroday_sheet(ws, res_package, curr_file, curr_grades)
                 add_package_to_tested_list(package, ZERODAY_TESTED_LIST)
 
+            # NOTE: This lock.release() may be unnecessary
             io_lock.release()       
 
         
