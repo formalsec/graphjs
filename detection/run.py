@@ -29,11 +29,11 @@ with neo_driver.session() as session:
 	for query_type in Queries().get_query_types():
 		query_type.find_vulnerable_paths(session, vuln_paths, attacker_controlled_data, args.normalized_file, config)
 
-	print(time.time()*1000)
-
 	if len(vuln_paths) > 0:
-		#my_utils.console(vuln_paths)
+		# my_utils.console(vuln_paths)
+		print(time.time()*1000)
 		my_utils.save_output(vuln_paths, args.output)
 	else:
 		print("No vulnerabilities detected.")
+		print(time.time()*1000)
 		my_utils.save_output(vuln_paths, args.output)

@@ -1,15 +1,10 @@
 import argparse
-import ast
 from colorama import Fore
-import dill
 from glob import glob
-from glob import iglob
-import json
 import gspread
 import multiprocessing
 from multiprocessing.managers import DictProxy
 import os
-import pprint
 import re
 import shutil
 import socket
@@ -18,6 +13,7 @@ import sys
 import time
 from typing import Dict, List, Tuple
 
+from scripts.utils.explodejs_outputs import compare_outputs
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
@@ -113,11 +109,11 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit, local):
                 elif not exploit and not local:
                     os.system(f"./explodejs.sh -f {vulnerable_file_path} -c config.json -e {explodejs_path}")
                 elif exploit and local:
-                    os.system(f"./explodejs-local.sh -xf {vulnerable_file_path} -c config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
+                    os.system(f"./explodejs-local.sh -xf {vulnerable_file_path} -c config.json -e {explodejs_path} -n {norm_file}")
                 else:
                     os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c config.json -e {explodejs_path}")
                 check_graph_construction(grades, norm_file)
-                comapre_outputs(grades, expected_output_file, taint_summary_file)
+                compare_outputs(grades, expected_output_file, taint_summary_file)
                 check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
                 print("Intermdiate grades:", grades)
         print("Final grades:", grades)
@@ -154,147 +150,6 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
             break
     else:
         grades["symb_test"] = "D"
-
-def split_string_with_nested_structures(string, separator):
-    result = []
-    nested_level = 0
-    current_item = ''
-
-    for char in string:
-        if char == separator and nested_level == 0:
-            result.append(current_item.strip())
-            current_item = ''
-        else:
-            current_item += char
-            if char == '[' or char == '{':
-                nested_level += 1
-            elif char == ']' or char == '}':
-                nested_level -= 1
-
-    result.append(current_item.strip())
-
-    return result
-
-def is_valid_list_or_dict(string):
-    try:
-        ast.literal_eval(string)
-        return True
-    except (ValueError, SyntaxError):
-        return False
-
-def compare_params_types(expected, output):
-    if isinstance(expected, dict):
-        if isinstance(output, str):
-            for ty in split_string_with_nested_structures(output, "|"):
-                if is_valid_list_or_dict(ty) and isinstance(ast.literal_eval(ty), dict):
-                    if not compare_params_types(expected, ast.literal_eval(ty)):
-                        return False
-                    else:
-                        break
-            else:
-                return False
-
-        elif isinstance(output, dict):
-            if set(expected.keys()) != set(output.keys()):
-                return False
-
-            for key in expected:
-                if not compare_params_types(expected[key], output[key]):
-                    return False
-        else:
-            return False 
-    
-    elif isinstance(expected, list):
-        if isinstance(output, str):
-            for ty in split_string_with_nested_structures(output, "|"):
-                if is_valid_list_or_dict(ty) and isinstance(ast.literal_eval(ty), list):
-                    if not compare_params_types(expected, ast.literal_eval(ty)):
-                        return False
-                    else:
-                        break
-            else:
-                return False
-
-        elif isinstance(output, list):
-            for i in range(len(expected)):
-                if not compare_params_types(expected[i], output[i]):
-                    return False
-        else:
-            return False 
-
-    elif isinstance(expected, str) and isinstance(output, str):
-        if expected != "any":
-            set_expected = set(expected.split(" | "))
-            set_output = set(output.split(" | "))
-            if not set_expected.issubset(set_output):
-                return False
-    
-    else:
-        return False
-
-    return True
-
-def comapre_outputs(grades, expected_output, output):
-    try:
-        expected = json.load(open(expected_output))
-    except FileNotFoundError:
-        print("Expected output file does not exist!")
-        grades["detection"] = "E"
-        grades["data_reconstruction"] = "E"
-        return 
-
-    try:
-        out = json.load(open(output))
-    except FileNotFoundError:
-        grades["detection"] = "E"
-        grades["data_reconstruction"] = "E"
-        print("Output file does not exist!")
-        return    
-
-    num_vulns = len(expected)
-    if num_vulns == 0:
-        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("A")))
-        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("A")))
-        return
-
-    detected_vulns = 0
-    reconstructed_data = 0
-    detection_props = ["vuln_type", "source", "source_lineno", "sink", "sink_lineno", "tainted_params"]
-    for ex_vuln in expected:
-        for o in out:
-            # Check if detection was successfull
-            for prop in detection_props:
-                if ex_vuln[prop] != o[prop]:
-                    break
-            else:
-                detected_vulns += 1
-                # Check if data reconstruction was successfull
-                # if ex_vuln["params_types"] == o["params_types"]:
-                if compare_params_types(ex_vuln["params_types"], o["params_types"]):
-                    reconstructed_data += 1
-                break
-
-    detection_rate = detected_vulns / num_vulns 
-    if detection_rate == 1:
-        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("A")))
-    elif 0.5 <= detection_rate < 1:
-        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("B")))
-    elif 0 < detection_rate < 0.5:
-        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("C")))
-    else:
-        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("D")))
-
-    reconstruction_rate = reconstructed_data / num_vulns 
-    if reconstruction_rate == 1:
-        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("A")))
-    elif 0.5 <= reconstruction_rate < 1:
-        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("B")))
-    elif 0 < reconstruction_rate < 0.5:
-        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("C")))
-    else:
-        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("D")))
-
-    return grades
 
 
 def load_sheet(sheet_name):
