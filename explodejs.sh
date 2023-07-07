@@ -11,6 +11,7 @@ Help()
     echo ""
     echo "Required:"
     echo "-f     Path to JavaScript file (.js) or directory containing JavaScript files for analysis."
+    echo "-p     Docker container name."
     echo "-c     Path to JSON file (.json) containing the unsafe sinks."
     echo ""
     echo "Options:"
@@ -27,6 +28,7 @@ Help()
 
 # Default values
 EXPLODEJS_DIR=$(realpath "$(pwd)/explodejs")
+CONTAINER_NAME="noname"
 GRAPH_DIR="$EXPLODEJS_DIR/graph"
 NORM="$GRAPH_DIR/normalization.norm"
 NORMALIZED="$EXPLODEJS_DIR/normalized.js"
@@ -36,11 +38,36 @@ EXPLOIT=false
 SILENT_OP=false
 GRAPH_ONLY=false
 
+# Function to find free ports for the Docker Neo4j image.
+# See: https://stackoverflow.com/a/45539101
+function get_free_port(){
+    port=$1
+    isfree=$(netstat -taln | grep $port)
+    
+    INCREMENT=$2
+    
+    while [[ -n "$isfree" ]]; do
+        port=$[port+INCREMENT]
+        isfree=$(netstat -taln | grep $port)
+    done
+
+    echo "$port"
+}
+
+# Find two free ports for the host-mapped HTTP and Bolt protocol ports.
+# See: https://neo4j.com/docs/operations-manual/current/configuration/ports/
+BASE_PORT=16998
+INCREMENT=1
+NEO4J_HTTP_PORT=$(get_free_port $BASE_PORT $INCREMENT)
+NEO4J_BOLT_PORT=$(get_free_port $[$NEO4J_HTTP_PORT+1] $INCREMENT)
+
+
 # process arguments
-while getopts f:c:e:n:o:t:g:xsgh flag
+while getopts f:p:c:e:n:o:t:g:b:w:xsgh flag
 do
     case "${flag}" in
         f) FILEPATH=$OPTARG;;
+        p) CONTAINER_NAME=$OPTARG;;
         c) CONFIGPATH=$OPTARG;;
         e) EXPLODEJS_DIR=$OPTARG
             EXPLODEJS_DIR=$(realpath $EXPLODEJS_DIR)
@@ -53,6 +80,8 @@ do
         o) TAINT_SUMMARY=$OPTARG;;
         t) SYMBOLIC_TEST=$OPTARG;;
         g) NORM=$OPTARG;;
+        b) NEO4J_BOLT_PORT=$OPTARG;;
+        w) NEO4J_HTTP_PORT=$OPTARG;;
         x) EXPLOIT=true;;
         s) SILENT_OP=true;;
         g) GRAPH_ONLY=true;;
@@ -93,19 +122,24 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         NEO4J_DIR=$(realpath ./neo4j-custom)
 
         # import cpg to neo4j
-        NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
+        NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs_$CONTAINER_NAME
+
+        
+
+        echo "[INFO] - Docker Neo4j using ports HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+
         cd $NEO4J_DIR
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
         else
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
         fi
         cd $(dirname $THIS_DIR)
 
         # run all queries
         echo "[INFO] - Running queries"
         QUERIES=$(realpath ./detection)
-        python3 $QUERIES/run.py -f $FILEPATH -o $TAINT_SUMMARY
+        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY --bolt-port $NEO4J_BOLT_PORT
 
         # stop Neo4J container
         echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
