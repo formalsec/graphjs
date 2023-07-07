@@ -434,12 +434,12 @@ def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 
             process_port_map[port] = pid
             return port
 
-def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy):
+def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy):
     """
     Function to be run by each concurrent process.
 
     @param: package The name of the NPM package. 
-    @param: file The name of the file to inspect within the NPM package. 
+    @param: file_path The path of the file to inspect within the NPM package. 
     @param: io_lock A multiprocessing.Lock for coordination between processes.
 
     For every NPM package and individual file, this function is executed by one of the processes of :class:`multiprocessing.Pool`.
@@ -454,7 +454,7 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
     
     """
 
-    f_name: str = file[file.rfind(f"src{os.path.sep}") + 4:].replace(os.path.sep, "-")
+    f_name: str = file_path[file_path.rfind(f"src{os.path.sep}") + 4:].replace(os.path.sep, "-")
     pid: int = os.getpid()
     log_file: str = f"PID-{pid}-{package}-{f_name}.log"
     log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
@@ -470,7 +470,7 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
         http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
         bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
         
-        print(Fore.MAGENTA + f'PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file}' + Fore.RESET, flush=True)
+        print(Fore.MAGENTA + f'PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True)
         print(f"PID {pid} HTTP {http_port} BOLT {bolt_port}")
         io_lock.release()
 
@@ -481,7 +481,7 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
 
         #return (package, file, grades)
     
-        explodejs_path = f"{file}_explodejs"
+        explodejs_path = f"{file_path}_explodejs"
         taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
         norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
         symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
@@ -491,7 +491,7 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
             
             
             neo4j_container_name: str = package + "_" + f_name
-            explode_js_cmd = f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path} -w {http_port} -b {bolt_port}"
+            explode_js_cmd = f"./explodejs.sh -xf {file_path} -p {neo4j_container_name} -c config.json -e {explodejs_path} -w {http_port} -b {bolt_port}"
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
             io_lock.release()
@@ -543,7 +543,7 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
                 grades["detection"] = "ERROR"
             grades["symb_test"] = "ERROR"
 
-    return (package, file, grades)
+    return (package, file_path, grades)
 
 def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy]):
     """
@@ -621,6 +621,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         
         
         print("Creating pool with {} workers.".format(concurrency_level))
+        # See pitfalls of running multiprocessing.Pool:
+        # https://pythonspeed.com/articles/python-multiprocessing/
         pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level)
 
         print("Concurrency: {}".format(concurrency_level))
@@ -640,6 +642,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
         # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
         # Using pool.imap_unordered to be able to pass more than one argument to 'test_zeroday_task_star'.
+        # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
+        # https://superfastpython.com/multiprocessing-pool-issue-tasks/
         for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
             res_package = result[0]
             res_file = result[1]
