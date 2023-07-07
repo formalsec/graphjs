@@ -20,7 +20,7 @@ import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
 
 // Returns a graph object
-function parse(filename: string, config: Config, fileOutput: string): Graph {
+function parse(filename: string, config: Config, fileOutput: string, silentMode: boolean): Graph {
     try {
         let data = fs.readFileSync(filename, "utf8");
         // Remove shebang line
@@ -28,36 +28,35 @@ function parse(filename: string, config: Config, fileOutput: string): Graph {
             data = data.slice(data.indexOf('\n') + ('\n').length);
         }
         const ast = esprima.parseModule(data, { tolerant: true });
-        printStatus("AST Parsing");
+        !silentMode && printStatus("AST Parsing");
 
         let normalizedAst = normalizeScript(ast);
-        printStatus("AST Normalization");
+        !silentMode && printStatus("AST Normalization");
 
         const code = escodegen.generate(normalizedAst);
-        console.log(`\nNormalized code:\n${code}\n`);
+        !silentMode && console.log(`\nNormalized code:\n${code}\n`);
 
         if (fileOutput) {
-            fs.writeFileSync(fileOutput, code);
-            console.log("===============");
+            !silentMode && fs.writeFileSync(fileOutput, code);
         }
 
         // just to get the loc of the normalized version
         normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true });
         const astGraph = buildAST(normalizedAst);
-        printStatus("Build AST");
+        !silentMode && printStatus("Build AST");
         const cfGraphReturn: CFGraphReturn = buildCFG(astGraph);
-        printStatus("Build CFG");
+        !silentMode && printStatus("Build CFG");
         const callGraphReturn = buildCallGraph(cfGraphReturn.graph, cfGraphReturn.functionContexts, config);
-        printStatus("Build CG");
+        !silentMode && printStatus("Build CG");
         const callGraph = callGraphReturn.callGraph;
         config = callGraphReturn.config;
         const pdgReturn: PDGReturn = buildPDG(callGraph, cfGraphReturn.functionContexts, config);
-        printStatus("Build PDG");
+        !silentMode && printStatus("Build PDG");
         const pdgGraph = pdgReturn.graph;
         const trackers = pdgReturn.trackers;
         // const finalGraph = buildTypes(pdgGraph, trackers);
         // printStatus("Build Types")
-        trackers.print();
+        !silentMode && trackers.print();
         return pdgGraph;
     } catch (e: any) {
         console.log("Error:", e.stack);
@@ -103,11 +102,19 @@ const { argv } = yargs(process.argv.slice(2))
     .boolean('sc')
     .alias('sc', 'show_code')
     .describe('sc', 'Show the code in each instruction in graph figure')
+    .boolean('silent')
+    .describe('silent', 'Silent mode (not verbose)')
     .help('h')
     .alias('h', 'help');
 
 const filename = argv.file as string;
 const configFile = argv.config as string;
+const silentMode = argv.silent ?? false;
+
+if (silentMode) {
+    console.trace = function (){};
+}
+
 if (fs.existsSync(filename)) {
     const graphOptions = {
         ignore: argv.i ?? [],
@@ -122,7 +129,7 @@ if (fs.existsSync(filename)) {
 
     if (fs.existsSync(configFile)) {
         const config = readConfig(configFile);
-        const graph = parse(filename, config, fileOutput);
+        const graph = parse(filename, config, fileOutput, silentMode);
 
         if (graph) {
             if (argv.csv) {
@@ -139,6 +146,11 @@ if (fs.existsSync(filename)) {
                 if (argv.g) {
                     graph.output(argv.g);
                 }
+            }
+            if (argv.g){
+                const filePath = path.dirname(argv.g);
+                const statsFileName = path.join(filePath, 'graph_stats.json')
+                fs.writeFileSync(statsFileName, `{ "edges": ${graph.edges.size}, "nodes": ${graph.nodes.size}}`)
             }
         }
     } else {
