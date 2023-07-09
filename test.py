@@ -6,6 +6,7 @@ from glob import glob
 from glob import iglob
 import json
 import gspread
+import shutil
 import multiprocessing
 from multiprocessing.managers import DictProxy
 import os
@@ -30,7 +31,7 @@ ZERODAY_CONCURRENT_LOGS = "./datasets/zeroday-dataset/concurrency-logs"
 service_account = gspread.service_account(filename=".config/service_account.json")
 sheet = service_account.open("explode.js-vs-odgen")
 
-def clean(dataset, exploit):
+def clean_explodejs(dataset, exploit):
     for vulnerability in glob(dataset):
         print(Fore.MAGENTA + f"Cleaning explodejs results for {vulnerability}" + Fore.RESET)
         explodejs = os.path.join(vulnerability, "tool_outputs/explodejs")
@@ -48,8 +49,67 @@ def clean(dataset, exploit):
                     elif os.path.isdir(file_path):
                         shutil.rmtree(file_path)
 
+def clean_odgen(dataset_path):
+    for vulnerability in glob(dataset_path):
+        print(Fore.MAGENTA + f"Cleaning ODGen results for {vulnerability}" + Fore.RESET)
+        odgen = os.path.join(vulnerability, "tool_outputs/odgen")
+        for file_name in os.listdir(odgen):
+            file_path = os.path.join(odgen, file_name)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+
 def test_odgen(dataset_path, dataset, update_sheets):
     print(Fore.MAGENTA + f"Running ODGen for vulnerabilities in {dataset_path}" + Fore.RESET)
+    advisories = glob(dataset_path)
+    count = 1
+    ws = load_sheet(dataset)
+    for adv in advisories:
+        print(Fore.MAGENTA + f"{adv} ({count}/{len(advisories)})" + Fore.RESET)
+
+        excluded = [
+            "./datasets/injection-dataset/CWE-78/117",
+            "./datasets/injection-dataset/CWE-94/551", 
+            "./datasets/injection-dataset/CWE-94/813", 
+            "./datasets/injection-dataset/CWE-94/835", 
+            "./datasets/injection-dataset/CWE-94/1545", 
+            "./datasets/injection-dataset/CWE-94/GHSA-54px-mhwv-5v8x", 
+            "./datasets/injection-dataset/CWE-471/1329",
+            "./datasets/injection-dataset/CWE-471/1483",
+            "./datasets/injection-dataset/CWE-471/GHSA-r9w3-g83q-m6hq",
+        ]
+        
+        if adv in excluded:
+            continue
+
+        src = os.path.join(adv, "src")
+        odgen = os.path.join(adv, "tool_outputs/odgen")
+        start = time.time()
+        for vuln_file in os.listdir(src):
+            if vuln_file != "simplified.js" and "-normalized.js" not in vuln_file:
+                vuln_file = os.path.join(src, vuln_file)
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t os_command {vuln_file}")  
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t code_exec {vuln_file}")  
+                os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t proto_pollution {vuln_file}")  
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t ipt {vuln_file}")  
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t path_traversal {vuln_file}")  
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t xss {vuln_file}")  
+        end = time.time()
+        with open(os.path.join(odgen, "time.txt"), "w") as f:
+            f.write(f"{end - start:.2f} seconds\n")
+        logs = os.path.abspath("logs")
+        for log in os.listdir(logs):
+            shutil.move(os.path.join(logs, log), odgen)
+        count += 1
+    
+        # Update sheet ODGen
+        adv = adv.split("/")[-1]
+        results_tmp_log = os.path.join(odgen, "results_tmp.log")
+        cell = ws.find(adv, in_column=1)
+        if os.stat(results_tmp_log).st_size == 0:
+            ws.update_cell(cell.row, cell.col + 7, "D")
+        elif ws.cell(cell.row, cell.col + 7).value == "D" and os.stat(results_tmp_log).st_size != 0:
+            ws.update_cell(cell.row, cell.col + 7, "")
+
 
 def test_explodejs(dataset_path, dataset, update_sheets, exploit, local):
     print(Fore.MAGENTA + f"Running Explode.js for vulnerabilities in {dataset_path}" + Fore.RESET)
@@ -765,17 +825,17 @@ if __name__ == "__main__":
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset - Test", args.u, args.x, args.l)
     
 
-    elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
-        clean(VULNERABLE_EXAMPLE_DATASET, False)
-        test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "explode.js" and args.d == "injection" and not args.t:
-        clean(INJECTION_DATASET, args.x)
+        clean_explodejs(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset", args.u, args.x, args.l)
     elif args.tool == "explode.js" and args.d == "injection" and args.t:
-        clean(INJECTION_DATASET, args.x)
+        clean_explodejs(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset - Test", args.u, args.x, args.l)
+    elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
+        clean_odgen(EXAMPLE_DATASET)
+        test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "odgen" and args.d == "injection":
-        clean(INJECTION_DATASET, False)
+        clean_odgen(INJECTION_DATASET)
         test_odgen(INJECTION_DATASET, "Injection Dataset", args.u)
     #elif args.tool == "zeroday":
     #    test_zeroday_dataset()
