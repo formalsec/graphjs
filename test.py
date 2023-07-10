@@ -684,12 +684,6 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
             package = os.path.basename(package_path)
             # Skipping those that have been tested before first.
 
-            # TODO: we are currently checking on a package level.
-            # As soon as the result of a file is available, it should be stored locally (already done)
-            # When we launch test_zeroday_dataset_p again, it should read those values stored in disk 
-            # for incomplete NPM packages.
-            # That way, an NPM package can be completed without redoing all its files.
-            
             
 
             if check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
@@ -704,9 +698,17 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                     explodejs_path = f"{f}_explodejs"
                     done_marker: str = os.path.join(explodejs_path, "done")
 
+
+                    # TODO: we are currently checking on a package level.
+                    # As soon as the result of a file is available, it should be stored locally (already done)
+                    # When we launch test_zeroday_dataset_p again, it should read those values stored in disk 
+                    # for incomplete NPM packages.
+                    # That way, an NPM package can be completed without redoing all its files.
+                    
+
                     if os.path.exists(done_marker) and os.path.isfile(done_marker):
                         # TODO: if this condition was true, then this file has been processed before.
-                        # Need to read the grades from disk.
+                        # Need to read the grades from disk or from JSON file.
                         if not package in package_grades:
                             package_grades[package] = {}
                         
@@ -862,14 +864,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # TODO: check start_package and finish_package
-    if args.start_package > args.finish_package:
+    if args.start_package >= args.finish_package:
         print(f"Error. '-s/--start-package' must be equal or less than '-f/--finish-package'. Exiting.")
         sys.exit(1)
     elif args.start_package < 0:
         print(f"Error. '-s/--start_package' must be a non-negative integer. Exiting.")
         sys.exit(1)
     elif args.finish_package < 0:
-        print(f"Error. '-f/--finish_package' must be a positive integer. Exiting.")
+        print(f"Error. '-f/--finish_package' must be a non-negative integer. Exiting.")
         sys.exit(1)
 
 
