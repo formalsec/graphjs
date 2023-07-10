@@ -9,6 +9,7 @@ import gspread
 import multiprocessing
 from multiprocessing.managers import DictProxy
 import os
+import pathlib
 import pprint
 import re
 import shutil
@@ -434,7 +435,7 @@ def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 
             process_port_map[port] = pid
             return port
 
-def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy):
+def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy) -> Tuple[str, str, Dict]:
     """
     Function to be run by each concurrent process.
 
@@ -477,7 +478,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
         
         
 
-        grades = {}
+        grades: Dict = {}
 
         #return (package, file, grades)
     
@@ -485,6 +486,11 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
         taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
         norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
         symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
+
+        print(f'> File: {file_path}')
+        print(f'\t: {taint_summary_file}')
+        print(f'\t: {norm_file}')
+        print(f'\t: {symbolic_test_file}')
 
         try:
             start = time.time()
@@ -543,9 +549,15 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
                 grades["detection"] = "ERROR"
             grades["symb_test"] = "ERROR"
 
+    done_marker: str = os.path.join(explodejs_path, "done")
+    pathlib.Path(done_marker).touch()
+
+
+    
+
     return (package, file_path, grades)
 
-def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy]):
+def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy]) -> Tuple[str, str, Dict]:
     """
     Receives a tuple which containing arguments for :func:`test_zeroday_task` which are passed with `*args`.
     This is needed due to :func:`imap_unordered` being able to pass only one argument to the worker function.
@@ -554,7 +566,7 @@ def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy
     """
     return test_zeroday_task(*args)
 
-def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1):
+def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0):
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
 
@@ -572,6 +584,25 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
     
     package_paths: List[str] = glob(ZERODAY_DATASET)
+    package_paths.sort()
+
+    print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
+    
+
+    if package_finish_ind == 0:
+        package_paths = package_paths[package_start_ind:len(package_paths)]
+    else:
+        package_paths = package_paths[package_start_ind:package_finish_ind]
+
+    print(f'Processing packages {package_start_ind}-{len(package_paths)}')
+
+    #print(f'#packages {len(package_paths)}')
+
+    for pp in package_paths:
+        print(f'\t{pp}')
+
+    #sys.exit(0)
+
 
     # Manager to share dictionary among processes.
     multiprocessing.set_start_method("spawn")
@@ -585,6 +616,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         process_map: DictProxy = manager.dict()
 
         package_f_tuples: List[Tuple[str, multiprocessing.Lock]] = []
+
+        package_grades: Dict[str, Dict[str, Dict]] = {}
         
         # First we iterate the set of packages to know how many files each package has.
         for package_path in package_paths:
@@ -603,14 +636,26 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                 print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
                 continue
             else:
-                # TODO: we are only an NPM package's results to Google Sheet when the package is finished.
-                # When this code is changed to enable resuming a package whose analysis was interrupted, 
-                # we need to filter from get_js_files the files for which results are found in the file system.
+                
 
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
                 for f in file_paths:
-                    package_f_tuples.append((package, f, io_lock, process_map))
+                    explodejs_path = f"{f}_explodejs"
+                    done_marker: str = os.path.join(explodejs_path, "done")
+
+                    if os.path.exists(done_marker) and os.path.isfile(done_marker):
+                        # TODO: if this condition was true, then this file has been processed before.
+                        # Need to read the grades from disk.
+                        if not package in package_grades:
+                            package_grades[package] = {}
+                        
+                        # TODO: change this line to so that res_grades contains the grades written to disk.
+                        res_grades = -1 # TODO: 
+
+                        package_grades[package][f] = res_grades
+                    else:
+                        package_f_tuples.append((package, f, io_lock, process_map))
         
 
         # Create a process pool with the specified 'concurrency_level'.
@@ -627,7 +672,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
         print("Concurrency: {}".format(concurrency_level))
 
-        package_grades: Dict[str, Dict[str, Dict]] = {}
+        
 
         # Create directory for individual worker process logs.
         os.makedirs(ZERODAY_CONCURRENT_LOGS, exist_ok=True)
@@ -645,9 +690,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
         # https://superfastpython.com/multiprocessing-pool-issue-tasks/
         for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
-            res_package = result[0]
-            res_file = result[1]
-            res_grades = result[2]
+            res_package: str = result[0]
+            res_file: str = result[1]
+            res_grades: Dict = result[2]
 
             # Debug prints, left here in case they are needed.
             # print("")
@@ -750,13 +795,31 @@ if __name__ == "__main__":
     parser.add_argument("-l", action="store_true",
                         help="Run neo4j locally")
     parser.add_argument("-p", "--parallelism", type=int, default=1)
+    parser.add_argument("-s", "--start-package", type=int, default=0,
+                        help="Index of the package to start processing. Must be a non-negative integer.")
+    parser.add_argument("-f", "--finish-package", type=int, default=0,
+                        help="Index of the package to finish processing. Must be an integer greater or equal to than '-f/--finish-package'")
     args = parser.parse_args()
+
+    # TODO: check start_package and finish_package
+    if args.start_package > args.finish_package:
+        print(f"Error. '-s/--start-package' must be equal or less than '-f/--finish-package'. Exiting.")
+        sys.exit(1)
+    elif args.start_package < 0:
+        print(f"Error. '-s/--start_package' must be a non-negative integer. Exiting.")
+        sys.exit(1)
+    elif args.finish_package < 0:
+        print(f"Error. '-f/--finish_package' must be a positive integer. Exiting.")
+        sys.exit(1)
+
+
 
     #pprint.pprint(args)
     #sys.exit(0)
     if args.tool == "explode.js" and args.d == "zeroday":
         #test_zeroday_dataset()
-        test_zeroday_dataset_p(target_sheet_name = "ZeroDay Concurrent Test", concurrency_level = 2)
+        test_zeroday_dataset_p(target_sheet_name = "ZeroDay Concurrent Test", concurrency_level = 2, 
+                               package_start_ind=args.start_package, package_finish_ind=args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x, args.l)
