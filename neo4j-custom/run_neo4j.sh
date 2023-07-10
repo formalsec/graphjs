@@ -6,12 +6,6 @@ if [[ -z $1 ]]; then
     exit 4
 fi
 
-# Make sure this is not in history because of password in .config
-unset HISTFILE
-
-# Load config file
-. .config
-
 GRAPH_DIR_PATH=$(realpath $1)
 GRAPH_DIR_BASE=$(basename "$GRAPH_DIR_PATH")
 PARENT_DIR=$(dirname "$GRAPH_DIR_PATH")
@@ -47,16 +41,7 @@ if [ -z "$4" ]
     NEO4J_BOLT_PORT="7687"
 fi
 
-
-
 RESULTS_DIR=execution-results
-
-# Make sure we have permissions to use graph files (auto chowned by docker...)
-if [[ "$OSTYPE" =~ ^darwin ]]; then
-  echo $password | sudo -S chown $UID:$UID $GRAPH_DIR_PATH
-else
-  echo $password | sudo -S chown $UID:$UID -R $GRAPH_DIR_PATH
-fi
 
 # # Function to find free ports for the Docker Neo4j image.
 # # See: https://stackoverflow.com/a/45539101
@@ -84,66 +69,40 @@ fi
 # On 'docker run -p HOST_PORT:CONTAINER_INNER_PORT' mapping:
 # https://www.baeldung.com/linux/assign-port-docker-container
 
-if [ "$DEBUG" = true ]; then
-    # Build and Run container
-    echo "[INFO] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
-    if [[ "$OSTYPE" =~ ^darwin ]]; then
-      docker build --platform linux/amd64 . -t neo4j-docker
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-      docker build --platform linux/x86_64 -q . -t neo4j-docker
-    else
-      docker build . -t neo4j-docker
-    fi
-    echo "[INFO] - Running container $NEO4J_EXPLODEJS_CONTAINER"
-    echo "[INFO] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
-    # docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
-    #     -e NEO4J_dbms_query__cache__size=0 \
-    #     -e NEO4J_apoc_export_file_enabled=true \
-    #     -e NEO4J_apoc_import_file_enabled=true \
-    #     -e NEO4J_apoc_import_file_use__neo4j__config=true \
-    #     -p 7474:7474 -p 7687:7687 neo4j-docker
-    docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
-        -e NEO4J_dbms_query__cache__size=0 \
-        -e NEO4J_apoc_export_file_enabled=true \
-        -e NEO4J_apoc_import_file_enabled=true \
-        -e NEO4J_apoc_import_file_use__neo4j__config=true \
-        -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
-else
-    # Build and Run container
-    echo "[INFO] - Building image for container $NEO4j_EXPLODEJS_CONTAINER"
-    if [[ "$OSTYPE" =~ ^darwin ]]; then
-      docker build --platform linux/amd64 -q . -t neo4j-docker
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-      docker build --platform linux/x86_64 -q . -t neo4j-docker
-    fi
-    echo "[INFO] - Running container $NEO4j_EXPLODEJS_CONTAINER"
-    docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
-        -e NEO4J_dbms_query__cache__size=0 \
-        -e NEO4J_apoc_export_file_enabled=true \
-        -e NEO4J_apoc_import_file_enabled=true \
-        -e NEO4J_apoc_import_file_use__neo4j__config=true \
-        -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
-
-    if [[ "$OSTYPE" =~ ^darwin ]]; then
-      until (docker logs -n 1 $NEO4J_EXPLODEJS_CONTAINER | grep "Started."); do sleep 20; done;
-    else
-      (echo $password | sudo -S tail -f -n0 `docker inspect --format='{{.LogPath}}' $NEO4J_EXPLODEJS_CONTAINER` &) | grep -q "Started."
-    fi
-    echo "[INFO] - Neo4j server started..."
-    (echo $password | sudo killall tail)
-
-    # # Stop container
-    # echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
-    # docker stop $NEO4J_EXPLODEJS_CONTAINER
-fi
-
-# Make sure we have permissions to use graph files (auto chowned by docker...)
+# Build container
+echo "[INFO] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
 if [[ "$OSTYPE" =~ ^darwin ]]; then
-  echo $password | sudo -S chown $UID:$UID $GRAPH_DIR_PATH
+  docker build --platform linux/amd64 . -t neo4j-docker
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  docker build --platform linux/x86_64 -q . -t neo4j-docker
 else
-  echo $password | sudo -S chown $UID:$UID -R $GRAPH_DIR_PATH
+  docker build . -t neo4j-docker
 fi
 
+echo "[INFO] - Running container $NEO4J_EXPLODEJS_CONTAINER"
+echo "[INFO] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+if [ "$DEBUG" = true ]; then
+    # Run container
+    docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
+        --user $(id -u):$(id -g) \
+        -e NEO4J_dbms_query__cache__size=0 \
+        -e NEO4J_apoc_export_file_enabled=true \
+        -e NEO4J_apoc_import_file_enabled=true \
+        -e NEO4J_apoc_import_file_use__neo4j__config=true \
+        -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
+else
+    docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
+        --user $(id -u):$(id -g) \
+        -e NEO4J_dbms_query__cache__size=0 \
+        -e NEO4J_apoc_export_file_enabled=true \
+        -e NEO4J_apoc_import_file_enabled=true \
+        -e NEO4J_apoc_import_file_use__neo4j__config=true \
+        -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
+    # Wait for neo4j to start inside the container
+    until docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER | grep -q "Started."; do
+      :
+    done
+fi
 
 # if [ "$DEBUG" = false ]; then
 # # Move results and times to execution results directory
