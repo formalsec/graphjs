@@ -58,8 +58,11 @@ function get_free_port(){
 # See: https://neo4j.com/docs/operations-manual/current/configuration/ports/
 BASE_PORT=16998
 INCREMENT=1
-NEO4J_HTTP_PORT=$(get_free_port $BASE_PORT $INCREMENT)
-NEO4J_BOLT_PORT=$(get_free_port $[$NEO4J_HTTP_PORT+1] $INCREMENT)
+# NEO4J_HTTP_PORT=$(get_free_port $BASE_PORT $INCREMENT)
+# NEO4J_BOLT_PORT=$(get_free_port $[$NEO4J_HTTP_PORT+1] $INCREMENT)
+
+NEO4J_HTTP_PORT=7474
+NEO4J_BOLT_PORT=7687
 
 
 # process arguments
