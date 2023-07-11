@@ -546,11 +546,13 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
         taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
         norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
         symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
+        grades_explodejs = os.path.join(explodejs_path, "grades.json")
 
         print(f'> File: {file_path}')
         print(f'\t: {taint_summary_file}')
         print(f'\t: {norm_file}')
         print(f'\t: {symbolic_test_file}')
+        print(f'\t: {grades_explodejs}')
 
         try:
             start = time.time()
@@ -609,11 +611,8 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
                 grades["detection"] = "ERROR"
             grades["symb_test"] = "ERROR"
 
-    done_marker: str = os.path.join(explodejs_path, "done")
-    pathlib.Path(done_marker).touch()
-
-
-    
+        with open(grades_explodejs, "w") as f:
+            f.write(json.dumps(grades, indent=4) + '\n')
 
     return (package, file_path, grades)
 
@@ -696,7 +695,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                 package_file_count[package] = len(file_paths)
                 for f in file_paths:
                     explodejs_path = f"{f}_explodejs"
-                    done_marker: str = os.path.join(explodejs_path, "done")
+                    grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
 
 
                     # TODO: we are currently checking on a package level.
@@ -706,14 +705,14 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                     # That way, an NPM package can be completed without redoing all its files.
                     
 
-                    if os.path.exists(done_marker) and os.path.isfile(done_marker):
+                    if os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs):
                         # TODO: if this condition was true, then this file has been processed before.
                         # Need to read the grades from disk or from JSON file.
                         if not package in package_grades:
                             package_grades[package] = {}
                         
                         # TODO: change this line to so that res_grades contains the grades written to disk.
-                        res_grades = -1 # TODO: 
+                        res_grades = json.load(open(grades_explodejs, "r"))
 
                         package_grades[package][f] = res_grades
                     else:
