@@ -856,15 +856,16 @@ if __name__ == "__main__":
     ###### Argument sanity checking.
 
     # Range of packages to evaluate in this execution.
-    if args.start_package < 0:
-        print(f"Error. '-s/--start_package' must be a non-negative integer. Exiting.")
-        sys.exit(1)
-    elif args.finish_package < 0:
-        print(f"Error. '-f/--finish_package' must be a non-negative integer. Exiting.")
-        sys.exit(1)
-    elif args.start_package >= args.finish_package:
-        print(f"Error. '-s/--start-package' must be less than '-f/--finish-package'. Exiting.")
-        sys.exit(1)
+    if not (args.start_package == 0 and args.finish_package == 0):
+        if args.start_package < 0:
+            print(f"Error. '-s/--start_package' must be a non-negative integer. Exiting.")
+            sys.exit(1)
+        elif args.finish_package < 0:
+            print(f"Error. '-f/--finish_package' must be a non-negative integer. Exiting.")
+            sys.exit(1)
+        elif args.start_package >= args.finish_package:
+            print(f"Error. '-s/--start-package' must be less than '-f/--finish-package'. Exiting.")
+            sys.exit(1)
     
     # Parallelism level.
     if args.parallelism < 1:
