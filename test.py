@@ -697,17 +697,10 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                     explodejs_path = f"{f}_explodejs"
                     grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
 
-
-                    # TODO: we are currently checking on a package level.
-                    # As soon as the result of a file is available, it should be stored locally (already done)
-                    # When we launch test_zeroday_dataset_p again, it should read those values stored in disk 
-                    # for incomplete NPM packages.
-                    # That way, an NPM package can be completed without redoing all its files.
-                    
-
+                    # If the current file had already been processed (results found on disk), 
+                    # load its grades.
                     if os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs):
-                        # TODO: if this condition was true, then this file has been processed before.
-                        # Need to read the grades from disk or from JSON file.
+
                         if not package in package_grades:
                             package_grades[package] = {}
                         
@@ -715,6 +708,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                         res_grades = json.load(open(grades_explodejs, "r"))
 
                         package_grades[package][f] = res_grades
+
+                        package_file_count[package] -= 1
                     else:
                         package_f_tuples.append((package, f, io_lock, process_map))
         
@@ -730,10 +725,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         # See pitfalls of running multiprocessing.Pool:
         # https://pythonspeed.com/articles/python-multiprocessing/
         pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level)
-
-        print("Concurrency: {}".format(concurrency_level))
-
-        
+       
 
         # Create directory for individual worker process logs.
         os.makedirs(ZERODAY_CONCURRENT_LOGS, exist_ok=True)
@@ -747,7 +739,6 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         # print("")
 
         # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
-        # Using pool.imap_unordered to be able to pass more than one argument to 'test_zeroday_task_star'.
         # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
         # https://superfastpython.com/multiprocessing-pool-issue-tasks/
         for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
@@ -761,7 +752,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
             # pprint.pprint(f"{res_package} | {res_file}")
             # pprint.pprint(res_grades)
             
-            # NOTE: This lock.aquire() may be unnecessary
+            # NOTE: This lock.aquire() may be unnecessary, research it...
             io_lock.acquire()
 
             if not res_package in package_grades:
@@ -857,29 +848,35 @@ if __name__ == "__main__":
                         help="Run neo4j locally")
     parser.add_argument("-p", "--parallelism", type=int, default=1)
     parser.add_argument("-s", "--start-package", type=int, default=0,
-                        help="Index of the package to start processing. Must be a non-negative integer.")
+                        help="Index of the package to start processing. Must be a non-negative integer lower than the value of '-f/--finish-package'.")
     parser.add_argument("-f", "--finish-package", type=int, default=0,
-                        help="Index of the package to finish processing. Must be an integer greater or equal to than '-f/--finish-package'")
+                        help="Index of the package to finish processing. Must be an integer greater than '-s/--start-package'")
     args = parser.parse_args()
 
-    # TODO: check start_package and finish_package
-    if args.start_package >= args.finish_package:
-        print(f"Error. '-s/--start-package' must be equal or less than '-f/--finish-package'. Exiting.")
-        sys.exit(1)
-    elif args.start_package < 0:
+    ###### Argument sanity checking.
+
+    # Range of packages to evaluate in this execution.
+    if args.start_package < 0:
         print(f"Error. '-s/--start_package' must be a non-negative integer. Exiting.")
         sys.exit(1)
     elif args.finish_package < 0:
         print(f"Error. '-f/--finish_package' must be a non-negative integer. Exiting.")
         sys.exit(1)
-
+    elif args.start_package >= args.finish_package:
+        print(f"Error. '-s/--start-package' must be less than '-f/--finish-package'. Exiting.")
+        sys.exit(1)
+    
+    # Parallelism level.
+    if args.parallelism < 1:
+        print(f"Error. '-p/--parallelism' must be an integer greater than one. Exiting.")
+        sys.exit(1)
 
 
     #pprint.pprint(args)
     #sys.exit(0)
     if args.tool == "explode.js" and args.d == "zeroday":
         #test_zeroday_dataset()
-        test_zeroday_dataset_p(target_sheet_name = "ZeroDay Concurrent Test", concurrency_level = 2, 
+        test_zeroday_dataset_p(target_sheet_name = "ZeroDay Concurrent Test", concurrency_level = args.parallelism, 
                                package_start_ind=args.start_package, package_finish_ind=args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
