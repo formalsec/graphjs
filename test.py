@@ -1,10 +1,17 @@
 import argparse
+import ast
 from colorama import Fore
+import dill
 from glob import glob
+from glob import iglob
+import json
 import gspread
+import shutil
 import multiprocessing
 from multiprocessing.managers import DictProxy
 import os
+import pathlib
+import pprint
 import re
 import shutil
 import socket
@@ -13,7 +20,6 @@ import sys
 import time
 from typing import Dict, List, Tuple
 
-from scripts.utils.explodejs_outputs import compare_outputs
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
@@ -26,7 +32,7 @@ ZERODAY_CONCURRENT_LOGS = "./datasets/zeroday-dataset/concurrency-logs"
 service_account = gspread.service_account(filename=".config/service_account.json")
 sheet = service_account.open("explode.js-vs-odgen")
 
-def clean(dataset, exploit):
+def clean_explodejs(dataset, exploit):
     for vulnerability in glob(dataset):
         print(Fore.MAGENTA + f"Cleaning explodejs results for {vulnerability}" + Fore.RESET)
         explodejs = os.path.join(vulnerability, "tool_outputs/explodejs")
@@ -44,8 +50,67 @@ def clean(dataset, exploit):
                     elif os.path.isdir(file_path):
                         shutil.rmtree(file_path)
 
+def clean_odgen(dataset_path):
+    for vulnerability in glob(dataset_path):
+        print(Fore.MAGENTA + f"Cleaning ODGen results for {vulnerability}" + Fore.RESET)
+        odgen = os.path.join(vulnerability, "tool_outputs/odgen")
+        for file_name in os.listdir(odgen):
+            file_path = os.path.join(odgen, file_name)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+
 def test_odgen(dataset_path, dataset, update_sheets):
     print(Fore.MAGENTA + f"Running ODGen for vulnerabilities in {dataset_path}" + Fore.RESET)
+    advisories = glob(dataset_path)
+    count = 1
+    ws = load_sheet(dataset)
+    for adv in advisories:
+        print(Fore.MAGENTA + f"{adv} ({count}/{len(advisories)})" + Fore.RESET)
+
+        excluded = [
+            "./datasets/injection-dataset/CWE-78/117",
+            "./datasets/injection-dataset/CWE-94/551", 
+            "./datasets/injection-dataset/CWE-94/813", 
+            "./datasets/injection-dataset/CWE-94/835", 
+            "./datasets/injection-dataset/CWE-94/1545", 
+            "./datasets/injection-dataset/CWE-94/GHSA-54px-mhwv-5v8x", 
+            "./datasets/injection-dataset/CWE-471/1329",
+            "./datasets/injection-dataset/CWE-471/1483",
+            "./datasets/injection-dataset/CWE-471/GHSA-r9w3-g83q-m6hq",
+        ]
+        
+        if adv in excluded:
+            continue
+
+        src = os.path.join(adv, "src")
+        odgen = os.path.join(adv, "tool_outputs/odgen")
+        start = time.time()
+        for vuln_file in os.listdir(src):
+            if vuln_file != "simplified.js" and "-normalized.js" not in vuln_file:
+                vuln_file = os.path.join(src, vuln_file)
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t os_command {vuln_file}")  
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t code_exec {vuln_file}")  
+                os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t proto_pollution {vuln_file}")  
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t ipt {vuln_file}")  
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t path_traversal {vuln_file}")  
+                # os.system(f"python3 ~/inesc/ODGen/odgen.py -ma --timeout 400 -t xss {vuln_file}")  
+        end = time.time()
+        with open(os.path.join(odgen, "time.txt"), "w") as f:
+            f.write(f"{end - start:.2f} seconds\n")
+        logs = os.path.abspath("logs")
+        for log in os.listdir(logs):
+            shutil.move(os.path.join(logs, log), odgen)
+        count += 1
+    
+        # Update sheet ODGen
+        adv = adv.split("/")[-1]
+        results_tmp_log = os.path.join(odgen, "results_tmp.log")
+        cell = ws.find(adv, in_column=1)
+        if os.stat(results_tmp_log).st_size == 0:
+            ws.update_cell(cell.row, cell.col + 7, "D")
+        elif ws.cell(cell.row, cell.col + 7).value == "D" and os.stat(results_tmp_log).st_size != 0:
+            ws.update_cell(cell.row, cell.col + 7, "")
+
 
 def test_explodejs(dataset_path, dataset, update_sheets, exploit, local):
     print(Fore.MAGENTA + f"Running Explode.js for vulnerabilities in {dataset_path}" + Fore.RESET)
@@ -109,11 +174,11 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit, local):
                 elif not exploit and not local:
                     os.system(f"./explodejs.sh -f {vulnerable_file_path} -c config.json -e {explodejs_path}")
                 elif exploit and local:
-                    os.system(f"./explodejs-local.sh -xf {vulnerable_file_path} -c config.json -e {explodejs_path} -n {norm_file}")
+                    os.system(f"./explodejs-local.sh -xf {vulnerable_file_path} -c config.json -o {taint_summary_file} -t {symbolic_test_file} -n {norm_file}")
                 else:
                     os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c config.json -e {explodejs_path}")
                 check_graph_construction(grades, norm_file)
-                compare_outputs(grades, expected_output_file, taint_summary_file)
+                comapre_outputs(grades, expected_output_file, taint_summary_file)
                 check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
                 print("Intermdiate grades:", grades)
         print("Final grades:", grades)
@@ -150,6 +215,147 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
             break
     else:
         grades["symb_test"] = "D"
+
+def split_string_with_nested_structures(string, separator):
+    result = []
+    nested_level = 0
+    current_item = ''
+
+    for char in string:
+        if char == separator and nested_level == 0:
+            result.append(current_item.strip())
+            current_item = ''
+        else:
+            current_item += char
+            if char == '[' or char == '{':
+                nested_level += 1
+            elif char == ']' or char == '}':
+                nested_level -= 1
+
+    result.append(current_item.strip())
+
+    return result
+
+def is_valid_list_or_dict(string):
+    try:
+        ast.literal_eval(string)
+        return True
+    except (ValueError, SyntaxError):
+        return False
+
+def compare_params_types(expected, output):
+    if isinstance(expected, dict):
+        if isinstance(output, str):
+            for ty in split_string_with_nested_structures(output, "|"):
+                if is_valid_list_or_dict(ty) and isinstance(ast.literal_eval(ty), dict):
+                    if not compare_params_types(expected, ast.literal_eval(ty)):
+                        return False
+                    else:
+                        break
+            else:
+                return False
+
+        elif isinstance(output, dict):
+            if set(expected.keys()) != set(output.keys()):
+                return False
+
+            for key in expected:
+                if not compare_params_types(expected[key], output[key]):
+                    return False
+        else:
+            return False 
+    
+    elif isinstance(expected, list):
+        if isinstance(output, str):
+            for ty in split_string_with_nested_structures(output, "|"):
+                if is_valid_list_or_dict(ty) and isinstance(ast.literal_eval(ty), list):
+                    if not compare_params_types(expected, ast.literal_eval(ty)):
+                        return False
+                    else:
+                        break
+            else:
+                return False
+
+        elif isinstance(output, list):
+            for i in range(len(expected)):
+                if not compare_params_types(expected[i], output[i]):
+                    return False
+        else:
+            return False 
+
+    elif isinstance(expected, str) and isinstance(output, str):
+        if expected != "any":
+            set_expected = set(expected.split(" | "))
+            set_output = set(output.split(" | "))
+            if not set_expected.issubset(set_output):
+                return False
+    
+    else:
+        return False
+
+    return True
+
+def comapre_outputs(grades, expected_output, output):
+    try:
+        expected = json.load(open(expected_output))
+    except FileNotFoundError:
+        print("Expected output file does not exist!")
+        grades["detection"] = "E"
+        grades["data_reconstruction"] = "E"
+        return 
+
+    try:
+        out = json.load(open(output))
+    except FileNotFoundError:
+        grades["detection"] = "E"
+        grades["data_reconstruction"] = "E"
+        print("Output file does not exist!")
+        return    
+
+    num_vulns = len(expected)
+    if num_vulns == 0:
+        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("A")))
+        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("A")))
+        return
+
+    detected_vulns = 0
+    reconstructed_data = 0
+    detection_props = ["vuln_type", "source", "source_lineno", "sink", "sink_lineno", "tainted_params"]
+    for ex_vuln in expected:
+        for o in out:
+            # Check if detection was successfull
+            for prop in detection_props:
+                if ex_vuln[prop] != o[prop]:
+                    break
+            else:
+                detected_vulns += 1
+                # Check if data reconstruction was successfull
+                # if ex_vuln["params_types"] == o["params_types"]:
+                if compare_params_types(ex_vuln["params_types"], o["params_types"]):
+                    reconstructed_data += 1
+                break
+
+    detection_rate = detected_vulns / num_vulns 
+    if detection_rate == 1:
+        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("A")))
+    elif 0.5 <= detection_rate < 1:
+        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("B")))
+    elif 0 < detection_rate < 0.5:
+        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("C")))
+    else:
+        grades["detection"] = chr(max(ord(grades.get("detection", "0")), ord("D")))
+
+    reconstruction_rate = reconstructed_data / num_vulns 
+    if reconstruction_rate == 1:
+        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("A")))
+    elif 0.5 <= reconstruction_rate < 1:
+        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("B")))
+    elif 0 < reconstruction_rate < 0.5:
+        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("C")))
+    else:
+        grades["data_reconstruction"] = chr(max(ord(grades.get("data_reconstruction", "0")), ord("D")))
+
+    return grades
 
 
 def load_sheet(sheet_name):
@@ -289,12 +495,12 @@ def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 
             process_port_map[port] = pid
             return port
 
-def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy):
+def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy) -> Tuple[str, str, Dict]:
     """
     Function to be run by each concurrent process.
 
     @param: package The name of the NPM package. 
-    @param: file The name of the file to inspect within the NPM package. 
+    @param: file_path The path of the file to inspect within the NPM package. 
     @param: io_lock A multiprocessing.Lock for coordination between processes.
 
     For every NPM package and individual file, this function is executed by one of the processes of :class:`multiprocessing.Pool`.
@@ -309,7 +515,7 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
     
     """
 
-    f_name: str = file[file.rfind(f"src{os.path.sep}") + 4:].replace(os.path.sep, "-")
+    f_name: str = file_path[file_path.rfind(f"src{os.path.sep}") + 4:].replace(os.path.sep, "-")
     pid: int = os.getpid()
     log_file: str = f"PID-{pid}-{package}-{f_name}.log"
     log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
@@ -325,28 +531,35 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
         http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
         bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
         
-        print(Fore.MAGENTA + f'PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file}' + Fore.RESET, flush=True)
+        print(Fore.MAGENTA + f'PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True)
         print(f"PID {pid} HTTP {http_port} BOLT {bolt_port}")
         io_lock.release()
 
         
         
 
-        grades = {}
+        grades: Dict = {}
 
         #return (package, file, grades)
     
-        explodejs_path = f"{file}_explodejs"
+        explodejs_path = f"{file_path}_explodejs"
         taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
         norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
         symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
+        grades_explodejs = os.path.join(explodejs_path, "grades.json")
+
+        print(f'> File: {file_path}')
+        print(f'\t: {taint_summary_file}')
+        print(f'\t: {norm_file}')
+        print(f'\t: {symbolic_test_file}')
+        print(f'\t: {grades_explodejs}')
 
         try:
             start = time.time()
             
             
             neo4j_container_name: str = package + "_" + f_name
-            explode_js_cmd = f"./explodejs.sh -xf {file} -p {neo4j_container_name} -c config.json -e {explodejs_path} -w {http_port} -b {bolt_port}"
+            explode_js_cmd = f"./explodejs.sh -xf {file_path} -p {neo4j_container_name} -c config.json -e {explodejs_path} -w {http_port} -b {bolt_port}"
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
             io_lock.release()
@@ -398,9 +611,12 @@ def test_zeroday_task(package: str, file: str,  io_lock: multiprocessing.Lock, p
                 grades["detection"] = "ERROR"
             grades["symb_test"] = "ERROR"
 
-    return (package, file, grades)
+        with open(grades_explodejs, "w") as f:
+            f.write(json.dumps(grades, indent=4) + '\n')
 
-def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy]):
+    return (package, file_path, grades)
+
+def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy]) -> Tuple[str, str, Dict]:
     """
     Receives a tuple which containing arguments for :func:`test_zeroday_task` which are passed with `*args`.
     This is needed due to :func:`imap_unordered` being able to pass only one argument to the worker function.
@@ -409,7 +625,7 @@ def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy
     """
     return test_zeroday_task(*args)
 
-def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1):
+def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0):
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
 
@@ -427,6 +643,25 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
     
     package_paths: List[str] = glob(ZERODAY_DATASET)
+    package_paths.sort()
+
+    print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
+    
+
+    if package_finish_ind == 0:
+        package_paths = package_paths[package_start_ind:len(package_paths)]
+    else:
+        package_paths = package_paths[package_start_ind:package_finish_ind]
+
+    print(f'Processing packages {package_start_ind}-{len(package_paths)}')
+
+    #print(f'#packages {len(package_paths)}')
+
+    for pp in package_paths:
+        print(f'\t{pp}')
+
+    #sys.exit(0)
+
 
     # Manager to share dictionary among processes.
     multiprocessing.set_start_method("spawn")
@@ -440,32 +675,43 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         process_map: DictProxy = manager.dict()
 
         package_f_tuples: List[Tuple[str, multiprocessing.Lock]] = []
+
+        package_grades: Dict[str, Dict[str, Dict]] = {}
         
         # First we iterate the set of packages to know how many files each package has.
         for package_path in package_paths:
             package = os.path.basename(package_path)
             # Skipping those that have been tested before first.
 
-            # TODO: we are currently checking on a package level.
-            # As soon as the result of a file is available, it should be stored locally (already done)
-            # When we launch test_zeroday_dataset_p again, it should read those values stored in disk 
-            # for incomplete NPM packages.
-            # That way, an NPM package can be completed without redoing all its files.
-            
             
 
             if check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
                 print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
                 continue
             else:
-                # TODO: we are only an NPM package's results to Google Sheet when the package is finished.
-                # When this code is changed to enable resuming a package whose analysis was interrupted, 
-                # we need to filter from get_js_files the files for which results are found in the file system.
+                
 
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
                 for f in file_paths:
-                    package_f_tuples.append((package, f, io_lock, process_map))
+                    explodejs_path = f"{f}_explodejs"
+                    grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
+
+                    # If the current file had already been processed (results found on disk), 
+                    # load its grades.
+                    if os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs):
+
+                        if not package in package_grades:
+                            package_grades[package] = {}
+                        
+                        # TODO: change this line to so that res_grades contains the grades written to disk.
+                        res_grades = json.load(open(grades_explodejs, "r"))
+
+                        package_grades[package][f] = res_grades
+
+                        package_file_count[package] -= 1
+                    else:
+                        package_f_tuples.append((package, f, io_lock, process_map))
         
 
         # Create a process pool with the specified 'concurrency_level'.
@@ -476,11 +722,10 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         
         
         print("Creating pool with {} workers.".format(concurrency_level))
+        # See pitfalls of running multiprocessing.Pool:
+        # https://pythonspeed.com/articles/python-multiprocessing/
         pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level)
-
-        print("Concurrency: {}".format(concurrency_level))
-
-        package_grades: Dict[str, Dict[str, Dict]] = {}
+       
 
         # Create directory for individual worker process logs.
         os.makedirs(ZERODAY_CONCURRENT_LOGS, exist_ok=True)
@@ -494,11 +739,12 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         # print("")
 
         # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
-        # Using pool.imap_unordered to be able to pass more than one argument to 'test_zeroday_task_star'.
+        # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
+        # https://superfastpython.com/multiprocessing-pool-issue-tasks/
         for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
-            res_package = result[0]
-            res_file = result[1]
-            res_grades = result[2]
+            res_package: str = result[0]
+            res_file: str = result[1]
+            res_grades: Dict = result[2]
 
             # Debug prints, left here in case they are needed.
             # print("")
@@ -506,7 +752,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
             # pprint.pprint(f"{res_package} | {res_file}")
             # pprint.pprint(res_grades)
             
-            # NOTE: This lock.aquire() may be unnecessary
+            # NOTE: This lock.aquire() may be unnecessary, research it...
             io_lock.acquire()
 
             if not res_package in package_grades:
@@ -601,13 +847,38 @@ if __name__ == "__main__":
     parser.add_argument("-l", action="store_true",
                         help="Run neo4j locally")
     parser.add_argument("-p", "--parallelism", type=int, default=1)
+    parser.add_argument("-s", "--start-package", type=int, default=0,
+                        help="Index of the package to start processing. Must be a non-negative integer lower than the value of '-f/--finish-package'.")
+    parser.add_argument("-f", "--finish-package", type=int, default=0,
+                        help="Index of the package to finish processing. Must be an integer greater than '-s/--start-package'")
     args = parser.parse_args()
+
+    ###### Argument sanity checking.
+
+    # Range of packages to evaluate in this execution.
+    if not (args.start_package == 0 and args.finish_package == 0):
+        if args.start_package < 0:
+            print(f"Error. '-s/--start_package' must be a non-negative integer. Exiting.")
+            sys.exit(1)
+        elif args.finish_package < 0:
+            print(f"Error. '-f/--finish_package' must be a non-negative integer. Exiting.")
+            sys.exit(1)
+        elif args.start_package >= args.finish_package:
+            print(f"Error. '-s/--start-package' must be less than '-f/--finish-package'. Exiting.")
+            sys.exit(1)
+    
+    # Parallelism level.
+    if args.parallelism < 1:
+        print(f"Error. '-p/--parallelism' must be an integer greater than one. Exiting.")
+        sys.exit(1)
+
 
     #pprint.pprint(args)
     #sys.exit(0)
     if args.tool == "explode.js" and args.d == "zeroday":
         #test_zeroday_dataset()
-        test_zeroday_dataset_p(target_sheet_name = "ZeroDay Concurrent Test", concurrency_level = 2)
+        test_zeroday_dataset_p(target_sheet_name = "ZeroDay Concurrent Test", concurrency_level = args.parallelism, 
+                               package_start_ind=args.start_package, package_finish_ind=args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x, args.l)
@@ -616,17 +887,17 @@ if __name__ == "__main__":
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset - Test", args.u, args.x, args.l)
     
 
-    elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
-        clean(VULNERABLE_EXAMPLE_DATASET, False)
-        test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "explode.js" and args.d == "injection" and not args.t:
-        clean(INJECTION_DATASET, args.x)
+        clean_explodejs(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset", args.u, args.x, args.l)
     elif args.tool == "explode.js" and args.d == "injection" and args.t:
-        clean(INJECTION_DATASET, args.x)
+        clean_explodejs(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset - Test", args.u, args.x, args.l)
+    elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
+        clean_odgen(EXAMPLE_DATASET)
+        test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "odgen" and args.d == "injection":
-        clean(INJECTION_DATASET, False)
+        clean_odgen(INJECTION_DATASET)
         test_odgen(INJECTION_DATASET, "Injection Dataset", args.u)
     #elif args.tool == "zeroday":
     #    test_zeroday_dataset()
