@@ -435,19 +435,16 @@ def add_package_to_sheet(ws, package):
     if not package_cell:
         ws.update_cell(empty_row_index, 1, package)
 
-def update_zeroday_sheet(ws, package, file, grades):
-    file = "/".join(file.split("/")[5:])
+def update_zeroday_sheet(ws, package, package_grades):
+    result = []
+    for file, grades in package_grades.items():
+        sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades] 
+        sub_array.insert(4, "")
+        result.append(sub_array)
+    result[0][0] = package
+
     empty_row_index = max(len(ws.col_values(2)) + 1, 6)
-    file_cell = ws.find(file)
-    if not file_cell:
-        ws.update_cell(empty_row_index, 2, file)
-        ws.update_cell(empty_row_index, 3, grades["graph_construction"])
-        ws.update_cell(empty_row_index, 4, grades["detection"])
-        ws.update_cell(empty_row_index, 6, grades["symb_test"])
-    else:
-        ws.update_cell(file_cell.row, 3, grades["graph_construction"])
-        ws.update_cell(file_cell.row, 4, grades["detection"])
-        ws.update_cell(file_cell.row, 6, grades["symb_test"])
+    ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
 
 def get_js_files(package_path):
     js_files = []
@@ -767,10 +764,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
             
             if package_file_count[res_package] == 0:
-                print("Grades:", res_grades)
-
-                for curr_file, curr_grades in package_grades[res_package].items():
-                    update_zeroday_sheet(ws, res_package, curr_file, curr_grades)
+                update_zeroday_sheet(ws, res_package, package_grades[res_package])
                 add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
 
             # NOTE: This lock.release() may be unnecessary
@@ -897,7 +891,7 @@ if __name__ == "__main__":
         clean_explodejs(INJECTION_DATASET, args.x)
         test_explodejs(INJECTION_DATASET, "Injection Dataset - Test", args.u, args.x, args.l)
     elif args.tool == "odgen" and ("d" not in args or args.d == "example"):
-        clean_odgen(EXAMPLE_DATASET)
+        clean_odgen(VULNERABLE_EXAMPLE_DATASET)
         test_odgen(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u)
     elif args.tool == "odgen" and args.d == "injection":
         clean_odgen(INJECTION_DATASET)
