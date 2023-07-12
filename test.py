@@ -527,7 +527,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
         # This would make concurrent Docker Neo4j containers not work properly.
         io_lock.acquire()
 
-        # Get ports for process.
+        # Get ports for Docker Neo4j process port mapping.
         http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
         bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
         
@@ -759,6 +759,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                 package_grades[res_package] = {}
             package_grades[res_package][res_file] = res_grades
 
+            #print(f'[{res_package}][{res_file}] done')
+            #print(f'[{res_package}]: {package_file_count[res_package]}/{} files left')
+
             package_file_count[res_package] -= 1
 
 
@@ -768,7 +771,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
                 for curr_file, curr_grades in package_grades[res_package].items():
                     update_zeroday_sheet(ws, res_package, curr_file, curr_grades)
-                add_package_to_tested_list(package, ZERODAY_TESTED_LIST)
+                add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
 
             # NOTE: This lock.release() may be unnecessary
             io_lock.release()       
