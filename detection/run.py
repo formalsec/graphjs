@@ -4,8 +4,9 @@ import my_utils.utils as my_utils
 import argparse
 import time
 from sys import argv
+from sys import stderr
 
-
+print(f"start: {time.time()*1000}", file=stderr) # START QUERY TIME
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--normalized_file", type=str, required=True,
@@ -31,9 +32,7 @@ with neo_driver.session() as session:
 
 	if len(vuln_paths) > 0:
 		# my_utils.console(vuln_paths)
-		print(time.time()*1000)
 		my_utils.save_output(vuln_paths, args.output)
 	else:
 		print("No vulnerabilities detected.")
-		print(time.time()*1000)
 		my_utils.save_output(vuln_paths, args.output)

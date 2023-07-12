@@ -1,6 +1,8 @@
 from queries.query_type import QueryType
 import my_utils.utils as my_utils
 import json
+import time
+from sys import stderr
 
 class PrototypePollution(QueryType):
 	"""
@@ -233,6 +235,7 @@ class PrototypePollution(QueryType):
 		for query in self.queries:
 			print(f"[INFO] - Running prototype pollution query: {query[0]}")
 			results = session.run(query[1])
+			print(f"proto_pollution_detection: {time.time()*1000}", file=stderr) # END_TIMER_PROTO_POLLUTION_DETECTION
 			for record in results:
 				source_cfg = record["source_cfg"]
 				source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
@@ -252,4 +255,5 @@ class PrototypePollution(QueryType):
 				if vuln_path not in vuln_paths:
 					vuln_paths.append(vuln_path)
 
+		print(f"proto_pollution_reconstruction: {time.time()*1000}", file=stderr) # END_TIMER_PROTO_POLLUTION_RECONSTRUCTION
 		return vuln_paths
