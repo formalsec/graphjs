@@ -30,6 +30,9 @@ export interface EdgeInfo {
     // This value represents the specifier index for AST nodes (ExportNamedDeclaration)
     specifierIndex: number
     sourceObjName: string
+    // This value represents if the edge is from the property or object in dependency edges
+    // To differentiate the edges of obj[x] = value
+    isPropertyDependency: boolean
 }
 
 export class GraphEdge {
@@ -46,6 +49,7 @@ export class GraphEdge {
     private _method_index: number;
     private _specifier_index: number;
     private _source_obj_name: string;
+    private _isPropertyDependency: boolean;
 
     constructor(id: number, node1: GraphNode, node2: GraphNode, edgeInfo: EdgeInfo) {
         this._id = id;
@@ -67,6 +71,7 @@ export class GraphEdge {
         this._expression_index = edgeInfo.expressionIndex;
         this._method_index = edgeInfo.methodIndex;
         this._specifier_index = edgeInfo.specifierIndex;
+        this._isPropertyDependency = edgeInfo.isPropertyDependency || false;
     }
 
     get id(): number {
@@ -119,5 +124,13 @@ export class GraphEdge {
 
     get sourceObjName(): string {
         return this._source_obj_name;
+    }
+
+    get isPropertyDependency(): boolean {
+        return this._isPropertyDependency;
+    }
+
+    set isPropertyDependency(value: boolean) {
+        this._isPropertyDependency = value;
     }
 }

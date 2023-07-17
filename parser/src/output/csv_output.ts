@@ -77,7 +77,7 @@ export class CSVOutput extends OutputWriter {
         // FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿ArgumentIndex
 
         const edgesWriteStream = fs.createWriteStream(path.join(fileDir, "rels.csv"));
-        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex¿ParamIndex¿StmtIndex¿ElementIndex¿ExpressionIndex¿MethodIndex¿SourceObjName\n");
+        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex¿ParamIndex¿StmtIndex¿ElementIndex¿ExpressionIndex¿MethodIndex¿SourceObjName¿IsProp\n");
 
         graph.edges.forEach((edge: GraphEdge) => {
             const e = [];
@@ -124,6 +124,10 @@ export class CSVOutput extends OutputWriter {
             // source obj name
             if (edge.sourceObjName) e.push(edge.sourceObjName);
             else e.push("");
+
+            // is dependency of property
+            if (edge.isPropertyDependency) e.push(edge.isPropertyDependency);
+            else e.push(false);
 
             edgesWriteStream.write(`${e.join("¿")}\n`);
         });

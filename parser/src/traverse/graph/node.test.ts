@@ -14,6 +14,7 @@ function createEmptyEdgeInfo(): EdgeInfo {
         methodIndex: 0,
         specifierIndex: 0,
         sourceObjName: "",
+        isPropertyDependency: false
     }
 }
 

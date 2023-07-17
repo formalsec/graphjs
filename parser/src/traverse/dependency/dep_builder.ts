@@ -262,7 +262,9 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
         const auxiliaryFunctionSummary: boolean = config.summaries.auxiliary_functions.includes(callName);
         if (!auxiliaryFunctionSummary) return trackers;
         // Get arguments that are functions
+        // @ts-ignore
         const innerFunctions: GraphNode[] = callArgs.filter(arg => arg.identifier != null)
+            // @ts-ignore
             .map(arg => trackers.getFunctionNodeFromName(arg.identifier))
             .filter((fn: GraphNode | undefined) => fn !== undefined)
         // Get arguments that are variables
@@ -786,7 +788,7 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     // if the member expression is computed and is not a Literal then we have to evaluate the dependencies
     // of the property as it is a variable, because it influences the object otherwise treat it is a Literal
     if (left.obj.computed && prop.type !== "Literal") {
-        const objDeps: Dependency[] = evalDep(trackers, stmtId, prop);
+        const objDeps: Dependency[] = evalDep(trackers, stmtId, prop, undefined, true);
         deps = deps.concat(objDeps.filter((item) => !DependencyFactory.includes(deps, item)));
         // deps = evalDep(trackers, stmtId, prop);
         // deps = [ ...deps, ...evalDep(trackers, stmtId, right) ];

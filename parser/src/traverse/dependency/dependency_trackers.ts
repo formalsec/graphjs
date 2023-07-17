@@ -183,7 +183,7 @@ export class DependencyTracker {
 
     graphCreateDependencyEdge(source: number, destination: number, dep: Dependency): void {
         if (source !== destination) {
-            this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name });
+            this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name, isPropertyDependency: dep.isProp });
         }
     }
 
@@ -598,7 +598,7 @@ export class DependencyTracker {
     }
 }
 
-export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode, arg?: number): Dependency[] {
+export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode, arg?: number, isProp: boolean=false): Dependency[] {
     switch (node.type) {
         case "Literal":
             return [];
@@ -609,10 +609,10 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const depObjId = trackers.getObjectVersions(objName, node.functionContext).slice(-1)[0];
             if (depObjId === undefined) return []
             if (arg) {
-                return [DependencyFactory.DVar(objName, depObjId, arg)];
+                return [DependencyFactory.DVar(objName, depObjId, arg, isProp)];
             }
 
-            return [DependencyFactory.DVar(objName, depObjId)];
+            return [DependencyFactory.DVar(objName, depObjId, undefined, isProp)];
         }
 
         case "AwaitExpression":
