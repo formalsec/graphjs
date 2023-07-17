@@ -10,14 +10,16 @@ export interface Dependency {
     name: string
     destination?: number
     arg?: number
+    isProp?: boolean
 }
 
-export function DVar(name: string, source: number, arg?: number): Dependency {
+export function DVar(name: string, source: number, arg?: number, isProp?: boolean): Dependency {
     return {
         type: DependencyType[DependencyType.DVar],
         name,
         source,
-        arg
+        arg,
+        isProp
     };
 }
 
