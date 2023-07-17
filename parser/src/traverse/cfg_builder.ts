@@ -334,6 +334,7 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
             case "LogicalExpression":
             case "UnaryExpression":
             case "UpdateExpression":
+            case "ThrowStatement":
             case "SequenceExpression":
                 return defaultNode(node);
 
@@ -357,8 +358,8 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
 
     const startASTNodes = graph.startNodes.get("AST");
     if (startASTNodes) traverse(startASTNodes[0], -1);
-    console.log(functionList)
-    console.log(unknownCalls)
+    //console.log(functionList)
+    //console.log(unknownCalls)
     return { graph, functionContexts };
 }
 

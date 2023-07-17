@@ -1,6 +1,8 @@
 from queries.query_type import QueryType
 import my_utils.utils as my_utils
 import json
+import time
+from sys import stderr
 
 class Injection(QueryType):
 	injection_query = f"""
@@ -34,6 +36,7 @@ class Injection(QueryType):
 		"""
 		print("[INFO] - Running injection query")
 		results = session.run(self.injection_query)
+		print(f"injection_detection: {time.time()*1000}", file=stderr) # END_TIMER_INJECTION_DETECTION
 
 		print("[INFO] - Reconstructing attacker-controlled data")
 		for record in results:
@@ -57,4 +60,5 @@ class Injection(QueryType):
 			if vuln_path not in vuln_paths:
 				vuln_paths.append(vuln_path)
 
+		print(f"injection_reconstruction: {time.time()*1000}", file=stderr) # END_TIMER_INJECTION_RECONSTRUCTION
 		return vuln_paths
