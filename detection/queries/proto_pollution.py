@@ -14,7 +14,7 @@ class PrototypePollution(QueryType):
 		MATCH
 			(tamp_obj:PDG_OBJECT)
 				-[nv_edge:PDG]
-					->()
+					->(:PDG_OBJECT)
 						-[so_edge:PDG]	
 							->(sink:PDG_OBJECT),
 			(source:TAINT_SOURCE)
@@ -35,6 +35,7 @@ class PrototypePollution(QueryType):
 			so_edge.IdentifierName = "*" AND
 			param_edge.RelationType = "TAINT" AND
 			dep_edges[-1].RelationType = "DEP" AND
+			dep_edges[-1].IsProp = "false" AND
 			param_ref.RelationType = "param"
 		RETURN *
 	"""
