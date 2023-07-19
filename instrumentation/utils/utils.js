@@ -112,4 +112,9 @@ const generateCartesianProduct = (data) => {
     }
 };
 
-module.exports = { generateCartesianProduct, fillArrayUntilLength };
+function indent(string, lvl = 1) {
+    var indentation = (' ').repeat(4 * lvl);
+    return string.split('\n').map((line) => indentation + line).join('\n');
+}
+
+module.exports = { generateCartesianProduct, fillArrayUntilLength, indent };
