@@ -701,7 +701,6 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
                         if not package in package_grades:
                             package_grades[package] = {}
                         
-                        # TODO: change this line to so that res_grades contains the grades written to disk.
                         res_grades = json.load(open(grades_explodejs, "r"))
 
                         package_grades[package][f] = res_grades
