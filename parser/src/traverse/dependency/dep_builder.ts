@@ -432,16 +432,20 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         } else {
             sinkNode = checkSink;
         }
-        trackers.graphCreateSinkEdge(stmtId, sinkNode, sinkName)
 
         // connect appropriate arguments to sink node
         // I am only connecting potentially vulnerable arguments
         // according to config
+        let isSink = false
         deps.forEach(dep => {
             if (DependencyFactory.isDVar(dep) && dep.arg && sink.args.includes(dep.arg)) {
                 trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
+                isSink = true
             }
         });
+
+        isSink && trackers.graphCreateSinkEdge(stmtId, sinkNode, sinkName)
+
     }
 
     let sinkPackageName: string;
@@ -466,17 +470,21 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         } else {
             sinkNode = checkSink;
         }
-        trackers.graphCreateSinkEdge(stmtId, sinkNode, sinkName)
 
         // connect appropriate arguments to sink node
         // I am only connecting potentially vulnerable arguments
         // according to config
+        let isSink = false
         const sinkArgs = sink.packages.find(p => p.package === sinkPackageName)?.args;
         deps.forEach(dep => {
             if (DependencyFactory.isDVar(dep) && dep.arg && sinkArgs?.includes(dep.arg)) {
                 trackers.graphConnectToSinkNode(dep.source, dep.name, sinkNode);
+                isSink = true
             }
         });
+
+        isSink && trackers.graphCreateSinkEdge(stmtId, sinkNode, sinkName)
+
     }
 
     // Create sinks when promisify(exec) e.g.
