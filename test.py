@@ -556,7 +556,8 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             
             
             neo4j_container_name: str = package + "_" + f_name
-            explode_js_cmd = f"./explodejs.sh -xf {file_path} -p {neo4j_container_name} -c config.json -e {explodejs_path} -w {http_port} -b {bolt_port}"
+            neo4j_container_name = neo4j_container_name.replace(" ", "-").replace("\t", "-")
+            explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
             io_lock.release()
@@ -642,6 +643,10 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
     package_paths: List[str] = glob(ZERODAY_DATASET)
     package_paths.sort()
 
+    if len(package_paths) == 0:
+        print("> Zeroday dataset: found zero packages ot process. Perhaps an argument error? Exiting.")
+        sys.exit(1)
+
     print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
     
 
@@ -650,7 +655,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
     else:
         package_paths = package_paths[package_start_ind:package_finish_ind]
 
-    print(f'Processing packages {package_start_ind}-{len(package_paths)}')
+
+
+    print(f'Processing packages {package_start_ind}-{package_start_ind+len(package_paths)}')
 
     #print(f'#packages {len(package_paths)}')
 
@@ -873,7 +880,14 @@ if __name__ == "__main__":
     #sys.exit(0)
     if args.tool == "explode.js" and args.d == "zeroday":
         #test_zeroday_dataset()
-        test_zeroday_dataset_p(target_sheet_name = "ZeroDay Concurrent Test", concurrency_level = args.parallelism, 
+
+        sheet_name: str = "ZeroDay Concurrent Test"
+
+        if not (args.start_package == 0 and args.finish_package == 0):
+            sheet_name = f"ZDC-{args.start_package}-{args.finish_package}"
+
+
+        test_zeroday_dataset_p(target_sheet_name = sheet_name, concurrency_level = args.parallelism, 
                                package_start_ind=args.start_package, package_finish_ind=args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)

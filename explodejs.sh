@@ -73,7 +73,7 @@ do
         p) CONTAINER_NAME=$OPTARG;;
         c) CONFIGPATH=$OPTARG;;
         e) EXPLODEJS_DIR=$OPTARG
-            EXPLODEJS_DIR=$(realpath $EXPLODEJS_DIR)
+            EXPLODEJS_DIR=$(realpath "$EXPLODEJS_DIR")
             GRAPH_DIR="$EXPLODEJS_DIR/graph"
             NORM="$GRAPH_DIR/normalization.norm"
             NORMALIZED="$EXPLODEJS_DIR/normalized.js"

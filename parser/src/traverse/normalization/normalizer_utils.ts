@@ -1,4 +1,4 @@
-import { copyObj, getNextVariableName } from "../utils/utils";
+import { copyObj, getNextVariableName } from "../../utils/utils";
 
 import type {
     ArrayExpression,

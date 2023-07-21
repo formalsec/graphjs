@@ -1,5 +1,4 @@
-// eslint-disable-next-line no-unused-vars
-import { copyObj } from "../utils/utils";
+import { copyObj } from "../../utils/utils"
 
 import type {
     Node,

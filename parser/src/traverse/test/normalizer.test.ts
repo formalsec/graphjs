@@ -3,10 +3,10 @@ import esprima = require("esprima");
 import fs = require("fs");
 import escodegen from "escodegen";
 
-import { resetVariableCount } from "../utils/utils";
+import { resetVariableCount } from "../../utils/utils";
 import {
     normalizeScript,
-} from "./normalizer";
+} from "../normalization/normalizer";
 
 function testNormalization(testInputPath: string) {
     let testInputId = 1;

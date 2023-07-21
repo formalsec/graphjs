@@ -60,12 +60,17 @@ let fresh_obj_var = var_gen.fresh_obj_var_gen();
 let fresh_obj_prop_var = var_gen.fresh_obj_prop_var_gen();
 let fresh_array_var = var_gen.fresh_array_var_gen();
 let fresh_symb_obj_var = var_gen.fresh_symb_obj_var_gen();
+let fresh_symb_prop_var = var_gen.fresh_symb_prop_var_gen();
 let fresh_symb_num_var = var_gen.fresh_symb_num_var_gen();
 let fresh_symb_str_var = var_gen.fresh_symb_str_var_gen();
 let fresh_symb_bool_var = var_gen.fresh_symb_bool_var_gen();
 let fresh_symb_func_var = var_gen.fresh_symb_func_var_gen();
 let fresh_concrete_var = var_gen.fresh_concrete_var_gen();
 let fresh_test_var = var_gen.fresh_test_var_gen();
+
+function is_symb_name(name) {
+	return name === '*'
+}
 
 /**
  * Main functions
@@ -137,6 +142,9 @@ const util = require('util')
 	return mapJS(f, ast_prog);
 }
 
+
+// TODO: Update docs
+
 /**
  * Receives a function parameter object and returns the string corresponding to 
  * the declaration of that parameter as a symbolic variable of the specified 
@@ -147,83 +155,180 @@ const util = require('util')
  * Parameter type, i.e, object structure and types
  * @param {Object} var_info
  * Information about a variable
- * @returns {string}
+ * @returns {Object}
  * Variable assignment
  */
-function generate_symb_assignment(param_name, param_type, prefix = "", vuln_type) {
-	param_name = param_name === "*" ? "any_property" : param_name;
-	var name = prefix + `${param_name}__`;
+function generate_symb_assignment({param_name, param_type, prefix = "", vuln_type, is_prop = false, is_symb_prop = false, is_array_el = false}) {
+	var name = prefix + param_name;
+	var prefix = name + "__";
+	if ((typeof param_type === 'object' && !Array.isArray(param_type) && param_type !== null)) {
+		name += `___${fresh_obj_var()}`;
 
-	if ((typeof param_type === 'object' && !Array.isArray(param_type) && param_type !== null) || (param_type === "object")) {
-		param_type = param_type === "object" ? {} : param_type;
-		var properties_assignment = Object.entries(param_type).map(([param, param_type]) => generate_symb_assignment(param, param_type, `${name}__`, vuln_type));
-		name += `_${fresh_obj_var()}`;
-		var tmplt = `var ${name} = {};\n`;
-		var sub_properties_arr = Object.keys(param_type)
-		tmplt = tmplt.concat(
-			/* Templates of properties */
-			properties_assignment.map((p) => p.tmplt).join(''),
-			/* Assignments of properties to created vars */
-			properties_assignment.map((p, index) => {
-				if (sub_properties_arr[index] === "*") {
-					let any_prop_name = fresh_obj_prop_var();
-					let assumes = sub_properties_arr.map((key) => key !== "*" ? `assume(${any_prop_name} != "${key}")\n` : "").join("");
-					return `${any_prop_name} = esl_symbolic.string("${any_prop_name}")\n${assumes}${name}[${any_prop_name}] = ${p.name};\n`
-				} else {
-					return `${name}.${sub_properties_arr[index]} = ${p.name};\n`
+		 /* Generate properties assignment */
+		var props_assign = Object.entries(param_type)
+			.reduce((acc, [p_name, p_type]) => {
+				if (!is_symb_name(p_name))
+					acc.concr.push(generate_symb_assignment({param_name: p_name, param_type: p_type, prefix: prefix, vuln_type: vuln_type, is_prop: true}));
+				else {
+					/* Generate the symbolic property name */
+					acc.symb.push({name: fresh_symb_prop_var(), type: p_type});
 				}
-			}).join('')
+				return acc;
+			}, {concr: [], symb: []});
+
+		/* Generate the symbolic info */
+		props_assign.symb = props_assign.symb.map((p) => {
+			/* The symbolic property is not any of the other properties */
+			var assumes = props_assign.concr.map((el) => `assume(${p.name} != "${el.name}")\n`);
+			props_assign.symb.forEach((el) => {
+				if (p.name != el.name) {
+					assumes.push(`assume(${p.name} != ${el.name})\n`);
+				}
+			});
+			var symb_assigns = generate_symb_assignment({param_name: p.name, param_type: p.type, prefix: prefix, vuln_type: vuln_type, is_prop: true, is_symb_prop: true});
+			/* Info to generate the symbolic assignments:
+				name: fresh symbolic property name
+				tmplt: template of the object's concrete properties assignments
+				remaining_assignments: list of the remaining assignments to generate
+				assumes: the symbolic property is not any of the other properties
+				decl_target: stack of declarations of the object. Traverse in reverse to generate the assignment
+			*/
+			var remaining_assignments = [];
+			if (symb_assigns.remaining_assignments) {
+				remaining_assignments = symb_assigns.remaining_assignments;
+			}
+			return {name: prefix + p.name, obj_name: symb_assigns.name, tmplt: symb_assigns.tmplt, remaining_assignments: remaining_assignments, assumes: assumes, decl_target: name};
+		});
+
+		/* Generate the object template */
+		var object_tmplt = `var ${name} = {\n`
+		if (is_prop && !is_symb_prop)
+			var object_tmplt = `${name}: {\n`
+		else if (is_array_el)
+			var object_tmplt = `{\n`
+		
+		object_tmplt += utils.indent(props_assign.concr.map((p) => p.tmplt).join(',\n'))
+		
+		if (!is_prop || is_symb_prop)
+			object_tmplt += `\n};\n`
+		else
+			object_tmplt += `\n}`
+
+		var remaining_assignments = [].concat(
+			props_assign.symb.map((p) => p.remaining_assignments).flat(),
+			props_assign.symb.map((p) => { 
+				delete p.remaining_assignments;
+				return p;
+			}),
+			props_assign.concr.map((p) => p.remaining_assignments).filter((p) => p)
 		);
-		return {name: name, tmplt: tmplt};
-	} else if (Array.isArray(param_type) || param_type === "array") {
-		name += `_${fresh_array_var()}`;
-		var tmplt = `var ${name} = []\n`;
-		param_type = utils.fillArrayUntilLength(param_type, "string", instr_const.symb_array_length)
-		for (i = 0; i < param_type.length; i++) {
-			element = generate_symb_assignment(i, param_type[i], `${name}__`, vuln_type);
-			tmplt = tmplt.concat(element.tmplt, `${name}.push(${element.name});\n`);
+
+		var complete_template = object_tmplt;
+
+		if (!is_prop) { // Object is not a property, generate all the remaining assignments
+			var concrete_tmplt = remaining_assignments.map((a) => a.tmplt).join('');
+			var symb_props_tmplt = remaining_assignments.map((a) => `var ${a.name} = esl_symbolic.string("${a.name}");\n`).join('');
+			var assumes = remaining_assignments.map((a) => a.assumes).join('');
+			var assignments = remaining_assignments.map((a) => `${a.decl_target}[${a.name}] = ${a.obj_name};\n`).join('');
+			/* Update the complete template */
+			complete_template = symb_props_tmplt + assumes + object_tmplt + concrete_tmplt + assignments;
+			remaining_assignments = [];
 		}
+
+		return {name: name, tmplt: complete_template, remaining_assignments: remaining_assignments};
+
+	} else if (Array.isArray(param_type) || param_type === "array") {
+		name += `___${fresh_array_var()}`;
+		var tmplt = `var ${name} = [\n`;
+		if (is_prop && !is_symb_prop)
+			tmplt = `${name}: [\n`;
+		else if (is_array_el)
+			tmplt = `[\n`;
+		param_type = utils.fillArrayUntilLength(param_type, "string", instr_const.symb_array_length)
+		var elements = [];
+		for (i = 0; i < instr_const.symb_array_length; i++) {
+			elements.push(generate_symb_assignment({param_name: i, param_type: param_type[i], prefix: prefix, vuln_type: vuln_type, is_array_el: true}));
+		}
+		tmplt += utils.indent(elements.map((e) => e.tmplt).join(',\n'));
+		if (!is_prop || is_symb_prop)
+			tmplt += `\n];\n`
+		else
+			tmplt += `\n]`
 		return {name: name, tmplt: tmplt}
-	} else if (name.includes("any_property") && vuln_type === "prototype-pollution") {
-		name += `_${fresh_symb_obj_var()}`;
-		var tmplt = `var ${name} = esl_symbolic.object("${name}");\n`;
-		return {name: name, tmplt: tmplt};
-	} 
+
+	}
 	else {
 		switch (param_type) {
 			case "any":
-				name += `_${fresh_symb_var()}`;
-				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`; // any is string for simplifications purposes
+				name += `___${fresh_symb_var()}`;
+				var tmplt = `var ${name} = esl_symbolic.any("${name}");\n`;
+				if (is_prop && !is_symb_prop)
+					tmplt = `${name}: esl_symbolic.any("${name}")`;
+				else if (is_array_el)
+					tmplt = `esl_symbolic.any("${name}")`;
 				return {name: name, tmplt: tmplt};
 
 			case "bool":
 			case "boolean":
-				name += `_${fresh_symb_bool_var()}`;
+				name += `___${fresh_symb_bool_var()}`;
 				var tmplt = `var ${name} = esl_symbolic.boolean("${name}");\n`;
+				if (is_prop && !is_symb_prop)
+					tmplt = `${name}: esl_symbolic.boolean("${name}")`;
+				else if (is_array_el)
+					tmplt = `esl_symbolic.boolean("${name}")`;
 				return {name: name, tmplt: tmplt};
 
 			case "function":
-				name += `_${fresh_symb_func_var()}`;
+				name += `___${fresh_symb_func_var()}`;
 				var tmplt = `var ${name} = esl_symbolic.function("${name}");\n`;
+				if (is_prop && !is_symb_prop)
+					tmplt = `${name}: esl_symbolic.function("${name}")`;
+				else if (is_array_el)
+					tmplt = `esl_symbolic.function("${name}")`;
+				return {name: name, tmplt: tmplt};
+			
+			case "object":
+				name += `___${fresh_symb_obj_var()}`;
+				var tmplt = `var ${name} = esl_symbolic.object("${name}");\n`;
+				if (is_prop && !is_symb_prop)
+					tmplt = `${name}: esl_symbolic.object("${name}")`;
+				else if (is_array_el)
+					tmplt = `esl_symbolic.object("${name}")`;
 				return {name: name, tmplt: tmplt};
 
 			case "number":
-				name += `_${fresh_symb_num_var()}`;
+				name += `___${fresh_symb_num_var()}`;
 				var tmplt = `var ${name} = esl_symbolic.number("${name}");\n`;
+				if (is_prop && !is_symb_prop)
+					tmplt = `${name}: esl_symbolic.number("${name}")`;
+				else if (is_array_el)
+					tmplt = `esl_symbolic.number("${name}")`;
 				return {name: name, tmplt: tmplt};
 
 			case "string":
-				name += `_${fresh_symb_str_var()}`;
+				name += `___${fresh_symb_str_var()}`;
 				var tmplt = `var ${name} = esl_symbolic.string("${name}");\n`;
+				if (is_prop && !is_symb_prop)
+					tmplt = `${name}: esl_symbolic.string("${name}")`;
+				else if (is_array_el)
+					tmplt = `esl_symbolic.string("${name}")`;
 				return {name:name, tmplt: tmplt};
 
 			case "concrete":
-				name += `_${fresh_concrete_var()}`;
+				name += `___${fresh_concrete_var()}`;
 				var tmplt;
 				if (var_info.value) {
 					tmplt = `var ${name} = ${var_info.value};\n`;
+					if (is_prop && !is_symb_prop)
+						tmplt = `${name}: ${var_info.value}`;
+					else if (is_array_el)
+						tmplt = `${var_info.value}`;
 				} else {
 					tmplt = `var ${name};\n`
+					if (is_prop && !is_symb_prop)
+						tmplt = `${name}: undefined`;
+					else if (is_array_el)
+						tmplt = ` `;
 				}
 				return {name: name, tmplt: tmplt };
 
@@ -234,6 +339,14 @@ function generate_symb_assignment(param_name, param_type, prefix = "", vuln_type
 				// return {name: name, tmplt: tmplt};
 		}
 	}
+}
+
+function get_complete_source(prog, sink) {
+	var sink_assignment = prog.match(`[^ \t\r\n\f]* = ${sink}`);
+	if (sink_assignment) {
+		return sink_assignment[0].split('=')[0].trim();
+	}
+	return sink;
 }
 
 /**
@@ -248,17 +361,17 @@ function generate_symb_assignment(param_name, param_type, prefix = "", vuln_type
  */
 function generate_test(prog, config) {
 	/* Remove module.exports and check if sink type is symbolic */
-	var parsed_prog = format_pretty(js2ast(ast2js(module_exp_rm_sink_safeguard(prog, config.sink, config.sink_lineno))));
+	var parsed_prog = ast2js(format_pretty(js2ast(ast2js(module_exp_rm_sink_safeguard(prog, config.sink, config.sink_lineno)))));
 	/* Add definitions and assignments of the variables needed for the program */
-	var assignments = Object.entries(config.params_types).map(([param, param_type]) => generate_symb_assignment(param, param_type, "", config.vuln_type));
+	var assignments = Object.entries(config.params_types).map(([param, param_type]) => generate_symb_assignment({param_name: param, param_type: param_type, vuln_type: config.vuln_type}));
 	/* Get function parameter names */
 	var param_names = assignments.map(e => e.name);
 	/* Get assignment strings of symbolic variables and objects */
-	var assignment_templates = assignments.map(e => e.tmplt).join('');
+	var assignment_templates = assignments.map(e => e.tmplt).join('\n\n');
 	/* Parse the function call with the parameter names */
-	var func_call = `${config.source}(${param_names.join(", ")});\n`
+	var func_call = `${get_complete_source(parsed_prog, config.source)}(${param_names.join(", ")});\n`
 	/** Assignments + Program + Function Call */
-	return assignment_templates + '\n' + ast2js(parsed_prog) + '\n\n' + func_call;
+	return assignment_templates + '\n\n\n' + parsed_prog + '\n\n' + func_call;
 }
 
 module.exports = generate_test;
