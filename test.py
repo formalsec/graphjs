@@ -656,7 +656,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
 
 
-    print(f'Processing packages {package_start_ind}-{len(package_paths)}')
+    print(f'Processing packages {package_start_ind}-{package_start_ind+len(package_paths)}')
 
     #print(f'#packages {len(package_paths)}')
 
