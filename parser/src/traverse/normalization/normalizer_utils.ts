@@ -592,12 +592,6 @@ export function normSwitchStatement(obj: Node, children: Normalization[]): Norma
     };
 }
 
-export function rearrangeSwitchCases(cases: SwitchCase[]): SwitchCase[] {
-    const defaultCase = cases.filter(switchCase => !switchCase.test);
-    const otherCases = cases.filter(switchCase => switchCase.test);
-    return [...otherCases, ...defaultCase];
-}
-
 export function normSwitchCases(obj: Node, cases: SwitchCase[], childrenList: Normalization[][], parent: Node | null): Normalization {
     const parentDiscriminant = parent && (parent.type === "Identifier" || parent.type === "Literal") ? parent : createRandomIdentifier();
     const previousDecls: Statement[] = [];
