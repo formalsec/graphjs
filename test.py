@@ -609,7 +609,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
                 #     log.debug("Command Result: {}".format(result.stdout.decode('utf-8')))
                 print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET, flush=True)
             except subprocess.CalledProcessError as e:
-                pprint.pprint(result)
+                #pprint.pprint(result)
                 pprint.pprint(e)
                 sys.exit(0)
 
