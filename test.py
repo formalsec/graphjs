@@ -556,7 +556,8 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             
             
             neo4j_container_name: str = package + "_" + f_name
-            explode_js_cmd = f"./explodejs.sh -xf {file_path} -p {neo4j_container_name} -c config.json -e {explodejs_path} -w {http_port} -b {bolt_port}"
+            neo4j_container_name = neo4j_container_name.replace(" ", "-").replace("\t", "-")
+            explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
             io_lock.release()
