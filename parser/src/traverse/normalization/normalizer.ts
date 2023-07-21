@@ -47,7 +47,6 @@ import {
     normExportDeclaration,
     normSimpleExpression,
     normSwitchStatement,
-    normSwitchCases,
     normArrayPattern,
     normAssignmentPattern, createArrowFunctionBlockBody
 } from "./normalizer_utils";
@@ -360,16 +359,9 @@ function normalize(obj: Node | null | undefined, parent: Node | null): Normaliza
 
         case "SwitchStatement": {
             const resultDiscriminant = normalize(obj.discriminant, obj);
-            const switchCasesNorm = obj.cases.map((switchCase) => {
-                const resultTest = normalize(switchCase.test, switchCase);
-                const resultConsequent = mapReduce(switchCase.consequent, switchCase);
-
-                resultConsequent.unshift(resultTest);
-                return resultConsequent;
-            });
-            const normResultCases = normSwitchCases(obj, obj.cases, switchCasesNorm, resultDiscriminant.expr);
-            const resultData = [resultDiscriminant, normResultCases];
-            return normSwitchStatement(obj, resultData);
+            const resultTests = obj.cases.map((switchCase) => normalize(switchCase.test, switchCase));
+            const resultConsequents = obj.cases.map((switchCase) => mapReduce(switchCase.consequent, switchCase));
+            return normSwitchStatement(obj, resultDiscriminant, resultTests, resultConsequents);
         }
 
         case "TryStatement": {
