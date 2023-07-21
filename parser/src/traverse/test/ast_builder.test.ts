@@ -1,7 +1,7 @@
-import buildAST from "./ast_builder";
+import buildAST from "../ast_builder";
 import esprima = require("esprima");
-import { Graph } from "./graph/graph";
-import { normalizeScript } from "./normalizer";
+import { Graph } from "../graph/graph";
+import { normalizeScript } from "../normalization/normalizer";
 import escodegen from "escodegen";
 
 describe("Testing node class", () => {
