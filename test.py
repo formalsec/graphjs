@@ -642,6 +642,10 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
     package_paths: List[str] = glob(ZERODAY_DATASET)
     package_paths.sort()
 
+    if len(package_paths) == 0:
+        print("> Zeroday dataset: found zero packages ot process. Perhaps an argument error? Exiting.")
+        sys.exit(1)
+
     print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
     
 
@@ -649,6 +653,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         package_paths = package_paths[package_start_ind:len(package_paths)]
     else:
         package_paths = package_paths[package_start_ind:package_finish_ind]
+
+
 
     print(f'Processing packages {package_start_ind}-{len(package_paths)}')
 
