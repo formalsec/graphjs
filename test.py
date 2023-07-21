@@ -556,7 +556,8 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             
             
             neo4j_container_name: str = package + "_" + f_name
-            explode_js_cmd = f"./explodejs.sh -xf {file_path} -p {neo4j_container_name} -c config.json -e {explodejs_path} -w {http_port} -b {bolt_port}"
+            neo4j_container_name = neo4j_container_name.replace(" ", "-").replace("\t", "-")
+            explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
             io_lock.release()
@@ -585,14 +586,33 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
                 grades["detection"] = "TIMEOUT"
             grades["symb_test"] = "TIMEOUT"
 
+            # neo4j-explodejs_$CONTAINER_NAME
             docker_neo4j_container: str = "neo4j-explodejs_{}".format(neo4j_container_name) 
             docker_stop_cmd = f"docker stop {docker_neo4j_container}"
 
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
             io_lock.release()
-            subprocess.run(docker_stop_cmd, shell=True, check=True, stdout=sys.stdout, stderr=sys.stdout)
-            print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET, flush=True)
+
+
+            sys.stdout.flush()
+
+            try:
+                result = subprocess.run(docker_stop_cmd, shell=True, check=True, stdout=sys.stdout, stderr=sys.stdout)
+                # if result.stderr:
+                #     raise subprocess.CalledProcessError(
+                #             returncode = result.returncode,
+                #             cmd = result.args,
+                #             stderr = result.stderr
+                #             )
+                # if result.stdout:
+                #     log.debug("Command Result: {}".format(result.stdout.decode('utf-8')))
+                print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET, flush=True)
+            except subprocess.CalledProcessError as e:
+                #pprint.pprint(result)
+                pprint.pprint(e)
+                sys.exit(0)
+
         except subprocess.CalledProcessError as e:
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True)
@@ -656,7 +676,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
 
 
-    print(f'Processing packages {package_start_ind}-{len(package_paths)}')
+    print(f'Processing packages {package_start_ind}-{package_start_ind+len(package_paths)}')
 
     #print(f'#packages {len(package_paths)}')
 
