@@ -1,10 +1,10 @@
 import { Identifier } from "estree";
-import { getAllASTNodes, getASTNode } from "../utils/utils";
-import { DependencyTracker } from "./dependency/dependency_trackers";
-import * as DependencyFactory from "./dependency/dep_factory";
-import { StorageFactory, StorageObject } from "./dependency/sto_factory";
-import { Graph } from "./graph/graph";
-import { GraphNode } from "./graph/node";
+import { getAllASTNodes, getASTNode } from "../../utils/utils";
+import { DependencyTracker } from "../dependency/dependency_trackers";
+import * as DependencyFactory from "../dependency/dep_factory";
+import { StorageFactory, StorageObject } from "../dependency/sto_factory";
+import { Graph } from "../graph/graph";
+import { GraphNode } from "../graph/node";
 
 export type FObjects = Map<string, Map<string, any>>;
 

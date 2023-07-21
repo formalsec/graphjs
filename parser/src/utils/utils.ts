@@ -50,6 +50,7 @@ export const resetObjectCount = (): number => { OBJ_COUNT = 1; return OBJ_COUNT 
 export const printJSON = (json: any): void => { console.log(JSON.stringify(json, null, 2)); };
 
 export const printStatus = (step: string): void => { console.log(`Step - ${step} - concluded.`); }
+
 export function clone<T>(a: T): T {
     return JSON.parse(JSON.stringify(a));
 }
