@@ -8,6 +8,8 @@ virtual_py/*
 neo4j-custom/.config
 neo4j-custom/import.report
 neo4j-custom/neo4j_start.txt
+neo4j-custom/neo4j_stop.txt
+neo4j-custom/neo4j_import.txt
 neo4j-custom/import-files/*
 __pycache__/
 node_modules*
