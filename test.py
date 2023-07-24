@@ -609,9 +609,13 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
                 #     log.debug("Command Result: {}".format(result.stdout.decode('utf-8')))
                 print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET, flush=True)
             except subprocess.CalledProcessError as e:
+
+                print(Fore.RED + f"Error calling 'docker stop' from Python!" + Fore.RESET, flush=True)
                 #pprint.pprint(result)
                 pprint.pprint(e)
-                sys.exit(0)
+                sys.stdout.flush()
+                raise e
+                #sys.exit(1)
 
         except subprocess.CalledProcessError as e:
             io_lock.acquire()

@@ -1,3 +1,3 @@
-const v1 = 42 === 23;
-if (v1) {
+switch (42) {
+case 23:
 }
