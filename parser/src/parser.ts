@@ -36,7 +36,7 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         // Generate the normalized code, to store it
         const code = escodegen.generate(normalizedAst);
         !silentMode && console.log(`\nNormalized code:\n${code}\n`);
-        if (fileOutput) !silentMode && fs.writeFileSync(fileOutput, code);
+        if (fileOutput) fs.writeFileSync(fileOutput, code);
 
         // Parse normalized AST, to get the lines of code of the normalized version
         normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true });
