@@ -12,9 +12,11 @@ from multiprocessing.managers import DictProxy
 import os
 import pathlib
 import pprint
+import random
 import re
 import shutil
 import socket
+import string
 import subprocess
 import sys
 import time
@@ -556,7 +558,17 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             
             
             neo4j_container_name: str = package + "_" + f_name
-            neo4j_container_name = neo4j_container_name.replace(" ", "-").replace("\t", "-")
+            neo4j_container_name = neo4j_container_name.replace(" ", "-").replace("\t", "-").replace("@", "AT")
+            docker_container_max_len: int = 128
+
+            # Check container name length - Docker has a limit of 128 characters.
+            if len(neo4j_container_name) > docker_container_max_len:
+                letters = string.ascii_lowercase
+                rand_sz: int = 4
+                result_str: str = ''.join(random.choice(letters) for i in range(rand_sz))
+                
+                neo4j_container_name = result_str + neo4j_container_name[rand_sz - docker_container_max_len :]
+
             explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
@@ -587,7 +599,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             grades["symb_test"] = "TIMEOUT"
 
             # neo4j-explodejs_$CONTAINER_NAME
-            docker_neo4j_container: str = "neo4j-explodejs_{}".format(neo4j_container_name) 
+            docker_neo4j_container: str = "n4je_{}".format(neo4j_container_name) 
             docker_stop_cmd = f"docker stop {docker_neo4j_container}"
 
             io_lock.acquire()
