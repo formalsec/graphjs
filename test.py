@@ -600,7 +600,10 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
 
             # neo4j-explodejs_$CONTAINER_NAME
             #docker_neo4j_container: str = "n4je_{}".format(neo4j_container_name) 
-            docker_stop_cmd = f"docker stop {neo4j_container_name}"
+            #docker_stop_cmd = f"docker stop {neo4j_container_name}"
+
+            docker_stop_cmd = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q . && docker stop {neo4j_container_name}'
+            
 
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
