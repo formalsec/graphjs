@@ -606,37 +606,44 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             # If it exists, then the grep will capture the container name and 'docker stop' will 
             # be called.
             # See: https://stackoverflow.com/a/44364288
+
+            sys.stdout.flush()
             docker_stop_cmd = f'docker stop {neo4j_container_name}'
             
             # First check if the container still exists and get the name in that case.
-            #docker_container_check_cmd: str = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q'
-            #subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
-
-            io_lock.acquire()
-            print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
-            io_lock.release()
+            docker_container_check_cmd: str = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q'
+            docker_check_res = subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
+            if neo4j_container_name in docker_check_res.stdout:
 
 
-            sys.stdout.flush()
+                io_lock.acquire()
+                print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
+                io_lock.release()
 
-            try:
+
                 result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
-                # if result.stderr:
-                #     raise subprocess.CalledProcessError(
-                #             returncode = result.returncode,
-                #             cmd = result.args,
-                #             stderr = result.stderr
-                #             )
-                # if result.stdout:
-                #     log.debug("Command Result: {}".format(result.stdout.decode('utf-8')))
-                print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET, flush=True)
-            except subprocess.CalledProcessError as e:
 
-                print(Fore.RED + f"Error calling 'docker stop' from Python!" + Fore.RESET, flush=True)
-                #pprint.pprint(result)
-                pprint.pprint(e)
-                sys.stdout.flush()
-                raise e
+
+           
+
+            # try:
+            #     result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
+            #     # if result.stderr:
+            #     #     raise subprocess.CalledProcessError(
+            #     #             returncode = result.returncode,
+            #     #             cmd = result.args,
+            #     #             stderr = result.stderr
+            #     #             )
+            #     # if result.stdout:
+            #     #     log.debug("Command Result: {}".format(result.stdout.decode('utf-8')))
+            #     print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET, flush=True)
+            # except subprocess.CalledProcessError as e:
+
+            #     print(Fore.RED + f"Error calling 'docker stop' from Python!" + Fore.RESET, flush=True)
+            #     #pprint.pprint(result)
+            #     pprint.pprint(e)
+            #     sys.stdout.flush()
+            #     raise e
                 #sys.exit(1)
 
         except subprocess.CalledProcessError as e:
