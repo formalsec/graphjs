@@ -28,7 +28,7 @@ Help()
 
 # Default values
 EXPLODEJS_DIR=$(realpath "$(pwd)/explodejs")
-CONTAINER_NAME="noname"
+CONTAINER_NAME="explodejs-neo4j-"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo '')
 GRAPH_DIR="$EXPLODEJS_DIR/graph"
 NORM="$GRAPH_DIR/normalization.norm"
 NORMALIZED="$EXPLODEJS_DIR/normalized.js"
@@ -125,7 +125,8 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         NEO4J_DIR=$(realpath ./neo4j-custom)
 
         # import cpg to neo4j
-        NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs_$CONTAINER_NAME
+        #NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs_$CONTAINER_NAME
+        #NEO4J_EXPLODEJS_CONTAINER=$CONTAINER_NAME
 
         
 
@@ -133,9 +134,9 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
         cd $NEO4J_DIR
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
         else
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_EXPLODEJS_CONTAINER $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
         fi
         cd $(dirname $THIS_DIR)
 
@@ -146,7 +147,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
         # stop Neo4J container
         echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
-        docker stop $NEO4J_EXPLODEJS_CONTAINER
+        docker stop $CONTAINER_NAME
 
         # Create an exploit
         if $EXPLOIT; then
