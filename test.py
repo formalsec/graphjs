@@ -602,8 +602,15 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             #docker_neo4j_container: str = "n4je_{}".format(neo4j_container_name) 
             #docker_stop_cmd = f"docker stop {neo4j_container_name}"
 
-            docker_stop_cmd = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q . && docker stop {neo4j_container_name}'
+            # We are using this longer command to check if the container exists beforehand.
+            # If it exists, then the grep will capture the container name and 'docker stop' will 
+            # be called.
+            # See: https://stackoverflow.com/a/44364288
+            docker_stop_cmd = f'docker stop {neo4j_container_name}'
             
+            # First check if the container still exists and get the name in that case.
+            #docker_container_check_cmd: str = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q'
+            #subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
 
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
@@ -613,7 +620,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             sys.stdout.flush()
 
             try:
-                result = subprocess.run(docker_stop_cmd, shell=True, check=True, stdout=sys.stdout, stderr=sys.stdout)
+                result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
                 # if result.stderr:
                 #     raise subprocess.CalledProcessError(
                 #             returncode = result.returncode,
