@@ -2,6 +2,7 @@ import argparse
 import ast
 from colorama import Fore
 import dill
+import docker
 from glob import glob
 from glob import iglob
 import json
@@ -614,14 +615,20 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             #docker_container_check_cmd: str = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q'
             #docker_check_res = subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
 
+            docker_client = docker.from_env()
+            running_containers: List[docker.Container] = docker_client.list()
 
-            s = subprocess.check_output('docker ps', shell=True)
+            #s = subprocess.check_output('docker ps', shell=True)
 
-            pprint.pprint(s)
+            pprint.pprint(containers)
+
+            docker_container_names: List[str] = [container.name for container in running_containers]
+
             sys.stdout.flush()
 
 
-            if s.find(neo4j_container_name):
+            if neo4j_container_name in docker_container_names:
+            #if s.find(neo4j_container_name):
 
             #if neo4j_container_name in docker_check_res.stdout:
 
