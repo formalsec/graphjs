@@ -608,15 +608,21 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             # See: https://stackoverflow.com/a/44364288
 
             sys.stdout.flush()
-            docker_stop_cmd = f'docker stop {neo4j_container_name}'
+            
             
             # First check if the container still exists and get the name in that case.
-            docker_container_check_cmd: str = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q'
-            docker_check_res = subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
-            if neo4j_container_name in docker_check_res.stdout:
+            #docker_container_check_cmd: str = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q'
+            #docker_check_res = subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
 
 
+            s = subprocess.check_output('docker ps', shell=True)
+            if s.find(neo4j_container_name):
+
+            #if neo4j_container_name in docker_check_res.stdout:
+
+                docker_stop_cmd: str = f'docker stop {neo4j_container_name}'
                 io_lock.acquire()
+                print(Fore.MAGENTA + f'PID {pid} - container {neo4j_container_name} still running after timeout, calling "docker stop {neo4j_container_name}"' + Fore.RESET, flush=True)
                 print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
                 io_lock.release()
 
