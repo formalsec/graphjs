@@ -615,7 +615,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             #docker_check_res = subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
 
 
-            s = subprocess.check_output('docker ps', shell=True, flush=True)
+            s = subprocess.check_output('docker ps', shell=True)
 
             pprint.pprint(s)
             sys.stdout.flush()
