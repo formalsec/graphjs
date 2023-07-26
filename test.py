@@ -608,7 +608,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             # be called.
             # See: https://stackoverflow.com/a/44364288
 
-            sys.stdout.flush()
+            #sys.stdout.flush()
             
             
             # First check if the container still exists and get the name in that case.
@@ -620,7 +620,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             io_lock.release()
 
             docker_client = docker.from_env()
-            running_containers: List[docker.Container] = docker_client.list()
+            running_containers: List[docker.Container] = docker_client.containers.list()
 
             #s = subprocess.check_output('docker ps', shell=True)
 
