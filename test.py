@@ -615,10 +615,12 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             #docker_check_res = subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
 
 
-            s = subprocess.check_output('docker ps', shell=True)
+            s = subprocess.check_output('docker ps', shell=True, flush=True)
 
             pprint.pprint(s)
-            
+            sys.stdout.flush()
+
+
             if s.find(neo4j_container_name):
 
             #if neo4j_container_name in docker_check_res.stdout:
