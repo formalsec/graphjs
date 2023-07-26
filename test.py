@@ -620,7 +620,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
 
             #s = subprocess.check_output('docker ps', shell=True)
 
-            pprint.pprint(containers)
+            pprint.pprint(running_containers)
 
             docker_container_names: List[str] = [container.name for container in running_containers]
 
