@@ -615,6 +615,10 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             #docker_container_check_cmd: str = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q'
             #docker_check_res = subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
 
+            io_lock.acquire()
+            print(Fore.MAGENTA + f'PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True)
+            io_lock.release()
+
             docker_client = docker.from_env()
             running_containers: List[docker.Container] = docker_client.list()
 
@@ -624,7 +628,9 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
 
             docker_container_names: List[str] = [container.name for container in running_containers]
 
-            sys.stdout.flush()
+            #sys.stdout.flush()
+
+            
 
 
             if neo4j_container_name in docker_container_names:
