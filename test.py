@@ -788,6 +788,7 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
         if len(package_f_tuples) == 0:
             print(f'All packages seem to have been processed. No pool was needed. Exiting.')
+            return
         
         
         print("Creating pool with {} workers.".format(concurrency_level))
