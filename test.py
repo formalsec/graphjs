@@ -465,7 +465,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         pprint.pprint(error_status)
 
         # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
-        if error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds greed limits" in error_message:
+        if error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds grid limits" in error_message:
             print(f"######################################\n#########################")
             row_incr: int = 1000
             print(f'Adding {row_incr} rows to {ws.title}')
