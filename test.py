@@ -451,6 +451,7 @@ def update_zeroday_sheet(ws, package, package_grades):
     try:
         ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
     except gspread.exceptions.APIError as e:
+        print(e.message, flush=True)
         pprint.pprint(e)
         sys.stdout.flush()
         raise e
