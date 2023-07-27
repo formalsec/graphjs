@@ -459,10 +459,10 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         error_status: str = error_json.get("error", {}).get("status")
         error_message: str = error_json.get("error", {}).get("message")
 
-        pprint.pprint(error_code)
-        pprint.pprint(error_message)
-        pprint.pprint(type(error_message))
-        pprint.pprint(error_status)
+        # pprint.pprint(error_code)
+        # pprint.pprint(error_message)
+        # pprint.pprint(type(error_message))
+        # pprint.pprint(error_status)
 
         # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
         if error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds grid limits" in error_message:
@@ -481,6 +481,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         # If the limit had been reached and it was extended successfully, try to write again.
         print(f'Trying to write to sheet {ws.title} again.')
         ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
+        print(f'It worked.')
 
 def get_js_files(package_path):
     js_files = []
