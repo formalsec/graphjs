@@ -448,9 +448,11 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
 
     empty_row_index = max(len(ws.col_values(2)) + 1, 6)
 
+    limit_reached: bool = False
+
     try:
         ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
-        return
+        # NOTE: even if we returned here, the 'finally block always gets executed.
     except gspread.exceptions.APIError as e:
         print(e.response, flush=True)
         error_json = e.response.json()
@@ -470,6 +472,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
             row_incr: int = 1000
             print(f'Adding {row_incr} rows to {ws.title}')
             ws.add_rows(row_incr)
+            limit_reached = True
         else:
             raise e
 
@@ -479,9 +482,10 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         #raise e
     finally:
         # If the limit had been reached and it was extended successfully, try to write again.
-        print(f'Trying to write to sheet {ws.title} again.')
-        ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
-        print(f'It worked.')
+        if limit_reached:
+            print(f'Trying to write to sheet {ws.title} again.')
+            ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
+            print(f'It worked.')
 
 def get_js_files(package_path: str):
     js_files: List = []
