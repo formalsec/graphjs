@@ -447,7 +447,13 @@ def update_zeroday_sheet(ws, package, package_grades):
     result[0][0] = package
 
     empty_row_index = max(len(ws.col_values(2)) + 1, 6)
-    ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
+
+    try:
+        ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
+    except gspread.exceptions.APIError as e:
+        pprint.pprint(e)
+        sys.stdout.flush()
+        raise e
 
 def get_js_files(package_path):
     js_files = []
@@ -535,12 +541,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
         print(f"PID {pid} HTTP {http_port} BOLT {bolt_port}")
         io_lock.release()
 
-        
-        
-
         grades: Dict = {}
-
-        #return (package, file, grades)
     
         explodejs_path = f"{file_path}_explodejs"
         taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
@@ -563,6 +564,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
             docker_container_max_len: int = 128
 
             # Check container name length - Docker has a limit of 128 characters.
+            # Shrink container name if it is greater than 128.
             if len(neo4j_container_name) > docker_container_max_len:
                 letters = string.ascii_lowercase
                 rand_sz: int = 4
@@ -599,44 +601,19 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
                 grades["detection"] = "TIMEOUT"
             grades["symb_test"] = "TIMEOUT"
 
-            # neo4j-explodejs_$CONTAINER_NAME
-            #docker_neo4j_container: str = "n4je_{}".format(neo4j_container_name) 
-            #docker_stop_cmd = f"docker stop {neo4j_container_name}"
-
-            # We are using this longer command to check if the container exists beforehand.
-            # If it exists, then the grep will capture the container name and 'docker stop' will 
-            # be called.
-            # See: https://stackoverflow.com/a/44364288
-
-            #sys.stdout.flush()
-            
-            
-            # First check if the container still exists and get the name in that case.
-            #docker_container_check_cmd: str = f'docker ps -q --filter "name={neo4j_container_name}" | grep -q'
-            #docker_check_res = subprocess.run(docker_container_check_cmd, shell=True, check=True, capture_output = True, text = True)
-
+            # Need to stop the Docker container if it still exists after the timeout triggered.          
             io_lock.acquire()
             print(Fore.MAGENTA + f'PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True)
             io_lock.release()
 
+            # Check list of Docker container names.
             docker_client = docker.from_env()
             running_containers: List[docker.Container] = docker_client.containers.list()
-
-            #s = subprocess.check_output('docker ps', shell=True)
-
-            pprint.pprint(running_containers)
-
             docker_container_names: List[str] = [container.name for container in running_containers]
-
-            #sys.stdout.flush()
-
-            
-
-
+        
+            # Stop the container in case it still existed.
+            # NOTE: this could be used with docker_client while avoiding a subprocess, perhaps...
             if neo4j_container_name in docker_container_names:
-            #if s.find(neo4j_container_name):
-
-            #if neo4j_container_name in docker_check_res.stdout:
 
                 docker_stop_cmd: str = f'docker stop {neo4j_container_name}'
                 io_lock.acquire()
@@ -646,29 +623,6 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
 
 
                 result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
-
-
-           
-
-            # try:
-            #     result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
-            #     # if result.stderr:
-            #     #     raise subprocess.CalledProcessError(
-            #     #             returncode = result.returncode,
-            #     #             cmd = result.args,
-            #     #             stderr = result.stderr
-            #     #             )
-            #     # if result.stdout:
-            #     #     log.debug("Command Result: {}".format(result.stdout.decode('utf-8')))
-            #     print(Fore.RED + f"Explode.js timed out after 300 seconds!" + Fore.RESET, flush=True)
-            # except subprocess.CalledProcessError as e:
-
-            #     print(Fore.RED + f"Error calling 'docker stop' from Python!" + Fore.RESET, flush=True)
-            #     #pprint.pprint(result)
-            #     pprint.pprint(e)
-            #     sys.stdout.flush()
-            #     raise e
-                #sys.exit(1)
 
         except subprocess.CalledProcessError as e:
             io_lock.acquire()
