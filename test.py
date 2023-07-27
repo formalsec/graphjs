@@ -483,8 +483,8 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
         print(f'It worked.')
 
-def get_js_files(package_path):
-    js_files = []
+def get_js_files(package_path: str):
+    js_files: List = []
     for root, dirs, files in os.walk(package_path):
         # Exclude directories ending with "_explodejs"
         dirs[:] = [d for d in dirs if not d.endswith("_explodejs")]
