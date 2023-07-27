@@ -461,6 +461,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
 
         pprint.pprint(error_code)
         pprint.pprint(error_message)
+        pprint.pprint(type(error_message))
         pprint.pprint(error_status)
 
         # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
