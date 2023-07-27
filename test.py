@@ -784,6 +784,10 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         # will occur before the process is killed and a new one is created.
         # This improves resource efficiency.
         # See: https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool
+
+
+        if len(package_f_tuples) == 0:
+            print(f'All packages seem to have been processed. No pool was needed. Exiting.')
         
         
         print("Creating pool with {} workers.".format(concurrency_level))
