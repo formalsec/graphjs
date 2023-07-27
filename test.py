@@ -391,7 +391,7 @@ def update_sheet(ws, dataset, vulnerable_file, grades):
         print(Fore.RED + "The given dataset is not present in the sheet" + Fore.RESET)
         return
 
-def check_vulnerability_detection(grades, taint_summary_file):
+def check_vulnerability_detection(grades, taint_summary_file) -> None:
     vulnerabilities = ['command-injection', 'path-traversal', 'code-injection', 'prototype-pollution']
     found_vulns = []
 
@@ -404,7 +404,7 @@ def check_vulnerability_detection(grades, taint_summary_file):
 
     grades["detection"] = ", ".join(found_vulns) if len(found_vulns) > 0 else "D"
 
-def check_graph_construction_zeroday(grades, norm_file):
+def check_graph_construction_zeroday(grades, norm_file) -> None:
     with open(norm_file, "r") as f:
         file_content = f.read()
         regex = re.compile(r'Error: [A-Za-z]*Error')
@@ -416,7 +416,7 @@ def check_graph_construction_zeroday(grades, norm_file):
             grades["graph_construction"] = "A"
 
 
-def check_if_package_was_tested(package: str, packages_tested_file_path: str):
+def check_if_package_was_tested(package: str, packages_tested_file_path: str) -> bool:
     if not os.path.isfile(packages_tested_file_path):
         f = open(packages_tested_file_path, 'w')
         f.close()
@@ -428,17 +428,17 @@ def check_if_package_was_tested(package: str, packages_tested_file_path: str):
                 return True
     return False
 
-def add_package_to_tested_list(package: str, packages_tested_file_path: str):
+def add_package_to_tested_list(package: str, packages_tested_file_path: str) -> None:
     with open(packages_tested_file_path, 'a') as file:
         file.write(package + '\n')
 
-def add_package_to_sheet(ws, package):
+def add_package_to_sheet(ws: gspread.Spreadsheet, package: str) -> None:
     package_cell = ws.find(package)
     empty_row_index = max(len(ws.col_values(2)) + 1, 6)
     if not package_cell:
         ws.update_cell(empty_row_index, 1, package)
 
-def update_zeroday_sheet(ws, package, package_grades):
+def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: Dict[str, Dict[str, Dict]]) -> None:
     result = []
     for file, grades in package_grades.items():
         sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades] 
@@ -450,13 +450,31 @@ def update_zeroday_sheet(ws, package, package_grades):
 
     try:
         ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
+        return
     except gspread.exceptions.APIError as e:
         print(e.response, flush=True)
         error_json = e.response.json()
-        pprint.pprint(error_json)
-        pprint.pprint(e)
-        sys.stdout.flush()
-        raise e
+
+        error_code: int = error_json.get("error", {}).get("code")
+        error_status: str = error_json.get("error", {}).get("status")
+        error_message: str = error_json.get("error", {}).get("message")
+
+        # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
+        if error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds greed limits" in error_message:
+            row_incr: int = 1000
+            print(f'Adding {row_incr} rows to {ws.title}')
+            ws.add_rows(row_incr)
+        else:
+            raise e
+
+        #pprint.pprint(error_json)
+        #pprint.pprint(e)
+        #sys.stdout.flush()
+        #raise e
+    finally:
+        # If the limit had been reached and it was extended successfully, try to write again.
+        print(f'Trying to write to sheet {ws.title} again.')
+        ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
 
 def get_js_files(package_path):
     js_files = []
