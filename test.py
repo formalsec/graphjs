@@ -842,6 +842,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         pool.close()
         pool.join()
 
+        print(f'Processing finished. Exiting.')
+
     
 def test_zeroday_dataset():
     ws = load_sheet("ZeroDay Dataset")
