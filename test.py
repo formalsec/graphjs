@@ -685,7 +685,7 @@ def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy
     """
     return test_zeroday_task(*args)
 
-def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0):
+def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
 
@@ -706,8 +706,10 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
     package_paths.sort()
 
     if len(package_paths) == 0:
-        print("> Zeroday dataset: found zero packages ot process. Perhaps an argument error? Exiting.")
+        print("Zeroday dataset: found zero packages to process in the provided directory. Perhaps an argument error? Exiting.")
         sys.exit(1)
+
+    
 
     print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
     
@@ -719,15 +721,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
 
 
-    print(f'Processing packages {package_start_ind}-{package_start_ind+len(package_paths)}')
-
-    #print(f'#packages {len(package_paths)}')
-
+    print(f'Checking package indices {package_start_ind}-{package_start_ind+len(package_paths)}')
     for pp in package_paths:
         print(f'\t{pp}')
-
-    #sys.exit(0)
-
 
     # Manager to share dictionary among processes.
     multiprocessing.set_start_method("spawn")
@@ -790,6 +786,12 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
             print(f'All packages seem to have been processed. No pool was needed. Exiting.')
             return
         
+        incomplete_pkg_num: int = 0
+        for pkg_fc in package_file_count.values():
+            if pkg_fc > 0:
+                incomplete_pkg_num += 1
+
+        print(f'Processing {len(package_f_tuples)} files from incomplete {incomplete_pkg_num} packages.')
         
         print("Creating pool with {} workers.".format(concurrency_level))
         # See pitfalls of running multiprocessing.Pool:
