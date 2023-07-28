@@ -29,6 +29,13 @@
                 ]
             },
             {
+                "sink": "runInNewContext",
+                "type": "package",
+                "packages": [
+                    {"package": "vm", "args": [ 1 ]}
+                ]
+            },
+            {
                 "sink": "default",
                 "type": "package",
                 "packages": [
