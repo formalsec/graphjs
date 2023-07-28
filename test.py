@@ -452,7 +452,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
 
     try:
         ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
-        # NOTE: even if we returned here, the 'finally block always gets executed.
+        # NOTE: even if we returned here, the 'finally' block always gets executed.
     except gspread.exceptions.APIError as e:
         print(e.response, flush=True)
         error_json = e.response.json()
