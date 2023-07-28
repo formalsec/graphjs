@@ -422,11 +422,34 @@ class QueryType:
                 else:
                     d[i].pop("pdg_node_id", None)
                     self.assign_types(session, d[i], config)
+                
+    def is_lazy_object(self, obj):
+        """
+        Check if object is lazy-object, e.g, {"*": {"*": "any"}}
+        """
+        if not isinstance(obj, dict):
+            return False
 
-    def object_to_array(self, params_types, config):
+        for key in obj.keys():
+            if key != "*":
+                return False
+
+            value = obj[key]
+            if isinstance(value, dict):
+                if not self.is_lazy_object(value):
+                    return False
+            elif value != "any":
+                return False
+
+        return True
+
+    def simplify_objects(self, params_types, config, polluted_object=False, polluting_value=False):
         """
-        Transform an object into its correct type: array.
+        1 - Some objects might be arrays. 
+        2 - Some objects don't contain useful information (lazy-objects), e.g, {"*": {"*": "any"}}  
         """
+        polluted_object_name = polluted_object["IdentifierName"].split(".")[1].split("-")[0] if polluted_object else polluted_object
+        polluting_value_name = polluting_value["IdentifierName"].split(".")[1].split("-")[0] if polluting_value else polluting_value
         for i, v in params_types.items():
             if isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()): 
                 arr = []
@@ -440,19 +463,26 @@ class QueryType:
                     params_types[i] = f"{params_types[i]} | {arr}"
             elif isinstance(v, dict) and "length" in params_types[i] and all(key == "length" or key == "*" or key in config["prototypes"]["string"]  for key in params_types[i].keys()):
                 params_types[i] = f"{params_types[i]} | array | string"
-            elif isinstance(v, dict) and ("length" in params_types[i] or all(key == "*" for key in params_types[i].keys())):
+            elif isinstance(v, dict) and ("length" in params_types[i] and all(key == "length" or key == "*" for key in params_types[i].keys())):
                 params_types[i] = f"{params_types[i]} | array"
+            elif self.is_lazy_object(params_types[i]) and polluted_object_name == i:
+                params_types[i] = f"polluted-object | array"
+            elif self.is_lazy_object(params_types[i]) and polluting_value_name == i:
+                params_types[i] = f"polluting-object | array"
+            elif self.is_lazy_object(params_types[i]):
+                params_types[i] = f"lazy-object | array"
             elif isinstance(v, dict):
-                self.object_to_array(params_types[i], config)
+                self.simplify_objects(params_types[i], config)
     
-    def reconstruct_attacker_controlled_data(self, session, source_id, sink_id, attacker_controlled_data, config):
+    def reconstruct_attacker_controlled_data(self, session, detection_record, attacker_controlled_data, config):
         """
         Find and reconstruct the parameters controlled by an attacker.
         """
+        source_cfg_id = detection_record["source_cfg"]["Id"]
         params_types = {}
-        cfg_node_ids = {}
-        queries = self.get_obj_recon_queries(source_id)
-        if source_id not in attacker_controlled_data:
+        queries = self.get_obj_recon_queries(source_cfg_id)
+
+        if source_cfg_id not in attacker_controlled_data:
             for query in queries:
                 results = session.run(query)
                 for record in results:
@@ -489,9 +519,9 @@ class QueryType:
 
             print("[INFO] - Assigning types to attacker-controlled data") 
             self.assign_types(session, params_types, config)
-            self.object_to_array(params_types, config)
-            attacker_controlled_data[source_id] = params_types
+            self.simplify_objects(params_types, config, detection_record.get("tamp_obj", False), detection_record.get("param", False))
+            attacker_controlled_data[source_cfg_id] = params_types
         else:        
-            params_types = attacker_controlled_data[source_id]
+            params_types = attacker_controlled_data[source_cfg_id]
 
         return list(params_types.keys()), params_types 
