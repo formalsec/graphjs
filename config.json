@@ -50,7 +50,8 @@
                 "packages": [
                     {"package": "child_process", "args": [ 1 ]},
                     {"package": "mz/child_process", "args": [ 1 ]},
-                    {"package": "shelljs", "args": [ 1 ]}
+                    {"package": "shelljs", "args": [ 1 ]},
+                    {"package": "platform-command", "args": [ 1 ]}
                 ]
             },
             {
