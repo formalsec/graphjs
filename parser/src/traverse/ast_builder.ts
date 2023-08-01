@@ -333,6 +333,36 @@ export default function buildAST(originalObj: estree.Program): Graph {
                 return objNode;
             }
 
+            case "SwitchStatement": {
+                const objNode: GraphNode = graph.addNode(obj.type, obj);
+
+                const discriminant: GraphNode = traverse(obj.discriminant, objNode);
+                const cases: GraphNode[] = mapReduce(obj.cases, objNode);
+
+                graph.addEdge(objNode.id, discriminant.id, { type: "AST", label: "discriminant" });
+
+                for (let i: number = 0; i < cases.length; i++) {
+                    graph.addEdge(objNode.id, cases[i].id, { type: "AST", label: "case", expressionIndex: i + 1 });
+                }
+                return objNode;
+            }
+
+            case "SwitchCase": {
+                const objNode: GraphNode = graph.addNode(obj.type, obj);
+
+                const test = obj.test ? traverse(obj.test, objNode) : null;
+
+                if (test) graph.addEdge(objNode.id, test.id, { type: "AST", label: "test" });
+
+                const consequent = mapReduce(obj.consequent, objNode);
+
+                for (let i = 0; i < consequent.length; i++) {
+                    graph.addEdge(objNode.id, consequent[i].id, { type: "AST", label: "consequent", stmtIndex: i + 1 });
+                }
+
+                return objNode;
+            }
+
             case "RestElement":
             case "ReturnStatement":
             case "ThrowStatement": {
@@ -459,8 +489,17 @@ export default function buildAST(originalObj: estree.Program): Graph {
                 return objNode
             }
 
+            case "BreakStatement": {
+                const objNode = graph.addNode(obj.type, obj);
+                if (obj.label) {
+                    const label = traverse(obj.label, objNode);
+                    graph.addEdge(objNode.id, label.id, { type: "AST", label: "label" });
+                }
+                return objNode;
+            }
+
             default: {
-                console.trace("Expression didn't match with case values.");
+                console.trace(`Expression ${obj.type}  didn't match with case values.`);
                 const objNode = graph.addNode(obj.type, obj);
                 return objNode;
             }
