@@ -247,7 +247,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
                 callArgs.forEach((callArg: GraphNode, i: number) => {
                     let callArgumentNode;
                     if (callArg.identifier !== null) callArgumentNode = trackers.getObjectVersionNodes(callArg.identifier, callNode.functionContext).slice(-1)[0];
-                    if (callArgumentNode?.identifier) {
+                    if (callArgumentNode?.identifier && calledArgNodes.length > i) {
                         trackers.graphCreateArgumentEdge(callArgumentNode.id, calledArgNodes[i].id);
                         // if (trackers.isRecursive(callName, functionContext)) trackers.addTaintedNodeEdge(callArgumentNode.id, stmtId, i);
                     }// else if (callArgumentNode && callArg.type === "Literal") trackers.markNodeWithOrigin(callArgumentNode.id) // Not a variable
@@ -276,7 +276,8 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
             const calledArgNodes: GraphNode[] = fnNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param").map((edge: GraphEdge) => edge.nodes[1])
             calledArgNodes.forEach((arg: GraphNode, i: number) => {
                 const callArgumentNode = trackers.getObjectVersionNodes(calleeName, callNode.functionContext).slice(-1)[0];
-                trackers.graphCreateSubObjectEdge(callArgumentNode.id, arg.id, '*')
+                if (callArgumentNode)
+                    trackers.graphCreateSubObjectEdge(callArgumentNode.id, arg.id, '*')
             });
         });
     }

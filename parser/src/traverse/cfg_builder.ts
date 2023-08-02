@@ -235,6 +235,51 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
                 };
             }
 
+            case "SwitchStatement": {
+                const [discriminant, ...cases] = node.edges.map((edge) => traverse(edge.nodes[1], node.functionContext));
+
+                const _endSwitch = graph.addNode("CFG_SWITCH_END", { type: "CFG" });
+                _endSwitch.identifier = node.id.toString();
+                node.cfgEndNodeId = _endSwitch.id;
+
+                for (let i = 0; i < cases.length; i++) {
+                    graph.addEdge(node.id, cases[i].root.id, { type: "CFG", label: "case" });
+                    graph.addEdge(cases[i].exit.id, _endSwitch.id, { type: "CFG" });
+                }
+
+                return {
+                    root: node,
+                    exit: _endSwitch
+                };
+            }
+
+            case "SwitchCase": {
+                const [test, ...consequent] = node.edges.map((edge) => traverse(edge.nodes[1], node.functionContext));
+
+                const _endSwitch = graph.addNode("CFG_SWITCH_CASE_END", { type: "CFG" });
+                _endSwitch.identifier = node.id.toString();
+                node.cfgEndNodeId = _endSwitch.id;
+
+                graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test" });
+                if (!consequent || !consequent.length) {
+                    graph.addEdge(test.exit.id, _endSwitch.id, { type: "CFG" });
+                } else {
+                    graph.addEdge(test.exit.id, consequent[0].root.id, { type: "CFG", label: "TRUE" });
+                    let previousNode = consequent[0].exit
+                    consequent.slice(1).forEach(consequentNode => {
+                        graph.addEdge(previousNode.id, consequentNode.root.id, { type: "CFG" });
+                        previousNode = consequentNode.exit;
+                    })
+                    graph.addEdge(previousNode.id, _endSwitch.id, { type: "CFG" });
+                }
+
+                return {
+                    root: node,
+                    exit: _endSwitch
+                };
+            }
+
+
             case "WhileStatement": {
                 const [test, body] = node.edges.map((edge) => traverse(edge.nodes[1], node.functionContext));
 
