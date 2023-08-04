@@ -2,7 +2,7 @@ import { type GraphEdge } from "../graph/edge";
 import { type Graph } from "../graph/graph";
 import { type GraphNode } from "../graph/node";
 import { createThisExpression, getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
-import { DependencyTracker, evalDep, evalSto, type Store } from "./structures/dependency_trackers";
+import { DependencyTracker, evalDep, evalSto, type Store } from './structures/dependency_trackers';
 import { type Identifier, type ThisExpression } from "estree";
 import * as DependencyFactory from "./dep_factory";
 import { type Dependency } from "./dep_factory";
@@ -472,14 +472,13 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
         propName = '*';
     }
 
-    const rightStorage = evalSto(trackers, right);
     // if it is an object just evaluate and create new object version
     if (sto.length > 0 ) {
-        trackers.addVersion(stmtId, objName, functionContext, propName, deps, rightStorage)
+        trackers.addVersion(stmtId, objName, functionContext, propName, deps)
     } else {
         const newObjId: number = trackers.createNewObject(stmtId, functionContext, obj.obj);
         const subObjId = trackers.addProp([newObjId], obj.obj.name, propName, functionContext)
-        deps.forEach(dep => {
+        deps.forEach((dep: Dependency) => {
             trackers.graphCreateDependencyEdge(dep.source, subObjId[0], dep) });
     }
     /*

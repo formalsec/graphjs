@@ -210,7 +210,7 @@ export class DependencyTracker {
     // ------------------------------------------------------------------------------------------------------------ //
 
     /* This adds the new property to the object locations */
-    addProp(locations: number[], objectName: string, property: string, context: number, storage: number[]): number[] {
+    addProp(locations: number[], objectName: string, property: string, context: number, stmtId: number): number[] {
         let propertyLocations: number[] = []
         // For each location
         locations.forEach((location: number) => {
@@ -222,6 +222,7 @@ export class DependencyTracker {
                 // 2.1 Add property location to graph
                 propertyLocation = this.graphAddLocation(`${objectName}.${property}`, context)
                 this.graphCreatePropertyEdge(location, propertyLocation.id, property);
+                this.graphCreateReferenceEdge(stmtId, propertyLocation.id)
 
                 // 2.2 Add property location to store
                 this.storeAddLocation(objectName, location, context)
@@ -245,7 +246,7 @@ export class DependencyTracker {
         return location.id;
     }
 
-    addVersion(stmtId: number, objName: string, context: number, propName: string, deps: Dependency[], storage: number[]): void {
+    addVersion(stmtId: number, objName: string, context: number, propName: string, deps: Dependency[]): void {
         const objectLocations: number[] = this.getObjectLocationsFromStore(objName, context)
 
         // 1. Create new version locations
@@ -262,11 +263,11 @@ export class DependencyTracker {
         })
 
         // 3. Add property (locations and store)
-        this.addProp(newLocations, objName, propName, context, storage)
+        const propertyLocations: number[] = this.addProp(newLocations, objName, propName, context, stmtId)
 
         // Process dependencies of the right side of the assignment
         deps.forEach(dep => {
-            newLocations.forEach((id: number) => {
+            propertyLocations.forEach((id: number) => {
                 this.graphCreateDependencyEdge(dep.source, id, dep); });
         })
     }
@@ -274,7 +275,7 @@ export class DependencyTracker {
     getObjectVersions(objName: string, context: number): number[] {
         const locations: number[] = this.getObjectLocationsFromStore(objName,context)
 
-        const objectVersions: number[] = []
+        const objectVersions: number[] = [...locations]
         locations.forEach((location: number) => {
             const locationNode: GraphNode | undefined = this.graph.nodes.get(location)
             if (locationNode) {
@@ -482,13 +483,11 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
         case "ThisExpression":
         case "Identifier": {
             const objName = node.obj.name;
-            const depObjId = trackers.getObjectVersions(objName, node.functionContext).slice(-1)[0];
-            if (depObjId === undefined) return []
+            const depObjIds: number[] = trackers.getObjectVersions(objName, node.functionContext);
             if (arg) {
-                return [DependencyFactory.DVar(objName, depObjId, arg, isProp)];
+                return depObjIds.map((depId: number) => DependencyFactory.DVar(objName, depId, arg, isProp));
             }
-
-            return [DependencyFactory.DVar(objName, depObjId, undefined, isProp)];
+            return depObjIds.map((depId: number) => DependencyFactory.DVar(objName, depId, undefined, isProp));
         }
 
         case "AwaitExpression":
