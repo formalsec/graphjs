@@ -3,7 +3,7 @@ import { Graph } from "../graph/graph";
 import { GraphNode } from "../graph/node";
 import { getAllASTEdges, getAllASTNodes, getASTNode, getFDNode } from "../../utils/utils";
 import { FunctionObjects, buildTypesFromExpressionStatement, buildTypesFromVariableAssignment } from "./types_builder_utils";
-import { DependencyTracker } from "../dependency/dependency_trackers";
+import { DependencyTracker } from "../dependency/structures/dependency_trackers";
 
 /* eslint-disable consistent-return */
 function buildTypes(graph: Graph, trackers: DependencyTracker) {
