@@ -103,6 +103,27 @@ export class DependencyTracker {
         }
     }
 
+    storeUpdateLocation(objName: string, oldLocation: number, newLocation: number, context: number) {
+        // Check if object exists
+        const objContextName: string = `${context}.${objName}`
+        const objectExists: boolean = this.store.has(objContextName)
+
+        // If object exists, add new location
+        if (objectExists) {
+            const objectLocations: number[] = this.store.get(objContextName) ?? []
+            const newObjectLocations: number[] = []
+
+            objectLocations.forEach((location: number) => {
+                location === oldLocation ? newObjectLocations.push(newLocation) : newObjectLocations.push(location)
+            })
+
+            this.store.set(objContextName, newObjectLocations)
+        }
+        else {
+            this.store.set(objContextName, [newLocation])
+        }
+    }
+
     /* This function returns an object locations */
     getObjectLocationsFromStore(name: string, context: number | undefined = undefined): number[] {
         // 1. Get contexts where object with name "name" exist
@@ -254,12 +275,13 @@ export class DependencyTracker {
         objectLocations.forEach((location: number) => {
             const newLocation: GraphNode = this.graphAddLocation(objName, context);
             this.graphCreateNewVersionEdge(location, newLocation.id, propName);
+            this.graphCreateReferenceEdge(stmtId, newLocation.id)
             newLocations.push(newLocation.id)
         })
 
         // 2. Update store for locations
-        newLocations.forEach((location: number) => {
-            this.storeAddLocation(objName, location, context);
+        newLocations.forEach((location: number, i: number) => {
+            this.storeUpdateLocation(objName, objectLocations[i], location, context);
         })
 
         // 3. Add property (locations and store)
@@ -359,10 +381,6 @@ export class DependencyTracker {
     }
 
     graphCreateMemberExpressionDependencies(stmtId: number, newObjId: number, deps: Dependency[]): void {
-        deps
-            .filter(dep => DependencyFactory.isDObject(dep))
-            .forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
-
         deps
             .filter(dep => DependencyFactory.isDVar(dep))
             .forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });

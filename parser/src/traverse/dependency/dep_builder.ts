@@ -414,8 +414,8 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
     })
 
     // Evaluate dependencies
-    const deps = evalDep(trackers, stmtId, expNode);
-    deps.forEach(dep => { trackers.graphCreateReferenceEdge(stmtId, dep.source); });
+    const deps: Dependency[] = evalDep(trackers, stmtId, expNode);
+    deps.forEach((dep: Dependency) => { trackers.graphCreateReferenceEdge(stmtId, dep.source); });
 
     // create map entry
     trackers.addVariableMap(variable.name, expNode.obj.name);
@@ -454,26 +454,23 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     const objName = obj.obj.name;
     let propName = prop.obj.name;
 
-    // get location stored for this object
-    // we only need the first because we know this is
-    // not a binary expression or member expression
-    const sto = evalSto(trackers, obj);
+    const objectLocations: number[] = evalSto(trackers, obj);
 
     // Evaluate the dependencies for the right side
-    let deps = evalDep(trackers, stmtId, right);
+    let deps: Dependency[] = evalDep(trackers, stmtId, right);
 
     // if the member expression is computed and is not a Literal then we have to evaluate the dependencies
     // of the property as it is a variable, because it influences the object otherwise treat it is a Literal
     if (left.obj.computed && prop.type !== "Literal") {
         const objDeps: Dependency[] = evalDep(trackers, stmtId, prop, undefined, true);
         deps = deps.concat(objDeps.filter((item) => !DependencyFactory.includes(deps, item)));
-
         // change propName to be '*' since the property is dynamic
         propName = '*';
     }
 
-    // if it is an object just evaluate and create new object version
-    if (sto.length > 0 ) {
+    // If the object exists, we create a new version, if the object does not exist, we create the object with the property
+    // This may happen if the object variable is not yet perceived as an object but already existed in the program
+    if (objectLocations.length > 0 ) {
         trackers.addVersion(stmtId, objName, functionContext, propName, deps)
     } else {
         const newObjId: number = trackers.createNewObject(stmtId, functionContext, obj.obj);
@@ -481,42 +478,6 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
         deps.forEach((dep: Dependency) => {
             trackers.graphCreateDependencyEdge(dep.source, subObjId[0], dep) });
     }
-    /*
-    if (sto.length > 0 && StorageFactory.isStorageObject(objStorage)) {
-        // get storage of right-hand side expression. We only need the first because we know this is
-        // not a binary expression or member expression
-        const rightStorage = evalSto(trackers, right);
-
-        if (rightStorage.length > 0 && StorageFactory.isStorageObject(rightStorage[0])) {
-            // if the right hand side is an object
-            // we want it to be in the sub object
-            const rightStorageValue = rightStorage[0];
-            // create new object version node
-            // create sub object
-            // connect all objects accordingly
-            createNewObjectVersionWithStorage(stmtId, objName, objNameContext, propName, rightStorageValue, deps, trackers);
-        } else {
-            createNewObjectVersion(stmtId, objName, objNameContext, propName, deps, trackers);
-        }
-    } else {
-        const rightStorage = evalSto(trackers, right);
-
-        if (rightStorage.length > 0 && StorageFactory.isStorageObject(rightStorage[0])) {
-            const newObjId = createNewObjectNodeVariable(stmtId, functionContext, obj.obj, trackers);
-            if (newObjId) {
-                trackers.graphCreateReferenceEdge(stmtId, newObjId)
-                const subObjId = createSubObject(stmtId, objNameContext, propName, deps, trackers);
-                if (subObjId) {
-                    trackers.graphCreateReferenceEdge(stmtId, subObjId)
-                    deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, subObjId, dep) });
-                }
-            }
-        }
-    }
-
-    return trackers;
-
-     */
     return trackers;
 }
 
