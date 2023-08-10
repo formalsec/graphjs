@@ -416,17 +416,25 @@ def check_graph_construction_zeroday(grades, norm_file) -> None:
             grades["graph_construction"] = "A"
 
 
-def check_if_package_was_tested(package: str, packages_tested_file_path: str) -> bool:
-    if not os.path.isfile(packages_tested_file_path):
-        f = open(packages_tested_file_path, 'w')
-        f.close()
+def check_if_package_was_tested(package: str, packages_tested_file_path: str, lines: List[str] = None) -> bool:
 
-    with open(packages_tested_file_path, 'r') as file:
-        for line in file:
+    if not lines == None:
+        for line in lines:
             words = line.strip().split()
             if package in words:
                 return True
-    return False
+        return False
+    else:
+        if not os.path.isfile(packages_tested_file_path):
+            f = open(packages_tested_file_path, 'w')
+            f.close()
+
+        with open(packages_tested_file_path, 'r') as file:
+            for line in file:
+                words = line.strip().split()
+                if package in words:
+                    return True
+        return False
 
 def add_package_to_tested_list(package: str, packages_tested_file_path: str) -> None:
     with open(packages_tested_file_path, 'a') as file:
@@ -533,12 +541,13 @@ def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 
             process_port_map[port] = pid
             return port
 
-def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lock, process_port_map: DictProxy) -> Tuple[str, str, Dict]:
+def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy) -> Tuple[str, str, Dict]:
     """
     Function to be run by each concurrent process.
 
     @param: package The name of the NPM package. 
     @param: file_path The path of the file to inspect within the NPM package. 
+    @param: logs_dir The path to the directory where logs will be written to by pool processes.
     @param: io_lock A multiprocessing.Lock for coordination between processes.
 
     For every NPM package and individual file, this function is executed by one of the processes of :class:`multiprocessing.Pool`.
@@ -553,10 +562,13 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
     
     """
 
+    
+
     f_name: str = file_path[file_path.rfind(f"src{os.path.sep}") + 4:].replace(os.path.sep, "-")
     pid: int = os.getpid()
     log_file: str = f"PID-{pid}-{package}-{f_name}.log"
-    log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
+    log_path: str = os.path.join(output_dir, "logs", log_file)
+    #log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
 
     with open(log_path, 'w') as sys.stdout:
 
@@ -575,7 +587,11 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
 
         grades: Dict = {}
     
-        explodejs_path = f"{file_path}_explodejs"
+        #explodejs_path = f"{file_path}_explodejs"
+        explodejs_path = os.path.join(output_dir, package, f"{f_name}_explodejs")
+
+        os.makedirs(explodejs_path, exist_ok=True)
+
         taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
         norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
         symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
@@ -676,7 +692,7 @@ def test_zeroday_task(package: str, file_path: str,  io_lock: multiprocessing.Lo
 
     return (package, file_path, grades)
 
-def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy]) -> Tuple[str, str, Dict]:
+def test_zeroday_task_star(args: Tuple[str, str, str, multiprocessing.Lock, DictProxy]) -> Tuple[str, str, Dict]:
     """
     Receives a tuple which containing arguments for :func:`test_zeroday_task` which are passed with `*args`.
     This is needed due to :func:`imap_unordered` being able to pass only one argument to the worker function.
@@ -685,7 +701,7 @@ def test_zeroday_task_star(args: Tuple[str, str, multiprocessing.Lock, DictProxy
     """
     return test_zeroday_task(*args)
 
-def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
+def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
 
@@ -694,6 +710,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
     """
 
     # Create worksheet if it does not exist.
+    if not (args.start_package == 0 and args.finish_package == 0):
+        target_sheet_name = f"ZDC-{package_start_ind}-{package_finish_ind}"
+
     try:
         ws: gspread.Spreadsheet = load_sheet(target_sheet_name)
         print("Loaded gspread.Spreadsheet: {}".format(target_sheet_name))
@@ -701,8 +720,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         ws = sheet.add_worksheet(target_sheet_name,"999","20")
         print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
 
-    
-    package_paths: List[str] = glob(ZERODAY_DATASET)
+    input_packages = f"{input_packages}{os.path.sep}*"
+    #package_paths: List[str] = glob(ZERODAY_DATASET)
+    package_paths: List[str] = glob(input_packages)
     package_paths.sort()
 
     if len(package_paths) == 0:
@@ -711,11 +731,12 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
     
 
-    print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
+    #print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
+    print(f'Zeroday dataset directory: {input_packages}')
     
 
     if package_finish_ind == 0:
-        package_paths = package_paths[package_start_ind:len(package_paths)]
+        package_paths = package_paths[package_start_ind:]
     else:
         package_paths = package_paths[package_start_ind:package_finish_ind]
 
@@ -724,6 +745,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
     print(f'Checking package indices {package_start_ind}-{package_start_ind+len(package_paths)}')
     for pp in package_paths:
         print(f'\t{pp}')
+
+
+    #sys.exit(0)    
 
     # Manager to share dictionary among processes.
     multiprocessing.set_start_method("spawn")
@@ -736,23 +760,46 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
         process_map: DictProxy = manager.dict()
 
+        # List of tuples to be iterated. Each tuple will be passed to 
+        # a multiprocessing pool process.
         package_f_tuples: List[Tuple[str, multiprocessing.Lock]] = []
 
         package_grades: Dict[str, Dict[str, Dict]] = {}
+
+        # Define multiprocessing pool log directory.
+        # Defined here to include it in the tuples for process tasks.
+        if not (args.start_package == 0 and args.finish_package == 0):
+            output_dir = os.path.join(output_dir, f"ZDC-{package_start_ind}-{package_finish_ind}")
+        pool_log_dir: str = os.path.join(output_dir, "logs")
+        
+        # Create directory for individual worker process logs.
+        #os.makedirs(ZERODAY_CONCURRENT_LOGS, exist_ok=True)
+        os.makedirs(pool_log_dir, exist_ok=True)
+        
+        # Create or open the tested packages list file if it does not exist.
+        tested_package_file_list: str = os.path.join(output_dir, "packages-tested.txt")
+        if not os.path.exists(tested_package_file_list):
+            tested_file_handle = open(tested_package_file_list, "w")
+            tested_file_handle.close()
+
+        tested_lines: List[str] = []
+        with open(tested_package_file_list, 'r') as tested_file_handle:
+            tested_lines = tested_file_handle.readlines()
+
+        
         
         # First we iterate the set of packages to know how many files each package has.
         for package_path in package_paths:
             package = os.path.basename(package_path)
+
             # Skipping those that have been tested before first.
-
-            
-
-            if check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
+            #if check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
+            if check_if_package_was_tested(package, tested_package_file_list, tested_lines):
                 print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
                 continue
             else:
                 
-
+                # Get paths of files associated to the current package.
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
                 for f in file_paths:
@@ -761,6 +808,8 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
                     # If the current file had already been processed (results found on disk), 
                     # load its grades.
+                    # We load its grades because we only write a package to the Google Sheet 
+                    # when all files have been processed.
                     if os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs):
 
                         if not package in package_grades:
@@ -772,8 +821,12 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
 
                         package_file_count[package] -= 1
                     else:
-                        package_f_tuples.append((package, f, io_lock, process_map))
+                        package_f_tuples.append((package, f, output_dir, io_lock, process_map))
         
+
+        #for t in package_f_tuples:
+        #    print(f"### DEBUG: {t}")
+        #sys.exit(0)
 
         # Create a process pool with the specified 'concurrency_level'.
         # Argument 'maxtasksperchild' limits how many task 'test_zeroday_task' executions
@@ -799,8 +852,9 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
         pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level)
        
 
-        # Create directory for individual worker process logs.
-        os.makedirs(ZERODAY_CONCURRENT_LOGS, exist_ok=True)
+        
+        
+        
         
 
         # test_list = package_f_tuples[0:7]
@@ -840,7 +894,10 @@ def test_zeroday_dataset_p(target_sheet_name: str = "ZeroDay Dataset", concurren
             
             if package_file_count[res_package] == 0:
                 update_zeroday_sheet(ws, res_package, package_grades[res_package])
-                add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
+
+                
+                add_package_to_tested_list(res_package, tested_package_file_list)
+                #add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
 
             # NOTE: This lock.release() may be unnecessary
             io_lock.release()       
@@ -911,6 +968,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", choices=["explode.js", "odgen", "zeroday"], 
                         help="Which tool should be tested?")
+    parser.add_argument("-i", "--input", help="path to directory with npm packages.", type=str, default="")
+    parser.add_argument("-o", "--output-dir", help="file information output directory - will be created if it does not exist.", type=str, default="")
     parser.add_argument("-d", type=str, default="example",
                         help="What dataset should be tested?")
     parser.add_argument("-u", action="store_true",
@@ -943,23 +1002,34 @@ if __name__ == "__main__":
     
     # Parallelism level.
     if args.parallelism < 1:
-        print(f"Error. '-p/--parallelism' must be an integer greater than one. Exiting.")
+        print(f"Error. '-p/--parallelism' must be an integer greater or equal to one. Exiting.")
         sys.exit(1)
 
+    # If input directory was passed, check if it exists
+    if len(args.input) > 0:
+        if not (os.path.exists(args.input) and os.path.isdir(args.input)):
+            print(f"Error. '-i/--input' must be a path to an existing directory. Exiting.")
+            sys.exit(1)
 
-    #pprint.pprint(args)
-    #sys.exit(0)
+    # If output directory was passed, check and create the output directory if it doesn't exist.
+    if len(args.output_dir) > 0:
+        if args.output_dir.startswith('~'):
+            args.output_dir = os.path.expanduser(args.output_dir).replace('\\', '/')
+        pathlib.Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+
+
     if args.tool == "explode.js" and args.d == "zeroday":
         #test_zeroday_dataset()
 
         sheet_name: str = "ZeroDay Concurrent Test"
 
-        if not (args.start_package == 0 and args.finish_package == 0):
-            sheet_name = f"ZDC-{args.start_package}-{args.finish_package}"
+        #pprint.pprint(args)
+        print(f"### DEBUG: {args}\n")
+        #sys.exit(0)
 
-
-        test_zeroday_dataset_p(target_sheet_name = sheet_name, concurrency_level = args.parallelism, 
-                               package_start_ind=args.start_package, package_finish_ind=args.finish_package)
+        test_zeroday_dataset_p(args.input, args.output_dir, 
+                               target_sheet_name = sheet_name, concurrency_level = args.parallelism, 
+                               package_start_ind = args.start_package, package_finish_ind = args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x, args.l)
