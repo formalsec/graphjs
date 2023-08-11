@@ -562,9 +562,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     
     """
 
-    
 
-    f_name: str = file_path[file_path.rfind(f"src{os.path.sep}") + 4:].replace(os.path.sep, "-")
+    f_name: str = file_path[file_path.rfind(os.path.sep) + 1:]
     pid: int = os.getpid()
     log_file: str = f"PID-{pid}-{package}-{f_name}.log"
     log_path: str = os.path.join(output_dir, "logs", log_file)
@@ -587,8 +586,19 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         grades: Dict = {}
     
-        #explodejs_path = f"{file_path}_explodejs"
-        explodejs_path = os.path.join(output_dir, package, f"{f_name}_explodejs")
+        # Current .js file's output directory will mirror the input file path hierarchy.
+        # Example for the current .js file:
+        # > file_path = zeroday-dataset/packages/src/9wick-serial-executor-1.0.0/src/dist/index.js
+        # > explodejs_path = f"{output_dir}/9wick-serial-executor-1.0.0/src/dist/"
+        pkg_str_ind: int = file_path.rfind(package) #+ len(package)
+        f_name_str_ind: int = file_path.rfind(f_name)
+        output_dir_hierarchy: str = file_path[pkg_str_ind: f_name_str_ind]
+        if output_dir_hierarchy.startswith(os.path.sep):
+            output_dir_hierarchy = output_dir_hierarchy[1:]
+        if output_dir_hierarchy.endswith(os.path.sep):
+            output_dir_hierarchy = output_dir_hierarchy[:len(output_dir_hierarchy)-1]
+
+        explodejs_path = os.path.join(output_dir, "packages", "src", output_dir_hierarchy, f"{f_name}_explodejs")
 
         os.makedirs(explodejs_path, exist_ok=True)
 
@@ -598,6 +608,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         grades_explodejs = os.path.join(explodejs_path, "grades.json")
 
         print(f'> File: {file_path}')
+        print(f'\t: {explodejs_path}')
         print(f'\t: {taint_summary_file}')
         print(f'\t: {norm_file}')
         print(f'\t: {symbolic_test_file}')
@@ -968,8 +979,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", choices=["explode.js", "odgen", "zeroday"], 
                         help="Which tool should be tested?")
-    parser.add_argument("-i", "--input", help="path to directory with npm packages.", type=str, default="")
-    parser.add_argument("-o", "--output-dir", help="file information output directory - will be created if it does not exist.", type=str, default="")
+    parser.add_argument("-i", "--input", help="path to directory with npm packages.", type=str, default="", required=True)
+    parser.add_argument("-o", "--output-dir", help="file information output directory - will be created if it does not exist.", type=str, default="", required=True)
     parser.add_argument("-d", type=str, default="example",
                         help="What dataset should be tested?")
     parser.add_argument("-u", action="store_true",
