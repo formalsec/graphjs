@@ -725,6 +725,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 io_lock.release()
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+
+                io_lock.acquire()
+                print(Fore.RED + f'\n\nPID {pid} - unknown docker API error.' + Fore.RESET, flush=True)
+                io_lock.release()
                 raise e
         
             # Stop the container in case it still existed.
