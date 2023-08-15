@@ -710,14 +710,17 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             # Check list of Docker container names.
             docker_client = docker.from_env()
 
+            docker_containers: Dict = {}
+
             try:
                 running_containers: List[docker.Container] = docker_client.containers.list()
-                docker_containers: Dict = {}
+                
                 for container in running_containers:
                     docker_containers[container.name] = container
                     #docker_container_names: List[str] = [container.name for container in running_containers]
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+                raise e
         
             # Stop the container in case it still existed.
             # NOTE: this could be used with docker_client while avoiding a subprocess, perhaps...
