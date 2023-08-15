@@ -3,6 +3,11 @@ shopt -s extglob
 
 THIS_DIR=$(realpath "$0")
 
+die() {
+     echo $@ 1>&2   # print arguments of 'die' to standard error
+     exit 1         # exit the script
+}
+
 Help()
 {
     # Display Help
@@ -134,13 +139,14 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
         cd $NEO4J_DIR
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR] - $NEO4J_DIR/run_neo4j.sh failed"
         else
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR] - $NEO4J_DIR/run_neo4j.sh failed"
         fi
         cd $(dirname $THIS_DIR)
 
         # run all queries
+        echo "[INFO] - Finished $NEO4J_DIR/run_neo4j.sh"
         echo "[INFO] - Running queries"
         QUERIES=$(realpath ./detection)
         python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY --bolt-port $NEO4J_BOLT_PORT
