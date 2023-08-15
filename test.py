@@ -649,6 +649,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             
             #io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
+
+            io_lock.acquire()
+            print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True)
+            io_lock.release()
             #io_lock.release()
 
             start = time.time()
