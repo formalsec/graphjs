@@ -718,6 +718,11 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 for container in running_containers:
                     docker_containers[container.name] = container
                     #docker_container_names: List[str] = [container.name for container in running_containers]
+            except docker.errors.NotFound as e:
+                print(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET, flush=True, file=process_out)
+                io_lock.acquire()
+                print(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET)
+                io_lock.release()
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
                 raise e
