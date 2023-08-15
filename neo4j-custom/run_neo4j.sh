@@ -1,5 +1,5 @@
 #!/bin/bash
-DEBUG=false
+DEBUG=true
 
 if [[ -z $1 ]]; then
     echo "$0: Required path containing graph files"
@@ -90,6 +90,7 @@ if [ "$DEBUG" = true ]; then
         -e NEO4J_apoc_import_file_enabled=true \
         -e NEO4J_apoc_import_file_use__neo4j__config=true \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
+    #sleep 5
 else
     docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
@@ -99,6 +100,7 @@ else
         -e NEO4J_apoc_import_file_use__neo4j__config=true \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
     # Wait for neo4j to start inside the container
+    sleep 5
     until docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER | grep -q "Started."; do
       :
     done

@@ -13,6 +13,7 @@ from multiprocessing.managers import DictProxy
 import os
 import pathlib
 import pprint
+import psutil
 import random
 import re
 import shutil
@@ -21,6 +22,7 @@ import string
 import subprocess
 import sys
 import time
+import traceback
 from typing import Dict, List, Tuple
 
 
@@ -541,6 +543,12 @@ def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 
             process_port_map[port] = pid
             return port
 
+def hierarchy_pkill(proc_pid):
+    process = psutil.Process(proc_pid)
+    for proc in process.children(recursive=True):
+        proc.kill()
+    process.kill()
+
 def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy) -> Tuple[str, str, Dict]:
     """
     Function to be run by each concurrent process.
@@ -576,13 +584,18 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # This would make concurrent Docker Neo4j containers not work properly.
         io_lock.acquire()
 
+        process = multiprocessing.current_process()
+        # report if daemon process
+        
         # Get ports for Docker Neo4j process port mapping.
         http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
         bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
         
+        io_lock.release()
+
+        print(f'PID {pid} - Daemon process: {process.daemon}')
         print(Fore.MAGENTA + f'PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True)
         print(f"PID {pid} HTTP {http_port} BOLT {bolt_port}")
-        io_lock.release()
 
         grades: Dict = {}
     
@@ -608,11 +621,11 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         grades_explodejs = os.path.join(explodejs_path, "grades.json")
 
         print(f'> File: {file_path}')
-        print(f'\t: {explodejs_path}')
-        print(f'\t: {taint_summary_file}')
-        print(f'\t: {norm_file}')
-        print(f'\t: {symbolic_test_file}')
-        print(f'\t: {grades_explodejs}')
+        print(f'\t{explodejs_path}')
+        print(f'\t{taint_summary_file}')
+        print(f'\t{norm_file}')
+        print(f'\t{symbolic_test_file}')
+        print(f'\t{grades_explodejs}')
 
         try:
             start = time.time()
@@ -632,11 +645,15 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 neo4j_container_name = result_str + neo4j_container_name[len(result_str) - docker_container_max_len :]
 
             explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
-            io_lock.acquire()
+            
+            #io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
-            io_lock.release()
+            #io_lock.release()
 
-            subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300, stdout=sys.stdout, stderr=sys.stdout)
+            #subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300, stdout=sys.stdout, stderr=sys.stdout)
+
+            explode_proc = subprocess.Popen(explode_js_cmd, shell=True, check=True, stdout=sys.stdout, stderr=sys.stdout)
+            explode_proc.wait(timeout=300)
             
             
             end = time.time()
@@ -646,9 +663,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             check_vulnerability_detection(grades, taint_summary_file)
             check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
         except subprocess.TimeoutExpired:
-            io_lock.acquire()
+            #io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET, flush=True)
-            io_lock.release()
+            traceback.print_exc()
+            #io_lock.release()
 
             if os.path.exists(norm_file):
                 check_graph_construction_zeroday(grades, norm_file)
@@ -661,32 +679,40 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             grades["symb_test"] = "TIMEOUT"
 
             # Need to stop the Docker container if it still exists after the timeout triggered.          
-            io_lock.acquire()
+            #io_lock.acquire()
             print(Fore.MAGENTA + f'PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True)
-            io_lock.release()
+            #io_lock.release()
 
             # Check list of Docker container names.
             docker_client = docker.from_env()
-            running_containers: List[docker.Container] = docker_client.containers.list()
-            docker_container_names: List[str] = [container.name for container in running_containers]
+
+            try:
+                running_containers: List[docker.Container] = docker_client.containers.list()
+                docker_container_names: List[str] = [container.name for container in running_containers]
+            except docker.errors.APIError as e:
+                traceback.print_exc()
         
             # Stop the container in case it still existed.
             # NOTE: this could be used with docker_client while avoiding a subprocess, perhaps...
             if neo4j_container_name in docker_container_names:
 
                 docker_stop_cmd: str = f'docker stop {neo4j_container_name}'
-                io_lock.acquire()
+                #io_lock.acquire()
                 print(Fore.MAGENTA + f'PID {pid} - container {neo4j_container_name} still running after timeout, calling "docker stop {neo4j_container_name}"' + Fore.RESET, flush=True)
                 print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
-                io_lock.release()
+                #io_lock.release()
 
 
-                result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
+                #result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
+                docker_client.stop(neo4j_container_name)
+
+            
 
         except subprocess.CalledProcessError as e:
-            io_lock.acquire()
+            #io_lock.acquire()
             print(Fore.MAGENTA + f'PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True)
-            io_lock.release()
+            traceback.print_exc()
+            #io_lock.release()
 
             if os.path.exists(norm_file):
                 check_graph_construction_zeroday(grades, norm_file)
@@ -697,6 +723,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             else:
                 grades["detection"] = "ERROR"
             grades["symb_test"] = "ERROR"
+
+        # Kill the whole chain of subprocesses
+        hierarchy_pkill(explode_proc.pid)
 
         with open(grades_explodejs, "w") as f:
             f.write(json.dumps(grades, indent=4) + '\n')
@@ -860,7 +889,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         print("Creating pool with {} workers.".format(concurrency_level))
         # See pitfalls of running multiprocessing.Pool:
         # https://pythonspeed.com/articles/python-multiprocessing/
-        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level)
+        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2)
        
 
         
@@ -901,10 +930,21 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
             package_file_count[res_package] -= 1
 
-
+            
             
             if package_file_count[res_package] == 0:
-                update_zeroday_sheet(ws, res_package, package_grades[res_package])
+                # Remove "packages/src" prefix before writing the package to the sheet.
+
+                grades_d: Dict = {}
+                for curr_path, curr_grades in package_grades[res_package].items():
+                    cleaned_path = curr_path[curr_path.rfind(res_package) : ]
+                    # if cleaned_path.startswith(f"packages{os.path.sep}src{os.path.sep}"):
+                    #     cleaned_path = cleaned_path.replace(f"packages{os.path.sep}src{os.path.sep}", "")                
+
+                    grades_d[cleaned_path] = curr_grades
+                
+
+                update_zeroday_sheet(ws, res_package, grades_d)
 
                 
                 add_package_to_tested_list(res_package, tested_package_file_list)
