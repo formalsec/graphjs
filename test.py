@@ -661,6 +661,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             
             
             end = time.time()
+
+            io_lock.acquire()
+            print(Fore.MAGENTA + f'PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True)
+            io_lock.release()
+
+
             with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
                 f.write(f"{end - start:.2f} seconds\n")
             check_graph_construction_zeroday(grades, norm_file)
@@ -671,6 +677,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             print(Fore.MAGENTA + f'\n\nPID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
 
             print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+
+            io_lock.acquire()
+            print(Fore.RED + f'PID {pid} - subprocess.TimeoutExpired.\n' + Fore.RESET, flush=True)
+            io_lock.release()
             
             
             #traceback.print_exc()
@@ -701,13 +711,13 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                     docker_containers[container.name] = container
                     #docker_container_names: List[str] = [container.name for container in running_containers]
             except docker.errors.APIError as e:
-                print(Fore.MAGENTA + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+                print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
         
             # Stop the container in case it still existed.
             # NOTE: this could be used with docker_client while avoiding a subprocess, perhaps...
             if neo4j_container_name in docker_containers:
 
-                docker_stop_cmd: str = f'docker stop {neo4j_container_name}'
+                # docker_stop_cmd: str = f'docker stop {neo4j_container_name}'
                 #io_lock.acquire()
                 #print(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} still running after timeout, calling "docker stop {neo4j_container_name}"' + Fore.RESET, flush=True, file=process_out)
                 #print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
@@ -718,10 +728,6 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 print(Fore.RED + f'PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET, flush=True)
                 io_lock.release()
 
-                
-
-
-                
                 # docker_client.containers.stop(neo4j_container_name)
                 print(Fore.MAGENTA + f'PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
                 docker_containers[neo4j_container_name].stop()
@@ -739,6 +745,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
             #io_lock.release()
 
+            io_lock.acquire()
+            print(Fore.RED + f'PID {pid} - subprocess.CalledProcessError.\n' + Fore.RESET, flush=True)
+            io_lock.release()
+
             if os.path.exists(norm_file):
                 check_graph_construction_zeroday(grades, norm_file)
             else: 
@@ -751,10 +761,11 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         hierarchy_pkill(explode_proc.pid)
-        io_lock.acquire()
         
-        print(Fore.RED + f'PID {pid} - killed sub-process hierarchy.' + Fore.RESET, flush=True)
+        io_lock.acquire()
+        print(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET, flush=True)
         io_lock.release()
+        
         print(Fore.MAGENTA + f'\n\nPID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
 
         with open(grades_explodejs, "w") as f:
