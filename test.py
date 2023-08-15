@@ -704,7 +704,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
 
                 #result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
-                docker_client.stop(neo4j_container_name)
+                docker_client.containers.stop(neo4j_container_name)
 
             
 
