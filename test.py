@@ -629,7 +629,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(f'\t{grades_explodejs}', file=process_out)
 
         try:
-            start = time.time()
+            
             
             
             neo4j_container_name: str = package + "_" + f_name
@@ -650,6 +650,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             #io_lock.acquire()
             print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
             #io_lock.release()
+
+            start = time.time()
 
             #subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300, stdout=sys.stdout, stderr=sys.stdout)
 
@@ -713,7 +715,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 #io_lock.release()
                 
                 io_lock.acquire()
-                print(Fore.MAGENTA + f'\n\nPID {pid} - explodejs.sh timed out, stopping {neo4j_container_name}...' + Fore.RESET, flush=True)
+                print(Fore.RED + f'PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET, flush=True)
                 io_lock.release()
 
                 
@@ -726,7 +728,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
 
                 io_lock.acquire()
-                print(Fore.MAGENTA + f'\n\nPID {pid} - explodejs.sh timed out, stopped {neo4j_container_name}' + Fore.RESET, flush=True)
+                print(Fore.RED + f'\n\nPID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET, flush=True)
                 io_lock.release()
 
             
@@ -750,7 +752,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         hierarchy_pkill(explode_proc.pid)
         io_lock.acquire()
-        print(Fore.MAGENTA + f'\n\nPID {pid} - killed process hierarchy.' + Fore.RESET, flush=True)
+        
+        print(Fore.RED + f'PID {pid} - killed sub-process hierarchy.' + Fore.RESET, flush=True)
         io_lock.release()
         print(Fore.MAGENTA + f'\n\nPID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
 
