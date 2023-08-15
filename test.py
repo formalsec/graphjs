@@ -688,23 +688,29 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             try:
                 running_containers: List[docker.Container] = docker_client.containers.list()
-                docker_container_names: List[str] = [container.name for container in running_containers]
+                docker_containers: Dict = {}
+                for container in running_containers:
+                    docker_containers[container.name] = container
+                    #docker_container_names: List[str] = [container.name for container in running_containers]
             except docker.errors.APIError as e:
                 traceback.print_exc()
         
             # Stop the container in case it still existed.
             # NOTE: this could be used with docker_client while avoiding a subprocess, perhaps...
-            if neo4j_container_name in docker_container_names:
+            if neo4j_container_name in docker_containers:
 
                 docker_stop_cmd: str = f'docker stop {neo4j_container_name}'
                 #io_lock.acquire()
                 print(Fore.MAGENTA + f'PID {pid} - container {neo4j_container_name} still running after timeout, calling "docker stop {neo4j_container_name}"' + Fore.RESET, flush=True)
-                print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
+                #print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
+                #result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
                 #io_lock.release()
 
 
-                #result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
-                docker_client.containers.stop(neo4j_container_name)
+                
+                # docker_client.containers.stop(neo4j_container_name)
+                print(Fore.MAGENTA + f'PID {pid} - calling {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True)
+                docker_containers[neo4j_container_name].stop()
 
             
 
