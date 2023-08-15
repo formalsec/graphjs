@@ -577,7 +577,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     log_path: str = os.path.join(output_dir, "logs", log_file)
     #log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
 
-    with open(log_path, 'w') as sys.stdout:
+    #with open(log_path, 'w') as sys.stdout:
+    with open(log_path, 'w') as process_out:
 
         # Exclusion zone to avoid concurrent multiprocessing.Pool 'test_zeroday_task' workers 
         # picking the same free ports. 
@@ -593,9 +594,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         
         io_lock.release()
 
-        print(f'PID {pid} - Daemon process: {process.daemon}')
-        print(Fore.MAGENTA + f'PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True)
-        print(f"PID {pid} HTTP {http_port} BOLT {bolt_port}")
+        print(f'PID {pid} - Daemon process: {process.daemon}', file=process_out)
+        print(Fore.MAGENTA + f'PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True, file=process_out)
+        print(f"PID {pid} HTTP {http_port} BOLT {bolt_port}", file=process_out)
 
         grades: Dict = {}
     
@@ -620,12 +621,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
         grades_explodejs = os.path.join(explodejs_path, "grades.json")
 
-        print(f'> File: {file_path}')
-        print(f'\t{explodejs_path}')
-        print(f'\t{taint_summary_file}')
-        print(f'\t{norm_file}')
-        print(f'\t{symbolic_test_file}')
-        print(f'\t{grades_explodejs}')
+        print(f'> File: {file_path}', file=process_out)
+        print(f'\t{explodejs_path}', file=process_out)
+        print(f'\t{taint_summary_file}', file=process_out)
+        print(f'\t{norm_file}', file=process_out)
+        print(f'\t{symbolic_test_file}', file=process_out)
+        print(f'\t{grades_explodejs}', file=process_out)
 
         try:
             start = time.time()
@@ -647,12 +648,13 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
             
             #io_lock.acquire()
-            print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET, flush=True)
+            print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
             #io_lock.release()
 
             #subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300, stdout=sys.stdout, stderr=sys.stdout)
 
-            explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=sys.stdout, stderr=sys.stdout)
+            #explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=sys.stdout, stderr=sys.stdout)
+            explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
             explode_proc.wait(timeout=300)
             
             
@@ -662,10 +664,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             check_graph_construction_zeroday(grades, norm_file)
             check_vulnerability_detection(grades, taint_summary_file)
             check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             #io_lock.acquire()
-            print(Fore.MAGENTA + f'PID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET, flush=True)
-            traceback.print_exc()
+            print(Fore.MAGENTA + f'\n\nPID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
+
+            print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+            
+            
+            #traceback.print_exc()
             #io_lock.release()
 
             if os.path.exists(norm_file):
@@ -680,7 +686,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             # Need to stop the Docker container if it still exists after the timeout triggered.          
             #io_lock.acquire()
-            print(Fore.MAGENTA + f'PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True)
+            print(Fore.MAGENTA + f'\n\nPID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
             #io_lock.release()
 
             # Check list of Docker container names.
@@ -693,7 +699,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                     docker_containers[container.name] = container
                     #docker_container_names: List[str] = [container.name for container in running_containers]
             except docker.errors.APIError as e:
-                traceback.print_exc()
+                print(Fore.MAGENTA + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
         
             # Stop the container in case it still existed.
             # NOTE: this could be used with docker_client while avoiding a subprocess, perhaps...
@@ -701,23 +707,34 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
                 docker_stop_cmd: str = f'docker stop {neo4j_container_name}'
                 #io_lock.acquire()
-                print(Fore.MAGENTA + f'PID {pid} - container {neo4j_container_name} still running after timeout, calling "docker stop {neo4j_container_name}"' + Fore.RESET, flush=True)
+                #print(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} still running after timeout, calling "docker stop {neo4j_container_name}"' + Fore.RESET, flush=True, file=process_out)
                 #print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
                 #result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
                 #io_lock.release()
+                
+                io_lock.acquire()
+                print(Fore.MAGENTA + f'\n\nPID {pid} - explodejs.sh timed out, stopping {neo4j_container_name}...' + Fore.RESET, flush=True)
+                io_lock.release()
+
+                
 
 
                 
                 # docker_client.containers.stop(neo4j_container_name)
-                print(Fore.MAGENTA + f'PID {pid} - calling {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True)
+                print(Fore.MAGENTA + f'PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
                 docker_containers[neo4j_container_name].stop()
+
+
+                io_lock.acquire()
+                print(Fore.MAGENTA + f'\n\nPID {pid} - explodejs.sh timed out, stopped {neo4j_container_name}' + Fore.RESET, flush=True)
+                io_lock.release()
 
             
 
         except subprocess.CalledProcessError as e:
             #io_lock.acquire()
-            print(Fore.MAGENTA + f'PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True)
-            traceback.print_exc()
+            print(Fore.MAGENTA + f'PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
             #io_lock.release()
 
             if os.path.exists(norm_file):
@@ -730,8 +747,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 grades["detection"] = "ERROR"
             grades["symb_test"] = "ERROR"
 
-        # Kill the whole chain of subprocesses
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         hierarchy_pkill(explode_proc.pid)
+        io_lock.acquire()
+        print(Fore.MAGENTA + f'\n\nPID {pid} - killed process hierarchy.' + Fore.RESET, flush=True)
+        io_lock.release()
+        print(Fore.MAGENTA + f'\n\nPID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
 
         with open(grades_explodejs, "w") as f:
             f.write(json.dumps(grades, indent=4) + '\n')
