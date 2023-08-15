@@ -652,7 +652,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             #subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300, stdout=sys.stdout, stderr=sys.stdout)
 
-            explode_proc = subprocess.Popen(explode_js_cmd, shell=True, check=True, stdout=sys.stdout, stderr=sys.stdout)
+            explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=sys.stdout, stderr=sys.stdout)
             explode_proc.wait(timeout=300)
             
             
