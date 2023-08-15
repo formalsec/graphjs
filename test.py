@@ -591,6 +591,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # Get ports for Docker Neo4j process port mapping.
         http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
         bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
+
+        print(Fore.MAGENTA + f'PID {pid} - Running explodejs.sh for: \n\tPACKAGE: {package}\n\tFILE: {file_path}' + Fore.RESET, flush=True)
         
         io_lock.release()
 
