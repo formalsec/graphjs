@@ -31,8 +31,8 @@ RUN apt-get update \
     && chmod -R 777 "${NEO4J_HOME}" \
     && ln -s /data "${NEO4J_HOME}"/data \
     && ln -s /logs "${NEO4J_HOME}"/logs \
-    && chmod -R 777 /data \
-    && chmod -R 777 /logs \
+    #&& chmod -R 777 /data \
+    #&& chmod -R 777 /logs \
     && rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get -y purge --auto-remove curl
