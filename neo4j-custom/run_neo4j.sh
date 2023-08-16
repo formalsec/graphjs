@@ -81,6 +81,11 @@ fi
 
 echo "[INFO] - Running container $NEO4J_EXPLODEJS_CONTAINER"
 echo "[INFO] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+
+# Activate debugging from here.
+# https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_02_03.html
+set -x		
+
 if [ "$DEBUG" = true ]; then
     # Run container
     docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
@@ -105,6 +110,9 @@ else
       :
     done
 fi
+
+# Disable bash debugging.
+set +x
 
 # if [ "$DEBUG" = false ]; then
 # # Move results and times to execution results directory
