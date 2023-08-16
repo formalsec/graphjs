@@ -103,7 +103,7 @@ if [ "$DEBUG" = true ]; then
     if [ $docker_status -eq 0 ]; then
         echo "[INFO][$THIS_SCRIPT] - docker run succeeded"
     else
-        echo "[INFO][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)"
+        echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)"
     fi
     exit $docker_status
 else
