@@ -814,7 +814,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         with open(grades_explodejs, "w") as f:
             f.write(json.dumps(grades, indent=4) + '\n')
+            io_lock.acquire()
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
+            io_lock.release()
 
     return (package, file_path, grades)
 
