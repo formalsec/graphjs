@@ -4,7 +4,8 @@ ENV NEO4J_SHA256=0f074e2d84c265fbb066ad648b52c62c623d1f1b18b9d4d04356d46726853c9
     NEO4J_TARBALL=neo4j-community-4.2.1-unix.tar.gz \
     NEO4J_EDITION=community \
     NEO4J_HOME="/var/lib/neo4j"
-ARG NEO4J_URI=https://dist.neo4j.org/neo4j-community-4.2.1-unix.tar.gz
+#ARG NEO4J_URI=https://dist.neo4j.org/neo4j-community-4.2.1-unix.tar.gz
+ARG NEO4J_URI=https://dist.neo4j.org/neo4j-community-4.4.13-unix.tar.gz
 ARG TINI_SHA256="12d20136605531b09a2c2dac02ccee85e1b874eb322ef6baf7561cd93f93c855"
 ARG TINI_URI="https://github.com/krallin/tini/releases/download/v0.18.0/tini"
 
