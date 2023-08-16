@@ -2,6 +2,7 @@
 shopt -s extglob
 
 THIS_DIR=$(realpath "$0")
+THIS_SCRIPT=$(basename $BASH_SOURCE) 
 
 die() {
      echo $@ 1>&2   # print arguments of 'die' to standard error
@@ -135,32 +136,32 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
         
 
-        echo "[INFO] - Docker Neo4j using ports HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+        echo "[INFO][$THIS_SCRIPT] - Docker Neo4j using ports HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
 
         cd $NEO4J_DIR
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR] explodejs caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
         else
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR] explodejs caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
         fi
         cd $(dirname $THIS_DIR)
 
         # run all queries
-        echo "[INFO] - Finished $NEO4J_DIR/run_neo4j.sh"
-        echo "[INFO] - Running queries"
+        echo "[INFO][$THIS_SCRIPT] - Finished $NEO4J_DIR/run_neo4j.sh"
+        echo "[INFO][$THIS_SCRIPT] - Running queries"
         QUERIES=$(realpath ./detection)
         python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY --bolt-port $NEO4J_BOLT_PORT
 
         # stop Neo4J container
-        echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
+        echo "[INFO][$THIS_SCRIPT] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
         docker stop $CONTAINER_NAME
 
         # Create an exploit
         if $EXPLOIT; then
-            echo "[INFO] - Creating exploit"
+            echo "[INFO][$THIS_SCRIPT] - Creating exploit"
             
             # create symbolic tests
-            echo "[INFO] - Creating symbolic tests"
+            echo "[INFO][$THIS_SCRIPT] - Creating symbolic tests"
             node instrumentation/src/instrumenter.js -i $NORMALIZED -c $TAINT_SUMMARY -o $SYMBOLIC_TEST
         fi
 

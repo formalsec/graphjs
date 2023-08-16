@@ -1,6 +1,8 @@
 #!/bin/bash
 DEBUG=true
 
+THIS_SCRIPT=$(basename $BASH_SOURCE) 
+
 if [[ -z $1 ]]; then
     echo "$0: Required path containing graph files"
     exit 4
@@ -9,7 +11,7 @@ fi
 GRAPH_DIR_PATH=$(realpath $1)
 GRAPH_DIR_BASE=$(basename "$GRAPH_DIR_PATH")
 PARENT_DIR=$(dirname "$GRAPH_DIR_PATH")
-echo "[INFO] - Reading $GRAPH_DIR_BASE"
+echo "[INFO][$THIS_SCRIPT] - Reading $GRAPH_DIR_BASE"
 
 # Check if is zip file
 ZIP_FILE=false
@@ -79,8 +81,8 @@ else
   docker build . -t neo4j-docker
 fi
 
-echo "[INFO] - Running container $NEO4J_EXPLODEJS_CONTAINER"
-echo "[INFO] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+echo "[INFO][$THIS_SCRIPT] - Running container $NEO4J_EXPLODEJS_CONTAINER"
+echo "[INFO][$THIS_SCRIPT] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
 
 # Activate debugging from here.
 # https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_02_03.html
@@ -99,9 +101,9 @@ if [ "$DEBUG" = true ]; then
 
     docker_status=$?
     if [ $docker_status -eq 0 ]; then
-        echo "docker run succeeded"
+        echo "[INFO][$THIS_SCRIPT] - docker run succeeded"
     else
-        echo "docker run stopped (either timeout expired or it crashed)"
+        echo "[INFO][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)"
     fi
     exit $docker_status
 else
