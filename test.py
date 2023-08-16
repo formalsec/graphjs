@@ -658,7 +658,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             #io_lock.acquire()
             #print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True)
-            main_terminal_msgs.append(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET)
+            main_terminal_msgs.append(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET)
 
             #io_lock.release()
             
@@ -696,7 +696,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             # print(Fore.RED + f'PID {pid} - subprocess.TimeoutExpired.\n' + Fore.RESET, flush=True)
             # io_lock.release()
 
-            main_terminal_msgs.append(Fore.RED + f'PID {pid} - subprocess.TimeoutExpired.\n' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
             
             
             #traceback.print_exc()
@@ -734,14 +734,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 # print(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET)
                 # io_lock.release()
 
-                main_terminal_msgs.append(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET)
+                main_terminal_msgs.append(Fore.MAGENTA + f'PID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET)
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
 
                 # io_lock.acquire()
                 # print(Fore.RED + f'\n\nPID {pid} - unknown docker API error.' + Fore.RESET, flush=True)
                 # io_lock.release()
-                main_terminal_msgs.append(Fore.RED + f'\n\nPID {pid} - unknown docker API error.' + Fore.RESET)
+                main_terminal_msgs.append(Fore.RED + f'PID {pid} - unknown docker API error.' + Fore.RESET)
                 raise e
         
             # Stop the container in case it still existed.
@@ -784,7 +784,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             # print(Fore.RED + f'PID {pid} - subprocess.CalledProcessError.\n' + Fore.RESET, flush=True)
             # io_lock.release()
 
-            main_terminal_msgs.append(Fore.RED + f'PID {pid} - subprocess.CalledProcessError.\n' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
 
             if os.path.exists(norm_file):
                 check_graph_construction_zeroday(grades, norm_file)
@@ -802,9 +802,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # io_lock.acquire()
         # print(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET, flush=True)
         # io_lock.release()
-        main_terminal_msgs.append(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET)
+        main_terminal_msgs.append(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
         
         print(Fore.MAGENTA + f'\n\nPID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+
+        io_lock.acquire()
+        print("{}\n".format("\n".join(main_terminal_msgs)))
+        # print(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET, flush=True)
+        io_lock.release()
 
         with open(grades_explodejs, "w") as f:
             f.write(json.dumps(grades, indent=4) + '\n')
