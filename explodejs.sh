@@ -139,9 +139,9 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
         cd $NEO4J_DIR
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR] - $NEO4J_DIR/run_neo4j.sh failed"
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR] explodejs caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
         else
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR] - $NEO4J_DIR/run_neo4j.sh failed"
+            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR] explodejs caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
         fi
         cd $(dirname $THIS_DIR)
 
