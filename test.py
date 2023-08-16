@@ -1025,7 +1025,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                 grades_d: Dict = {}
                 for curr_path, curr_grades in package_grades[res_package].items():
-                    cleaned_path = curr_path[curr_path.rfind(res_package) : ]
+                    cleaned_path = curr_path[curr_path.find(res_package) : ]
                     # if cleaned_path.startswith(f"packages{os.path.sep}src{os.path.sep}"):
                     #     cleaned_path = cleaned_path.replace(f"packages{os.path.sep}src{os.path.sep}", "")                
 
