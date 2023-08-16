@@ -41,7 +41,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get -y purge --auto-remove curl \
     && touch "${NEO4J_HOME}"/data/apoc.conf \
-    && echo -e "apoc.export.file.enabled=true\napoc.import.file.enabled=true\napoc.import.file.use_neo4j_config=true" >> "${NEO4J_HOME}"/data/apoc.conf \
+    && echo -e "apoc.export.file.enabled=true\napoc.import.file.enabled=true\napoc.import.file.use_neo4j_config=true" >> "${NEO4J_HOME}"/data/apoc.conf
 
 ENV PATH "${NEO4J_HOME}"/bin:$PATH
 
