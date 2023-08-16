@@ -93,9 +93,9 @@ if [ "$DEBUG" = true ]; then
     docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
-        -e NEO4J_apoc_export_file_enabled=true \
-        -e NEO4J_apoc_import_file_enabled=true \
-        -e NEO4J_apoc_import_file_use__neo4j__config=true \
+        #-e NEO4J_apoc_export_file_enabled=true \
+        #-e NEO4J_apoc_import_file_enabled=true \
+        #-e NEO4J_apoc_import_file_use__neo4j__config=true \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
     #sleep 5
 
@@ -110,9 +110,9 @@ else
     docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
-        -e NEO4J_apoc_export_file_enabled=true \
-        -e NEO4J_apoc_import_file_enabled=true \
-        -e NEO4J_apoc_import_file_use__neo4j__config=true \
+        #-e NEO4J_apoc_export_file_enabled=true \
+        #-e NEO4J_apoc_import_file_enabled=true \
+        #-e NEO4J_apoc_import_file_use__neo4j__config=true \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
     # Wait for neo4j to start inside the container
     sleep 5
