@@ -84,7 +84,7 @@ echo "[INFO] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
 
 # Activate debugging from here.
 # https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_02_03.html
-set -x		
+# set -x		
 
 if [ "$DEBUG" = true ]; then
     # Run container
@@ -97,13 +97,13 @@ if [ "$DEBUG" = true ]; then
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
     #sleep 5
 
-    if [ $? -eq 0 ]; then
+    docker_status=$?
+    if [ $docker_status -eq 0 ]; then
         echo "docker run succeeded"
-        exit 0
     else
         echo "docker run stopped (either timeout expired or it crashed)"
-        exit $?
     fi
+    exit $docker_status
 else
     docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
@@ -115,12 +115,13 @@ else
     # Wait for neo4j to start inside the container
     sleep 5
     until docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER | grep -q "Started."; do
-      :
+      sleep 1
     done
+    exit 0
 fi
 
 # Disable bash debugging.
-set +x
+# set +x
 
 # if [ "$DEBUG" = false ]; then
 # # Move results and times to execution results directory

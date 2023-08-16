@@ -770,7 +770,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 # print(Fore.RED + f'\n\nPID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET, flush=True)
                 # io_lock.release()
 
-                main_terminal_msgs.append(Fore.RED + f'\n\nPID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
+                main_terminal_msgs.append(Fore.RED + f'PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
             
 
