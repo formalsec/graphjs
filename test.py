@@ -1042,9 +1042,9 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                         grades_d[cleaned_path] = curr_grades
 
-                        print(Fore.MAGENTA + f'Package {res_package} - path {cleaned_path} .' + Fore.RESET)
-
-                    
+                        print(Fore.MAGENTA + f'Package {res_package}' + Fore.RESET)
+                        print(Fore.MAGENTA + f'\tpath {curr_path}' + Fore.RESET)
+                        print(Fore.MAGENTA + f'\tcleaned path {cleaned_path}' + Fore.RESET)                    
                     
                     update_zeroday_sheet(ws, res_package, grades_d)
                     
