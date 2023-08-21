@@ -1064,6 +1064,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                         print(Fore.MAGENTA + f'\tpath {curr_path}' + Fore.RESET)
                         print(Fore.MAGENTA + f'\tcleaned path {cleaned_path}' + Fore.RESET)                    
                     
+                    pprint.pprint(grades_d)
+
                     update_zeroday_sheet(ws, res_package, grades_d)
                     
                     add_package_to_tested_list(res_package, tested_package_file_list)
