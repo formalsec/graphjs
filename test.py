@@ -722,6 +722,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             # print(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET, flush=True)
             io_lock.release()
 
+            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+            hierarchy_pkill(explode_proc.pid)
+
             raise e
 
         except subprocess.TimeoutExpired as e:
@@ -782,6 +785,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 # print(Fore.RED + f'\n\nPID {pid} - unknown docker API error.' + Fore.RESET, flush=True)
                 # io_lock.release()
                 main_terminal_msgs.append(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - unknown docker API error.' + Fore.RESET)
+
+                # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+                hierarchy_pkill(explode_proc.pid)
                 raise e
         
             # Stop the container in case it still existed.
