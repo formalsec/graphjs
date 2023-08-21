@@ -550,6 +550,25 @@ def hierarchy_pkill(proc_pid):
         proc.kill()
     process.kill()
 
+def build_safe_container_name(package: str, f_name: str) -> str:
+    container_name: str = package + "_" + f_name
+    container_name = container_name.replace(" ", "-").replace("\t", "-").replace("@", "AT")
+    docker_container_max_len: int = 128
+
+    # Check container name length - Docker has a limit of 128 characters.
+    # Shrink container name if it is greater than 128.
+    if len(container_name) > docker_container_max_len:
+        letters = string.ascii_lowercase
+        rand_sz: int = 4
+        result_str: str = ''.join(random.choice(letters) for i in range(rand_sz))
+        
+        container_name = result_str + container_name[len(result_str) - docker_container_max_len :]
+
+    container_name = re.sub('[^a-zA-Z0-9_.-]', '-', container_name)
+
+    return container_name
+
+
 def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, Dict]:
     """
     Function to be run by each concurrent process.
@@ -640,19 +659,20 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             
             
             
-            neo4j_container_name: str = package + "_" + f_name
-            neo4j_container_name = neo4j_container_name.replace(" ", "-").replace("\t", "-").replace("@", "AT")
-            docker_container_max_len: int = 128
+            # neo4j_container_name: str = package + "_" + f_name
+            # neo4j_container_name = neo4j_container_name.replace(" ", "-").replace("\t", "-").replace("@", "AT")
+            # docker_container_max_len: int = 128
 
-            # Check container name length - Docker has a limit of 128 characters.
-            # Shrink container name if it is greater than 128.
-            if len(neo4j_container_name) > docker_container_max_len:
-                letters = string.ascii_lowercase
-                rand_sz: int = 4
-                result_str: str = ''.join(random.choice(letters) for i in range(rand_sz))
+            # # Check container name length - Docker has a limit of 128 characters.
+            # # Shrink container name if it is greater than 128.
+            # if len(neo4j_container_name) > docker_container_max_len:
+            #     letters = string.ascii_lowercase
+            #     rand_sz: int = 4
+            #     result_str: str = ''.join(random.choice(letters) for i in range(rand_sz))
                 
-                neo4j_container_name = result_str + neo4j_container_name[len(result_str) - docker_container_max_len :]
+            #     neo4j_container_name = result_str + neo4j_container_name[len(result_str) - docker_container_max_len :]
 
+            neo4j_container_name: str = build_safe_container_name(package, f_name)
             container_list.append(neo4j_container_name)
 
             explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
@@ -690,6 +710,20 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             check_graph_construction_zeroday(grades, norm_file)
             check_vulnerability_detection(grades, taint_summary_file)
             check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
+        except FileNotFoundError as e:
+            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+
+            io_lock.acquire()
+            main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+            print("{}\n".format("\n".join(main_terminal_msgs)))
+            # print(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET, flush=True)
+            io_lock.release()
+
+            raise e
+
         except subprocess.TimeoutExpired as e:
             #io_lock.acquire()
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
@@ -1099,6 +1133,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             pool.close()
             pool.join()
 
+        except FileNotFoundError as e:
+            print(Fore.RED + f'[CLEANUP][{this_script_name}] - FileNotFoundError in child process, stopping.' + Fore.RESET)
         except docker.errors.APIError as e:
             pass
         except KeyboardInterrupt:
