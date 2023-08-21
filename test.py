@@ -1147,15 +1147,18 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         except docker.errors.APIError as e:
             pass
         except KeyboardInterrupt:
-            print(Fore.RED + f'[CLEANUP][{this_script_name}] - KeyboardInterrupt, stopping.' + Fore.RESET)
+            print(Fore.RED + f'\n[CLEANUP][{this_script_name}] - KeyboardInterrupt, stopping.' + Fore.RESET)
         finally:
             print(Fore.RED + f'[CLEANUP][{this_script_name}] - Closing Docker containers...' + Fore.RESET)
-            docker_container_cleanup(container_list)
+            
 
             # Need to terminate the multiprocessing pool in case it hasn't been closed.
             # See: https://stackoverflow.com/a/35134329
             if not pool_closed:
                 pool.terminate()
+
+
+            docker_container_cleanup(container_list)
 
             
 
