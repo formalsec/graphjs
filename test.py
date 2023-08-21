@@ -9,7 +9,7 @@ import json
 import gspread
 import shutil
 import multiprocessing
-from multiprocessing.managers import DictProxy
+from multiprocessing.managers import DictProxy, ListProxy
 import os
 import pathlib
 import pprint
@@ -17,6 +17,7 @@ import psutil
 import random
 import re
 import shutil
+import signal
 import socket
 import string
 import subprocess
@@ -549,7 +550,7 @@ def hierarchy_pkill(proc_pid):
         proc.kill()
     process.kill()
 
-def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy) -> Tuple[str, str, Dict]:
+def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, Dict]:
     """
     Function to be run by each concurrent process.
 
@@ -652,6 +653,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 
                 neo4j_container_name = result_str + neo4j_container_name[len(result_str) - docker_container_max_len :]
 
+            container_list.append(neo4j_container_name)
+
             explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
             
             #io_lock.acquire()
@@ -735,6 +738,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 # print(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET)
                 # io_lock.release()
 
+                container_list.remove(neo4j_container_name)
+
                 main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET)
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
@@ -765,6 +770,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 # docker_client.containers.stop(neo4j_container_name)
                 print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
                 docker_containers[neo4j_container_name].stop()
+
+                container_list.remove(neo4j_container_name)
 
 
                 # io_lock.acquire()
@@ -820,7 +827,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
     return (package, file_path, grades)
 
-def test_zeroday_task_star(args: Tuple[str, str, str, multiprocessing.Lock, DictProxy]) -> Tuple[str, str, Dict]:
+def test_zeroday_task_star(args: Tuple[str, str, str, multiprocessing.Lock, DictProxy, ListProxy]) -> Tuple[str, str, Dict]:
     """
     Receives a tuple which containing arguments for :func:`test_zeroday_task` which are passed with `*args`.
     This is needed due to :func:`imap_unordered` being able to pass only one argument to the worker function.
@@ -829,6 +836,48 @@ def test_zeroday_task_star(args: Tuple[str, str, str, multiprocessing.Lock, Dict
     """
     return test_zeroday_task(*args)
 
+
+
+def init_pool():
+    # Ignore the interrupt entirely and leave the handling to the main process.
+    # See: https://stackoverflow.com/a/68693453
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def docker_container_cleanup(container_names: ListProxy):
+    
+    this_script_name: str = os. path. basename(__file__)
+
+    # Get existing Docker container instances.
+    docker_client = docker.from_env()
+    docker_containers: Dict = {}
+    try: 
+        running_containers: List[docker.Container] = docker_client.containers.list()
+        for container in running_containers:
+            docker_containers[container.name] = container
+    except docker.errors.NotFound as e:
+        print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - found no Docker containers.' + Fore.RESET, flush=True)
+    except docker.errors.APIError as e:
+        print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
+        print(Fore.RED + f'[CLEANUP][{this_script_name}] - unknown docker API error.' + Fore.RESET)
+        raise e
+    
+    # Iterate the container names launched by multiprocessing pool processes so far.
+    for c in container_names:
+        if c in docker_containers.keys():
+            try:
+                docker_containers[c].stop()
+                print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - stopped container {c}.' + Fore.RESET, flush=True)
+        
+            except docker.errors.NotFound as e:
+                print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - {c} was already stopped.' + Fore.RESET, flush=True)
+            except docker.errors.APIError as e:
+                print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
+                raise e
+
+    print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - exiting.' + Fore.RESET, flush=True)
+
+
 def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
@@ -836,6 +885,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
     @param: target_sheet_name The name of the Google Sheets sheet to use.
     @param concurrency_level: the size of the :class:`multiprocessing.Pool` to use for concurrent processses.
     """
+
+    this_script_name: str = os. path. basename(__file__)
 
     # Create worksheet if it does not exist.
     if not (args.start_package == 0 and args.finish_package == 0):
@@ -887,6 +938,9 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         package_file_count: DictProxy = manager.dict()
 
         process_map: DictProxy = manager.dict()
+
+
+        container_list: ListProxy = manager.list()
 
         # List of tuples to be iterated. Each tuple will be passed to 
         # a multiprocessing pool process.
@@ -949,7 +1003,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                         package_file_count[package] -= 1
                     else:
-                        package_f_tuples.append((package, f, output_dir, io_lock, process_map))
+                        package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
         
 
         #for t in package_f_tuples:
@@ -977,75 +1031,85 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         print("Creating pool with {} workers.".format(concurrency_level))
         # See pitfalls of running multiprocessing.Pool:
         # https://pythonspeed.com/articles/python-multiprocessing/
-        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2)
+        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
        
 
         
+        try:
         
         
-        
 
-        # test_list = package_f_tuples[0:7]
+            # test_list = package_f_tuples[0:7]
 
-        # print("TEST TUPLES")
-        # pprint.pprint(test_list)
-        # print("")
-        # print("")
-
-        # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
-        # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
-        # https://superfastpython.com/multiprocessing-pool-issue-tasks/
-        for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
-            res_package: str = result[0]
-            res_file: str = result[1]
-            res_grades: Dict = result[2]
-
-            # Debug prints, left here in case they are needed.
+            # print("TEST TUPLES")
+            # pprint.pprint(test_list)
             # print("")
             # print("")
-            # pprint.pprint(f"{res_package} | {res_file}")
-            # pprint.pprint(res_grades)
-            
-            # NOTE: This lock.aquire() may be unnecessary, research it...
-            io_lock.acquire()
 
-            if not res_package in package_grades:
-                package_grades[res_package] = {}
-            package_grades[res_package][res_file] = res_grades
+            # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
+            # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
+            # https://superfastpython.com/multiprocessing-pool-issue-tasks/
+            for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
+                res_package: str = result[0]
+                res_file: str = result[1]
+                res_grades: Dict = result[2]
 
-            #print(f'[{res_package}][{res_file}] done')
-            #print(f'[{res_package}]: {package_file_count[res_package]}/{} files left')
-
-            package_file_count[res_package] -= 1
-
-            
-            
-            if package_file_count[res_package] == 0:
-                # Remove "packages/src" prefix before writing the package to the sheet.
-
-                grades_d: Dict = {}
-                for curr_path, curr_grades in package_grades[res_package].items():
-                    cleaned_path = curr_path[curr_path.find(res_package) : ]
-                    # if cleaned_path.startswith(f"packages{os.path.sep}src{os.path.sep}"):
-                    #     cleaned_path = cleaned_path.replace(f"packages{os.path.sep}src{os.path.sep}", "")                
-
-                    grades_d[cleaned_path] = curr_grades
+                # Debug prints, left here in case they are needed.
+                # print("")
+                # print("")
+                # pprint.pprint(f"{res_package} | {res_file}")
+                # pprint.pprint(res_grades)
                 
+                # NOTE: This lock.aquire() may be unnecessary, research it...
+                io_lock.acquire()
 
-                update_zeroday_sheet(ws, res_package, grades_d)
+                if not res_package in package_grades:
+                    package_grades[res_package] = {}
+                package_grades[res_package][res_file] = res_grades
+
+                #print(f'[{res_package}][{res_file}] done')
+                #print(f'[{res_package}]: {package_file_count[res_package]}/{} files left')
+
+                package_file_count[res_package] -= 1
 
                 
-                add_package_to_tested_list(res_package, tested_package_file_list)
-                #add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
+                
+                if package_file_count[res_package] == 0:
+                    # Remove "packages/src" prefix before writing the package to the sheet.
 
-            # NOTE: This lock.release() may be unnecessary
-            io_lock.release()       
+                    grades_d: Dict = {}
+                    for curr_path, curr_grades in package_grades[res_package].items():
+                        cleaned_path = curr_path[curr_path.find(res_package) : ]
+                        # if cleaned_path.startswith(f"packages{os.path.sep}src{os.path.sep}"):
+                        #     cleaned_path = cleaned_path.replace(f"packages{os.path.sep}src{os.path.sep}", "")                
 
-        
-        pool.close()
-        pool.join()
+                        grades_d[cleaned_path] = curr_grades
+                    
 
-        print(f'Processing finished. Exiting.')
+                    update_zeroday_sheet(ws, res_package, grades_d)
+
+                    
+                    add_package_to_tested_list(res_package, tested_package_file_list)
+                    #add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
+
+                # NOTE: This lock.release() may be unnecessary
+                io_lock.release()       
+
+            
+            pool.close()
+            pool.join()
+
+        except docker.errors.APIError as e:
+            pass
+        except KeyboardInterrupt:
+            print(Fore.RED + f'[CLEANUP][{this_script_name}] - KeyboardInterrupt, stopping.' + Fore.RESET)
+        finally:
+            print(Fore.RED + f'[CLEANUP][{this_script_name}] - Closing Docker containers...' + Fore.RESET)
+            docker_container_cleanup(container_list)
+
+            
+
+        print(Fore.MAGENTA + f'Processing finished. Exiting. + Fore.RESET')
 
     
 def test_zeroday_dataset():
