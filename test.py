@@ -26,6 +26,9 @@ import time
 import traceback
 from typing import Dict, List, Tuple
 
+# Some constants.
+DOCKER_CONTAINER_MAX_LEN: int = 128
+
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
@@ -551,23 +554,24 @@ def hierarchy_pkill(proc_pid):
         proc.kill()
     process.kill()
 
-def build_safe_container_name(package: str, f_name: str) -> str:
+def build_safe_container_name(package: str, f_name: str, pid: str = "") -> str:
     container_name: str = package + "_" + f_name
     container_name = container_name.replace(" ", "-").replace("\t", "-").replace("@", "AT")
-    docker_container_max_len: int = 128
 
-    # Check container name length - Docker has a limit of 128 characters.
-    # Shrink container name if it is greater than 128.
-    if len(container_name) > docker_container_max_len:
-        letters = string.ascii_lowercase
-        rand_sz: int = 4
-        result_str: str = ''.join(random.choice(letters) for i in range(rand_sz))
-        
-        container_name = result_str + container_name[len(result_str) - docker_container_max_len :]
+    # Check container name length - Docker container names have a limit of 128 characters.
+    letters = string.ascii_lowercase
+    #rand_sz: int = 6
+    result_str: str = f'PID-{pid}-' + ''.join(random.choice(letters) for i in range(6))
+    
+    # Shrink container name if it is greater than 128 and preppend a 'rand_sz'-sized random string.
+    if len(container_name) + len(result_str) > DOCKER_CONTAINER_MAX_LEN:     
+        container_name = result_str + container_name[len(result_str) - DOCKER_CONTAINER_MAX_LEN :]
+    else:
+        container_name = result_str + container_name
 
     container_name = re.sub('[^a-zA-Z0-9_.-]', '-', container_name)
 
-    # Avoid the Docker container name starting/ending with a dash, period or underscore.
+    # Avoid the Docker container name starting with a dash, period or underscore.
     if container_name.startswith("-"):
         container_name = 'S' + container_name[1:]
     elif container_name.startswith("."):
@@ -575,7 +579,7 @@ def build_safe_container_name(package: str, f_name: str) -> str:
     elif container_name.startswith("_"):
         container_name = 'U' + container_name[1:]
     
-    
+    # Avoid the Docker container name ending with a dash, period or underscore.
     if container_name.endswith("-"):
         container_name = container_name[:-1] + 'S'
     elif container_name.endswith("."):
@@ -583,7 +587,9 @@ def build_safe_container_name(package: str, f_name: str) -> str:
     elif container_name.endswith("_"):
         container_name = container_name[:-1] + 'U'
 
-    # A Docker container name may not start ot end with a period.
+    
+    # Add the executing PID to the name if there is space plus some randomization.
+
 
     return container_name
 
@@ -674,13 +680,13 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         try:
 
             # Build Docker container name based on the current npm package and file.
-            neo4j_container_name: str = build_safe_container_name(package, f_name)
+            neo4j_container_name: str = build_safe_container_name(package, f_name, f'{pid}')
             container_list.append(neo4j_container_name)
 
             # Prepare the call toe explodejs.sh.
             explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
-            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET)
+            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
+            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
          
             # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
             start = time.time()
@@ -700,15 +706,15 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
         except FileNotFoundError as e:
 
-            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
 
-            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
 
-            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
             print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
             
-            main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
             main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
             io_lock.acquire()
@@ -722,7 +728,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         except subprocess.TimeoutExpired as e:
             
-            print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
             print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
             main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
