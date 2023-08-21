@@ -452,7 +452,11 @@ def add_package_to_sheet(ws: gspread.Spreadsheet, package: str) -> None:
 def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: Dict[str, Dict[str, Dict]]) -> None:
     result = []
     for file, grades in package_grades.items():
-        sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades] 
+        #sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades]
+        target_sheet_path: str = file[file.find("src") : ]
+        #sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades] 
+
+        sub_array = ["", target_sheet_path] + [grades[key] for key in grades] 
         sub_array.insert(4, "")
         result.append(sub_array)
     result[0][0] = package
