@@ -752,16 +752,28 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             docker_containers: Dict = {}
 
             try:
-                running_containers: List[docker.Container] = docker_client.containers.list()
+                
+                # Get a container object to manipulate the Docker container that was started for this task.
+                # See docker Client.containers.list:
+                # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.list
+                # We are using a 'filters' map due to this bug:
+                # https://github.com/docker/docker-py/issues/2945
+                running_containers: List[docker.Container] = docker_client.containers.list(filters={
+                    'name': neo4j_container_name,
+                    'status': 'running'})
                 
                 for container in running_containers:
                     docker_containers[container.name] = container
+
+                
             except docker.errors.NotFound as e:
-                print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET, flush=True, file=process_out)
+                print(Fore.Red + f'\n\n[INFO][{this_script_name}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET, flush=True, file=process_out)
+
+                print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
                 container_list.remove(neo4j_container_name)
 
-                main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET)
+                main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
 
