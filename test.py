@@ -1153,7 +1153,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
             
 
-        print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET')
+        print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET)
 
     
 def test_zeroday_dataset():
