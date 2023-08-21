@@ -487,10 +487,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         else:
             raise e
 
-        #pprint.pprint(error_json)
-        #pprint.pprint(e)
-        #sys.stdout.flush()
-        #raise e
+
     finally:
         # If the limit had been reached and it was extended successfully, try to write again.
         if limit_reached:
@@ -1026,13 +1023,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 res_package: str = result[0]
                 res_file: str = result[1]
                 res_grades: Dict = result[2]
-
-                # Debug prints, left here in case they are needed.
-                # print("")
-                # print("")
-                # pprint.pprint(f"{res_package} | {res_file}")
-                # pprint.pprint(res_grades)
-                
+               
                 # NOTE: This lock.aquire() may be unnecessary, research it...
                 io_lock.acquire()
 
@@ -1040,12 +1031,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                     package_grades[res_package] = {}
                 package_grades[res_package][res_file] = res_grades
 
-                #print(f'[{res_package}][{res_file}] done')
-                #print(f'[{res_package}]: {package_file_count[res_package]}/{} files left')
-
-                package_file_count[res_package] -= 1
-
-                
+                package_file_count[res_package] -= 1              
                 
                 if package_file_count[res_package] == 0:
                     # Remove "packages/src" prefix before writing the package to the sheet.
@@ -1053,14 +1039,14 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                     grades_d: Dict = {}
                     for curr_path, curr_grades in package_grades[res_package].items():
                         cleaned_path = curr_path[curr_path.find(res_package) : ]
-                        # if cleaned_path.startswith(f"packages{os.path.sep}src{os.path.sep}"):
-                        #     cleaned_path = cleaned_path.replace(f"packages{os.path.sep}src{os.path.sep}", "")                
 
                         grades_d[cleaned_path] = curr_grades
+
+                        print(Fore.MAGENTA + f'Package {res_package} - path {cleaned_path} .' + Fore.RESET)
+
                     
-
+                    
                     update_zeroday_sheet(ws, res_package, grades_d)
-
                     
                     add_package_to_tested_list(res_package, tested_package_file_list)
                     #add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
