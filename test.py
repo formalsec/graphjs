@@ -609,17 +609,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         io_lock.acquire()
 
         process = multiprocessing.current_process()
-        # report if daemon process
         
-        # Get ports for Docker Neo4j process port mapping.
+        # Find free ports for Docker Neo4j container port mapping.
         http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
         bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
-
-        #print(Fore.MAGENTA + f'PID {pid} - Running explodejs.sh for: \n\tPACKAGE: {package}\n\tFILE: {file_path}' + Fore.RESET, flush=True)
-
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running explodejs.sh for: \n\tPACKAGE: {package}\n\tFILE: {file_path}' + Fore.RESET)
         
         io_lock.release()
+
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running explodejs.sh for: \n\tPACKAGE: {package}\n\tFILE: {file_path}' + Fore.RESET)
 
         print(f'[INFO][{this_script_name}] - PID {pid} - Daemon process: {process.daemon}', file=process_out)
         print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True, file=process_out)
@@ -656,70 +653,47 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(f'\t{grades_explodejs}', file=process_out)
 
         try:
-            
-            
-            
-            # neo4j_container_name: str = package + "_" + f_name
-            # neo4j_container_name = neo4j_container_name.replace(" ", "-").replace("\t", "-").replace("@", "AT")
-            # docker_container_max_len: int = 128
 
-            # # Check container name length - Docker has a limit of 128 characters.
-            # # Shrink container name if it is greater than 128.
-            # if len(neo4j_container_name) > docker_container_max_len:
-            #     letters = string.ascii_lowercase
-            #     rand_sz: int = 4
-            #     result_str: str = ''.join(random.choice(letters) for i in range(rand_sz))
-                
-            #     neo4j_container_name = result_str + neo4j_container_name[len(result_str) - docker_container_max_len :]
-
+            # Build Docker container name based on the current npm package and file.
             neo4j_container_name: str = build_safe_container_name(package, f_name)
             container_list.append(neo4j_container_name)
 
+            # Prepare the call toe explodejs.sh.
             explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
-            
-            #io_lock.acquire()
             print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
-
-            #io_lock.acquire()
-            #print(Fore.MAGENTA + f'PID {os.getpid()} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True)
             main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {os.getpid()} - {explode_js_cmd}' + Fore.RESET)
-
-            #io_lock.release()
-            
-
+         
+            # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
             start = time.time()
 
-            #subprocess.run(explode_js_cmd, shell=True, check=True, timeout=300, stdout=sys.stdout, stderr=sys.stdout)
-
-            #explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=sys.stdout, stderr=sys.stdout)
             explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
             explode_proc.wait(timeout=300)
             
-            
             end = time.time()
-
-            #io_lock.acquire()
-            #print(Fore.MAGENTA + f'PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True)
-            #io_lock.release()
 
             main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET)
 
-
+            # Write explodejs.sh result data files.
             with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
                 f.write(f"{end - start:.2f} seconds\n")
             check_graph_construction_zeroday(grades, norm_file)
             check_vulnerability_detection(grades, taint_summary_file)
             check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
         except FileNotFoundError as e:
+
+            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
+
+            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
+
             print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
             print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
-            io_lock.acquire()
+            
             main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
             main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
+            io_lock.acquire()
             print("{}\n".format("\n".join(main_terminal_msgs)))
-            # print(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET, flush=True)
             io_lock.release()
 
             # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
@@ -728,21 +702,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             raise e
 
         except subprocess.TimeoutExpired as e:
-            #io_lock.acquire()
+            
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {os.getpid()} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
-
             print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
-
-            # io_lock.acquire()
-            # print(Fore.RED + f'PID {pid} - subprocess.TimeoutExpired.\n' + Fore.RESET, flush=True)
-            # io_lock.release()
 
             main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
             
-            
-            #traceback.print_exc()
-            #io_lock.release()
-
             if os.path.exists(norm_file):
                 check_graph_construction_zeroday(grades, norm_file)
             else: 
@@ -754,9 +719,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             grades["symb_test"] = "TIMEOUT"
 
             # Need to stop the Docker container if it still exists after the timeout triggered.          
-            #io_lock.acquire()
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
-            #io_lock.release()
 
             # Check list of Docker container names.
             docker_client = docker.from_env()
@@ -768,12 +731,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 
                 for container in running_containers:
                     docker_containers[container.name] = container
-                    #docker_container_names: List[str] = [container.name for container in running_containers]
             except docker.errors.NotFound as e:
                 print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET, flush=True, file=process_out)
-                # io_lock.acquire()
-                # print(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} was already stopped.' + Fore.RESET)
-                # io_lock.release()
 
                 container_list.remove(neo4j_container_name)
 
@@ -781,9 +740,6 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
 
-                # io_lock.acquire()
-                # print(Fore.RED + f'\n\nPID {pid} - unknown docker API error.' + Fore.RESET, flush=True)
-                # io_lock.release()
                 main_terminal_msgs.append(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - unknown docker API error.' + Fore.RESET)
 
                 # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
@@ -794,44 +750,21 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             # NOTE: this could be used with docker_client while avoiding a subprocess, perhaps...
             if neo4j_container_name in docker_containers:
 
-                # docker_stop_cmd: str = f'docker stop {neo4j_container_name}'
-                #io_lock.acquire()
-                #print(Fore.MAGENTA + f'\n\nPID {pid} - container {neo4j_container_name} still running after timeout, calling "docker stop {neo4j_container_name}"' + Fore.RESET, flush=True, file=process_out)
-                #print(Fore.MAGENTA + f'PID {pid} - {docker_stop_cmd}' + Fore.RESET, flush=True)
-                #result = subprocess.run(docker_stop_cmd, shell=True, check=False, stdout=sys.stdout, stderr=sys.stdout)
-                #io_lock.release()
-                
-                # io_lock.acquire()
-                # print(Fore.RED + f'PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET, flush=True)
-                # io_lock.release()
-
                 main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
 
-                # docker_client.containers.stop(neo4j_container_name)
                 print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
+                
                 docker_containers[neo4j_container_name].stop()
-
                 container_list.remove(neo4j_container_name)
-
-
-                # io_lock.acquire()
-                # print(Fore.RED + f'\n\nPID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET, flush=True)
-                # io_lock.release()
 
                 main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
             
 
         except subprocess.CalledProcessError as e:
-            #io_lock.acquire()
             print(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
             print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
-            #io_lock.release()
-
-            # io_lock.acquire()
-            # print(Fore.RED + f'PID {pid} - subprocess.CalledProcessError.\n' + Fore.RESET, flush=True)
-            # io_lock.release()
-
+            
             main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
 
             if os.path.exists(norm_file):
@@ -856,14 +789,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         io_lock.acquire()
         print("{}\n".format("\n".join(main_terminal_msgs)))
-        # print(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET, flush=True)
         io_lock.release()
 
         with open(grades_explodejs, "w") as f:
             f.write(json.dumps(grades, indent=4) + '\n')
-            io_lock.acquire()
+
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
-            io_lock.release()
 
     return (package, file_path, grades)
 
