@@ -901,15 +901,15 @@ def docker_container_cleanup(container_names: ListProxy):
         if c in docker_containers.keys():
             try:
                 docker_containers[c].stop()
-                print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - stopped container {c}.' + Fore.RESET, flush=True)
+                print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - stopped container {c}.' + Fore.RESET, flush=True)
         
             except docker.errors.NotFound as e:
-                print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - {c} was already stopped.' + Fore.RESET, flush=True)
+                print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - {c} was already stopped.' + Fore.RESET, flush=True)
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
                 raise e
 
-    print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - exiting.' + Fore.RESET, flush=True)
+    print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - exiting.\n' + Fore.RESET, flush=True)
 
 
 def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
@@ -1065,11 +1065,12 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         print("Creating pool with {} workers.".format(concurrency_level))
         # See pitfalls of running multiprocessing.Pool:
         # https://pythonspeed.com/articles/python-multiprocessing/
-        pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
+        
        
 
         
         try:
+            pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
         
         
 
@@ -1083,6 +1084,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
             # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
             # https://superfastpython.com/multiprocessing-pool-issue-tasks/
+            pool_closed: bool = False
             for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
                 res_package: str = result[0]
                 res_file: str = result[1]
@@ -1132,6 +1134,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             
             pool.close()
             pool.join()
+            pool_closed = True
 
         except FileNotFoundError as e:
             print(Fore.RED + f'[CLEANUP][{this_script_name}] - FileNotFoundError in child process, stopping.' + Fore.RESET)
@@ -1143,9 +1146,14 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             print(Fore.RED + f'[CLEANUP][{this_script_name}] - Closing Docker containers...' + Fore.RESET)
             docker_container_cleanup(container_list)
 
+            # Need to terminate the multiprocessing pool in case it hasn't been closed.
+            # See: https://stackoverflow.com/a/35134329
+            if not pool_closed:
+                pool.terminate()
+
             
 
-        print(Fore.MAGENTA + f'Processing finished. Exiting. + Fore.RESET')
+        print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET')
 
     
 def test_zeroday_dataset():
