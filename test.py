@@ -563,6 +563,24 @@ def build_safe_container_name(package: str, f_name: str) -> str:
 
     container_name = re.sub('[^a-zA-Z0-9_.-]', '-', container_name)
 
+    # Avoid the Docker container name starting/ending with a dash, period or underscore.
+    if container_name.startswith("-"):
+        container_name = 'S' + container_name[1:]
+    elif container_name.startswith("."):
+        container_name = 'P' + container_name[1:]
+    elif container_name.startswith("_"):
+        container_name = 'U' + container_name[1:]
+    
+    
+    if container_name.endswith("-"):
+        container_name = container_name[:-1] + 'S'
+    elif container_name.endswith("."):
+        container_name = container_name[:-1] + 'P'
+    elif container_name.endswith("_"):
+        container_name = container_name[:-1] + 'U'
+
+    # A Docker container name may not start ot end with a period.
+
     return container_name
 
 
