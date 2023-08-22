@@ -132,10 +132,12 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
     if [ $SILENT_OP = true ]; then
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
-        npm run start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
+        #npm run start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
+        npm run start --prefix parser -- --cache-directory "$NPM_CACHE_DIR" -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
     else
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
-        npm run start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
+        #npm run start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
+        npm run start --prefix parser -- --cache-directory "$NPM_CACHE_DIR" -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
     fi
 
     if [ $GRAPH_ONLY = false ]; then
