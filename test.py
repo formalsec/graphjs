@@ -756,7 +756,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 # Get a container object to manipulate the Docker container that was started for this task.
                 # See docker Client.containers.list:
                 # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.list
-                # We are using a 'filters' map due to this bug:
+                # We are using a 'filters' map due to a bug where accessing client.containers will produce docker.errors.NotFound
+                # if a Docker container was stopped after starting the access to client.containers but before it has finished:
                 # https://github.com/docker/docker-py/issues/2945
                 running_containers: List[docker.Container] = docker_client.containers.list(filters={
                     'name': neo4j_container_name,
@@ -817,9 +818,6 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         hierarchy_pkill(explode_proc.pid)
         
-        # io_lock.acquire()
-        # print(Fore.MAGENTA + f'PID {pid} - killed sub-process hierarchy.\n' + Fore.RESET, flush=True)
-        # io_lock.release()
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
         
         print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
@@ -858,27 +856,47 @@ def docker_container_cleanup(container_names: ListProxy):
 
     # Get existing Docker container instances.
     docker_client = docker.from_env()
-    docker_containers: Dict = {}
-    try: 
-        running_containers: List[docker.Container] = docker_client.containers.list()
-        for container in running_containers:
-            docker_containers[container.name] = container
-    except docker.errors.NotFound as e:
-        print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - found no Docker containers.' + Fore.RESET, flush=True)
-    except docker.errors.APIError as e:
-        print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
-        print(Fore.RED + f'[CLEANUP][{this_script_name}] - unknown docker API error.' + Fore.RESET)
-        raise e
+    docker_containers: Dict[str, docker.Container] = {}
+
+    # Loop to retry obtaining containers due to potential docker.errors.NotFound bug.
+    need_containers: bool = True
+    while need_containers:
+        try: 
+            # Get a container object to manipulate the Docker container that was started for this task.
+            # See docker Client.containers.list:
+            # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.list
+            # We are using a 'filters' map due to a bug where accessing client.containers will produce docker.errors.NotFound
+            # if a Docker container was stopped after starting the access to client.containers but before it has finished:
+            # https://github.com/docker/docker-py/issues/2945
+            
+            running_containers: List[docker.Container] = docker_client.containers.list(filters={
+                'name': 'PID-*',
+                'status': 'running'})
+            for container in running_containers:
+                docker_containers[container.name] = container
+
+            need_containers = False
+            print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - retrieved {len(docker_containers)} containers.' + Fore.RESET, flush=True)
+
+        except docker.errors.NotFound as e:
+            print(Fore.RED + f'\n\n[CLEANUP][{this_script_name}] - docker_client.containers bug: a container was stopped after this access but before the access finished.' + Fore.RESET, flush=True)
+            print(Fore.RED + f'[CLEANUP][{this_script_name}] - retrying...' + Fore.RESET, flush=True)
+            sys.sleep(3)
+        except docker.errors.APIError as e:
+            print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
+            print(Fore.RED + f'[CLEANUP][{this_script_name}] - unknown docker API error.' + Fore.RESET, flush=True)
+            raise e
     
     # Iterate the container names launched by multiprocessing pool processes so far.
     for c in container_names:
         if c in docker_containers.keys():
+            print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - will try to stop container {c}.' + Fore.RESET, flush=True)
             try:
                 docker_containers[c].stop()
                 print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - stopped container {c}.' + Fore.RESET, flush=True)
         
             except docker.errors.NotFound as e:
-                print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - {c} was already stopped.' + Fore.RESET, flush=True)
+                print(Fore.RED + f'[CLEANUP][{this_script_name}] - {c} was already stopped.' + Fore.RESET, flush=True)
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
                 raise e
