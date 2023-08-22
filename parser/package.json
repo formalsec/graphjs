@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "",
   "scripts": {
+    "start-custom-cache": "ts-node-dev --transpile-only --cache-directory %npm_config_explodejs_cache_dir% ./src/parser.ts",
     "start": "ts-node-dev --transpile-only ./src/parser.ts",
     "docs": "typedoc --tsconfig tsconfig.json",
     "lint": "eslint . --ext .ts",

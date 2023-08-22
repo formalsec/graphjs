@@ -40,6 +40,7 @@ NORM="$GRAPH_DIR/normalization.norm"
 NORMALIZED="$EXPLODEJS_DIR/normalized.js"
 TAINT_SUMMARY="$EXPLODEJS_DIR/taint_summary.json"
 SYMBOLIC_TEST="$EXPLODEJS_DIR/symbolic_test.js"
+NPM_CACHE_DIR="$EXPLODEJS_DIR/npm-cache-directory"
 EXPLOIT=false
 SILENT_OP=false
 GRAPH_ONLY=false
@@ -109,21 +110,29 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     if [ -d "$EXPLODEJS_DIR" ] ; then
         rm -rf "$EXPLODEJS_DIR"/!(*expected_output.json)
     else
-        mkdir -p $EXPLODEJS_DIR 
+        mkdir -p "$EXPLODEJS_DIR" 
     fi
 
     # Create graph outputs dir
-    mkdir -p $GRAPH_DIR
+    mkdir -p "$GRAPH_DIR"
 
     # Default values
-    FILEPATH=$(realpath $FILEPATH)
-    CONFIGPATH=$(realpath $CONFIGPATH)
+    FILEPATH=$(realpath "$FILEPATH")
+    CONFIGPATH=$(realpath "$CONFIGPATH")
 
     # run cpg construction stage and serialize cpg
+    # Passing arguments into npm.
+    # See: https://stackoverflow.com/a/64694166
+    # See: https://stackoverflow.com/a/51401577
+
+    mkdir -pr "$NPM_CACHE_DIR"
+    #npm start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv,
     if [ $SILENT_OP = true ]; then
-        npm start --prefix parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv 
+        #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
+        npm start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
     else
-        npm start --prefix parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv 2>&1 | tee $NORM
+        #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
+        npm start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
     fi
 
     if [ $GRAPH_ONLY = false ]; then
@@ -138,19 +147,19 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
         echo "[INFO][$THIS_SCRIPT] - Docker Neo4j using ports HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
 
-        cd $NEO4J_DIR
+        cd "$NEO4J_DIR"
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
+            $NEO4J_DIR/run_neo4j.sh "$GRAPH_DIR" $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
         else
-            $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
+            $NEO4J_DIR/run_neo4j.sh "$GRAPH_DIR" $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
         fi
-        cd $(dirname $THIS_DIR)
+        cd $(dirname "$THIS_DIR")
 
         # run all queries
         echo "[INFO][$THIS_SCRIPT] - Finished $NEO4J_DIR/run_neo4j.sh"
         echo "[INFO][$THIS_SCRIPT] - Running queries"
         QUERIES=$(realpath ./detection)
-        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY --bolt-port $NEO4J_BOLT_PORT
+        python3 "$QUERIES/run.py" -f "$NORMALIZED" -o "$TAINT_SUMMARY" --bolt-port $NEO4J_BOLT_PORT
 
         # stop Neo4J container
         echo "[INFO][$THIS_SCRIPT] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
@@ -162,9 +171,8 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
             
             # create symbolic tests
             echo "[INFO][$THIS_SCRIPT] - Creating symbolic tests"
-            node instrumentation/src/instrumenter.js -i $NORMALIZED -c $TAINT_SUMMARY -o $SYMBOLIC_TEST
+            node instrumentation/src/instrumenter.js -i "$NORMALIZED" -c "$TAINT_SUMMARY" -o "$SYMBOLIC_TEST"
         fi
-
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do
