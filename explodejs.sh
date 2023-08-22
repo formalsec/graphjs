@@ -125,7 +125,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     # See: https://stackoverflow.com/a/64694166
     # See: https://stackoverflow.com/a/51401577
 
-    mkdir -pr "$NPM_CACHE_DIR"
+    mkdir -p "$NPM_CACHE_DIR"
     #npm start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv,
     if [ $SILENT_OP = true ]; then
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
