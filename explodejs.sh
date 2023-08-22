@@ -127,7 +127,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
     mkdir -p "$NPM_CACHE_DIR"
 
-    TS_NODE_CACHE_DIRECTORY="$NPM_CACHE_DIR"
+export TS_NODE_CACHE_DIRECTORY="$NPM_CACHE_DIR"
     
     # "npm test", "npm start", "npm restart", and "npm stop" are all aliases for "npm run xxx".
     # See: https://stackoverflow.com/a/51358329
