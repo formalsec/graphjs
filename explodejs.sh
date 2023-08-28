@@ -128,8 +128,15 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     mkdir -p "$NPM_CACHE_DIR"
 
     export TS_NODE_CACHE_DIRECTORY="$NPM_CACHE_DIR"
-    
-    export TMP='/tmp' # In order to pass variables to a subshell.
+
+    # We're setting temporary environment variables to be read by npm.
+    # See: https://github.com/nodejs/node/blob/0409cdd91ca5cabcfffca53e1721437145545469/lib/os.js#L191C35-L191C35
+    OLD_TMP=$TMP
+    OLD_TMPDIR=$TMPDIR
+    OLD_TEMP=$TEMP
+    export TMP="$NPM_CACHE_DIR" 
+    export TMPDIR="$NPM_CACHE_DIR" 
+    export TEMP="$NPM_CACHE_DIR" 
 
     # "npm test", "npm start", "npm restart", and "npm stop" are all aliases for "npm run xxx".
     # See: https://stackoverflow.com/a/51358329
@@ -138,6 +145,8 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     # Details on 'ts-node-dev' flags and how to pass below.
     # ts-node-dev [node-dev|ts-node flags] [ts-node-dev flags] [node cli flags] [--] [script] [script arguments]
     # See: https://www.npmjs.com/package/ts-node-dev
+    # We can use 'npx' to call 'ts-node-dev' directly...
+    # See: https://www.coreycleary.me/how-to-run-a-npm-package-from-the-command-line
 
     pushd parser
 
@@ -154,17 +163,23 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
 
           
-        npm run ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
+        npx run ts-node-dev --cache-directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
         #npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
         #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR"
     else
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
-        npm run ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
+        npx run ts-node-dev --cache-directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR" | tee "$NORM"
     fi
+
+
+    export TMP=$OLD_TMP
+    export TMPDIR=$OLD_TMPDIR
+    export TEMP=$OLD_TEMP
+
 
     set +x
 
