@@ -141,8 +141,17 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
     pushd parser
 
+    echo "Running the npm parser..."
+
+    set -x
+    
+
     if [ $SILENT_OP = true ]; then
+        #print '\tnpm run ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv'
+
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
+
+
 
           
         npm run ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
@@ -156,6 +165,8 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR" | tee "$NORM"
     fi
+
+    set +x
 
     popd
 
