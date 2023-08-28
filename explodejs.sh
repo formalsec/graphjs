@@ -132,16 +132,25 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     # "npm test", "npm start", "npm restart", and "npm stop" are all aliases for "npm run xxx".
     # See: https://stackoverflow.com/a/51358329
 
+    # We are using 'ts-node-dev' which uses 'ts-dev' underneath.
+    # Details on 'ts-node-dev' flags and how to pass below.
+    # ts-node-dev [node-dev|ts-node flags] [ts-node-dev flags] [node cli flags] [--] [script] [script arguments]
+    # See: https://www.npmjs.com/package/ts-node-dev
+
     if [ $SILENT_OP = true ]; then
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
+
+          
+        npm run --prefix parser ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
         #npm run start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
-        npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR"
+        #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR"
     else
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
+        npm run --prefix parser ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm run start-custom-cache --prefix parser --explodejs_cache_dir="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
-        npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR" | tee "$NORM"
+        #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR" | tee "$NORM"
     fi
 
     if [ $GRAPH_ONLY = false ]; then
