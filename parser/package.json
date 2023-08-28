@@ -2,8 +2,11 @@
   "name": "parser",
   "version": "0.0.1",
   "description": "",
+  "config": { 
+    "cache": "/tmp" 
+  },
   "scripts": {
-    "start-custom-cache": "ts-node-dev --cache-directory=$npm_config_cache_dir --transpile-only  ./src/parser.ts",
+    "start-custom-cache": "ts-node-dev --cache-directory=$npm_package_config_cache --transpile-only  ./src/parser.ts",
     "start": "ts-node-dev --transpile-only ./src/parser.ts",
     "explode": "start-custom-cache",
     "docs": "typedoc --tsconfig tsconfig.json",

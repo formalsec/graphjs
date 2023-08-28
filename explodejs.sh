@@ -129,6 +129,8 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
     export TS_NODE_CACHE_DIRECTORY="$NPM_CACHE_DIR"
     
+    export TMP='/tmp' # In order to pass variables to a subshell.
+
     # "npm test", "npm start", "npm restart", and "npm stop" are all aliases for "npm run xxx".
     # See: https://stackoverflow.com/a/51358329
 
@@ -142,13 +144,13 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
           
         #npm run --prefix parser ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
-        npm run start-custom-cache --prefix parser --CACHE_DIR="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
+        npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
         #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR"
     else
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
         #npm run --prefix parser ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
-        npm run start-custom-cache --prefix parser --CACHE_DIR="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
+        npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR" | tee "$NORM"
     fi
