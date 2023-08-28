@@ -14,17 +14,23 @@ class PrototypePollution(QueryType):
 		MATCH
 			(tamp_obj:PDG_OBJECT)
 				-[nv_edge:PDG]
-					->(:PDG_OBJECT)
+					->(nv_obj:PDG_OBJECT)
 						-[so_edge:PDG]	
 							->(sink:PDG_OBJECT),
 			(source:TAINT_SOURCE)
-				-[param_edge:PDG]
-					->(param:PDG_OBJECT)
-						-[dep_edges:PDG*1..]
-							->(sink),
+				-[val_param_edge:PDG]
+					->(val:PDG_OBJECT)
+						-[val_dep_edges:PDG*1..]
+							->(sink)
+        MATCH
+            (source)
+				-[prop_param_edge:PDG]
+					->(prop:PDG_OBJECT)
+                        -[prop_dep_edges:PDG*1..]
+                            ->(sink),
 			(source_cfg)
 				-[param_ref:REF]
-					->(param),
+					->(val),
 			(sink_cfg)
 				-[:REF]
 					->(sink)
@@ -33,9 +39,12 @@ class PrototypePollution(QueryType):
 			nv_edge.IdentifierName = "*" AND
 			so_edge.RelationType = "SO" AND
 			so_edge.IdentifierName = "*" AND
-			param_edge.RelationType = "TAINT" AND
-			dep_edges[-1].RelationType = "DEP" AND
-			dep_edges[-1].IsProp = "false" AND
+			val_param_edge.RelationType = "TAINT" AND
+			val_dep_edges[-1].RelationType = "DEP" AND
+			val_dep_edges[-1].IsProp = "false" AND
+			prop_param_edge.RelationType = "TAINT" AND
+			prop_dep_edges[-1].RelationType = "DEP" AND
+			prop_dep_edges[-1].IsProp = "true" AND
 			param_ref.RelationType = "param"
 		RETURN *
 	"""
