@@ -674,7 +674,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         # Create custom directory for npm cache files instead of using OS' temp dir.
         npm_cache_path: str = os.path.join(explodejs_path, "npm-cache-directory")
-        pathlib.Path(npm_cache_path).mkdir(parents=True, exist_ok=True)
+        #pathlib.Path(npm_cache_path).mkdir(parents=True, exist_ok=True)
         print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET, flush=True, file=process_out)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET)
 

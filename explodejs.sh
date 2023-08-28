@@ -85,7 +85,8 @@ do
             NORM="$GRAPH_DIR/normalization.norm"
             NORMALIZED="$EXPLODEJS_DIR/normalized.js"
             TAINT_SUMMARY="$EXPLODEJS_DIR/taint_summary.json"
-            SYMBOLIC_TEST="$EXPLODEJS_DIR/symbolic_test.js";;
+            SYMBOLIC_TEST="$EXPLODEJS_DIR/symbolic_test.js"
+            NPM_CACHE_DIR="$EXPLODEJS_DIR/npm-cache-directory";;
         n) NORMALIZED=$OPTARG;;
         o) TAINT_SUMMARY=$OPTARG;;
         t) SYMBOLIC_TEST=$OPTARG;;
