@@ -672,9 +672,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
         grades_explodejs = os.path.join(explodejs_path, "grades.json")
 
-        # Create custom directory for npm cache files instead of using OS' temp dir.
+        # Define custom directory for npm cache files instead of using OS' temp dir.
+        # It will be created by explodejs.sh.
         npm_cache_path: str = os.path.join(explodejs_path, "npm-cache-directory")
-        #pathlib.Path(npm_cache_path).mkdir(parents=True, exist_ok=True)
         print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET, flush=True, file=process_out)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET)
 
@@ -738,7 +738,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             hierarchy_pkill(explode_proc.pid)
 
             # Need delete npm cache directory to save space on disk.
-            shutil.rmtree(npm_cache_path)
+            if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+                shutil.rmtree(npm_cache_path)
 
             raise e
 
@@ -800,7 +801,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 hierarchy_pkill(explode_proc.pid)
                 
                 # Need delete npm cache directory to save space on disk.
-                shutil.rmtree(npm_cache_path)
+                if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+                    shutil.rmtree(npm_cache_path)
                 raise e
         
             # Stop the container in case it still existed.
@@ -838,7 +840,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         hierarchy_pkill(explode_proc.pid)
         
         # Need delete npm cache directory to save space on disk.
-        shutil.rmtree(npm_cache_path)
+        if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+            shutil.rmtree(npm_cache_path)
         
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
         

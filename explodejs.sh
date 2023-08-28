@@ -183,6 +183,8 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     export TMPDIR=$OLD_TMPDIR
     export TEMP=$OLD_TEMP
 
+    # Remove the cache dir.
+    if [ -d "$NPM_CACHE_DIR" ]; then rm -rf "$NPM_CACHE_DIR"; fi
 
     set +x
 
