@@ -139,21 +139,25 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     # ts-node-dev [node-dev|ts-node flags] [ts-node-dev flags] [node cli flags] [--] [script] [script arguments]
     # See: https://www.npmjs.com/package/ts-node-dev
 
+    pushd parser
+
     if [ $SILENT_OP = true ]; then
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
 
           
-        #npm run --prefix parser ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
-        npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
+        npm run ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
+        #npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
         #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR"
     else
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
-        #npm run --prefix parser ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
-        npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
+        npm run ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
+        #npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
         #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR" | tee "$NORM"
     fi
+
+    popd
 
     if [ $GRAPH_ONLY = false ]; then
         # get csv output to import dir in neo4j-custom dir
