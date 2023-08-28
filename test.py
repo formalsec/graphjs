@@ -686,6 +686,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(f'\t{norm_file}', file=process_out)
         print(f'\t{symbolic_test_file}', file=process_out)
         print(f'\t{grades_explodejs}', file=process_out)
+        print(f'\t{npm_cache_path}', file=process_out)
 
         try:
 

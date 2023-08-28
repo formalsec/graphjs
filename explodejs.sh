@@ -125,6 +125,8 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     # See: https://stackoverflow.com/a/64694166
     # See: https://stackoverflow.com/a/51401577
 
+    set -x
+
     mkdir -p "$NPM_CACHE_DIR"
 
     export TS_NODE_CACHE_DIRECTORY="$NPM_CACHE_DIR"
@@ -152,7 +154,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
     echo "Running the npm parser..."
 
-    set -x
+    
     
 
     if [ $SILENT_OP = true ]; then
