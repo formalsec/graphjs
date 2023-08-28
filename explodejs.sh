@@ -132,7 +132,10 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
     export TS_NODE_CACHE_DIRECTORY="$NPM_CACHE_DIR"
 
-    # We're setting temporary environment variables to be read by npm.
+    
+    # Brief mention of Linux temporary directory environment variables:
+    # https://www.baeldung.com/linux/change-tmp-directory-path
+    # We're setting temporary environment variables to be read by npm's os.tmpdir function.
     # See: https://github.com/nodejs/node/blob/0409cdd91ca5cabcfffca53e1721437145545469/lib/os.js#L191C35-L191C35
     OLD_TMP=$TMP
     OLD_TMPDIR=$TMPDIR
@@ -159,31 +162,23 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     
 
     if [ $SILENT_OP = true ]; then
-        #print '\tnpm run ts-node-dev --cache_directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv'
-
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
-
-
-
           
         npx ts-node-dev --cache-directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 
-        #npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
-        #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv
-        #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR"
+
     else
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
+
         npx ts-node-dev --cache-directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
-        #npm run start-custom-cache --prefix parser --parser:cache="$NPM_CACHE_DIR" -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
-        #npm_config_explodejs_cache_dir="$NPM_CACHE_DIR" npm run start-custom-cache --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
-        #npm run start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv --cache-directory="$NPM_CACHE_DIR" | tee "$NORM"
+
     fi
 
-
+    # Set temporary directory environment variables back to their original values.
     export TMP=$OLD_TMP
     export TMPDIR=$OLD_TMPDIR
     export TEMP=$OLD_TEMP
 
-    # Remove the cache dir.
+    # Remove the npm cache dir after we have finished.
     if [ -d "$NPM_CACHE_DIR" ]; then rm -rf "$NPM_CACHE_DIR"; fi
 
     set +x
