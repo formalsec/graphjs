@@ -1,23 +1,25 @@
 #!/bin/bash
-DEBUG=false
+DEBUG=true
+
+THIS_SCRIPT=$(basename "$BASH_SOURCE")
 
 if [[ -z $1 ]]; then
     echo "$0: Required path containing graph files"
     exit 4
 fi
 
-GRAPH_DIR_PATH=$(realpath $1)
+GRAPH_DIR_PATH=$(realpath "$1")
 GRAPH_DIR_BASE=$(basename "$GRAPH_DIR_PATH")
 PARENT_DIR=$(dirname "$GRAPH_DIR_PATH")
-echo "[INFO] - Reading $GRAPH_DIR_BASE"
+echo "[INFO][$THIS_SCRIPT] - Reading $GRAPH_DIR_BASE"
 
 # Check if is zip file
 ZIP_FILE=false
 if [[ $GRAPH_DIR_BASE =~ \.zip$ ]]; then
     ZIP_FILE=true
     GRAPH_DIR_BASE=$(echo $GRAPH_DIR_BASE | cut -d '.' -f1)
-    unzip $GRAPH_DIR_PATH -d $PARENT_DIR/$GRAPH_DIR_BASE
-    GRAPH_DIR_PATH=$PARENT_DIR/$GRAPH_DIR_BASE
+    unzip "$GRAPH_DIR_PATH" -d "$PARENT_DIR/$GRAPH_DIR_BASE"
+    GRAPH_DIR_PATH="$PARENT_DIR/$GRAPH_DIR_BASE"
 fi
 
 # TODO: Need to check if there is a second argument if run_neo4j.sh is called from other places
@@ -41,7 +43,7 @@ if [ -z "$4" ]
     NEO4J_BOLT_PORT="7687"
 fi
 
-RESULTS_DIR=execution-results
+RESULTS_DIR="execution-results"
 
 # # Function to find free ports for the Docker Neo4j image.
 # # See: https://stackoverflow.com/a/45539101
@@ -79,30 +81,51 @@ else
   docker build . -t neo4j-docker
 fi
 
-echo "[INFO] - Running container $NEO4J_EXPLODEJS_CONTAINER"
-echo "[INFO] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+echo "[INFO][$THIS_SCRIPT] - Running container $NEO4J_EXPLODEJS_CONTAINER"
+echo "[INFO][$THIS_SCRIPT] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+
+# Activate debugging from here.
+# https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_02_03.html
+# set -x		
+
 if [ "$DEBUG" = true ]; then
     # Run container
-    docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
+    docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v "$GRAPH_DIR_PATH":/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
-        -e NEO4J_apoc_export_file_enabled=true \
-        -e NEO4J_apoc_import_file_enabled=true \
-        -e NEO4J_apoc_import_file_use__neo4j__config=true \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
+        #-e NEO4J_apoc_export_file_enabled=true \
+        #-e NEO4J_apoc_import_file_enabled=true \
+        #-e NEO4J_apoc_import_file_use__neo4j__config=true \
+        #-p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
+    #sleep 5
+
+    docker_status=$?
+    if [ $docker_status -eq 0 ]; then
+        echo "[INFO][$THIS_SCRIPT] - docker run succeeded"
+    else
+        echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)"
+    fi
+    exit $docker_status
 else
-    docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v $GRAPH_DIR_PATH:/var/lib/neo4j/import \
+    docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v "$GRAPH_DIR_PATH":/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
-        -e NEO4J_apoc_export_file_enabled=true \
-        -e NEO4J_apoc_import_file_enabled=true \
-        -e NEO4J_apoc_import_file_use__neo4j__config=true \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
+        #-e NEO4J_apoc_export_file_enabled=true \
+        #-e NEO4J_apoc_import_file_enabled=true \
+        #-e NEO4J_apoc_import_file_use__neo4j__config=true \
+        #-p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
     # Wait for neo4j to start inside the container
+    sleep 5
     until docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER | grep -q "Started."; do
-      :
+      sleep 1
     done
+    exit 0
 fi
+
+# Disable bash debugging.
+# set +x
 
 # if [ "$DEBUG" = false ]; then
 # # Move results and times to execution results directory
