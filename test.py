@@ -454,7 +454,11 @@ def add_package_to_sheet(ws: gspread.Spreadsheet, package: str) -> None:
 
 def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: Dict[str, Dict[str, Dict]]) -> None:
     result = []
+
+    file_ctr: int = 0
+
     for file, grades in package_grades.items():
+        file_ctr += 1
         #sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades]
         target_sheet_path: str = file[file.find("src") : ]
         #sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades] 
@@ -487,7 +491,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
         if error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds grid limits" in error_message:
             print(f"######################################\n#########################")
-            row_incr: int = 1000
+            row_incr: int = 1000 + file_ctr
             print(f'Adding {row_incr} rows to {ws.title}')
             ws.add_rows(row_incr)
             limit_reached = True
