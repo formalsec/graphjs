@@ -13,21 +13,18 @@ import { GraphEdge } from "../../graph/edge";
 
 export type Store = Map<string, number[]>;
 type FContexts = Map<number, number[]>;
-
 type RequireChain = Map<string, string[]>;
 type VPMap = Map<string, string>;
 
 export class DependencyTracker {
     // This value represents the current state of the graph
     private readonly graph: Graph;
-    // This value represents TODO
+    // This value represents the store
     private store: Store;
-    // This value represents TODO
+    // This value represents the function context stack (fn within fn)
     private readonly funcContexts: FContexts;
-    // This value represents TODO
+    // This value represents the current context stack
     private intraContextStack: number[];
-    // This value represents the anonymous functions that exist inside a function declaration and a mapping to their arguments
-    // private anonFuncMapping: AnonFunctionMapping;
     // This value represents chains of "request" dependencies
     private requireChain: RequireChain;
     // This value represents a map of variable name to package name
@@ -64,6 +61,11 @@ export class DependencyTracker {
         return this.intraContextStack.pop();
     }
 
+    isInnerFunction(funcContextNumber: number): boolean {
+        const contexts = this.funcContexts.get(funcContextNumber)
+        return contexts !== undefined && contexts.length > 1;
+    }
+
     addRequireChainEntry(variableName: string, packageName: string): void {
         const pChain = this.requireChain.get(packageName);
         let pChainValue: string[] = [variableName];
@@ -85,6 +87,11 @@ export class DependencyTracker {
     // ------------------------------------------- STORE OPERATIONS ----------------------------------------------- //
     // ------------------------------------------------------------------------------------------------------------ //
 
+    /*
+    * Adds a new location (graph node) to an object (objName) in a context
+    * Used in dep_builder: handleMemberExpression and handleSimpleAssignment
+    * Used here in: addProp, addParamNode and createNewObject
+    */
     storeAddLocation(objName: string, location: number, context: number) {
         // Check if object exists
         const objContextName: string = `${context}.${objName}`
@@ -98,42 +105,44 @@ export class DependencyTracker {
                 this.store.set(objContextName, objectLocations)
             }
         }
+        // If object does not exist, create new object in store with new location
         else {
             this.store.set(objContextName, [location])
         }
     }
 
+    /*
+    * Updates an object's old location to a new location
+    * Used when adding a new version
+    */
     storeUpdateLocation(objName: string, oldLocation: number, newLocation: number, context: number) {
         // Check if object exists
         const objContextName: string = `${context}.${objName}`
         const objectExists: boolean = this.store.has(objContextName)
 
-        // If object exists, add new location
+        // If object exists, add update location
         if (objectExists) {
             const objectLocations: number[] = this.store.get(objContextName) ?? []
             const newObjectLocations: number[] = []
 
+            // Search for old location and replace with new location
             objectLocations.forEach((location: number) => {
                 location === oldLocation ? newObjectLocations.push(newLocation) : newObjectLocations.push(location)
             })
-
             this.store.set(objContextName, newObjectLocations)
         }
+        // If object does not exist, create new object in store with new location
         else {
             this.store.set(objContextName, [newLocation])
         }
     }
 
-    /* This function returns an object locations */
-    getObjectLocationsFromStore(name: string, context: number | undefined = undefined): number[] {
+    /*
+    * Returns the locations for an object with name "name" in some context
+    */
+    storeGetObjectLocations(name: string, context: number | undefined = undefined): number[] {
         // 1. Get contexts where object with name "name" exist
-        let objectContexts: string[]
-        if (context) {
-            const functionContexts: number[] = this.funcContexts.get(context) ?? []
-            objectContexts = [context, ...functionContexts].map((ctx: number) => `${ctx}.${name}`) ?? []
-        } else {
-            objectContexts = this.intraContextStack.map((ctx: number) => `${ctx}.${name}`)
-        }
+        const objectContexts: string[] = this.getPossibleObjectContexts(name, context)
         const validObjectContexts = objectContexts.filter((obj: string) => this.store.has(obj))
 
         // 2. Choose last context
@@ -146,11 +155,31 @@ export class DependencyTracker {
         return []
     }
 
+    /*
+    * Returns list of possible objects with contexts.
+    * E.g., for a function context stack of 1,2,3, returns 1.objName, 2.objName, 3.objName
+     */
+    getPossibleObjectContexts(name: string, context: number | undefined = undefined): string[] {
+        if (context) {
+            const functionContexts: number[] = this.funcContexts.get(context) ?? []
+            return [context, ...functionContexts].map((ctx: number) => `${ctx}.${name}`) ?? []
+        } else {
+            return this.intraContextStack.map((ctx: number) => `${ctx}.${name}`)
+        }
+    }
+
+    /*
+    * Sets the store, using a deep copy
+    */
     setStore(newStore: Store): void {
         this.store = deepCopyStore(newStore);
     }
 
-    mergeStores(storeA: Store, storeB: Store): Store {
+    /*
+    * Merges two states of a store
+    * Used in IfStatements
+     */
+    storeMergeStores(storeA: Store, storeB: Store): Store {
         const mergedStore: Store = deepCopyStore(storeA);
         const mergedKeys: string[] = Array.from(mergedStore.keys());
 
@@ -180,17 +209,27 @@ export class DependencyTracker {
     // ---------------------------------------- GRAPH OPERATIONS -------------------------------------------------- //
     // ------------------------------------------------------------------------------------------------------------ //
 
-    graphAddLocation(objName: string, context: number): GraphNode {
+
+    /*
+    * Adds a new location to the graph -> new node with name objName
+    * Used in: addProp, addVersion, createNewObject
+     */
+    graphAddLocation(objName: string, context: number, stmtId: number): GraphNode {
         // Create location
         const locationName: string = getNextLocationName(objName, context)
         const nodeLocation: GraphNode = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
         nodeLocation.identifier = locationName;
 
-        // Create reference edge
+        // Creates reference edge
+        this.graphCreateReferenceEdge(stmtId, nodeLocation.id)
+
         return nodeLocation;
     }
 
-    // Get property location (return undefined when it does not exist)
+    /*
+    * Get location of property with name property of object location
+    * Return undefined when it does not exist
+    */
     graphGetObjectPropertyLocation(objectLocation: number, property: string): GraphNode | undefined {
         // 1. Get graph node of object obj
         const graphObjectNode: GraphNode | undefined = this.graph.nodes.get(objectLocation)
@@ -210,6 +249,10 @@ export class DependencyTracker {
         }
     }
 
+    /*
+    * Gets the property propName location for all locations of object objName
+    * Used in evalDep (MemberExpression)
+     */
     graphGetObjectVersionsPropertyLocations(objName: string, context: number, propName: string): number[] {
         const locations: number[] = this.getObjectVersions(objName,context)
 
@@ -223,6 +266,9 @@ export class DependencyTracker {
         return propertyLocations;
     }
 
+    /*
+    * Gets the graph node of a location
+     */
     graphGetNode(location: number): GraphNode | undefined {
         return this.graph.nodes.get(location)
     }
@@ -230,7 +276,7 @@ export class DependencyTracker {
     // ---------------------------------------- AUXILIARY OPERATIONS ----------------------------------------------- //
     // ------------------------------------------------------------------------------------------------------------ //
 
-    /* This adds the new property to the object locations */
+    /* Adds the new property to the object locations */
     addProp(locations: number[], objectName: string, property: string, context: number, stmtId: number): number[] {
         let propertyLocations: number[] = []
         // For each location
@@ -241,12 +287,11 @@ export class DependencyTracker {
             // 2. If property does not exist, need to create the object property
             if (!propertyLocation) {
                 // 2.1 Add property location to graph
-                propertyLocation = this.graphAddLocation(`${objectName}.${property}`, context)
+                propertyLocation = this.graphAddLocation(`${objectName}.${property}`, context, stmtId)
                 this.graphCreatePropertyEdge(location, propertyLocation.id, property);
-                this.graphCreateReferenceEdge(stmtId, propertyLocation.id)
 
                 // 2.2 Add property location to store
-                this.storeAddLocation(objectName, location, context)
+                // this.storeAddLocation(objectName, location, context)
             }
             // Add property location to array
             propertyLocations.push(propertyLocation.id)
@@ -254,28 +299,28 @@ export class DependencyTracker {
         return propertyLocations;
     }
 
+    /*
+    * Creates a new object: creates location in graph and adds to store
+     */
     createNewObject(stmtId: number, functionContext: number, variable: Identifier): number {
         // Create location
-        const location = this.graphAddLocation(variable.name, functionContext)
-
+        const location = this.graphAddLocation(variable.name, functionContext, stmtId)
         // Add to store
         this.storeAddLocation(variable.name, location.id, functionContext)
-
-        // Add reference edge
-        this.graphCreateReferenceEdge(stmtId, location.id);
-
         return location.id;
     }
 
+    /*
+    * Adds a new version to object objName via property propName
+    */
     addVersion(stmtId: number, objName: string, context: number, propName: string, deps: Dependency[]): void {
-        const objectLocations: number[] = this.getObjectLocationsFromStore(objName, context)
+        const objectLocations: number[] = this.storeGetObjectLocations(objName, context)
 
         // 1. Create new version locations
         const newLocations: number[] =  []
         objectLocations.forEach((location: number) => {
-            const newLocation: GraphNode = this.graphAddLocation(objName, context);
+            const newLocation: GraphNode = this.graphAddLocation(objName, context, stmtId);
             this.graphCreateNewVersionEdge(location, newLocation.id, propName);
-            this.graphCreateReferenceEdge(stmtId, newLocation.id)
             newLocations.push(newLocation.id)
         })
 
@@ -294,8 +339,12 @@ export class DependencyTracker {
         })
     }
 
+    /*
+    * Gets new version of an object objName locations
+    * Note: does not return the chain of new versions
+    */
     getObjectVersions(objName: string, context: number): number[] {
-        const locations: number[] = this.getObjectLocationsFromStore(objName,context)
+        const locations: number[] = this.storeGetObjectLocations(objName,context)
 
         const objectVersions: number[] = [...locations]
         locations.forEach((location: number) => {
@@ -314,13 +363,9 @@ export class DependencyTracker {
     // ------------------------------------------------------------------------------------------------------------ //
     // ------------------------------------------------------------------------------------------------------------ //
 
-    isInnerFunction(funcContextNumber: number): boolean {
-        const contexts = this.funcContexts.get(funcContextNumber)
-        return contexts !== undefined && contexts.length > 1;
-    }
+
 
     /** Methods for adding edges in the graph **/
-
     graphCreateReferenceEdge(source: number, destination: number, label: string = ""): void {
         this.graph.addEdge(source, destination, { type: "REF", label });
     }
@@ -618,7 +663,7 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): number[] 
         case "ThisExpression":
         case "Identifier": {
             const objName = node.obj.name;
-            return trackers.getObjectLocationsFromStore(objName, node.functionContext)
+            return trackers.storeGetObjectLocations(objName, node.functionContext)
         }
 
         case "AwaitExpression":
@@ -644,7 +689,7 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): number[] 
             const prop = getASTNode(node, "property");
 
             const objectName = obj.obj.name;
-            const locations = trackers.getObjectLocationsFromStore(objectName, node.functionContext)
+            const locations = trackers.storeGetObjectLocations(objectName, node.functionContext)
 
             const propertyName = (node.obj.computed && prop.type !== "Literal")? '*' : prop.obj.name;
             let propertyLocations: number[] = []
