@@ -1,10 +1,16 @@
 FROM openjdk:11-jdk-slim
 
-ENV NEO4J_SHA256=0f074e2d84c265fbb066ad648b52c62c623d1f1b18b9d4d04356d46726853c96 \
-    NEO4J_TARBALL=neo4j-community-4.2.1-unix.tar.gz \
-    NEO4J_EDITION=community \
-    NEO4J_HOME="/var/lib/neo4j"
-ARG NEO4J_URI=https://dist.neo4j.org/neo4j-community-4.2.1-unix.tar.gz
+# ENV NEO4J_SHA256=0f074e2d84c265fbb066ad648b52c62c623d1f1b18b9d4d04356d46726853c96 \
+#     NEO4J_TARBALL=neo4j-community-4.2.1-unix.tar.gz \
+#     NEO4J_EDITION=community \
+#     NEO4J_HOME="/var/lib/neo4j"
+#ARG NEO4J_URI=https://dist.neo4j.org/neo4j-community-4.2.1-unix.tar.gz
+
+ENV NEO4J_SHA256=cf50b123f193bf438833ef769043bd472a284a6b4e9415a9985d7268f452d7e3 \
+     NEO4J_TARBALL=neo4j-community-4.4.13-unix.tar.gz \
+     NEO4J_EDITION=community \
+     NEO4J_HOME="/var/lib/neo4j"
+ARG NEO4J_URI=https://dist.neo4j.org/neo4j-community-4.4.13-unix.tar.gz
 ARG TINI_SHA256="12d20136605531b09a2c2dac02ccee85e1b874eb322ef6baf7561cd93f93c855"
 ARG TINI_URI="https://github.com/krallin/tini/releases/download/v0.18.0/tini"
 
@@ -33,7 +39,9 @@ RUN apt-get update \
     && ln -s /logs "${NEO4J_HOME}"/logs \
     && rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/* \
-    && apt-get -y purge --auto-remove curl
+    && apt-get -y purge --auto-remove curl \
+    && touch "${NEO4J_HOME}"/data/apoc.conf \
+    && echo -e "apoc.export.file.enabled=true\napoc.import.file.enabled=true\napoc.import.file.use_neo4j_config=true" >> "${NEO4J_HOME}"/data/apoc.conf
 
 ENV PATH "${NEO4J_HOME}"/bin:$PATH
 
