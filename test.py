@@ -820,7 +820,6 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 raise e
         
             # Stop the container in case it still existed.
-            # NOTE: this could be used with docker_client while avoiding a subprocess, perhaps...
             if neo4j_container_name in docker_containers:
 
                 main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
@@ -862,13 +861,15 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
 
         io_lock.acquire()
-        print("{}\n".format("\n".join(main_terminal_msgs)))
+        print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
         io_lock.release()
 
         with open(grades_explodejs, "w") as f:
             f.write(json.dumps(grades, indent=4) + '\n')
 
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
+
+    print(f'{package}\n\t{file_path}\n\t{grades}')
 
     return (package, file_path, grades)
 
