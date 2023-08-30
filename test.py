@@ -632,6 +632,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     log_path: str = os.path.join(output_dir, "logs", log_file)
     #log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
 
+    grades: Dict = {}
+
     #with open(log_path, 'w') as sys.stdout:
     with open(log_path, 'w') as process_out:
 
@@ -647,6 +649,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # Find free ports for Docker Neo4j container port mapping.
         http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
         bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
+
+        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - port mapping\n\tbolt:\t7687->{bolt_port}\n\thttp:\t7474->{http_port}' + Fore.RESET, flush=True)
         
         io_lock.release()
 
@@ -658,7 +662,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True, file=process_out)
         print(f"[INFO][{this_script_name}] - PID {pid} HTTP {http_port} BOLT {bolt_port}", file=process_out)
 
-        grades: Dict = {}
+        
     
         # Current .js file's output directory will mirror the input file path hierarchy.
         # Example for the current .js file:
@@ -878,6 +882,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
 
     print(f'{package}\n\t{file_path}\n\t{grades}', flush=True)
+
+    time.sleep(5)
 
     return (package, file_path, grades)
 
