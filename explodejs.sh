@@ -169,7 +169,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     else
         #npm start --prefix parser -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
 
-        npx ts-node-dev --cache-directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv | tee "$NORM"
+        npx ts-node-dev --cache-directory="$NPM_CACHE_DIR" --transpile-only ./src/parser.ts -- -f "$FILEPATH" -c "$CONFIGPATH" -o "$NORMALIZED" -g "$GRAPH_DIR" --csv 2>&1 | tee "$NORM"
 
     fi
 
