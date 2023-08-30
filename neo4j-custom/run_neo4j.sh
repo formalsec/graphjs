@@ -108,7 +108,7 @@ if [ "$DEBUG" = true ]; then
 
     docker_status=$?
     if [ $docker_status -eq 0 ]; then
-        echo "[INFO][$THIS_SCRIPT] - docker run succeeded or closed with Ctrl+C"
+        echo "[INFO][$THIS_SCRIPT] - docker run succeeded or closed with Ctrl+C (--detach=$DEBUG)"
     else
         echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)"
     fi
@@ -125,7 +125,8 @@ else
     # Wait for neo4j to start inside the container
     sleep 5
     until docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER | grep -q "Started."; do
-      sleep 1
+      sleep 3
+      echo "[INFO][$THIS_SCRIPT] - Checking if neo4j has printed 'Started' in 'docker run' (--detach=$DEBUG) container launch."
     done
     exit 0
 fi
