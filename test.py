@@ -721,14 +721,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             start = time.time()
 
 
-            print(f'[INFO][{this_script_name}] - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+            print(f'[INFO][{this_script_name}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
 
             explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
             explode_proc.wait(timeout=300)
             
             end = time.time()
 
-            print(f'[INFO][{this_script_name}] - Post explodejs.sh call.', flush=True)
+            print(f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call.', flush=True)
             
 
             main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET)
@@ -739,6 +739,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             check_graph_construction_zeroday(grades, norm_file)
             check_vulnerability_detection(grades, taint_summary_file)
             check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
+
+            print(f'[INFO][{this_script_name}] - PID {pid} - Checked output files.', flush=True)
         except FileNotFoundError as e:
 
             print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
@@ -763,7 +765,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
                 shutil.rmtree(npm_cache_path)
 
-            print(f'Post explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+            print(f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
 
             raise e
 
