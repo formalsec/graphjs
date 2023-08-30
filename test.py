@@ -716,11 +716,15 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
             start = time.time()
 
+
+            print(f'[INFO][{this_script_name}] - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+
             explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
             explode_proc.wait(timeout=300)
             
             end = time.time()
 
+            print(f'[INFO][{this_script_name}] - Post explodejs.sh call.', flush=True)
             
 
             main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET)
@@ -745,7 +749,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
             io_lock.acquire()
-            print("{}\n".format("\n".join(main_terminal_msgs)))
+            print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
             io_lock.release()
 
             # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
@@ -755,6 +759,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
                 shutil.rmtree(npm_cache_path)
 
+            print(f'Post explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+
             raise e
 
         except subprocess.TimeoutExpired as e:
@@ -763,6 +769,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
             main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
+
+            #print(f'[INFO][{this_script_name}] - Timeout expired.', flush=True)
             
             if os.path.exists(norm_file):
                 check_graph_construction_zeroday(grades, norm_file)
@@ -869,7 +877,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
 
-    print(f'{package}\n\t{file_path}\n\t{grades}')
+    print(f'{package}\n\t{file_path}\n\t{grades}', flush=True)
 
     return (package, file_path, grades)
 
