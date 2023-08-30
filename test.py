@@ -454,7 +454,13 @@ def add_package_to_sheet(ws: gspread.Spreadsheet, package: str) -> None:
 
 def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: Dict[str, Dict[str, Dict]]) -> None:
     result = []
+
+    this_script_name: str = os. path. basename(__file__)
+
+    file_ctr: int = 0
+
     for file, grades in package_grades.items():
+        file_ctr += 1
         #sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades]
         target_sheet_path: str = file[file.find("src") : ]
         #sub_array = ["", "/".join(file.split("/")[5:])] + [grades[key] for key in grades] 
@@ -486,9 +492,10 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
 
         # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
         if error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds grid limits" in error_message:
-            print(f"######################################\n#########################")
-            row_incr: int = 1000
-            print(f'Adding {row_incr} rows to {ws.title}')
+
+            row_incr: int = 1000 + file_ctr
+            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - Adding {row_incr} rows to {ws.title}' + Fore.RESET)            
+
             ws.add_rows(row_incr)
             limit_reached = True
         else:
@@ -498,9 +505,11 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
     finally:
         # If the limit had been reached and it was extended successfully, try to write again.
         if limit_reached:
-            print(f'Trying to write to sheet {ws.title} again.')
+            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - Trying to write to sheet {ws.title} again.' + Fore.RESET)
             ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
-            print(f'It worked.')
+
+            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - Write to {ws.title} successful.' + Fore.RESET)
+            
 
 def get_js_files(package_path: str):
     js_files: List = []
