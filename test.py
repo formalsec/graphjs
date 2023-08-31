@@ -677,7 +677,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
     bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
 
-    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - port mapping\n\tbolt:\t7687->{bolt_port}\n\thttp:\t7474->{http_port}' + Fore.RESET, flush=True)
+    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - BOLT:\t{bolt_port}->7687\tHTTP:\t{http_port}->7474' + Fore.RESET, flush=True)
     
     io_lock.release()
 
@@ -716,7 +716,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     # It will be created by explodejs.sh.
     npm_cache_path: str = os.path.join(explodejs_path, "npm-cache-directory")
     print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET, flush=True, file=process_out)
-    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET)
+    #main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET)
 
     
 
@@ -768,36 +768,6 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         check_graph_construction_zeroday(grades, norm_file)
         check_vulnerability_detection(grades, taint_summary_file)
         check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
-
-        #print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.' + Fore.RESET, flush=True)
-
-        #print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
-
-        # # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        # hierarchy_pkill(proc_pid)
-        # main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
-        
-
-        # print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
-
-        # # Need delete npm cache directory to save space on disk.
-        # if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
-        #     shutil.rmtree(npm_cache_path)
-
-        # io_lock.acquire()
-        # print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
-        # io_lock.release()
-
-        # with open(grades_explodejs, "w") as f:
-        #     f.write(json.dumps(grades, indent=4) + '\n')
-
-        #     print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
-
-        # #print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
-
-        # #time.sleep(300)
-
-        # process_out.close()
 
         test_zeroday_task_cleanup(pid, proc_pid, this_script_name, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
