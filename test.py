@@ -561,6 +561,8 @@ def hierarchy_pkill(proc_pid) -> None:
     if proc_pid == None:
         return
 
+    
+
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
         proc.kill()
@@ -608,7 +610,10 @@ def build_safe_container_name(package: str, f_name: str, pid: str = "") -> str:
 def test_zeroday_task_cleanup(pid: int, proc_pid: int, this_script_name: str, npm_cache_path: str, io_lock: multiprocessing.Lock, grades: Dict, main_terminal_msgs: List[str], grades_explodejs: str, process_out: TextIO) -> None:
 
     # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+
+    print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True)
     hierarchy_pkill(proc_pid)
+    print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True)
     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
     
 
@@ -771,7 +776,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         #print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.' + Fore.RESET, flush=True)
 
-        #print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
+        print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
 
         # # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         # hierarchy_pkill(proc_pid)
