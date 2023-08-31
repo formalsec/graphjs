@@ -749,7 +749,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         start = time.time()
 
 
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+        #print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
 
         explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
         proc_pid = explode_proc.pid
@@ -757,10 +757,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         
         end = time.time()
 
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call.', flush=True)
+        #print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call.', flush=True)
         
 
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET)
 
         # Write explodejs.sh result data files.
         with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
@@ -771,7 +771,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         #print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.' + Fore.RESET, flush=True)
 
-        print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
+        #print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
 
         # # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         # hierarchy_pkill(proc_pid)
@@ -937,9 +937,6 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         raise e
     
-    # except BaseException as error:
-    #     print(f'An exception occurred: {error}', flush=True)
-    #     time.sleep(500)
 
     
     
