@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 import traceback
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, TextIO
 
 # Some constants.
 DOCKER_CONTAINER_MAX_LEN: int = 128
@@ -605,6 +605,29 @@ def build_safe_container_name(package: str, f_name: str, pid: str = "") -> str:
 
     return container_name
 
+def test_zeroday_task_cleanup(pid: int, proc_pid: int, this_script_name: str, npm_cache_path: str, io_lock: multiprocessing.Lock, grades: Dict, main_terminal_msgs: List[str], grades_explodejs: str, process_out: TextIO) -> None:
+
+    # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+    hierarchy_pkill(proc_pid)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+    
+
+    print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+
+    # Need delete npm cache directory to save space on disk.
+    if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+        shutil.rmtree(npm_cache_path)
+
+    io_lock.acquire()
+    print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
+    io_lock.release()
+
+    with open(grades_explodejs, "w") as f:
+        f.write(json.dumps(grades, indent=4) + '\n')
+
+        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
+
+    process_out.close()
 
 def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, Dict]:
     """
@@ -638,7 +661,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     grades: Dict = {}
 
     #with open(log_path, 'w') as sys.stdout:
-    process_out = open(log_path, 'w')
+    process_out: TextIO = open(log_path, 'w')
 #    with open(log_path, 'w') as process_out:
 
     main_terminal_msgs: List[str] = []
@@ -684,10 +707,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
     os.makedirs(explodejs_path, exist_ok=True)
 
-    taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
-    norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
-    symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
-    grades_explodejs = os.path.join(explodejs_path, "grades.json")
+    taint_summary_file: str = os.path.join(explodejs_path, "taint_summary.json")
+    norm_file: str = os.path.join(explodejs_path, "graph", "normalization.norm")
+    symbolic_test_file: str = os.path.join(explodejs_path, "symbolic_test.js")
+    grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
 
     # Define custom directory for npm cache files instead of using OS' temp dir.
     # It will be created by explodejs.sh.
@@ -746,14 +769,39 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         check_vulnerability_detection(grades, taint_summary_file)
         check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
 
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.' + Fore.RESET, flush=True)
+        #print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.' + Fore.RESET, flush=True)
 
-        print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
+        #print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
 
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        hierarchy_pkill(proc_pid)
+        # # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        # hierarchy_pkill(proc_pid)
+        # main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+        
 
-        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+        # print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+
+        # # Need delete npm cache directory to save space on disk.
+        # if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+        #     shutil.rmtree(npm_cache_path)
+
+        # io_lock.acquire()
+        # print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
+        # io_lock.release()
+
+        # with open(grades_explodejs, "w") as f:
+        #     f.write(json.dumps(grades, indent=4) + '\n')
+
+        #     print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
+
+        # #print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
+
+        # #time.sleep(300)
+
+        # process_out.close()
+
+        test_zeroday_task_cleanup(pid, proc_pid, this_script_name, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+
+        return (package, file_path, grades)
     except FileNotFoundError as e:
 
         print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
@@ -767,18 +815,19 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
         main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        hierarchy_pkill(explode_proc.pid)
+
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+
         io_lock.acquire()
         print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
         io_lock.release()
-
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        hierarchy_pkill(explode_proc.pid)
 
         # Need delete npm cache directory to save space on disk.
         if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
             shutil.rmtree(npm_cache_path)
 
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call:\n\t{explode_js_cmd}' + Fore.RESET, flush=True)
 
         raise e
 
@@ -858,6 +907,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
+        test_zeroday_task_cleanup(pid, proc_pid, this_script_name, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+
+        return (package, file_path, grades)
+
         
 
     except subprocess.CalledProcessError as e:
@@ -884,30 +937,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
     
     
-    # Need delete npm cache directory to save space on disk.
-    if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
-        shutil.rmtree(npm_cache_path)
     
-    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
-    
-    
-
-    io_lock.acquire()
-    print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
-    io_lock.release()
-
-    with open(grades_explodejs, "w") as f:
-        f.write(json.dumps(grades, indent=4) + '\n')
-
-        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
-
-    print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
-
-    #time.sleep(300)
-
-    process_out.close()
-
-    return (package, file_path, grades)
 
 def test_zeroday_task_star(args: Tuple[str, str, str, multiprocessing.Lock, DictProxy, ListProxy]) -> Tuple[str, str, Dict]:
     """
