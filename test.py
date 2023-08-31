@@ -741,6 +741,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
 
         print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.', flush=True)
+
+        print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
     except FileNotFoundError as e:
 
         print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
@@ -765,7 +767,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
             shutil.rmtree(npm_cache_path)
 
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call:\n\t{explode_js_cmd}' + Fore.RESET, flush=True)
 
         raise e
 
@@ -1117,8 +1119,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         # https://pythonspeed.com/articles/python-multiprocessing/
         
        
-        import pdb
-        pdb.set_trace()
+        #import pdb
+        #pdb.set_trace()
         
         try:
             #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
