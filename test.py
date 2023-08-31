@@ -557,7 +557,10 @@ def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 
             process_port_map[port] = pid
             return port
 
-def hierarchy_pkill(proc_pid):
+def hierarchy_pkill(proc_pid) -> None:
+    if proc_pid == None:
+        return
+
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
         proc.kill()
@@ -716,8 +719,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
 
-
-    return (package, file_path, grades)
+    proc_pid = None
     
     try:
         # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
@@ -727,6 +729,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
 
         explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
+        proc_pid = explode_proc.pid
         explode_proc.wait(timeout=300)
         
         end = time.time()
@@ -746,6 +749,11 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.' + Fore.RESET, flush=True)
 
         print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
+
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        hierarchy_pkill(proc_pid)
+
+        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
     except FileNotFoundError as e:
 
         print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
@@ -869,9 +877,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         grades["symb_test"] = "ERROR"
 
         raise e
+    
+    # except BaseException as error:
+    #     print(f'An exception occurred: {error}', flush=True)
+    #     time.sleep(500)
 
-    # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-    hierarchy_pkill(explode_proc.pid)
+    
     
     # Need delete npm cache directory to save space on disk.
     if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
@@ -879,7 +890,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     
     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
     
-    print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+    
 
     io_lock.acquire()
     print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
