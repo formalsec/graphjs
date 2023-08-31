@@ -561,12 +561,12 @@ def hierarchy_pkill(proc_pid) -> None:
     if proc_pid == None:
         return
 
-    
-
+    # Kill children processes if they exist.
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
         proc.kill()
-    process.kill()
+    
+    #process.kill()
 
 def build_safe_container_name(package: str, f_name: str, pid: str = "") -> str:
     container_name: str = package + "_" + f_name
@@ -609,12 +609,7 @@ def build_safe_container_name(package: str, f_name: str, pid: str = "") -> str:
 
 def test_zeroday_task_cleanup(pid: int, proc_pid: int, this_script_name: str, npm_cache_path: str, io_lock: multiprocessing.Lock, grades: Dict, main_terminal_msgs: List[str], grades_explodejs: str, process_out: TextIO) -> None:
 
-    # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-
-    print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True)
-    hierarchy_pkill(proc_pid)
-    print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True)
-    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+    
     
 
     print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
@@ -913,6 +908,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
         test_zeroday_task_cleanup(pid, proc_pid, this_script_name, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True)
+        hierarchy_pkill(proc_pid)
+        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
         return (package, file_path, grades)
 
