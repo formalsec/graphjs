@@ -715,6 +715,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     explode_js_cmd = f'./explodejs.sh -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
     print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
+
+
+    return (package, file_path, grades)
     
     try:
         # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
@@ -740,7 +743,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         check_vulnerability_detection(grades, taint_summary_file)
         check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
 
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.', flush=True)
+        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.' + Fore.RESET, flush=True)
 
         print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
     except FileNotFoundError as e:
@@ -864,6 +867,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         else:
             grades["detection"] = "ERROR"
         grades["symb_test"] = "ERROR"
+
+        raise e
 
     # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
     hierarchy_pkill(explode_proc.pid)
@@ -1119,8 +1124,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         # https://pythonspeed.com/articles/python-multiprocessing/
         
        
-        import pdb
-        pdb.set_trace()
+        #import pdb
+        #pdb.set_trace()
         
         try:
             #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
