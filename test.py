@@ -635,257 +635,259 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     grades: Dict = {}
 
     #with open(log_path, 'w') as sys.stdout:
-    with open(log_path, 'w') as process_out:
+    process_out = open(log_path, 'w')
+#    with open(log_path, 'w') as process_out:
 
-        main_terminal_msgs: List[str] = []
+    main_terminal_msgs: List[str] = []
 
-        # Exclusion zone to avoid concurrent multiprocessing.Pool 'test_zeroday_task' workers 
-        # picking the same free ports. 
-        # This would make concurrent Docker Neo4j containers not work properly.
-        io_lock.acquire()
+    # Exclusion zone to avoid concurrent multiprocessing.Pool 'test_zeroday_task' workers 
+    # picking the same free ports. 
+    # This would make concurrent Docker Neo4j containers not work properly.
+    io_lock.acquire()
 
-        process = multiprocessing.current_process()
-        
-        # Find free ports for Docker Neo4j container port mapping.
-        http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
-        bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
-
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - port mapping\n\tbolt:\t7687->{bolt_port}\n\thttp:\t7474->{http_port}' + Fore.RESET, flush=True)
-        
-        io_lock.release()
-
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Logging: {log_path}' + Fore.RESET)
-
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running explodejs.sh for: \n\tPACKAGE: {package}\n\tFILE: {file_path}' + Fore.RESET)
-
-        print(f'[INFO][{this_script_name}] - PID {pid} - Daemon process: {process.daemon}', file=process_out)
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True, file=process_out)
-        print(f"[INFO][{this_script_name}] - PID {pid} HTTP {http_port} BOLT {bolt_port}", file=process_out)
-
-        
+    process = multiprocessing.current_process()
     
-        # Current .js file's output directory will mirror the input file path hierarchy.
-        # Example for the current .js file:
-        # > file_path = zeroday-dataset/packages/src/9wick-serial-executor-1.0.0/src/dist/index.js
-        # > explodejs_path = f"{output_dir}/9wick-serial-executor-1.0.0/src/dist/"
-        pkg_str_ind: int = file_path.rfind(package) #+ len(package)
-        f_name_str_ind: int = file_path.rfind(f_name)
-        output_dir_hierarchy: str = file_path[pkg_str_ind: f_name_str_ind]
-        if output_dir_hierarchy.startswith(os.path.sep):
-            output_dir_hierarchy = output_dir_hierarchy[1:]
-        if output_dir_hierarchy.endswith(os.path.sep):
-            output_dir_hierarchy = output_dir_hierarchy[:len(output_dir_hierarchy)-1]
+    # Find free ports for Docker Neo4j container port mapping.
+    http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
+    bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
 
-        explodejs_path = os.path.join(output_dir, "packages", "src", output_dir_hierarchy, f"{f_name}_explodejs")
+    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - port mapping\n\tbolt:\t7687->{bolt_port}\n\thttp:\t7474->{http_port}' + Fore.RESET, flush=True)
+    
+    io_lock.release()
 
-        os.makedirs(explodejs_path, exist_ok=True)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Logging: {log_path}' + Fore.RESET)
 
-        taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
-        norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
-        symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
-        grades_explodejs = os.path.join(explodejs_path, "grades.json")
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running explodejs.sh for: \n\tPACKAGE: {package}\n\tFILE: {file_path}' + Fore.RESET)
 
-        # Define custom directory for npm cache files instead of using OS' temp dir.
-        # It will be created by explodejs.sh.
-        npm_cache_path: str = os.path.join(explodejs_path, "npm-cache-directory")
-        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET, flush=True, file=process_out)
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET)
+    print(f'[INFO][{this_script_name}] - PID {pid} - Daemon process: {process.daemon}', file=process_out)
+    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True, file=process_out)
+    print(f"[INFO][{this_script_name}] - PID {pid} HTTP {http_port} BOLT {bolt_port}", file=process_out)
 
+    
+
+    # Current .js file's output directory will mirror the input file path hierarchy.
+    # Example for the current .js file:
+    # > file_path = zeroday-dataset/packages/src/9wick-serial-executor-1.0.0/src/dist/index.js
+    # > explodejs_path = f"{output_dir}/9wick-serial-executor-1.0.0/src/dist/"
+    pkg_str_ind: int = file_path.rfind(package) #+ len(package)
+    f_name_str_ind: int = file_path.rfind(f_name)
+    output_dir_hierarchy: str = file_path[pkg_str_ind: f_name_str_ind]
+    if output_dir_hierarchy.startswith(os.path.sep):
+        output_dir_hierarchy = output_dir_hierarchy[1:]
+    if output_dir_hierarchy.endswith(os.path.sep):
+        output_dir_hierarchy = output_dir_hierarchy[:len(output_dir_hierarchy)-1]
+
+    explodejs_path = os.path.join(output_dir, "packages", "src", output_dir_hierarchy, f"{f_name}_explodejs")
+
+    os.makedirs(explodejs_path, exist_ok=True)
+
+    taint_summary_file = os.path.join(explodejs_path, "taint_summary.json")
+    norm_file = os.path.join(explodejs_path, "graph", "normalization.norm")
+    symbolic_test_file = os.path.join(explodejs_path, "symbolic_test.js")
+    grades_explodejs = os.path.join(explodejs_path, "grades.json")
+
+    # Define custom directory for npm cache files instead of using OS' temp dir.
+    # It will be created by explodejs.sh.
+    npm_cache_path: str = os.path.join(explodejs_path, "npm-cache-directory")
+    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET, flush=True, file=process_out)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET)
+
+    
+
+    print(f'> File: {file_path}', file=process_out)
+    print(f'\t{explodejs_path}', file=process_out)
+    print(f'\t{taint_summary_file}', file=process_out)
+    print(f'\t{norm_file}', file=process_out)
+    print(f'\t{symbolic_test_file}', file=process_out)
+    print(f'\t{grades_explodejs}', file=process_out)
+    print(f'\t{npm_cache_path}', file=process_out)      
+
+    # Build Docker container name based on the current npm package and file.
+    neo4j_container_name: str = build_safe_container_name(package, f_name, f'{pid}')
+    container_list.append(neo4j_container_name)
+
+    # Prepare the call toe explodejs.sh.
+
+    # This line is commented as it also had the 'x' flag for the symbolic tests, we are 
+    # not using it now because the tool is not ready.
+    #explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
+
+    explode_js_cmd = f'./explodejs.sh -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
+    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
+    
+    try:
+        # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
+        start = time.time()
+
+
+        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+
+        explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
+        explode_proc.wait(timeout=300)
+        
+        end = time.time()
+
+        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call.', flush=True)
         
 
-        print(f'> File: {file_path}', file=process_out)
-        print(f'\t{explodejs_path}', file=process_out)
-        print(f'\t{taint_summary_file}', file=process_out)
-        print(f'\t{norm_file}', file=process_out)
-        print(f'\t{symbolic_test_file}', file=process_out)
-        print(f'\t{grades_explodejs}', file=process_out)
-        print(f'\t{npm_cache_path}', file=process_out)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET)
 
-        try:
+        # Write explodejs.sh result data files.
+        with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
+            f.write(f"{end - start:.2f} seconds\n")
+        check_graph_construction_zeroday(grades, norm_file)
+        check_vulnerability_detection(grades, taint_summary_file)
+        check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
 
-            # Build Docker container name based on the current npm package and file.
-            neo4j_container_name: str = build_safe_container_name(package, f_name, f'{pid}')
-            container_list.append(neo4j_container_name)
+        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.', flush=True)
+    except FileNotFoundError as e:
 
-            # Prepare the call toe explodejs.sh.
+        print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
 
-            # This line is commented as it also had the 'x' flag for the symbolic tests, we are 
-            # not using it now because the tool is not ready.
-            #explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
+        print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
 
-            explode_js_cmd = f'./explodejs.sh -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
-            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
-         
-            # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
-            start = time.time()
+        print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
-
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
-
-            explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
-            explode_proc.wait(timeout=300)
-            
-            end = time.time()
-
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call.', flush=True)
-            
-
-            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET)
-
-            # Write explodejs.sh result data files.
-            with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
-                f.write(f"{end - start:.2f} seconds\n")
-            check_graph_construction_zeroday(grades, norm_file)
-            check_vulnerability_detection(grades, taint_summary_file)
-            check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
-
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Checked output files.', flush=True)
-        except FileNotFoundError as e:
-
-            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
-
-            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
-
-            print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
-            print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
-
-            
-            main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
-
-            io_lock.acquire()
-            print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
-            io_lock.release()
-
-            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-            hierarchy_pkill(explode_proc.pid)
-
-            # Need delete npm cache directory to save space on disk.
-            if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
-                shutil.rmtree(npm_cache_path)
-
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
-
-            raise e
-
-        except subprocess.TimeoutExpired as e:
-            
-            print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
-            print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
-
-            main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
-
-            #print(f'[INFO][{this_script_name}] - Timeout expired.', flush=True)
-            
-            if os.path.exists(norm_file):
-                check_graph_construction_zeroday(grades, norm_file)
-            else: 
-                grades["graph_construction"] = "TIMEOUT"
-            if os.path.exists(taint_summary_file):
-                check_graph_construction_zeroday(grades, taint_summary_file)
-            else:
-                grades["detection"] = "TIMEOUT"
-            grades["symb_test"] = "TIMEOUT"
-
-            # Need to stop the Docker container if it still exists after the timeout triggered.          
-            print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
-
-            # Check list of Docker container names.
-            docker_client = docker.from_env()
-
-            docker_containers: Dict = {}
-
-            try:
-                
-                # Get a container object to manipulate the Docker container that was started for this task.
-                # See docker Client.containers.list:
-                # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.list
-                # We are using a 'filters' map due to a bug where accessing client.containers will produce docker.errors.NotFound
-                # if a Docker container was stopped after starting the access to client.containers but before it has finished:
-                # https://github.com/docker/docker-py/issues/2945
-                running_containers: List[docker.Container] = docker_client.containers.list(filters={
-                    'name': neo4j_container_name,
-                    'status': 'running'})
-                
-                for container in running_containers:
-                    docker_containers[container.name] = container
-
-                
-            except docker.errors.NotFound as e:
-                print(Fore.Red + f'\n\n[INFO][{this_script_name}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET, flush=True, file=process_out)
-
-                print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
-
-                container_list.remove(neo4j_container_name)
-
-                main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
-            except docker.errors.APIError as e:
-                print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
-
-                main_terminal_msgs.append(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - unknown docker API error.' + Fore.RESET)
-
-                # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-                hierarchy_pkill(explode_proc.pid)
-                
-                # Need delete npm cache directory to save space on disk.
-                if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
-                    shutil.rmtree(npm_cache_path)
-                raise e
         
-            # Stop the container in case it still existed.
-            if neo4j_container_name in docker_containers:
-
-                main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
-
-                print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
-                
-                docker_containers[neo4j_container_name].stop()
-                container_list.remove(neo4j_container_name)
-
-                main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
-
-            
-
-        except subprocess.CalledProcessError as e:
-            print(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
-            print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
-            
-            main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
-
-            if os.path.exists(norm_file):
-                check_graph_construction_zeroday(grades, norm_file)
-            else: 
-                grades["graph_construction"] = "ERROR"
-            if os.path.exists(taint_summary_file):
-                check_vulnerability_detection(grades, taint_summary_file)
-            else:
-                grades["detection"] = "ERROR"
-            grades["symb_test"] = "ERROR"
-
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        hierarchy_pkill(explode_proc.pid)
-        
-        # Need delete npm cache directory to save space on disk.
-        if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
-            shutil.rmtree(npm_cache_path)
-        
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
-        
-        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+        main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
         io_lock.acquire()
         print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
         io_lock.release()
 
-        with open(grades_explodejs, "w") as f:
-            f.write(json.dumps(grades, indent=4) + '\n')
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        hierarchy_pkill(explode_proc.pid)
 
-            print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
+        # Need delete npm cache directory to save space on disk.
+        if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+            shutil.rmtree(npm_cache_path)
+
+        print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+
+        raise e
+
+    except subprocess.TimeoutExpired as e:
+        
+        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
+
+        #print(f'[INFO][{this_script_name}] - Timeout expired.', flush=True)
+        
+        if os.path.exists(norm_file):
+            check_graph_construction_zeroday(grades, norm_file)
+        else: 
+            grades["graph_construction"] = "TIMEOUT"
+        if os.path.exists(taint_summary_file):
+            check_graph_construction_zeroday(grades, taint_summary_file)
+        else:
+            grades["detection"] = "TIMEOUT"
+        grades["symb_test"] = "TIMEOUT"
+
+        # Need to stop the Docker container if it still exists after the timeout triggered.          
+        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
+
+        # Check list of Docker container names.
+        docker_client = docker.from_env()
+
+        docker_containers: Dict = {}
+
+        try:
+            
+            # Get a container object to manipulate the Docker container that was started for this task.
+            # See docker Client.containers.list:
+            # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.list
+            # We are using a 'filters' map due to a bug where accessing client.containers will produce docker.errors.NotFound
+            # if a Docker container was stopped after starting the access to client.containers but before it has finished:
+            # https://github.com/docker/docker-py/issues/2945
+            running_containers: List[docker.Container] = docker_client.containers.list(filters={
+                'name': neo4j_container_name,
+                'status': 'running'})
+            
+            for container in running_containers:
+                docker_containers[container.name] = container
+
+            
+        except docker.errors.NotFound as e:
+            print(Fore.Red + f'\n\n[INFO][{this_script_name}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET, flush=True, file=process_out)
+
+            print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+
+            container_list.remove(neo4j_container_name)
+
+            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
+        except docker.errors.APIError as e:
+            print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - unknown docker API error.' + Fore.RESET)
+
+            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+            hierarchy_pkill(explode_proc.pid)
+            
+            # Need delete npm cache directory to save space on disk.
+            if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+                shutil.rmtree(npm_cache_path)
+            raise e
+    
+        # Stop the container in case it still existed.
+        if neo4j_container_name in docker_containers:
+
+            main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
+
+            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
+            
+            docker_containers[neo4j_container_name].stop()
+            container_list.remove(neo4j_container_name)
+
+            main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
+
+        
+
+    except subprocess.CalledProcessError as e:
+        print(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+        
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
+
+        if os.path.exists(norm_file):
+            check_graph_construction_zeroday(grades, norm_file)
+        else: 
+            grades["graph_construction"] = "ERROR"
+        if os.path.exists(taint_summary_file):
+            check_vulnerability_detection(grades, taint_summary_file)
+        else:
+            grades["detection"] = "ERROR"
+        grades["symb_test"] = "ERROR"
+
+    # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+    hierarchy_pkill(explode_proc.pid)
+    
+    # Need delete npm cache directory to save space on disk.
+    if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+        shutil.rmtree(npm_cache_path)
+    
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+    
+    print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+
+    io_lock.acquire()
+    print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
+    io_lock.release()
+
+    with open(grades_explodejs, "w") as f:
+        f.write(json.dumps(grades, indent=4) + '\n')
+
+        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
 
     print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
 
-    time.sleep(300)
+    #time.sleep(300)
+
+    process_out.close()
 
     return (package, file_path, grades)
 
@@ -1115,7 +1117,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         # https://pythonspeed.com/articles/python-multiprocessing/
         
        
-
+        import pdb
+        pdb.set_trace()
         
         try:
             #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
