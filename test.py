@@ -1119,8 +1119,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         # https://pythonspeed.com/articles/python-multiprocessing/
         
        
-        #import pdb
-        #pdb.set_trace()
+        import pdb
+        pdb.set_trace()
         
         try:
             #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
