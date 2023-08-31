@@ -883,9 +883,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
 
-    print(f'{package}\n\t{file_path}\n\t{grades}', flush=True)
+    print(Fore.MAGENTA + f'{package}\n\t{file_path}\n\t{grades}' + Fore.RESET, flush=True)
 
-    time.sleep(5)
+    time.sleep(300)
 
     return (package, file_path, grades)
 
