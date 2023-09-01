@@ -1092,13 +1092,6 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                     started_packages[curr_pckg][js_file] = explodejs_dir
 
-                    # if not l.startswith(">>"):
-                    #     curr_pckg = l.strip()
-                    #     if not curr_pckg in started_packages.keys():
-                    #         started_packages[curr_pckg] = set()
-                    # else:
-                    #     js_file: str = l[2:].strip()
-                    #     started_packages[curr_pckg].add(js_file)
 
         # Create or open the tested packages list file if it does not exist.
         tested_package_file_list: str = os.path.join(output_dir, "packages-tested.txt")
@@ -1109,10 +1102,6 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         tested_lines: List[str] = []
         with open(tested_package_file_list, 'r') as tested_file_handle:
             tested_lines = tested_file_handle.readlines()
-
-        #pprint.pprint(started_packages)
-        #sys.exit(0)
-        
         
         # First we iterate the set of packages to know how many files each package has.
         for package_path in package_paths:
@@ -1125,10 +1114,17 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 continue
             else:
                 
-                print(Fore.MAGENTA + f'TODO: Package "{package}" has files left to process' + Fore.RESET)
+                
                 # Get paths of files associated to the current package.
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
+
+                if package_file_count[package] == 0:
+                    print(Fore.MAGENTA + f'EMPTY: Package "{package}" has no .js files' + Fore.RESET)    
+                    continue
+
+                print(Fore.MAGENTA + f'TODO: Package "{package}" has files left to process' + Fore.RESET)
+
                 for f in file_paths:
 
                     if not package in started_packages.keys():
