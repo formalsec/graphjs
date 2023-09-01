@@ -1004,7 +1004,12 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
         # Copy 'ZDC-Template' sheet which is already formatted.
         template_sheet: gspread.Worksheet = load_sheet("ZDC-Template")
-        ws: gspread.Worksheet = template_sheet.duplicate(new_sheet_name = target_sheet_name)
+
+        # We want to store the new worksheet at the end of the Google Sheet tabs.
+        target_index: int = len(sheet.worksheets())
+
+        ws: gspread.Worksheet = template_sheet.duplicate(insert_sheet_index=target_index, new_sheet_name=target_sheet_name)
+        
 
 
         #ws = sheet.add_worksheet(target_sheet_name,"999","20")
