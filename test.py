@@ -1120,11 +1120,11 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             # Skipping those that have been tested before first.
             #if check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
             if check_if_package_was_tested(package, tested_package_file_list, tested_lines):
-                print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
+                print(Fore.MAGENTA + f'DONE: Package "{package}" has already been tested' + Fore.RESET)
                 continue
             else:
                 
-                print(Fore.MAGENTA + f'Package "{package}" has files left to process' + Fore.RESET)
+                print(Fore.MAGENTA + f'TODO: Package "{package}" has files left to process' + Fore.RESET)
                 # Get paths of files associated to the current package.
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
