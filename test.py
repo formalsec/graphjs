@@ -1109,6 +1109,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         with open(tested_package_file_list, 'r') as tested_file_handle:
             tested_lines = tested_file_handle.readlines()
 
+        pprint.pprint(started_packages)
+        sys.exit(0)
         
         
         # First we iterate the set of packages to know how many files each package has.
