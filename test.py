@@ -629,7 +629,7 @@ def test_zeroday_task_cleanup(pid: int, proc_pid: int, this_script_name: str, np
 
     process_out.close()
 
-def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, Dict]:
+def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, str, Dict]:
     """
     Function to be run by each concurrent process.
 
@@ -771,7 +771,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         test_zeroday_task_cleanup(pid, proc_pid, this_script_name, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
-        return (package, file_path, grades)
+        return (package, file_path, explodejs_path, grades)
     except FileNotFoundError as e:
 
         print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
@@ -885,7 +885,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
-        return (package, file_path, grades)
+        return (package, file_path, explodejs_path, grades)
 
         
 
@@ -912,7 +912,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     
     
 
-def test_zeroday_task_star(args: Tuple[str, str, str, multiprocessing.Lock, DictProxy, ListProxy]) -> Tuple[str, str, Dict]:
+def test_zeroday_task_star(args: Tuple[str, str, str, multiprocessing.Lock, DictProxy, ListProxy]) -> Tuple[str, str, str, Dict]:
     """
     Receives a tuple which containing arguments for :func:`test_zeroday_task` which are passed with `*args`.
     This is needed due to :func:`imap_unordered` being able to pass only one argument to the worker function.
@@ -1077,7 +1077,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         # Create or open a file to record that we've already started processing a package.
         # Even though it may have started, it may have not finished yet.
         started_package_file_list: str = os.path.join(output_dir, "packages-started.txt")
-        started_packages: Dict[str, Set[str]] = {}
+        started_packages: Dict[str, Dict[str, str]] = {}
         if not os.path.exists(started_package_file_list):
             started_file_handle = open(started_package_file_list, "w")
             started_file_handle.close()
@@ -1086,10 +1086,11 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 lines: List[str] = started_file_handle.readlines()
                 #curr_pckg: str = ""
                 for l in lines:
-                    curr_pckg, js_file = l.strip().split("||||")
+                    curr_pckg, js_file, explodejs_dir = l.strip().split("||||")
                     if not curr_pckg in started_packages.keys():
-                        started_packages[curr_pckg] = set()
-                    started_packages[curr_pckg].add(js_file)
+                        started_packages[curr_pckg] = {}
+
+                    started_packages[curr_pckg][js_file] = explodejs_dir
 
                     # if not l.startswith(">>"):
                     #     curr_pckg = l.strip()
@@ -1138,7 +1139,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                         continue
                     else:
 
-                        explodejs_path = f"{f}_explodejs"
+                        #explodejs_path = f"{f}_explodejs"
+                        explodejs_path: str = started_packages[package][f]
                         grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
 
                     # If the current file had already been processed (results found on disk), 
@@ -1212,7 +1214,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
                 res_package: str = result[0]
                 res_file: str = result[1]
-                res_grades: Dict = result[2]
+                res_explodejs_path: str = result[2]
+                res_grades: Dict = result[3]
                
                 # NOTE: This lock.aquire() may be unnecessary, research it...
                 io_lock.acquire()
@@ -1221,7 +1224,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 # to be processed but not yet finished.
                 #def add_package_to_tested_list(package: str, packages_tested_file_path: str) -> None:
                 #with open(started_package_file_list, 'a') as file:
-                started_package_fh.write(f'{res_package}||||{res_file}\n')
+                started_package_fh.write(f'{res_package}||||{res_file}||||{res_explodejs_path}\n')
 
                 if not res_package in package_grades:
                     package_grades[res_package] = {}
