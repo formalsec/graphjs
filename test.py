@@ -1112,8 +1112,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                         file_paths: List[str] = get_js_files(package_path)
 
                         # For packages without .js or .cjs files.
-                        if len(file_paths) == 0:
-                            continue
+                        # if len(file_paths) == 0:
+                        #     continue
 
                         if not package in ret:
                             ret[package] = []
@@ -1193,17 +1193,22 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 print(Fore.MAGENTA + f'DONE: Package "{package}" has already been tested' + Fore.RESET)
                 continue
             else:
+
                 
                 
                 # Get paths of files associated to the current package.
-                #file_paths: List[str] = get_js_files(package_path)
+                
+                
                 file_paths: List[str] = dataset_package_file_paths[package]
                 package_file_count[package] = len(file_paths)
 
+                #file_paths: List[str] = get_js_files(package_path)
                 if package_file_count[package] == 0:
                     print(Fore.MAGENTA + f'EMPTY: Package "{package}" has no .js files' + Fore.RESET)
                     add_package_to_tested_list(package, tested_package_file_list)
                     continue
+
+                
 
                 print(Fore.MAGENTA + f'TODO: Package "{package}" has files left to process' + Fore.RESET)
 
