@@ -1221,7 +1221,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 # to be processed but not yet finished.
                 #def add_package_to_tested_list(package: str, packages_tested_file_path: str) -> None:
                 #with open(started_package_file_list, 'a') as file:
-                started_package_fh.write(f'{package}||||{res_file}\n')
+                started_package_fh.write(f'{res_package}||||{res_file}\n')
 
                 if not res_package in package_grades:
                     package_grades[res_package] = {}
