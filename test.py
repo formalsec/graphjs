@@ -1004,7 +1004,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
         # Copy 'ZDC-Template' sheet which is already formatted.
         template_sheet: gspread.Worksheet = load_sheet("ZDC-Template")
-        ws: gspread.Worksheet = template_sheet.duplicate_sheet(new_sheet_name = target_sheet_name)
+        ws: gspread.Worksheet = template_sheet.duplicate(new_sheet_name = target_sheet_name)
 
 
         #ws = sheet.add_worksheet(target_sheet_name,"999","20")
