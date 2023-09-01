@@ -367,7 +367,7 @@ def comapre_outputs(grades, expected_output, output):
     return grades
 
 
-def load_sheet(sheet_name):
+def load_sheet(sheet_name) -> gspread.Worksheet:
     return sheet.worksheet(sheet_name)
 
 
@@ -998,10 +998,16 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         target_sheet_name = f"ZDC-{package_start_ind}-{package_finish_ind}"
 
     try:
-        ws: gspread.Spreadsheet = load_sheet(target_sheet_name)
+        ws: gspread.Worksheet = load_sheet(target_sheet_name)
         print("Loaded gspread.Spreadsheet: {}".format(target_sheet_name))
     except gspread.exceptions.WorksheetNotFound:
-        ws = sheet.add_worksheet(target_sheet_name,"999","20")
+
+        # Copy 'ZDC-Template' sheet which is already formatted.
+        template_sheet: gspread.Worksheet = load_sheet("ZDC-Template")
+        ws: gspread.Worksheet = template_sheet.duplicate_sheet(new_sheet_name = target_sheet_name)
+
+
+        #ws = sheet.add_worksheet(target_sheet_name,"999","20")
         print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
 
     input_packages = f"{input_packages}{os.path.sep}*"
