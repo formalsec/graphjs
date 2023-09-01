@@ -1042,8 +1042,6 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         print(f'\t{pp}')
 
 
-    #sys.exit(0)    
-
     # Manager to share dictionary among processes.
     multiprocessing.set_start_method("spawn")
     with multiprocessing.Manager() as manager:
@@ -1092,6 +1090,88 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                     started_packages[curr_pckg][js_file] = explodejs_dir
 
+        # Get index file ready.
+        index_file_path: str = os.path.join(output_dir, "packages-index.txt")
+
+        INDEX_FILE_PACKAGE_TOKEN=">>>>"
+
+        def make_index_file(index_file_path: str, package_paths: List[str]) -> Dict[str, List[str]]:
+
+            ret: Dict[str, List[str]] = {}
+
+            package_ctr: int = 0
+            file_ctr: int = 0
+
+            if not os.path.exists(index_file_path):
+                with open(index_file_path, "w") as index_fh:
+                    for package_path in package_paths:
+                        package: str = os.path.basename(package_path)
+
+                        package_ctr += 1
+
+                        file_paths: List[str] = get_js_files(package_path)
+
+                        # For packages without .js or .cjs files.
+                        if len(file_paths) == 0:
+                            continue
+
+                        if not package in ret:
+                            ret[package] = []
+
+                        index_fh.write(f'{INDEX_FILE_PACKAGE_TOKEN}{package}\n')
+                        
+                        for f in file_paths:
+                            file_ctr += 1
+                            index_fh.write(f'{f}\n')
+                            ret[package].append(f)
+            else:
+                raise Exception(f'Called make_index_file when it already exists: {index_file_path}.')
+
+            print(Fore.MAGENTA + f'Created index file with {package_ctr} packages and {file_ctr} files' + Fore.RESET)
+
+            return ret
+
+        
+        def read_index_file(index_file_path: str) -> Dict[str, List[str]]:
+
+            ret: Dict[str, List[str]] = {}
+
+            package_ctr: int = 0
+            file_ctr: int = 0
+
+            if os.path.exists(index_file_path):
+                with open(index_file_path, "r") as index_fh:
+
+                    curr_package: str = ""
+
+                    for l in index_fh:
+                        if l.startswith(INDEX_FILE_PACKAGE_TOKEN):
+
+                            package_ctr += 1
+
+                            curr_package = l.strip()[4:]
+
+                            if not curr_package in ret:
+                                ret[curr_package] = []
+                        else:
+                            file_ctr += 1
+                            f: str = l.strip()
+                            ret[curr_package].append(f)
+            else:
+                raise Exception(f'Called read_index_file but it does not exist: {index_file_path}.')
+            
+            print(Fore.MAGENTA + f'Read index file with {package_ctr} packages and {file_ctr} files' + Fore.RESET)
+            
+            return ret
+
+        if not os.path.exists(index_file_path):
+            dataset_package_file_paths: Dict[str, List[str]] = make_index_file(index_file_path=index_file_path, package_paths=package_paths)
+        else:
+            dataset_package_file_paths: Dict[str, List[str]] = read_index_file(index_file_path=index_file_path)
+
+        
+        
+        
 
         # Create or open the tested packages list file if it does not exist.
         tested_package_file_list: str = os.path.join(output_dir, "packages-tested.txt")
@@ -1116,7 +1196,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 
                 
                 # Get paths of files associated to the current package.
-                file_paths: List[str] = get_js_files(package_path)
+                #file_paths: List[str] = get_js_files(package_path)
+                file_paths: List[str] = dataset_package_file_paths[package]
                 package_file_count[package] = len(file_paths)
 
                 if package_file_count[package] == 0:
@@ -1397,7 +1478,7 @@ if __name__ == "__main__":
         sheet_name: str = "ZeroDay Concurrent Test"
 
         #pprint.pprint(args)
-        print(f"### DEBUG: {args}\n")
+        #print(f"### DEBUG: {args}\n")
         #sys.exit(0)
 
         test_zeroday_dataset_p(args.input, args.output_dir, 
