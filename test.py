@@ -1120,7 +1120,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 package_file_count[package] = len(file_paths)
 
                 if package_file_count[package] == 0:
-                    print(Fore.MAGENTA + f'EMPTY: Package "{package}" has no .js files' + Fore.RESET)    
+                    print(Fore.MAGENTA + f'EMPTY: Package "{package}" has no .js files' + Fore.RESET)
+                    add_package_to_tested_list(package, tested_package_file_list)
                     continue
 
                 print(Fore.MAGENTA + f'TODO: Package "{package}" has files left to process' + Fore.RESET)
