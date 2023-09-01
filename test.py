@@ -1152,6 +1152,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                         package_grades[package][f] = res_grades
 
                         package_file_count[package] -= 1
+
+                        print(Fore.MAGENTA + f'\tAlready processed: "{f}"' + Fore.RESET)
                     # else:
                     #     package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
         
