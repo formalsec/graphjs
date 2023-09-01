@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 import traceback
-from typing import Dict, List, Tuple, TextIO
+from typing import Dict, List, Tuple, TextIO, Set
 
 # Some constants.
 DOCKER_CONTAINER_MAX_LEN: int = 128
@@ -1073,7 +1073,32 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         # Create directory for individual worker process logs.
         #os.makedirs(ZERODAY_CONCURRENT_LOGS, exist_ok=True)
         os.makedirs(pool_log_dir, exist_ok=True)
-        
+
+        # Create or open a file to record that we've already started processing a package.
+        # Even though it may have started, it may have not finished yet.
+        started_package_file_list: str = os.path.join(output_dir, "packages-started.txt")
+        started_packages: Dict[str, Set[str]] = {}
+        if not os.path.exists(started_package_file_list):
+            started_file_handle = open(started_package_file_list, "w")
+            started_file_handle.close()
+        else:
+            with open(started_package_file_list, "r") as started_file_handle:
+                lines: List[str] = started_file_handle.readlines()
+                #curr_pckg: str = ""
+                for l in lines:
+                    curr_pckg, js_file = l.strip().split("||||")
+                    if not curr_pckg in started_packages.keys():
+                        started_packages[curr_pckg] = set()
+                    started_packages[curr_pckg].add(js_file)
+
+                    # if not l.startswith(">>"):
+                    #     curr_pckg = l.strip()
+                    #     if not curr_pckg in started_packages.keys():
+                    #         started_packages[curr_pckg] = set()
+                    # else:
+                    #     js_file: str = l[2:].strip()
+                    #     started_packages[curr_pckg].add(js_file)
+
         # Create or open the tested packages list file if it does not exist.
         tested_package_file_list: str = os.path.join(output_dir, "packages-tested.txt")
         if not os.path.exists(tested_package_file_list):
@@ -1101,14 +1126,23 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
                 for f in file_paths:
-                    explodejs_path = f"{f}_explodejs"
-                    grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
+
+                    if not package in started_packages.keys():
+                        package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
+                        continue
+                    elif not f in started_packages[package]:
+                        package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
+                        continue
+                    else:
+
+                        explodejs_path = f"{f}_explodejs"
+                        grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
 
                     # If the current file had already been processed (results found on disk), 
                     # load its grades.
                     # We load its grades because we only write a package to the Google Sheet 
                     # when all files have been processed.
-                    if os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs):
+                    #if os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs):
 
                         if not package in package_grades:
                             package_grades[package] = {}
@@ -1118,8 +1152,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                         package_grades[package][f] = res_grades
 
                         package_file_count[package] -= 1
-                    else:
-                        package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
+                    # else:
+                    #     package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
         
 
         #for t in package_f_tuples:
@@ -1169,6 +1203,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
             # https://superfastpython.com/multiprocessing-pool-issue-tasks/
             pool_closed: bool = False
+            started_package_fh: TextIO = open(started_package_file_list, 'a')
             for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
                 res_package: str = result[0]
                 res_file: str = result[1]
@@ -1176,6 +1211,12 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                
                 # NOTE: This lock.aquire() may be unnecessary, research it...
                 io_lock.acquire()
+
+                # Create/update a file to indicate that a package has started
+                # to be processed but not yet finished.
+                #def add_package_to_tested_list(package: str, packages_tested_file_path: str) -> None:
+                #with open(started_package_file_list, 'a') as file:
+                started_package_fh.write(f'{package}||||{res_file}\n')
 
                 if not res_package in package_grades:
                     package_grades[res_package] = {}
@@ -1205,6 +1246,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                 # NOTE: This lock.release() may be unnecessary
                 io_lock.release()       
+
+            started_package_fh.close()
 
             
             pool.close()
