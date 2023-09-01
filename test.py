@@ -1109,8 +1109,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         with open(tested_package_file_list, 'r') as tested_file_handle:
             tested_lines = tested_file_handle.readlines()
 
-        pprint.pprint(started_packages)
-        sys.exit(0)
+        #pprint.pprint(started_packages)
+        #sys.exit(0)
         
         
         # First we iterate the set of packages to know how many files each package has.
@@ -1124,6 +1124,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 continue
             else:
                 
+                print(Fore.MAGENTA + f'Package "{package}" has files left to process' + Fore.RESET)
                 # Get paths of files associated to the current package.
                 file_paths: List[str] = get_js_files(package_path)
                 package_file_count[package] = len(file_paths)
