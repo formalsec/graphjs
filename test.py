@@ -1098,6 +1098,10 @@ def read_dataset_index(index_path: str, package_start_ind: int = 0, package_fini
                 if package == '0x-typescript-typings-5.3.2':
                     print(f'package: {package}')
                     pprint.pprint(tkns)
+
+                    if len(tkns[1]) == 0
+                        print("FOUND IT")
+                        
                     sys.exit(0)
                 
                 for jsp in js_paths:
