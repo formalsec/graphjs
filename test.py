@@ -738,7 +738,11 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     # not using it now because the tool is not ready.
     #explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
 
-    explode_js_cmd = f'./explodejs.sh -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
+    script_directory: str = os.path.dirname(os.path.abspath(sys.argv[0]))
+    explodejs_bin_path: str = os.path.join(script_directory, "explodejs.sh")
+    explode_js_cmd = f'{explodejs_bin_path} -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
+
+    #explode_js_cmd = f'./explodejs.sh -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
 
