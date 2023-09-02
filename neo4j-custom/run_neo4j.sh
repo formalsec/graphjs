@@ -73,16 +73,23 @@ RESULTS_DIR="execution-results"
 # On 'docker run -p HOST_PORT:CONTAINER_INNER_PORT' mapping:
 # https://www.baeldung.com/linux/assign-port-docker-container
 
-# Build container
-# TODO: avoid building container if it already exists.
-echo "[INFO] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
-if [[ "$OSTYPE" =~ ^darwin ]]; then
-  docker build --platform linux/amd64 . -t neo4j-docker
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  docker build --platform linux/x86_64 -q . -t neo4j-docker
+# Build neo4j Docker image.
+BUILD_IMAGE=false
+
+if [ BUILD_IMAGE ]
+then
+    echo "[INFO][$THIS_SCRIPT] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      docker build --platform linux/amd64 . -t neo4j-docker
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      docker build --platform linux/x86_64 -q . -t neo4j-docker
+    else
+      docker build . -t neo4j-docker
+    fi
 else
-  docker build . -t neo4j-docker
+    echo "[INFO][$THIS_SCRIPT] - not building image via the current script."
 fi
+
 
 echo "[INFO][$THIS_SCRIPT] - Running container $NEO4J_EXPLODEJS_CONTAINER - HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
 
