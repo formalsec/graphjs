@@ -1451,6 +1451,8 @@ if __name__ == "__main__":
     parser.add_argument("-l", action="store_true",
                         help="Run neo4j locally")
     parser.add_argument("-p", "--parallelism", type=int, default=1)
+    parser.add_argument("--index-only", action="store_true",
+                        help="Generate the index of all .js/.cjs files and exit.")
     parser.add_argument("-s", "--start-package", type=int, default=0,
                         help="Index of the package to start processing. Must be a non-negative integer lower than the value of '-f/--finish-package'.")
     parser.add_argument("-f", "--finish-package", type=int, default=0,
@@ -1488,6 +1490,14 @@ if __name__ == "__main__":
             args.output_dir = os.path.expanduser(args.output_dir).replace('\\', '/')
         pathlib.Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
+    if args.index_only == True:
+        print("INDEX ONLY TRUE")
+    else:
+        print("INDEX ONLY FALSE")
+
+    sys.exit(0)
+
+    
 
     if args.tool == "explode.js" and args.d == "zeroday":
 
