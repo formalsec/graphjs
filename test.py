@@ -1063,6 +1063,10 @@ def read_dataset_index(index_path: str, package_start_ind: int = 0, package_fini
         # See: https://stackoverflow.com/a/2081880/1708550
         for i, line in enumerate(fh):
 
+            # Break condition if we reached the end.
+            if package_finish_ind > 0 and i >= package_finish_ind:
+                break
+
             # Read the current i-th package and its file paths.
             if i >= package_start_ind:
                 tkns: List[str] = line.strip().split(INDEX_FILE_PACKAGE_TOKEN)
@@ -1078,9 +1082,7 @@ def read_dataset_index(index_path: str, package_start_ind: int = 0, package_fini
                     dataset_package_file_paths[package].append(jsp)
 
 
-            # Break condition if we reached the end.
-            if package_finish_ind > 0 and i >= package_finish_ind:
-                break
+            
             
 
     return package_paths, dataset_package_file_paths
@@ -1142,7 +1144,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
     package_paths, dataset_package_file_paths = read_dataset_index(index_path, package_start_ind, package_finish_ind)
 
 
-    print(f'Checking package indices {package_start_ind}-{package_start_ind+len(package_paths)}')
+    print(f'Checking package indices [{package_start_ind}-{package_start_ind+len(package_paths)}[')
     for pp in package_paths:
         print(f'\t{pp}')
 
