@@ -29,7 +29,8 @@ from typing import Dict, List, Tuple, TextIO, Set
 # Some constants.
 DOCKER_CONTAINER_MAX_LEN: int = 128
 THIS_SCRIPT_NAME: str = os. path. basename(__file__)
-INDEX_FILE_PACKAGE_TOKEN=">>>>"
+INDEX_FILE_PACKAGE_TOKEN: str = ">>>>"
+DATASET_INDEX_NAME: str = "dataset-index.txt"
 
 # Default datasets.
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
@@ -981,6 +982,109 @@ def docker_container_cleanup(container_names: ListProxy):
     print(Fore.MAGENTA + f'\n\n[CLEANUP][{THIS_SCRIPT_NAME}] - exiting.\n' + Fore.RESET, flush=True)
 
 
+def make_index_file(index_file_path: str, package_paths: List[str]) -> Dict[str, List[str]]:
+
+    ret: Dict[str, List[str]] = {}
+
+    package_ctr: int = 0
+    file_ctr: int = 0
+
+    if not os.path.exists(index_file_path):
+        with open(index_file_path, "w") as index_fh:
+            for package_path in package_paths:
+                package: str = os.path.basename(package_path)
+
+                package_ctr += 1
+
+                file_paths: List[str] = get_js_files(package_path)
+
+                # For packages without .js or .cjs files.
+                # if len(file_paths) == 0:
+                #     continue
+
+                if not package in ret:
+                    ret[package] = []
+
+                index_fh.write(f'{INDEX_FILE_PACKAGE_TOKEN}{package}\n')
+                
+                for f in file_paths:
+                    file_ctr += 1
+                    index_fh.write(f'{f}\n')
+                    ret[package].append(f)
+    else:
+        raise Exception(f'Called make_index_file when it already exists: {index_file_path}.')
+
+    print(Fore.MAGENTA + f'Created index file with {package_ctr} packages and {file_ctr} files' + Fore.RESET)
+
+    return ret
+
+        
+def read_index_file(index_file_path: str) -> Dict[str, List[str]]:
+
+    ret: Dict[str, List[str]] = {}
+
+    package_ctr: int = 0
+    file_ctr: int = 0
+
+    if os.path.exists(index_file_path):
+        with open(index_file_path, "r") as index_fh:
+
+            curr_package: str = ""
+
+            for l in index_fh:
+                if l.startswith(INDEX_FILE_PACKAGE_TOKEN):
+
+                    package_ctr += 1
+
+                    curr_package = l.strip()[4:]
+
+                    if not curr_package in ret:
+                        ret[curr_package] = []
+                else:
+                    file_ctr += 1
+                    f: str = l.strip()
+                    ret[curr_package].append(f)
+    else:
+        raise Exception(f'Called read_index_file but it does not exist: {index_file_path}.')
+    
+    print(Fore.MAGENTA + f'Read index file with {package_ctr} packages and {file_ctr} files' + Fore.RESET)
+    
+    return ret
+
+
+def read_dataset_index(index_path: str, package_start_ind: int = 0, package_finish_ind: int = 0) -> Tuple[List[str], Dict[str, List[str]]]:
+
+    package_paths: List[str] = []
+    dataset_package_file_paths: Dict[str, List[str]] = {}
+
+    with open(index_path, 'r') as fh:
+
+        # Reading specific lines of a file which might be large.
+        # See: https://stackoverflow.com/a/2081880/1708550
+        for i, line in enumerate(fh):
+
+            # Read the current i-th package and its file paths.
+            if i >= package_start_ind:
+                tkns: List[str] = line.strip().split(INDEX_FILE_PACKAGE_TOKEN)
+                package: str = tkns[0]
+
+                package_paths.append(package)
+                js_paths: List[str] = tkns[1:]
+
+                if not package in dataset_package_file_paths:
+                    dataset_package_file_paths[package] = []
+                
+                for jsp in js_paths:
+                    dataset_package_file_paths[package].append(jsp)
+
+
+            # Break condition if we reached the end.
+            if package_finish_ind > 0 and i >= package_finish_ind:
+                break
+            
+
+    return package_paths, dataset_package_file_paths
+
 def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
@@ -1011,14 +1115,14 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         #ws = sheet.add_worksheet(target_sheet_name,"999","20")
         print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
 
-    input_packages = f"{input_packages}{os.path.sep}*"
+    #input_packages = f"{input_packages}{os.path.sep}*"
     #package_paths: List[str] = glob(ZERODAY_DATASET)
-    package_paths: List[str] = glob(input_packages)
-    package_paths.sort()
+    #package_paths: List[str] = glob(input_packages)
+    #package_paths.sort()
 
-    if len(package_paths) == 0:
-        print("Zeroday dataset: found zero packages to process in the provided directory. Perhaps an argument error? Exiting.")
-        sys.exit(1)
+    # if len(package_paths) == 0:
+    #     print("Zeroday dataset: found zero packages to process in the provided directory. Perhaps an argument error? Exiting.")
+    #     sys.exit(1)
 
     
 
@@ -1026,11 +1130,16 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
     print(f'Zeroday dataset directory: {input_packages}')
     
 
-    if package_finish_ind == 0:
-        package_paths = package_paths[package_start_ind:]
-    else:
-        package_paths = package_paths[package_start_ind:package_finish_ind]
+    # if package_finish_ind == 0:
+    #     package_paths = package_paths[package_start_ind:]
+    # else:
+    #     package_paths = package_paths[package_start_ind:package_finish_ind]
 
+    package_paths: List[str]
+    dataset_package_file_paths: Dict[str, List[str]]
+    
+    index_path: str = os.path.join(input_packages, DATASET_INDEX_NAME)
+    package_paths, dataset_package_file_paths = read_dataset_index(index_path, package_start_ind, package_finish_ind)
 
 
     print(f'Checking package indices {package_start_ind}-{package_start_ind+len(package_paths)}')
@@ -1087,83 +1196,16 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                     started_packages[curr_pckg][js_file] = explodejs_dir
 
         # Get index file ready.
-        index_file_path: str = os.path.join(output_dir, "packages-index.txt")
+        # index_file_path: str = os.path.join(output_dir, "packages-index.txt")
 
         
 
-        def make_index_file(index_file_path: str, package_paths: List[str]) -> Dict[str, List[str]]:
-
-            ret: Dict[str, List[str]] = {}
-
-            package_ctr: int = 0
-            file_ctr: int = 0
-
-            if not os.path.exists(index_file_path):
-                with open(index_file_path, "w") as index_fh:
-                    for package_path in package_paths:
-                        package: str = os.path.basename(package_path)
-
-                        package_ctr += 1
-
-                        file_paths: List[str] = get_js_files(package_path)
-
-                        # For packages without .js or .cjs files.
-                        # if len(file_paths) == 0:
-                        #     continue
-
-                        if not package in ret:
-                            ret[package] = []
-
-                        index_fh.write(f'{INDEX_FILE_PACKAGE_TOKEN}{package}\n')
-                        
-                        for f in file_paths:
-                            file_ctr += 1
-                            index_fh.write(f'{f}\n')
-                            ret[package].append(f)
-            else:
-                raise Exception(f'Called make_index_file when it already exists: {index_file_path}.')
-
-            print(Fore.MAGENTA + f'Created index file with {package_ctr} packages and {file_ctr} files' + Fore.RESET)
-
-            return ret
-
         
-        def read_index_file(index_file_path: str) -> Dict[str, List[str]]:
 
-            ret: Dict[str, List[str]] = {}
-
-            package_ctr: int = 0
-            file_ctr: int = 0
-
-            if os.path.exists(index_file_path):
-                with open(index_file_path, "r") as index_fh:
-
-                    curr_package: str = ""
-
-                    for l in index_fh:
-                        if l.startswith(INDEX_FILE_PACKAGE_TOKEN):
-
-                            package_ctr += 1
-
-                            curr_package = l.strip()[4:]
-
-                            if not curr_package in ret:
-                                ret[curr_package] = []
-                        else:
-                            file_ctr += 1
-                            f: str = l.strip()
-                            ret[curr_package].append(f)
-            else:
-                raise Exception(f'Called read_index_file but it does not exist: {index_file_path}.')
-            
-            print(Fore.MAGENTA + f'Read index file with {package_ctr} packages and {file_ctr} files' + Fore.RESET)
-            
-            return ret
-
-        if not os.path.exists(index_file_path):
-            dataset_package_file_paths: Dict[str, List[str]] = make_index_file(index_file_path=index_file_path, package_paths=package_paths)
-        else:
-            dataset_package_file_paths: Dict[str, List[str]] = read_index_file(index_file_path=index_file_path)
+        # if not os.path.exists(index_file_path):
+        #     dataset_package_file_paths: Dict[str, List[str]] = make_index_file(index_file_path=index_file_path, package_paths=package_paths)
+        # else:
+        #     dataset_package_file_paths: Dict[str, List[str]] = read_index_file(index_file_path=index_file_path)
 
         
         
@@ -1532,8 +1574,8 @@ if __name__ == "__main__":
 
     # Generate an index file for the whole dataset.
     print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Generating dataset index file.' + Fore.RESET)
-    index_name: str = "dataset-index.txt"
-    if not generate_dataset_index(args.input, index_name):
+    
+    if not generate_dataset_index(args.input, DATASET_INDEX_NAME):
         sys.exit(1)
     
     if args.index_only == True:
