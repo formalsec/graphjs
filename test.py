@@ -609,7 +609,7 @@ def build_safe_container_name(package: str, f_name: str, pid: str = "") -> str:
 
     return container_name
 
-def test_zeroday_task_cleanup(pid: int, proc_pid: int, npm_cache_path: str, io_lock: multiprocessing.Lock, grades: Dict, main_terminal_msgs: List[str], grades_explodejs: str, process_out: TextIO) -> None:
+def test_zeroday_task_cleanup(pid: int, npm_cache_path: str, io_lock: multiprocessing.Lock, grades: Dict, main_terminal_msgs: List[str], grades_explodejs: str, process_out: TextIO) -> None:
 
     
     
@@ -747,8 +747,6 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     #explode_js_cmd = f'./explodejs.sh -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
-
-    proc_pid = None
     
     try:
         # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
@@ -1290,9 +1288,9 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                 for f in file_paths:
 
-                    if package == "0x-typescript-typings-5.3.2":
-                        print(f'len(f) = {len(f)}\tf = {f}')
-                        sys.exit(0)
+                    # if package == "0x-typescript-typings-5.3.2":
+                    #     print(f'len(f) = {len(f)}\tf = {f}')
+                    #     sys.exit(0)
 
                     if not package in started_packages.keys():
                         package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
