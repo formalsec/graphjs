@@ -557,13 +557,15 @@ def find_exclusive_port(pid: int, process_port_map: DictProxy, base_port: int = 
             process_port_map[port] = pid
             return port
 
-def hierarchy_pkill(proc_pid) -> None:
+def hierarchy_pkill(proc_pid: subprocess.Popen = None) -> None:
     if proc_pid == None:
         return
-
+    
     # Kill children processes if they exist.
-    process = psutil.Process(proc_pid)
+    process: psutil.Process = psutil.Process(proc_pid.pid)
+    
     for proc in process.children(recursive=True):
+        print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Kill:\t{proc.pid}' + Fore.RESET, flush=True)
         proc.kill()
     
     #process.kill()
@@ -755,11 +757,16 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         #print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
 
-        #explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
+        explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
 
-        explode_proc = subprocess.Popen(explode_js_cmd, stdout=process_out, stderr=process_out)
-        proc_pid = explode_proc.pid
+        #explode_proc = subprocess.Popen(explode_js_cmd, shell=True)
+
+        #explode_proc = subprocess.Popen(explode_js_cmd, stdout=process_out, stderr=process_out)
+        #proc_pid = explode_proc.pid
+        
         explode_proc.wait(timeout=300)
+
+        #outs, errs = explode_proc.communicate(timeout=300)
         
         end = time.time()
 
@@ -775,7 +782,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         check_vulnerability_detection(grades, taint_summary_file)
         check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
 
-        test_zeroday_task_cleanup(pid, proc_pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+        test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
         
 
@@ -794,7 +801,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        hierarchy_pkill(explode_proc.pid)
+        hierarchy_pkill(explode_proc)
 
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
@@ -866,7 +873,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - unknown docker API error.' + Fore.RESET)
 
             # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-            hierarchy_pkill(explode_proc.pid)
+            hierarchy_pkill(explode_proc)
             
             # Need delete npm cache directory to save space on disk.
             if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
@@ -885,11 +892,13 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
-        test_zeroday_task_cleanup(pid, proc_pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+        test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
-        hierarchy_pkill(proc_pid)
+
+        hierarchy_pkill(explode_proc)
+
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
