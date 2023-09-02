@@ -28,7 +28,7 @@ from typing import Dict, List, Tuple, TextIO, Set
 
 # Some constants.
 DOCKER_CONTAINER_MAX_LEN: int = 128
-
+THIS_SCRIPT_NAME: str = os. path. basename(__file__)
 
 # Default datasets
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
@@ -455,8 +455,6 @@ def add_package_to_sheet(ws: gspread.Spreadsheet, package: str) -> None:
 def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: Dict[str, Dict[str, Dict]]) -> None:
     result = []
 
-    this_script_name: str = os. path. basename(__file__)
-
     file_ctr: int = 0
 
     for file, grades in package_grades.items():
@@ -494,7 +492,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         if error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds grid limits" in error_message:
 
             row_incr: int = 1000 + file_ctr
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - Adding {row_incr} rows to {ws.title}' + Fore.RESET)            
+            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Adding {row_incr} rows to {ws.title}' + Fore.RESET)            
 
             ws.add_rows(row_incr)
             limit_reached = True
@@ -505,10 +503,10 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
     finally:
         # If the limit had been reached and it was extended successfully, try to write again.
         if limit_reached:
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - Trying to write to sheet {ws.title} again.' + Fore.RESET)
+            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Trying to write to sheet {ws.title} again.' + Fore.RESET)
             ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
 
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - Write to {ws.title} successful.' + Fore.RESET)
+            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Write to {ws.title} successful.' + Fore.RESET)
             
 
 def get_js_files(package_path: str):
@@ -607,12 +605,12 @@ def build_safe_container_name(package: str, f_name: str, pid: str = "") -> str:
 
     return container_name
 
-def test_zeroday_task_cleanup(pid: int, proc_pid: int, this_script_name: str, npm_cache_path: str, io_lock: multiprocessing.Lock, grades: Dict, main_terminal_msgs: List[str], grades_explodejs: str, process_out: TextIO) -> None:
+def test_zeroday_task_cleanup(pid: int, proc_pid: int, npm_cache_path: str, io_lock: multiprocessing.Lock, grades: Dict, main_terminal_msgs: List[str], grades_explodejs: str, process_out: TextIO) -> None:
 
     
     
 
-    print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+    print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
 
     # Need delete npm cache directory to save space on disk.
     if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
@@ -625,7 +623,7 @@ def test_zeroday_task_cleanup(pid: int, proc_pid: int, this_script_name: str, np
     with open(grades_explodejs, "w") as f:
         f.write(json.dumps(grades, indent=4) + '\n')
 
-        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
 
     process_out.close()
 
@@ -650,7 +648,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     
     """
 
-    this_script_name: str = os. path. basename(__file__)
+    
 
     f_name: str = file_path[file_path.rfind(os.path.sep) + 1:]
     pid: int = os.getpid()
@@ -677,17 +675,17 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     http_port: int = find_exclusive_port(pid, process_port_map, base_port=1024)
     bolt_port: int = find_exclusive_port(pid, process_port_map, base_port=http_port + 1)
 
-    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - BOLT:\t{bolt_port}->7687\tHTTP:\t{http_port}->7474' + Fore.RESET, flush=True)
+    print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - BOLT:\t{bolt_port}->7687\tHTTP:\t{http_port}->7474' + Fore.RESET, flush=True)
     
     io_lock.release()
 
-    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Logging: {log_path}' + Fore.RESET)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Logging: {log_path}' + Fore.RESET)
 
-    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running explodejs.sh for: \n\tPACKAGE: {package}\n\tFILE: {file_path}' + Fore.RESET)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Running explodejs.sh for: \n\tPACKAGE: {package}\n\tFILE: {file_path}' + Fore.RESET)
 
-    print(f'[INFO][{this_script_name}] - PID {pid} - Daemon process: {process.daemon}', file=process_out)
-    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True, file=process_out)
-    print(f"[INFO][{this_script_name}] - PID {pid} HTTP {http_port} BOLT {bolt_port}", file=process_out)
+    print(f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Daemon process: {process.daemon}', file=process_out)
+    print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Running Explode.js for PACKAGE: {package} || FILE: {file_path}' + Fore.RESET, flush=True, file=process_out)
+    print(f"[INFO][{THIS_SCRIPT_NAME}] - PID {pid} HTTP {http_port} BOLT {bolt_port}", file=process_out)
 
     
 
@@ -715,8 +713,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     # Define custom directory for npm cache files instead of using OS' temp dir.
     # It will be created by explodejs.sh.
     npm_cache_path: str = os.path.join(explodejs_path, "npm-cache-directory")
-    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET, flush=True, file=process_out)
-    #main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET)
+    print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET, flush=True, file=process_out)
+    #main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - npm cache directory: {npm_cache_path}' + Fore.RESET)
 
     
 
@@ -739,8 +737,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     #explode_js_cmd = f'./explodejs.sh -xf "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
 
     explode_js_cmd = f'./explodejs.sh -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
-    print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
-    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
+    print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {explode_js_cmd}' + Fore.RESET)
 
     proc_pid = None
     
@@ -749,7 +747,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         start = time.time()
 
 
-        #print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
+        #print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
 
         explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
         proc_pid = explode_proc.pid
@@ -757,10 +755,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         
         end = time.time()
 
-        #print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - Post explodejs.sh call.', flush=True)
+        #print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Post explodejs.sh call.', flush=True)
         
 
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET)
 
         # Write explodejs.sh result data files.
         with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
@@ -769,26 +767,26 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         check_vulnerability_detection(grades, taint_summary_file)
         check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
 
-        test_zeroday_task_cleanup(pid, proc_pid, this_script_name, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+        test_zeroday_task_cleanup(pid, proc_pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
         return (package, file_path, explodejs_path, grades)
     except FileNotFoundError as e:
 
-        print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
 
-        print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
 
-        print(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
         print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
         
-        main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{this_script_name}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
         main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         hierarchy_pkill(explode_proc.pid)
 
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
         io_lock.acquire()
         print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
@@ -803,12 +801,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
     except subprocess.TimeoutExpired as e:
         
-        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.TimeoutExpired' + Fore.RESET, flush=True, file=process_out)
         print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
-        main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
 
-        #print(f'[INFO][{this_script_name}] - Timeout expired.', flush=True)
+        #print(f'[INFO][{THIS_SCRIPT_NAME}] - Timeout expired.', flush=True)
         
         if os.path.exists(norm_file):
             check_graph_construction_zeroday(grades, norm_file)
@@ -821,7 +819,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         grades["symb_test"] = "TIMEOUT"
 
         # Need to stop the Docker container if it still exists after the timeout triggered.          
-        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
 
         # Check list of Docker container names.
         docker_client = docker.from_env()
@@ -845,17 +843,17 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             
         except docker.errors.NotFound as e:
-            print(Fore.Red + f'\n\n[INFO][{this_script_name}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.Red + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET, flush=True, file=process_out)
 
             print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
             container_list.remove(neo4j_container_name)
 
-            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
         except docker.errors.APIError as e:
             print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
 
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - unknown docker API error.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - unknown docker API error.' + Fore.RESET)
 
             # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
             hierarchy_pkill(explode_proc.pid)
@@ -868,32 +866,32 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # Stop the container in case it still existed.
         if neo4j_container_name in docker_containers:
 
-            main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
 
-            print(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
             
             docker_containers[neo4j_container_name].stop()
             container_list.remove(neo4j_container_name)
 
-            main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
-        test_zeroday_task_cleanup(pid, proc_pid, this_script_name, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+        test_zeroday_task_cleanup(pid, proc_pid, THIS_SCRIPT_NAME, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True)
+        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True)
         hierarchy_pkill(proc_pid)
-        print(Fore.MAGENTA + f'\n\n[INFO][{this_script_name}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True)
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{this_script_name}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
         return (package, file_path, explodejs_path, grades)
 
         
 
     except subprocess.CalledProcessError as e:
-        print(Fore.RED + f'[ERROR][{this_script_name}] - PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
         print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
         
-        main_terminal_msgs.append(Fore.RED + f'[INFO][{this_script_name}] - PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
 
         if os.path.exists(norm_file):
             check_graph_construction_zeroday(grades, norm_file)
@@ -931,7 +929,6 @@ def init_pool():
 
 def docker_container_cleanup(container_names: ListProxy):
     
-    this_script_name: str = os. path. basename(__file__)
 
     # Get existing Docker container instances.
     docker_client = docker.from_env()
@@ -955,32 +952,32 @@ def docker_container_cleanup(container_names: ListProxy):
                 docker_containers[container.name] = container
 
             need_containers = False
-            print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - retrieved {len(docker_containers)} containers.' + Fore.RESET, flush=True)
+            print(Fore.MAGENTA + f'[CLEANUP][{THIS_SCRIPT_NAME}] - retrieved {len(docker_containers)} containers.' + Fore.RESET, flush=True)
 
         except docker.errors.NotFound as e:
-            print(Fore.RED + f'\n\n[CLEANUP][{this_script_name}] - docker_client.containers bug: a container was stopped after this access but before the access finished.' + Fore.RESET, flush=True)
-            print(Fore.RED + f'[CLEANUP][{this_script_name}] - retrying...' + Fore.RESET, flush=True)
+            print(Fore.RED + f'\n\n[CLEANUP][{THIS_SCRIPT_NAME}] - docker_client.containers bug: a container was stopped after this access but before the access finished.' + Fore.RESET, flush=True)
+            print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - retrying...' + Fore.RESET, flush=True)
             sys.sleep(3)
         except docker.errors.APIError as e:
             print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
-            print(Fore.RED + f'[CLEANUP][{this_script_name}] - unknown docker API error.' + Fore.RESET, flush=True)
+            print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - unknown docker API error.' + Fore.RESET, flush=True)
             raise e
     
     # Iterate the container names launched by multiprocessing pool processes so far.
     for c in container_names:
         if c in docker_containers.keys():
-            print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - will try to stop container {c}.' + Fore.RESET, flush=True)
+            print(Fore.MAGENTA + f'[CLEANUP][{THIS_SCRIPT_NAME}] - will try to stop container {c}.' + Fore.RESET, flush=True)
             try:
                 docker_containers[c].stop()
-                print(Fore.MAGENTA + f'[CLEANUP][{this_script_name}] - stopped container {c}.' + Fore.RESET, flush=True)
+                print(Fore.MAGENTA + f'[CLEANUP][{THIS_SCRIPT_NAME}] - stopped container {c}.' + Fore.RESET, flush=True)
         
             except docker.errors.NotFound as e:
-                print(Fore.RED + f'[CLEANUP][{this_script_name}] - {c} was already stopped.' + Fore.RESET, flush=True)
+                print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - {c} was already stopped.' + Fore.RESET, flush=True)
             except docker.errors.APIError as e:
                 print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
                 raise e
 
-    print(Fore.MAGENTA + f'\n\n[CLEANUP][{this_script_name}] - exiting.\n' + Fore.RESET, flush=True)
+    print(Fore.MAGENTA + f'\n\n[CLEANUP][{THIS_SCRIPT_NAME}] - exiting.\n' + Fore.RESET, flush=True)
 
 
 def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
@@ -990,8 +987,6 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
     @param: target_sheet_name The name of the Google Sheets sheet to use.
     @param concurrency_level: the size of the :class:`multiprocessing.Pool` to use for concurrent processses.
     """
-
-    this_script_name: str = os. path. basename(__file__)
 
     # Create worksheet if it does not exist.
     if not (args.start_package == 0 and args.finish_package == 0):
@@ -1280,15 +1275,6 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
             pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
         
-        
-
-            # test_list = package_f_tuples[0:7]
-
-            # print("TEST TUPLES")
-            # pprint.pprint(test_list)
-            # print("")
-            # print("")
-
             # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
             # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
             # https://superfastpython.com/multiprocessing-pool-issue-tasks/
@@ -1346,13 +1332,13 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             pool_closed = True
 
         except FileNotFoundError as e:
-            print(Fore.RED + f'[CLEANUP][{this_script_name}] - FileNotFoundError in child process, stopping.' + Fore.RESET)
+            print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - FileNotFoundError in child process, stopping.' + Fore.RESET)
         except docker.errors.APIError as e:
             pass
         except KeyboardInterrupt:
-            print(Fore.RED + f'\n[CLEANUP][{this_script_name}] - KeyboardInterrupt, stopping.' + Fore.RESET)
+            print(Fore.RED + f'\n[CLEANUP][{THIS_SCRIPT_NAME}] - KeyboardInterrupt, stopping.' + Fore.RESET)
         finally:
-            print(Fore.RED + f'[CLEANUP][{this_script_name}] - Closing Docker containers...' + Fore.RESET)
+            print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - Closing Docker containers...' + Fore.RESET)
             
 
             # Need to terminate the multiprocessing pool in case it hasn't been closed.
@@ -1421,6 +1407,32 @@ def test_zeroday_dataset():
         else:
             print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
 
+def build_neo4j_docker_image(target_docker_image: str ='neo4j-docker') -> bool:
+
+    # Get executing Python script's directory.
+    # See: https://www.geeksforgeeks.org/get-directory-of-current-python-script/
+    script_directory: str = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+    build_script_path: str = os.path.join(script_directory, "neo4j-custom", "build_neo4j_container.sh")
+
+    docker_build_img_cmd = f'{build_script_path} {target_docker_image}'
+
+    start = time.time()
+
+    docker_build_img_proc = subprocess.Popen(docker_build_img_cmd, shell=True)
+
+    exit_code = docker_build_img_proc.wait()
+
+    end = time.time()
+
+    print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Neo4j docker image build script took {end-start} seconds.' + Fore.RESET)
+
+    if not exit_code == 0:
+        print(Fore.RED + f'[STARTUP][{THIS_SCRIPT_NAME}] - Neo4j docker image script encountered a problem.' + Fore.RESET)
+        return False
+    
+    return True
+
 
 
 if __name__ == "__main__":
@@ -1478,7 +1490,16 @@ if __name__ == "__main__":
 
 
     if args.tool == "explode.js" and args.d == "zeroday":
+
+        if build_neo4j_docker_image():
+            print(Fore.MAGENTA + f'Neo4j docker image is ready.' + Fore.RESET)
+        else:
+            print(Fore.MAGENTA + f'There was an error preparing the docker image.' + Fore.RESET)
+            exit(1)
+
         #test_zeroday_dataset()
+
+
 
         sheet_name: str = "ZeroDay Concurrent Test"
 

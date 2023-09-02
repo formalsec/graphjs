@@ -76,7 +76,7 @@ RESULTS_DIR="execution-results"
 # Build neo4j Docker image.
 BUILD_IMAGE=false
 
-if [ BUILD_IMAGE ]
+if [ $BUILD_IMAGE ]
 then
     echo "[INFO][$THIS_SCRIPT] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
     if [[ "$OSTYPE" =~ ^darwin ]]; then

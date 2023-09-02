@@ -21,6 +21,14 @@ pushd "$CURR_DIR" > /dev/null
 
 
 IMAGE_NAME="neo4j-docker"
+
+if [ "$#" -e 1 ]
+then
+  IMAGE_NAME="$1"
+fi
+
+echo "[INFO][$THIS_SCRIPT] - Using docker image name $IMAGE_NAME."
+
 # Check if the image exists locally.
 # See: https://tecadmin.net/check-if-a-docker-image-exists-locally/
 if docker image inspect $IMAGE_NAME >/dev/null 2>&1; then
