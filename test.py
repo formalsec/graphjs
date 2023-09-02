@@ -771,6 +771,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         test_zeroday_task_cleanup(pid, proc_pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
+        
+
         return (package, file_path, explodejs_path, grades)
     except FileNotFoundError as e:
 
@@ -880,9 +882,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         test_zeroday_task_cleanup(pid, proc_pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True)
+        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
         hierarchy_pkill(proc_pid)
-        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True)
+        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
         return (package, file_path, explodejs_path, grades)
@@ -1317,8 +1319,9 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         #pdb.set_trace()
         
         try:
-            #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
-            pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
+            pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
+            #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
+            
         
             # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
             # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
