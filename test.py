@@ -1334,8 +1334,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         #pdb.set_trace()
         
         try:
-            pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
-            #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
+            #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
+            pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
             
         
             # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
