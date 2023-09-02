@@ -751,7 +751,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         #print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
 
-        explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
+        #explode_proc = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
+
+        explode_proc = subprocess.Popen(explode_js_cmd, stdout=process_out, stderr=process_out)
         proc_pid = explode_proc.pid
         explode_proc.wait(timeout=300)
         
