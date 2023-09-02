@@ -29,15 +29,16 @@ from typing import Dict, List, Tuple, TextIO, Set
 # Some constants.
 DOCKER_CONTAINER_MAX_LEN: int = 128
 THIS_SCRIPT_NAME: str = os. path. basename(__file__)
+INDEX_FILE_PACKAGE_TOKEN=">>>>"
 
-# Default datasets
+# Default datasets.
 VULNERABLE_EXAMPLE_DATASET = "datasets/example-dataset/vulnerable/proto_pollution/*"
 INJECTION_DATASET = "./datasets/injection-dataset/CWE-471/*"
 ZERODAY_DATASET = "./datasets/zeroday-dataset/packages/src/*"
 ZERODAY_TESTED_LIST = "./datasets/zeroday-dataset/packages-tested.txt"
 ZERODAY_CONCURRENT_LOGS = "./datasets/zeroday-dataset/concurrency-logs"
 
-# Google Sheets Config
+# Google Sheets Config.
 service_account = gspread.service_account(filename=".config/service_account.json")
 sheet = service_account.open("explode.js-vs-odgen")
 
@@ -1088,7 +1089,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         # Get index file ready.
         index_file_path: str = os.path.join(output_dir, "packages-index.txt")
 
-        INDEX_FILE_PACKAGE_TOKEN=">>>>"
+        
 
         def make_index_file(index_file_path: str, package_paths: List[str]) -> Dict[str, List[str]]:
 
@@ -1407,6 +1408,45 @@ def test_zeroday_dataset():
         else:
             print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
 
+def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt') -> bool:
+    index_file_path: str = os.path.join(input_path, index_name)
+
+    # Interact with the operating system to get all packages, sorted.
+    input_packages = f"{input_packages}{os.path.sep}*"
+    package_paths: List[str] = glob(input_packages)
+    package_paths.sort()
+
+    # If there were no packages found, warn the user and exit.
+    if len(package_paths) == 0:
+        print(Fore.RED + f'[STARTUP][{THIS_SCRIPT_NAME}] - found zero packages to process in the provided input directory\n\t{input_path}...' + Fore.RESET)
+        print(Fore.RED + f'[STARTUP][{THIS_SCRIPT_NAME}] - not generating dataset index\n\t{index_file_path}...' + Fore.RESET)
+
+        return False
+    
+    # Generate the index file if it does not exist.
+    if not os.path.exists(index_file_path):
+        print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - input directory index not found, creating index:\n\t{index_file_path}...' + Fore.RESET)
+
+        with open(index_file_path, "w") as index_fh:
+
+            package_ctr: int = 0
+            js_file_ctr: int = 0
+
+            for package_path in package_paths:
+                package: str = os.path.basename(package_path)
+
+                package_ctr += 1
+
+                file_paths: List[str] = get_js_files(package_path)
+
+                js_file_ctr += len(file_paths)
+                
+                index_fh.write(f'{package}{INDEX_FILE_PACKAGE_TOKEN}{INDEX_FILE_PACKAGE_TOKEN.join(file_paths)}\n')
+
+        print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - generated dataset index:\n\t{package_ctr} packages\n\t{js_file_ctr} files.' + Fore.RESET)
+
+    return True
+
 def build_neo4j_docker_image(target_docker_image: str ='neo4j-docker') -> bool:
 
     # Get executing Python script's directory.
@@ -1490,21 +1530,24 @@ if __name__ == "__main__":
             args.output_dir = os.path.expanduser(args.output_dir).replace('\\', '/')
         pathlib.Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
+    # Generate an index file for the whole dataset.
+    print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Generating dataset index file.' + Fore.RESET)
+    index_name: str = "dataset-index.txt"
+    if not generate_dataset_index(args.input, index_name):
+        sys.exit(1)
+    
     if args.index_only == True:
-        print("INDEX ONLY TRUE")
-    else:
-        print("INDEX ONLY FALSE")
-
-    sys.exit(0)
+        print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Passed option to only generate dataset index. Exiting.' + Fore.RESET)
+        sys.exit(0)
 
     
 
     if args.tool == "explode.js" and args.d == "zeroday":
 
         if build_neo4j_docker_image():
-            print(Fore.MAGENTA + f'Neo4j docker image is ready.' + Fore.RESET)
+            print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Neo4j docker image is ready.' + Fore.RESET)
         else:
-            print(Fore.MAGENTA + f'There was an error preparing the docker image.' + Fore.RESET)
+            print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - There was an error preparing the docker image.' + Fore.RESET)
             exit(1)
 
         #test_zeroday_dataset()
