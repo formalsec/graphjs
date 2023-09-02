@@ -629,7 +629,7 @@ def test_zeroday_task_cleanup(pid: int, npm_cache_path: str, io_lock: multiproce
 
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
 
-    process_out.close()
+    #process_out.close()
 
 def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, str, Dict]:
     """
@@ -782,6 +782,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
+        process_out.close()
+
         
 
         return (package, file_path, explodejs_path, grades)
@@ -899,6 +901,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+
+        process_out.close()
 
         return (package, file_path, explodejs_path, grades)
 
