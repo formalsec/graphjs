@@ -1271,6 +1271,10 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                 for f in file_paths:
 
+                    if package == "0x-typescript-typings-5.3.2":
+                        print(f'len(f) = {len(f)}\tf = {f}')
+                        sys.exit(0)
+
                     if not package in started_packages.keys():
                         package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
                         continue
