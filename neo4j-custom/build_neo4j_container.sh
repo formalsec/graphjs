@@ -22,7 +22,7 @@ pushd "$CURR_DIR" > /dev/null
 
 IMAGE_NAME="neo4j-docker"
 
-if [ "$#" -e 1 ]
+if [ "$#" -eq 1 ]
 then
   IMAGE_NAME="$1"
 fi
