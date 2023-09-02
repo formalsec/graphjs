@@ -15,7 +15,9 @@ fi
 
 
 CURR_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"  # cd current directory
-pushd "$CURR_DIR"
+
+# Not printing the output of 'pushd'.
+pushd "$CURR_DIR" > /dev/null
 
 
 IMAGE_NAME="neo4j-docker"
@@ -35,4 +37,4 @@ else
     echo "[INFO][$THIS_SCRIPT] - Docker image $IMAGE_NAME finished building."
 fi
 
-popd
+popd > /dev/null
