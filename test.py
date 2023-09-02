@@ -1573,8 +1573,6 @@ if __name__ == "__main__":
         pathlib.Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     # Generate an index file for the whole dataset.
-    print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Generating dataset index file.' + Fore.RESET)
-    
     if not generate_dataset_index(args.input, DATASET_INDEX_NAME):
         sys.exit(1)
     
