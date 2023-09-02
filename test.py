@@ -1412,7 +1412,7 @@ def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt
     index_file_path: str = os.path.join(input_path, index_name)
 
     # Interact with the operating system to get all packages, sorted.
-    input_packages = f"{input_packages}{os.path.sep}*"
+    input_packages = f"{input_path}{os.path.sep}*"
     package_paths: List[str] = glob(input_packages)
     package_paths.sort()
 
