@@ -877,7 +877,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
-        test_zeroday_task_cleanup(pid, proc_pid, THIS_SCRIPT_NAME, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+        test_zeroday_task_cleanup(pid, proc_pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True)
