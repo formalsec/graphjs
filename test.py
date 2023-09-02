@@ -1256,8 +1256,14 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                 # Get paths of files associated to the current package.
                 
                 
+                
                 file_paths: List[str] = dataset_package_file_paths[package]
                 package_file_count[package] = len(file_paths)
+
+                if package == "0x-typescript-typings-5.3.2":
+                    print(f'len(file_paths) = {file_paths}')
+                    print(f'package_file_count[package] = {package_file_count[package]}')
+                    sys.exit(0)
 
                 #file_paths: List[str] = get_js_files(package_path)
                 if package_file_count[package] == 0:
