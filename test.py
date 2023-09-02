@@ -1094,6 +1094,11 @@ def read_dataset_index(index_path: str, package_start_ind: int = 0, package_fini
 
                 if not package in dataset_package_file_paths:
                     dataset_package_file_paths[package] = []
+
+                if len(tkns) == 2:
+                    print(f'package: {package}')
+                    pprint.pprint(tkns)
+                    sys.exit(0)
                 
                 for jsp in js_paths:
                     dataset_package_file_paths[package].append(jsp)
