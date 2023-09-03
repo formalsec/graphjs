@@ -658,7 +658,11 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
     f_name: str = file_path[file_path.rfind(os.path.sep) + 1:]
     pid: int = os.getpid()
+
     log_file: str = f"PID-{pid}-{package}-{f_name}.log"
+    
+    # Escape the '$' for legibility.
+    log_file = log_file.replace("$", "S")
     log_path: str = os.path.join(output_dir, "logs", log_file)
     #log_path: str = os.path.join(ZERODAY_CONCURRENT_LOGS, log_file)
 
@@ -745,6 +749,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     script_directory: str = os.path.dirname(os.path.abspath(sys.argv[0]))
     explodejs_bin_path: str = os.path.join(script_directory, "explodejs.sh")
     explode_js_cmd = f'{explodejs_bin_path} -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
+
+    # Need to escape '$' character, otherwise explodejs will have problems reading the parameters.
+    explode_js_cmd = explode_js_cmd.replace("$", "\\$")
 
     #explode_js_cmd = f'./explodejs.sh -f "{file_path}" -p {neo4j_container_name} -c config.json -e "{explodejs_path}" -w {http_port} -b {bolt_port}'
     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {explode_js_cmd}\n\n' + Fore.RESET, flush=True, file=process_out)
