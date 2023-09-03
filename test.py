@@ -564,9 +564,11 @@ def hierarchy_pkill(executing_pid: int, proc_pid: subprocess.Popen = None) -> No
     # Kill children processes if they exist.
     process: psutil.Process = psutil.Process(proc_pid.pid)
     
-    for proc in process.children(recursive=True):
+    children: List[psutil.Process] = process.children(recursive=True)
+    for proc in children:
         print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {executing_pid} - Kill:\t{proc.pid}' + Fore.RESET, flush=True)
-        proc.kill()
+        #proc.kill()
+        proc.wait()
     
     #process.kill()
 
