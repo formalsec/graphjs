@@ -810,8 +810,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
 
-        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
-        #hierarchy_pkill(pid, explode_proc)
+        
 
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
@@ -822,6 +821,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # Need delete npm cache directory to save space on disk.
         if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
             shutil.rmtree(npm_cache_path)
+
+        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        #hierarchy_pkill(pid, explode_proc)
 
 
         raise e
