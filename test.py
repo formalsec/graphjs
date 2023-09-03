@@ -757,7 +757,13 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         #print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
 
-        explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
+        #explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
+
+        # Using 'start_new_session' to kill all subprocesses in a single call.
+        # See: https://alexandra-zaharia.github.io/posts/kill-subprocess-and-its-children-on-timeout-python/
+        explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out, start_new_session=True)
+
+        
 
         #explode_proc = subprocess.Popen(explode_js_cmd, shell=True)
 
@@ -803,7 +809,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        hierarchy_pkill(pid, explode_proc)
+
+        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        #hierarchy_pkill(pid, explode_proc)
 
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
@@ -875,7 +883,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - unknown docker API error.' + Fore.RESET)
 
             # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-            hierarchy_pkill(pid, explode_proc)
+            #hierarchy_pkill(pid, explode_proc)
+            os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
             
             # Need delete npm cache directory to save space on disk.
             if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
@@ -899,7 +908,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
 
-        hierarchy_pkill(pid, explode_proc)
+        #hierarchy_pkill(pid, explode_proc)
+        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
 
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
