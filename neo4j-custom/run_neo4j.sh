@@ -1,7 +1,9 @@
 #!/bin/bash
-DEBUG=true
+DEBUG=false
 
 THIS_SCRIPT=$(basename "$BASH_SOURCE")
+
+echo "[INFO][$THIS_SCRIPT] - DEBUG = $DEBUG"
 
 if [[ -z $1 ]]; then
     echo "$0: Required path containing graph files"
@@ -71,25 +73,36 @@ RESULTS_DIR="execution-results"
 # On 'docker run -p HOST_PORT:CONTAINER_INNER_PORT' mapping:
 # https://www.baeldung.com/linux/assign-port-docker-container
 
-# Build container
-echo "[INFO] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
-if [[ "$OSTYPE" =~ ^darwin ]]; then
-  docker build --platform linux/amd64 . -t neo4j-docker
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  docker build --platform linux/x86_64 -q . -t neo4j-docker
+# Build neo4j Docker image.
+BUILD_IMAGE=false
+
+if [ $BUILD_IMAGE ]
+then
+    echo "[INFO][$THIS_SCRIPT] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      docker build --platform linux/amd64 . -t neo4j-docker
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      docker build --platform linux/x86_64 -q . -t neo4j-docker
+    else
+      docker build . -t neo4j-docker
+    fi
 else
-  docker build . -t neo4j-docker
+    echo "[INFO][$THIS_SCRIPT] - not building image via the current script."
 fi
 
-echo "[INFO][$THIS_SCRIPT] - Running container $NEO4J_EXPLODEJS_CONTAINER"
-echo "[INFO][$THIS_SCRIPT] - Running HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+
+echo "[INFO][$THIS_SCRIPT] - Running container $NEO4J_EXPLODEJS_CONTAINER - HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
+
 
 # Activate debugging from here.
 # https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_02_03.html
 # set -x		
 
+echo "[INFO][$THIS_SCRIPT] - Calling 'docker run' with --detach=$DEBUG"
+
 if [ "$DEBUG" = true ]; then
     # Run container
+    
     docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v "$GRAPH_DIR_PATH":/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
@@ -102,7 +115,7 @@ if [ "$DEBUG" = true ]; then
 
     docker_status=$?
     if [ $docker_status -eq 0 ]; then
-        echo "[INFO][$THIS_SCRIPT] - docker run succeeded"
+        echo "[INFO][$THIS_SCRIPT] - docker run succeeded or closed with Ctrl+C (--detach=$DEBUG)"
     else
         echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)"
     fi
@@ -119,7 +132,8 @@ else
     # Wait for neo4j to start inside the container
     sleep 5
     until docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER | grep -q "Started."; do
-      sleep 1
+      sleep 3
+      echo "[INFO][$THIS_SCRIPT] - Checking if neo4j has printed 'Started' in 'docker run' (--detach=$DEBUG) container launch."
     done
     exit 0
 fi
