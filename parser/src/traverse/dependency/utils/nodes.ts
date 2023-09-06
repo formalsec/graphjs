@@ -1,6 +1,6 @@
 import { GraphNode } from "../../graph/node";
 import { getASTNode } from "../../../utils/utils";
-import { Identifier, ThisExpression } from "estree";
+import { type Identifier, type ThisExpression } from "estree";
 
 export function getFunctionName(node: GraphNode): { calleeName: string, functionName: string } {
     const callASTNode = getASTNode(node, "callee");
