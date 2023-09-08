@@ -788,6 +788,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET)
 
+
+        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET, flush=True, file=process_out)
+        
+
         # Write explodejs.sh result data files.
         with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
             f.write(f"{end - start:.2f} seconds\n")
@@ -803,21 +807,16 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         return (package, file_path, explodejs_path, grades)
     except FileNotFoundError as e:
+        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
         print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
 
         print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
-
-        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
-        print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
-
+    
         
         main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
         main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
-
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-
-        
 
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
@@ -829,8 +828,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
             shutil.rmtree(npm_cache_path)
 
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
         os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
         #hierarchy_pkill(pid, explode_proc)
+
+        # TODO: this 'raise e' should somehow be detected by the main thread to stop everything and 
+        # print all details of the exception.
 
 
         raise e
@@ -883,7 +886,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
-            container_list.remove(neo4j_container_name)
+            if neo4j_container_name in container_list:
+                container_list.remove(neo4j_container_name)
 
             main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
         except docker.errors.APIError as e:
@@ -898,7 +902,17 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             # Need delete npm cache directory to save space on disk.
             if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
                 shutil.rmtree(npm_cache_path)
+
+            # TODO: this 'raise e' should somehow be detected by the main thread to stop everything and 
+            # print all details of the exception.
+
             raise e
+        
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
+
+        #hierarchy_pkill(pid, explode_proc)
+        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
     
         # Stop the container in case it still existed.
         if neo4j_container_name in docker_containers:
@@ -912,16 +926,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
-        test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+        
 
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
-
-        #hierarchy_pkill(pid, explode_proc)
-        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        
 
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+
+        test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
         process_out.close()
 
@@ -944,6 +956,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         else:
             grades["detection"] = "ERROR"
         grades["symb_test"] = "ERROR"
+
+        # TODO: this 'raise e' should somehow be detected by the main thread to stop everything and 
+        # print all details of the exception.
 
         raise e
     
