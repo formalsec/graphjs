@@ -566,8 +566,14 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
             # pprint.pprint(type(error_message))
             # pprint.pprint(error_status)
 
-            
-            if error_code == 500 and error_status == "INTERNAL" and "error encountered" in error_message:
+            if error_code == 429:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - too many requests error from Google API, sleeping 60 seconds.' + Fore.RESET)
+
+                time.sleep(60)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying \'{current_op}\'.' + Fore.RESET)
+
+            elif error_code == 500 and error_status == "INTERNAL" and "error encountered" in error_message:
                 print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - operation failed.' + Fore.RESET)
                 retry_count -= 1
 
@@ -608,7 +614,6 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
             elif error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds grid limits" in error_message:
                 # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
                 current_op = 'ws.add_rows'
-                #ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
             else:
                 print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
                 return False
