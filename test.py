@@ -1556,6 +1556,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
                 if len(res_grades) == 0:
                     closing_pool_from_error = True
+                    print(Fore.RED + f'Detected an error from one of the workers, stopping everything...' + Fore.RESET)
                     break
                
                 # NOTE: This lock.aquire() may be unnecessary, research it...
