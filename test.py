@@ -1191,7 +1191,7 @@ def docker_container_cleanup(container_names: ListProxy):
         except docker.errors.NotFound as e:
             print(Fore.RED + f'\n\n[CLEANUP][{THIS_SCRIPT_NAME}] - docker_client.containers bug: a container was stopped after this access but before the access finished.' + Fore.RESET, flush=True)
             print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - retrying...' + Fore.RESET, flush=True)
-            sys.sleep(3)
+            time.sleep(3)
         except docker.errors.APIError as e:
             print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
             print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - unknown docker API error.' + Fore.RESET, flush=True)
