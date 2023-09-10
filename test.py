@@ -965,15 +965,51 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         #print(f'[INFO][{THIS_SCRIPT_NAME}] - Timeout expired.', flush=True)
         
-        if os.path.exists(norm_file):
-            check_graph_construction_zeroday(grades, norm_file)
-        else: 
-            grades["graph_construction"] = "TIMEOUT"
-        if os.path.exists(taint_summary_file):
-            check_graph_construction_zeroday(grades, taint_summary_file)
-        else:
-            grades["detection"] = "TIMEOUT"
-        grades["symb_test"] = "TIMEOUT"
+        try:
+            if os.path.exists(norm_file):
+                check_graph_construction_zeroday(grades, norm_file)
+            else: 
+                grades["graph_construction"] = "TIMEOUT"
+            if os.path.exists(taint_summary_file):
+                check_graph_construction_zeroday(grades, taint_summary_file)
+            else:
+                grades["detection"] = "TIMEOUT"
+            grades["symb_test"] = "TIMEOUT"
+        except UnicodeDecodeError as e:
+            print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+
+
+            print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
+
+
+            main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+
+            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+
+            main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning empty \'grades\' dict so that the main process terminates the pool and stops.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
+
+            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+            #hierarchy_pkill(pid, explode_proc)
+            os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+            
+            # Need to delete npm cache directory to save space on disk.
+            if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+                shutil.rmtree(npm_cache_path)
+
+            process_out.close()
+            grades = {}
+
+            return (package, file_path, explodejs_path, grades)
+
 
         # Need to stop the Docker container if it still exists after the timeout triggered.          
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
