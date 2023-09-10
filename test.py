@@ -740,6 +740,14 @@ def test_zeroday_task_cleanup(pid: int, npm_cache_path: str, io_lock: multiproce
 
     #process_out.close()
 
+def explodejs_killpg(explode_proc: subprocess.Popen) -> str:
+    try:
+        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        return f'os.killpg(os.getpgid({explode_proc.pid})): successful'
+    except ProcessLookupError as e:
+        return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{traceback.format_exc()}'
+
+
 def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, str, Dict]:
     """
     Function to be run by each concurrent process.
@@ -914,6 +922,12 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         return (package, file_path, explodejs_path, grades)
     except FileNotFoundError as e:
+
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        killpg_msg: str = explodejs_killpg(explode_proc)
+        #hierarchy_pkill(pid, explode_proc)
+
         print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
         print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
@@ -921,7 +935,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
 
-        print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET, flush=True, file=process_out)
 
         print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
         print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
@@ -932,7 +946,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         
 
-        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET)
 
         main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning empty \'grades\' dict so that the main process terminates the pool and stops.' + Fore.RESET)
         main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
@@ -947,9 +961,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
             shutil.rmtree(npm_cache_path)
 
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
-        #hierarchy_pkill(pid, explode_proc)
+        
 
         process_out.close()
         grades = {}
@@ -976,11 +988,17 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 grades["detection"] = "TIMEOUT"
             grades["symb_test"] = "TIMEOUT"
         except UnicodeDecodeError as e:
+
+            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+            #hierarchy_pkill(pid, explode_proc)
+            #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+            killpg_msg: str = explodejs_killpg(explode_proc)
+
             print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
             print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
 
-            print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET, flush=True, file=process_out)
 
             print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
             print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
@@ -990,16 +1008,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
 
-            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET)
 
             main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning empty \'grades\' dict so that the main process terminates the pool and stops.' + Fore.RESET)
             main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
             main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
             main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
 
-            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-            #hierarchy_pkill(pid, explode_proc)
-            os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+            
             
             # Need to delete npm cache directory to save space on disk.
             if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
@@ -1062,7 +1078,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
             #hierarchy_pkill(pid, explode_proc)
-            os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+            #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+            killpg_msg: str = explodejs_killpg(explode_proc)
             
             # Need to delete npm cache directory to save space on disk.
             if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
@@ -1077,7 +1094,8 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
        # print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
 
         #hierarchy_pkill(pid, explode_proc)
-        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        killpg_msg: str = explodejs_killpg(explode_proc)
     
         # Stop the container in case it still existed.
         if neo4j_container_name in docker_containers:
@@ -1096,7 +1114,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         
 
         #print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET)
 
         test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
