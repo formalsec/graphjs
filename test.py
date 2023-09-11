@@ -1686,9 +1686,10 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             docker_container_cleanup(container_list)
 
             
-
-        print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET)
-
+        if not closing_pool_normally:
+            print(Fore.MAGENTA + f'Stopped processing due to error. Exiting.' + Fore.RESET)
+        else:
+            print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET)
     
 def test_zeroday_dataset():
     ws = load_sheet("ZeroDay Dataset")
