@@ -577,7 +577,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
             error_status: str = error_json.get("error", {}).get("status")
             error_message: str = error_json.get("error", {}).get("message")
 
-            info_str: str = get_gspread_exception_info_from_json(operation, error_code, error_status, error_message)
+            info_str: str = get_gspread_exception_info_from_json(current_op, error_code, error_status, error_message)
 
             print(Fore.RED + info_str + Fore.RESET, flush=True)
 
