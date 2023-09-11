@@ -1609,7 +1609,10 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         #import pdb
         #pdb.set_trace()
         
+
+
         try:
+            kb_interrupt: bool = False
             #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
             pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
             
@@ -1693,6 +1696,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - docker.errors.APIError in child process, stopping.' + Fore.RESET)
         except KeyboardInterrupt:
             print(Fore.RED + f'\n[CLEANUP][{THIS_SCRIPT_NAME}] - KeyboardInterrupt, stopping.' + Fore.RESET)
+            kb_interrupt = True
         finally:
             print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - Closing Docker containers...' + Fore.RESET)
             
@@ -1705,8 +1709,9 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
 
             docker_container_cleanup(container_list)
 
-            
-        if not closing_pool_normally:
+        if kb_interrupt:
+             print(Fore.MAGENTA + f'Stopped processing due to user CTRL+C. Exiting.' + Fore.RESET)
+        elif not closing_pool_normally:
             print(Fore.MAGENTA + f'Stopped processing due to error. Exiting.' + Fore.RESET)
         else:
             print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET)
