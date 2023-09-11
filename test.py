@@ -468,6 +468,22 @@ def get_gspread_exception_str(e: gspread.exceptions.APIError) -> str:
 
     return ret_val
 
+def get_gspread_exception_info_from_json(operation: str, error_code: int, error_status: str, error_message: str) -> str:
+    ret_str: str = f'[INFO][{THIS_SCRIPT_NAME}] - {operation} produced {error_code}:{error_status}\n\t{error_message}' + Fore.RESET
+
+    return ret_str
+
+def get_gspread_exception_info_from_response(operation: str, e: gspread.exceptions.APIError) -> str:
+    error_json = e.response.json()
+
+    error_code: int = error_json.get("error", {}).get("code")
+    error_status: str = error_json.get("error", {}).get("status")
+    error_message: str = error_json.get("error", {}).get("message")
+
+    ret_str: str = f'[INFO][{THIS_SCRIPT_NAME}] - {operation} produced {error_code}:{error_status}\n\t{error_message}' + Fore.RESET
+
+    return ret_str
+
 def handle_gspread_operation(e: gspread.exceptions.APIError, operation: str) -> int:
     error_json = e.response.json()
 
@@ -554,12 +570,16 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
 
             
         except gspread.exceptions.APIError as e:
-            print(Fore.RED + e.response + Fore.RESET, flush=True)
+            
             error_json = e.response.json()
 
             error_code: int = error_json.get("error", {}).get("code")
             error_status: str = error_json.get("error", {}).get("status")
             error_message: str = error_json.get("error", {}).get("message")
+
+            info_str: str = get_gspread_exception_info_from_json(operation, error_code, error_status, error_message)
+
+            print(Fore.RED + info_str + Fore.RESET, flush=True)
 
             # pprint.pprint(error_code)
             # pprint.pprint(error_message)
