@@ -40,8 +40,118 @@ ZERODAY_TESTED_LIST = "./datasets/zeroday-dataset/packages-tested.txt"
 ZERODAY_CONCURRENT_LOGS = "./datasets/zeroday-dataset/concurrency-logs"
 
 # Google Sheets Config.
-service_account = gspread.service_account(filename=".config/service_account.json")
-sheet = service_account.open("explode.js-vs-odgen")
+def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_name: str = "explode.js-vs-odgen") -> gspread.Spreadsheet:
+
+
+    # Number of retries that will be made in the face of the API stating the service 
+    # is unavailable.
+    MAX_RETRY_COUNT: int = 5
+    retry_count: int = MAX_RETRY_COUNT
+
+    # If the gspread API states the service is unavailable, sleep some minutes.
+    retry_sleep_time: int = 300
+
+    # Number of seconds to sleep between calls to the gspread API.
+    inter_operation_sleep: int = 5
+
+    # Loop until we get the sheet data or the maximum amount of retires was reached.
+    trying_to_open: bool = True
+
+    while trying_to_open:
+
+        # We are sleeping 'inter_operation_sleep' seconds between gspread calls 
+        # to avoid stressing the Google Sheet API.
+        # See: https://developers.google.com/sheets/api/limits
+        time.sleep(inter_operation_sleep)
+
+        try:
+            
+            current_op: str = 'gspread.service_account(filename=service_acc)'
+            service_account: gspread.client.Client = gspread.service_account(filename=service_acc)
+            current_op = 'gspread.client.Client.open(spreadsheet_name)'
+            sheet: gspread.Spreadsheet = service_account.open(spreadsheet_name)
+
+            # If a 'gspread' operation was successful, reset the retry counter.
+            return sheet
+                
+
+            
+        except gspread.exceptions.APIError as e:
+            
+            error_json = e.response.json()
+
+            error_code: int = error_json.get("error", {}).get("code")
+            error_status: str = error_json.get("error", {}).get("status")
+            error_message: str = error_json.get("error", {}).get("message")
+
+            info_str: str = get_gspread_exception_info_from_json(current_op, error_code, error_status, error_message)
+
+            print(Fore.RED + info_str + Fore.RESET, flush=True)
+
+            # pprint.pprint(error_code)
+            # pprint.pprint(error_message)
+            # pprint.pprint(type(error_message))
+            # pprint.pprint(error_status)
+
+            if error_code == 429:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - too many requests error from Google API, sleeping 60 seconds.' + Fore.RESET)
+
+                time.sleep(60)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying the opening of spreadsheet {spreadsheet_name}.' + Fore.RESET)
+
+            elif error_code == 500 and error_status == "INTERNAL" and "error encountered" in error_message:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - failed to open spreadsheet {spreadsheet_name}.' + Fore.RESET)
+                retry_count -= 1
+
+                if retry_count == 0:
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - All {MAX_RETRY_COUNT} spreadsheet {spreadsheet_name} opening retries failed.' + Fore.RESET)
+                    return None # failed writing to sheet.
+                
+
+                
+
+                print(Fore.RED + f'[WARN][{THIS_SCRIPT_NAME}] - service encountered an internal error while opening spreadsheet {spreadsheet_name}, sleeping {retry_sleep_time} seconds.' + Fore.RESET)
+
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+                time.sleep(retry_sleep_time)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - rretrying the opening of spreadsheet {spreadsheet_name} {retry_count} more times.' + Fore.RESET)
+            elif error_code == 503 and error_status == "UNAVAILABLE" and "service is currently unavailable" in error_message:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - operation failed.' + Fore.RESET)
+                retry_count -= 1
+
+                if retry_count == 0:
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - All {MAX_RETRY_COUNT} operation retries failed.' + Fore.RESET)
+                    return None # failed opening sheet.
+                
+
+                
+
+                print(Fore.RED + f'[WARN][{THIS_SCRIPT_NAME}] - service was unavailable, sleeping {retry_sleep_time} seconds.' + Fore.RESET)
+
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+                time.sleep(retry_sleep_time)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying the opening of spreadsheet {spreadsheet_name} {retry_count} more times.' + Fore.RESET)
+            else:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - unhandled error when trying to open worksheet {spreadsheet_name}' + Fore.RESET)
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+                return None
+
+sheet_name: str = "explode.js-vs-odgen"
+service_acc_file: str = ".config/service_account.json"
+sheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc_file, spreadsheet_name = sheet_name)
+if sheet == None:
+    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+else:
+    print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet sucessfully.' + Fore.RESET)
+#service_account: gspread.client.Client = gspread.service_account(filename=".config/service_account.json")
+#sheet: gspread.Spreadsheet = service_account.open("explode.js-vs-odgen")
+
+
 
 def clean_explodejs(dataset, exploit):
     for vulnerability in glob(dataset):
