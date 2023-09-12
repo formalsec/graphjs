@@ -176,6 +176,8 @@ else
     
       sleep 3
       
+      counter=$((counter+1))
+
       $((counter++))
 
       #if [[ $counter -eq 25 ]]; then
