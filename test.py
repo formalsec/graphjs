@@ -1094,6 +1094,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         
 
         process_out.close()
+        package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
         grades = {}
 
         return (package, file_path, explodejs_path, grades)
@@ -1152,6 +1153,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 shutil.rmtree(npm_cache_path)
 
             process_out.close()
+            package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
             grades = {}
 
             return (package, file_path, explodejs_path, grades)
@@ -1216,6 +1218,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 shutil.rmtree(npm_cache_path)
 
             process_out.close()
+            package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
             grades = {}
 
             return (package, file_path, explodejs_path, grades)
@@ -1286,6 +1289,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             shutil.rmtree(npm_cache_path)
 
         process_out.close()
+        package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
         grades = {}
 
     
@@ -1725,7 +1729,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreads
 
                 if len(res_grades) == 0:
                     closing_pool_from_error = True
-                    print(Fore.RED + f'Detected an error from one of the workers, stopping everything...' + Fore.RESET)
+                    print(Fore.RED + f'[ERROR] - Detected an error from one of the workers\n{res_package}\n[ERROR] - Stopping everything...' + Fore.RESET)
                     break
                
                 # NOTE: This lock.aquire() may be unnecessary, research it...
