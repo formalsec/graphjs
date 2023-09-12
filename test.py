@@ -117,7 +117,7 @@ def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_na
 
                 time.sleep(retry_sleep_time)
 
-                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - rretrying the opening of spreadsheet {spreadsheet_name} {retry_count} more times.' + Fore.RESET)
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying the opening of spreadsheet {spreadsheet_name} {retry_count} more times.' + Fore.RESET)
             elif error_code == 503 and error_status == "UNAVAILABLE" and "service is currently unavailable" in error_message:
                 print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - operation failed.' + Fore.RESET)
                 retry_count -= 1
@@ -141,15 +141,15 @@ def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_na
                 print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
                 return None
 
-sheet_name: str = "explode.js-vs-odgen"
-service_acc_file: str = ".config/service_account.json"
-sheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc_file, spreadsheet_name = sheet_name)
-if sheet == None:
-    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
-else:
-    print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet sucessfully.' + Fore.RESET)
-#service_account: gspread.client.Client = gspread.service_account(filename=".config/service_account.json")
-#sheet: gspread.Spreadsheet = service_account.open("explode.js-vs-odgen")
+# sheet_name: str = "explode.js-vs-odgen"
+# service_acc_file: str = ".config/service_account.json"
+# sheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc_file, spreadsheet_name = sheet_name)
+# if sheet == None:
+#     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+# else:
+#     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet sucessfully.' + Fore.RESET)
+# #service_account: gspread.client.Client = gspread.service_account(filename=".config/service_account.json")
+# #sheet: gspread.Spreadsheet = service_account.open("explode.js-vs-odgen")
 
 
 
@@ -180,7 +180,7 @@ def clean_odgen(dataset_path):
             if os.path.isfile(file_path):
                 os.remove(file_path)
 
-def test_odgen(dataset_path, dataset, update_sheets):
+def test_odgen(dataset_path: str, dataset, update_sheets):
     print(Fore.MAGENTA + f"Running ODGen for vulnerabilities in {dataset_path}" + Fore.RESET)
     advisories = glob(dataset_path)
     count = 1
@@ -479,8 +479,8 @@ def comapre_outputs(grades, expected_output, output):
     return grades
 
 
-def load_sheet(sheet_name) -> gspread.Worksheet:
-    return sheet.worksheet(sheet_name)
+def load_sheet(gspread_spreadsheet: gspread.Spreadsheet, sheet_name) -> gspread.Worksheet:
+    return gspread_spreadsheet.worksheet(sheet_name)
 
 
 def update_sheet(ws, dataset, vulnerable_file, grades):
@@ -1480,7 +1480,7 @@ def read_dataset_index(index_path: str, package_start_ind: int = 0, package_fini
 
     return package_paths, dataset_package_file_paths
 
-def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
+def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreadsheet: gspread.Spreadsheet, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
 
@@ -1493,42 +1493,24 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         target_sheet_name = f"ZDC-{package_start_ind}-{package_finish_ind}"
 
     try:
-        ws: gspread.Worksheet = load_sheet(target_sheet_name)
+        ws: gspread.Worksheet = load_sheet(gspread_spreadsheet, target_sheet_name)
         print("Loaded gspread.Spreadsheet: {}".format(target_sheet_name))
     except gspread.exceptions.WorksheetNotFound:
 
         # Copy 'ZDC-Template' sheet which is already formatted.
-        template_sheet: gspread.Worksheet = load_sheet("ZDC-Template")
+        template_sheet: gspread.Worksheet = load_sheet(gspread_spreadsheet, "ZDC-Template")
 
         # We want to store the new worksheet at the end of the Google Sheet tabs.
-        target_index: int = len(sheet.worksheets())
+        target_index: int = len(gspread_spreadsheet.worksheets())
 
         ws: gspread.Worksheet = template_sheet.duplicate(insert_sheet_index=target_index, new_sheet_name=target_sheet_name)
         
 
-
-        #ws = sheet.add_worksheet(target_sheet_name,"999","20")
         print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
-
-    #input_packages = f"{input_packages}{os.path.sep}*"
-    #package_paths: List[str] = glob(ZERODAY_DATASET)
-    #package_paths: List[str] = glob(input_packages)
-    #package_paths.sort()
-
-    # if len(package_paths) == 0:
-    #     print("Zeroday dataset: found zero packages to process in the provided directory. Perhaps an argument error? Exiting.")
-    #     sys.exit(1)
-
     
 
-    #print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
     print(f'Zeroday dataset directory: {input_packages}')
     
-
-    # if package_finish_ind == 0:
-    #     package_paths = package_paths[package_start_ind:]
-    # else:
-    #     package_paths = package_paths[package_start_ind:package_finish_ind]
 
     package_paths: List[str]
     dataset_package_file_paths: Dict[str, List[str]]
@@ -1782,7 +1764,6 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                     write_succeeded: bool = update_zeroday_sheet(ws, res_package, grades_d)
                     if write_succeeded:
                         add_package_to_tested_list(res_package, tested_package_file_list)
-                        #add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
                     else:
                         closing_pool_from_error = True
 
@@ -1822,7 +1803,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         if kb_interrupt:
              print(Fore.MAGENTA + f'Stopped processing due to user CTRL+C. Exiting.' + Fore.RESET)
         elif not closing_pool_normally:
-            print(Fore.MAGENTA + f'Stopped processing due to error. Exiting.' + Fore.RESET)
+            print(Fore.MAGENTA + f'Stopped processing due to error, please check the logs. Exiting.' + Fore.RESET)
         else:
             print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET)
     
@@ -2009,6 +1990,16 @@ if __name__ == "__main__":
         print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Passed option to only generate dataset index. Exiting.' + Fore.RESET)
         sys.exit(0)
 
+    SHEET_NAME: str = "explode.js-vs-odgen"
+    SERVICE_ACC_FILE: str = ".config/service_account.json"
+    gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = SERVICE_ACC_FILE, spreadsheet_name = SHEET_NAME)
+    if gspread_spreadsheet == None:
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+    else:
+        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
+    #service_account: gspread.client.Client = gspread.service_account(filename=".config/service_account.json")
+    #sheet: gspread.Spreadsheet = service_account.open("explode.js-vs-odgen")
+
     
 
     if args.tool == "explode.js" and args.d == "zeroday":
@@ -2029,7 +2020,7 @@ if __name__ == "__main__":
         #print(f"### DEBUG: {args}\n")
         #sys.exit(0)
 
-        test_zeroday_dataset_p(args.input, args.output_dir, 
+        test_zeroday_dataset_p(args.input, args.output_dir, gspread_spreadsheet
                                target_sheet_name = sheet_name, concurrency_level = args.parallelism, 
                                package_start_ind = args.start_package, package_finish_ind = args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
