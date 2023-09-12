@@ -160,6 +160,7 @@ else
         # See: https://linuxize.com/post/how-to-check-if-string-contains-substring-in-bash/
         if [[ "$docker_check" == *"Started"* ]]; then
           echo "[INFO][$THIS_SCRIPT] - docker run command succeeded (--detach=$DEBUG)"
+          exit 0
         fi
 
       else
@@ -170,16 +171,16 @@ else
           exit $docker_status
       fi
       
-      grep -q "Started."
+      #grep -q "Started."
 
     
       sleep 3
       
       $((counter++))
 
-      if [[ $counter -eq 25 ]]; then
-        exit 1
-      fi
+      #if [[ $counter -eq 25 ]]; then
+      #  exit 1
+      #fi
     done
     exit 0
 fi
