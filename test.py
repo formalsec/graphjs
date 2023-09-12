@@ -1801,7 +1801,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreads
             docker_container_cleanup(container_list)
 
         if kb_interrupt:
-             print(Fore.MAGENTA + f'Stopped processing due to user CTRL+C. Exiting.' + Fore.RESET)
+            print(Fore.MAGENTA + f'Stopped processing due to user CTRL+C. Exiting.' + Fore.RESET)
         elif not closing_pool_normally:
             print(Fore.MAGENTA + f'Stopped processing due to error, please check the logs. Exiting.' + Fore.RESET)
         else:
@@ -1995,6 +1995,7 @@ if __name__ == "__main__":
     gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = SERVICE_ACC_FILE, spreadsheet_name = SHEET_NAME)
     if gspread_spreadsheet == None:
         print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+        sys.exit(1)
     else:
         print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
     #service_account: gspread.client.Client = gspread.service_account(filename=".config/service_account.json")
@@ -2020,7 +2021,7 @@ if __name__ == "__main__":
         #print(f"### DEBUG: {args}\n")
         #sys.exit(0)
 
-        test_zeroday_dataset_p(args.input, args.output_dir, gspread_spreadsheet
+        test_zeroday_dataset_p(args.input, args.output_dir, gspread_spreadsheet,
                                target_sheet_name = sheet_name, concurrency_level = args.parallelism, 
                                package_start_ind = args.start_package, package_finish_ind = args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
