@@ -115,12 +115,14 @@ if [ "$DEBUG" = true ]; then
 
     docker_status=$?
     if [ $docker_status -eq 0 ]; then
-        echo "[INFO][$THIS_SCRIPT] - docker run succeeded or closed with Ctrl+C (--detach=$DEBUG)"
+        echo "[INFO][$THIS_SCRIPT] - docker run succeeded or closed due to Ctrl+C in test.py (--detach=$DEBUG)"
     else
         echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)"
     fi
     exit $docker_status
 else
+    
+
     docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v "$GRAPH_DIR_PATH":/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
@@ -129,11 +131,55 @@ else
         #-e NEO4J_apoc_import_file_enabled=true \
         #-e NEO4J_apoc_import_file_use__neo4j__config=true \
         #-p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
+
+    docker_status=$?
+    if [ $docker_status -eq 0 ]; then
+        echo "[INFO][$THIS_SCRIPT] - docker run command succeeded (--detach=$DEBUG)"
+    else
+        echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)."
+        echo "[ERROR][$THIS_SCRIPT] - exit code: $docker_status"
+        exit $docker_status
+    fi
+    
+    counter=0
+
+
     # Wait for neo4j to start inside the container
     sleep 5
-    until docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER | grep -q "Started."; do
-      sleep 3
+    #until docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER | grep -q "Started."; do
+    until [[ $counter -eq 25 ]]
+    do
+
+      # Catching exit status based on: https://unix.stackexchange.com/a/373598
       echo "[INFO][$THIS_SCRIPT] - Checking if neo4j has printed 'Started' in 'docker run' (--detach=$DEBUG) container launch."
+      docker_check=$(docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER 2>&1)
+      docker_check_exit_code=$?
+      if [ $docker_check_exit_code -eq 0 ]; then
+        
+        # Checking for a substring inside a string.
+        # See: https://linuxize.com/post/how-to-check-if-string-contains-substring-in-bash/
+        if [[ "$docker_check" == *"Started"* ]]; then
+          echo "[INFO][$THIS_SCRIPT] - docker run command succeeded (--detach=$DEBUG)"
+        fi
+
+      else
+          echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)."
+          echo "[ERROR][$THIS_SCRIPT] - exit code: $docker_status"
+          echo "[ERROR][$THIS_SCRIPT] - 'docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER 2>&1' output:"
+          printf "\t$docker_check\n"
+          exit $docker_status
+      fi
+      
+      grep -q "Started."
+
+    
+      sleep 3
+      
+      $((counter++))
+
+      if [[ $counter -eq 25 ]]; then
+        exit 1
+      fi
     done
     exit 0
 fi
