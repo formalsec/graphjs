@@ -1951,6 +1951,10 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--parallelism", type=int, default=1)
     parser.add_argument("--index-only", action="store_true",
                         help="Generate the index of all .js/.cjs files and exit.")
+    
+    parser.add_argument("--target-gsheet", type=str, default="explode.js-vs-odgen",
+                        help="Target Google Sheet to use.")
+    
     parser.add_argument("-s", "--start-package", type=int, default=0,
                         help="Index of the package to start processing. Must be a non-negative integer lower than the value of '-f/--finish-package'.")
     parser.add_argument("-f", "--finish-package", type=int, default=0,
@@ -1996,7 +2000,9 @@ if __name__ == "__main__":
         print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Passed option to only generate dataset index. Exiting.' + Fore.RESET)
         sys.exit(0)
 
-    SHEET_NAME: str = "explode.js-vs-odgen"
+    # explodejs-zeroday-multiprocessing-1
+    #SHEET_NAME: str = "explode.js-vs-odgen"
+    SHEET_NAME: str = args.target_gsheet
     SERVICE_ACC_FILE: str = ".config/service_account.json"
     gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = SERVICE_ACC_FILE, spreadsheet_name = SHEET_NAME)
     if gspread_spreadsheet == None:
@@ -2018,9 +2024,6 @@ if __name__ == "__main__":
             exit(1)
 
         #test_zeroday_dataset()
-
-
-
         sheet_name: str = "ZeroDay Concurrent Test"
 
         #pprint.pprint(args)
