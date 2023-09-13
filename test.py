@@ -327,7 +327,7 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
     symb_test_file = os.path.basename(os.path.splitext(symb_test_file)[0])
     for file in os.listdir(explodejs_path):
         if symb_test_file in file:
-            with open(os.path.join(explodejs_path, file), "r") as f:
+            with open(os.path.join(explodejs_path, file), "r", encoding='utf-8') as f:
                 symb_test_str = f.read()
                 if "esl_symbolic." in symb_test_str:
                     grades["symb_test"] = "A"
@@ -513,7 +513,7 @@ def check_vulnerability_detection(grades, taint_summary_file) -> None:
     vulnerabilities = ['command-injection', 'path-traversal', 'code-injection', 'prototype-pollution']
     found_vulns = []
 
-    with open(taint_summary_file, 'r') as file:
+    with open(taint_summary_file, 'r', encoding='utf-8') as file:
         content = file.read()
 
     for vuln in vulnerabilities:
@@ -523,7 +523,7 @@ def check_vulnerability_detection(grades, taint_summary_file) -> None:
     grades["detection"] = ", ".join(found_vulns) if len(found_vulns) > 0 else "D"
 
 def check_graph_construction_zeroday(grades, norm_file) -> None:
-    with open(norm_file, "r") as f:
+    with open(norm_file, "r", encoding='utf-8') as f:
         file_content = f.read()
         regex = re.compile(r'Error: [A-Za-z]*Error')
         if regex.search(file_content):
