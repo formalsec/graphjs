@@ -165,10 +165,10 @@ else
 
       else
           echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)."
-          echo "[ERROR][$THIS_SCRIPT] - exit code: $docker_status"
+          echo "[ERROR][$THIS_SCRIPT] - exit code: $docker_check_exit_code"
           echo "[ERROR][$THIS_SCRIPT] - 'docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER 2>&1' output:"
           printf "\t$docker_check\n"
-          exit $docker_status
+          exit $docker_check_exit_code
       fi
       
       #grep -q "Started."
