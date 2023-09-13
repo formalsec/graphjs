@@ -178,7 +178,7 @@ else
       
       counter=$((counter+1))
 
-      $((counter++))
+      #$((counter++))
 
       #if [[ $counter -eq 25 ]]; then
       #  exit 1
