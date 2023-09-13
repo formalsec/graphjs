@@ -1054,9 +1054,9 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     except FileNotFoundError as e:
 
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
-        killpg_msg: str = explodejs_killpg(explode_proc)
-        #hierarchy_pkill(pid, explode_proc)
+        
+        #killpg_msg: str = explodejs_killpg(explode_proc)
+        
 
         print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
         print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
