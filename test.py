@@ -1732,7 +1732,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreads
                 if len(res_grades) == 0:
                     closing_pool_from_error = True
                     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - Detected an error from one of the workers\n{res_package}' + Fore.RESET)
-                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - Stopping everything...' + Fore.RESET))
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - Stopping everything...' + Fore.RESET)
                     break
                
                 # NOTE: This lock.aquire() may be unnecessary, research it...
