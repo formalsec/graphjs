@@ -105,6 +105,8 @@ done
 if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     echo "Running Explode.js for $FILEPATH..."
 
+    set -x
+
     # Clean Explode.js output if it exists
     if [ -d "$EXPLODEJS_DIR" ] ; then
         rm -rf "$EXPLODEJS_DIR"/!(*expected_output.json)
@@ -124,7 +126,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     # See: https://stackoverflow.com/a/64694166
     # See: https://stackoverflow.com/a/51401577
 
-    set -x
+    #set -x
 
     mkdir -p "$NPM_CACHE_DIR"
 

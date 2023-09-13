@@ -40,8 +40,118 @@ ZERODAY_TESTED_LIST = "./datasets/zeroday-dataset/packages-tested.txt"
 ZERODAY_CONCURRENT_LOGS = "./datasets/zeroday-dataset/concurrency-logs"
 
 # Google Sheets Config.
-service_account = gspread.service_account(filename=".config/service_account.json")
-sheet = service_account.open("explode.js-vs-odgen")
+def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_name: str = "explode.js-vs-odgen") -> gspread.Spreadsheet:
+
+
+    # Number of retries that will be made in the face of the API stating the service 
+    # is unavailable.
+    MAX_RETRY_COUNT: int = 5
+    retry_count: int = MAX_RETRY_COUNT
+
+    # If the gspread API states the service is unavailable, sleep some minutes.
+    retry_sleep_time: int = 300
+
+    # Number of seconds to sleep between calls to the gspread API.
+    inter_operation_sleep: int = 5
+
+    # Loop until we get the sheet data or the maximum amount of retires was reached.
+    trying_to_open: bool = True
+
+    while trying_to_open:
+
+        # We are sleeping 'inter_operation_sleep' seconds between gspread calls 
+        # to avoid stressing the Google Sheet API.
+        # See: https://developers.google.com/sheets/api/limits
+        time.sleep(inter_operation_sleep)
+
+        try:
+            
+            current_op: str = 'gspread.service_account(filename=service_acc)'
+            service_account: gspread.client.Client = gspread.service_account(filename=service_acc)
+            current_op = 'gspread.client.Client.open(spreadsheet_name)'
+            sheet: gspread.Spreadsheet = service_account.open(spreadsheet_name)
+
+            # If a 'gspread' operation was successful, reset the retry counter.
+            return sheet
+                
+
+            
+        except gspread.exceptions.APIError as e:
+            
+            error_json = e.response.json()
+
+            error_code: int = error_json.get("error", {}).get("code")
+            error_status: str = error_json.get("error", {}).get("status")
+            error_message: str = error_json.get("error", {}).get("message")
+
+            info_str: str = get_gspread_exception_info_from_json(current_op, error_code, error_status, error_message)
+
+            print(Fore.RED + info_str + Fore.RESET, flush=True)
+
+            # pprint.pprint(error_code)
+            # pprint.pprint(error_message)
+            # pprint.pprint(type(error_message))
+            # pprint.pprint(error_status)
+
+            if error_code == 429:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - too many requests error from Google API, sleeping 60 seconds.' + Fore.RESET)
+
+                time.sleep(60)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying the opening of spreadsheet {spreadsheet_name}.' + Fore.RESET)
+
+            elif error_code == 500 and error_status == "INTERNAL" and "error encountered" in error_message:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - failed to open spreadsheet {spreadsheet_name}.' + Fore.RESET)
+                retry_count -= 1
+
+                if retry_count == 0:
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - All {MAX_RETRY_COUNT} spreadsheet {spreadsheet_name} opening retries failed.' + Fore.RESET)
+                    return None # failed writing to sheet.
+                
+
+                
+
+                print(Fore.RED + f'[WARN][{THIS_SCRIPT_NAME}] - service encountered an internal error while opening spreadsheet {spreadsheet_name}, sleeping {retry_sleep_time} seconds.' + Fore.RESET)
+
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+                time.sleep(retry_sleep_time)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying the opening of spreadsheet {spreadsheet_name} {retry_count} more times.' + Fore.RESET)
+            elif error_code == 503 and error_status == "UNAVAILABLE" and "service is currently unavailable" in error_message:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - operation failed.' + Fore.RESET)
+                retry_count -= 1
+
+                if retry_count == 0:
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - All {MAX_RETRY_COUNT} operation retries failed.' + Fore.RESET)
+                    return None # failed opening sheet.
+                
+
+                
+
+                print(Fore.RED + f'[WARN][{THIS_SCRIPT_NAME}] - service was unavailable, sleeping {retry_sleep_time} seconds.' + Fore.RESET)
+
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+                time.sleep(retry_sleep_time)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying the opening of spreadsheet {spreadsheet_name} {retry_count} more times.' + Fore.RESET)
+            else:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - unhandled error when trying to open worksheet {spreadsheet_name}' + Fore.RESET)
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+                return None
+
+# sheet_name: str = "explode.js-vs-odgen"
+# service_acc_file: str = ".config/service_account.json"
+# sheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc_file, spreadsheet_name = sheet_name)
+# if sheet == None:
+#     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+# else:
+#     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet sucessfully.' + Fore.RESET)
+# #service_account: gspread.client.Client = gspread.service_account(filename=".config/service_account.json")
+# #sheet: gspread.Spreadsheet = service_account.open("explode.js-vs-odgen")
+
+
 
 def clean_explodejs(dataset, exploit):
     for vulnerability in glob(dataset):
@@ -70,7 +180,7 @@ def clean_odgen(dataset_path):
             if os.path.isfile(file_path):
                 os.remove(file_path)
 
-def test_odgen(dataset_path, dataset, update_sheets):
+def test_odgen(dataset_path: str, dataset, update_sheets):
     print(Fore.MAGENTA + f"Running ODGen for vulnerabilities in {dataset_path}" + Fore.RESET)
     advisories = glob(dataset_path)
     count = 1
@@ -217,7 +327,7 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
     symb_test_file = os.path.basename(os.path.splitext(symb_test_file)[0])
     for file in os.listdir(explodejs_path):
         if symb_test_file in file:
-            with open(os.path.join(explodejs_path, file), "r") as f:
+            with open(os.path.join(explodejs_path, file), "r", encoding='utf-8') as f:
                 symb_test_str = f.read()
                 if "esl_symbolic." in symb_test_str:
                     grades["symb_test"] = "A"
@@ -369,8 +479,8 @@ def comapre_outputs(grades, expected_output, output):
     return grades
 
 
-def load_sheet(sheet_name) -> gspread.Worksheet:
-    return sheet.worksheet(sheet_name)
+def load_sheet(gspread_spreadsheet: gspread.Spreadsheet, sheet_name) -> gspread.Worksheet:
+    return gspread_spreadsheet.worksheet(sheet_name)
 
 
 def update_sheet(ws, dataset, vulnerable_file, grades):
@@ -403,7 +513,7 @@ def check_vulnerability_detection(grades, taint_summary_file) -> None:
     vulnerabilities = ['command-injection', 'path-traversal', 'code-injection', 'prototype-pollution']
     found_vulns = []
 
-    with open(taint_summary_file, 'r') as file:
+    with open(taint_summary_file, 'r', encoding='utf-8') as file:
         content = file.read()
 
     for vuln in vulnerabilities:
@@ -413,7 +523,7 @@ def check_vulnerability_detection(grades, taint_summary_file) -> None:
     grades["detection"] = ", ".join(found_vulns) if len(found_vulns) > 0 else "D"
 
 def check_graph_construction_zeroday(grades, norm_file) -> None:
-    with open(norm_file, "r") as f:
+    with open(norm_file, "r", encoding='utf-8') as f:
         file_content = f.read()
         regex = re.compile(r'Error: [A-Za-z]*Error')
         if regex.search(file_content):
@@ -454,7 +564,53 @@ def add_package_to_sheet(ws: gspread.Spreadsheet, package: str) -> None:
     if not package_cell:
         ws.update_cell(empty_row_index, 1, package)
 
-def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: Dict[str, Dict[str, Dict]]) -> None:
+def get_gspread_exception_str(e: gspread.exceptions.APIError) -> str:
+    error_json = e.response.json()
+
+    error_code: int = error_json.get("error", {}).get("code")
+    error_status: str = error_json.get("error", {}).get("status")
+    error_message: str = error_json.get("error", {}).get("message")
+
+    ret_val: str = f'''gspread.exceptions.APIError
+        \tCode: {error_code}
+        \tStatus: {error_status}
+        \tMessage: {error_message}'''
+
+    return ret_val
+
+def get_gspread_exception_info_from_json(operation: str, error_code: int, error_status: str, error_message: str) -> str:
+    ret_str: str = f'[INFO][{THIS_SCRIPT_NAME}] - {operation} produced {error_code}:{error_status}\n\t{error_message}' + Fore.RESET
+
+    return ret_str
+
+def get_gspread_exception_info_from_response(operation: str, e: gspread.exceptions.APIError) -> str:
+    error_json = e.response.json()
+
+    error_code: int = error_json.get("error", {}).get("code")
+    error_status: str = error_json.get("error", {}).get("status")
+    error_message: str = error_json.get("error", {}).get("message")
+
+    ret_str: str = f'[INFO][{THIS_SCRIPT_NAME}] - {operation} produced {error_code}:{error_status}\n\t{error_message}' + Fore.RESET
+
+    return ret_str
+
+def handle_gspread_operation(e: gspread.exceptions.APIError, operation: str) -> int:
+    error_json = e.response.json()
+
+    error_code: int = error_json.get("error", {}).get("code")
+    error_status: str = error_json.get("error", {}).get("status")
+    error_message: str = error_json.get("error", {}).get("message")
+
+    print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - {operation} produced {error_code}:{error_status}' + Fore.RESET)
+
+    if error_code == 503 and error_status == "UNAVAILABLE" and "service is currently unavailable" in error_message:
+        return 300
+    else:
+        return -1
+    
+
+
+def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: Dict[str, Dict[str, Dict]]) -> bool:
     result = []
 
     file_ctr: int = 0
@@ -470,46 +626,127 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
         result.append(sub_array)
     result[0][0] = package
 
-    empty_row_index = max(len(ws.col_values(2)) + 1, 6)
+    trying_to_write: bool = True
 
-    limit_reached: bool = False
+    # Using this variable to control the sequence of calls to make with the gspread package.
+    current_op: str = 'ws.col_values'
 
-    try:
-        ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
-        # NOTE: even if we returned here, the 'finally' block always gets executed.
-    except gspread.exceptions.APIError as e:
-        print(e.response, flush=True)
-        error_json = e.response.json()
+    # Row position to write within the Google Sheet.
+    empty_row_index: int
 
-        error_code: int = error_json.get("error", {}).get("code")
-        error_status: str = error_json.get("error", {}).get("status")
-        error_message: str = error_json.get("error", {}).get("message")
+    # Number of retries that will be made in the face of the API stating the service 
+    # is unavailable.
+    MAX_RETRY_COUNT: int = 5
+    retry_count: int = MAX_RETRY_COUNT
 
-        # pprint.pprint(error_code)
-        # pprint.pprint(error_message)
-        # pprint.pprint(type(error_message))
-        # pprint.pprint(error_status)
+    # If the gspread API states the service is unavailable, sleep some minutes.
+    retry_sleep_time: int = 300
 
-        # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
-        if error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds grid limits" in error_message:
+    # Number of seconds to sleep between calls to the gspread API.
+    inter_operation_sleep: int = 5
 
-            row_incr: int = 1000 + file_ctr
-            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Adding {row_incr} rows to {ws.title}' + Fore.RESET)            
+    # In the event that all rows are used, try to increase the number of rows by 'row_incr' rows.
+    row_incr: int = 1000 + file_ctr
 
-            ws.add_rows(row_incr)
-            limit_reached = True
-        else:
-            raise e
+    while trying_to_write:
 
+        # We are sleeping 'inter_operation_sleep' seconds between gspread calls 
+        # to avoid stressing the Google Sheet API.
+        # See: https://developers.google.com/sheets/api/limits
+        time.sleep(inter_operation_sleep)
 
-    finally:
-        # If the limit had been reached and it was extended successfully, try to write again.
-        if limit_reached:
-            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Trying to write to sheet {ws.title} again.' + Fore.RESET)
-            ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
+        try:
+            if current_op == 'ws.col_values':
+                # Necessary to find out where exactly to write within the sheet.
+                empty_row_index = max(len(ws.col_values(2)) + 1, 6)
+                current_op = 'ws.update'
+            elif current_op == 'ws.update':
+                # The actual attempt to write into the sheet.
+                print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Trying to write to sheet {ws.title}.' + Fore.RESET)
+                ws.update(f"A{empty_row_index}:F{len(result) + empty_row_index - 1}", result)
+                print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Write to {ws.title} successful.' + Fore.RESET)
+                return True # writing to sheet was successful.
+            elif current_op == 'ws.add_rows':
+                # If the sheet was full, it produced a specific exception which set the next operation 
+                # to be 'ws.add_rows'.
+                print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Adding {row_incr} rows to {ws.title}.' + Fore.RESET)
+                ws.add_rows(row_incr)
+                print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Rows added successfully.' + Fore.RESET)
+                current_op = 'ws.update'
 
-            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - Write to {ws.title} successful.' + Fore.RESET)
+            # If a 'gspread' operation was successful, reset the retry counter.
+            retry_count = MAX_RETRY_COUNT
+                
+
             
+        except gspread.exceptions.APIError as e:
+            
+            error_json = e.response.json()
+
+            error_code: int = error_json.get("error", {}).get("code")
+            error_status: str = error_json.get("error", {}).get("status")
+            error_message: str = error_json.get("error", {}).get("message")
+
+            info_str: str = get_gspread_exception_info_from_json(current_op, error_code, error_status, error_message)
+
+            print(Fore.RED + info_str + Fore.RESET, flush=True)
+
+            # pprint.pprint(error_code)
+            # pprint.pprint(error_message)
+            # pprint.pprint(type(error_message))
+            # pprint.pprint(error_status)
+
+            if error_code == 429:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - too many requests error from Google API, sleeping 60 seconds.' + Fore.RESET)
+
+                time.sleep(60)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying \'{current_op}\'.' + Fore.RESET)
+
+            elif error_code == 500 and error_status == "INTERNAL" and "error encountered" in error_message:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - operation failed.' + Fore.RESET)
+                retry_count -= 1
+
+                if retry_count == 0:
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - All {MAX_RETRY_COUNT} operation retries failed.' + Fore.RESET)
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - Last attempted \'gspread\' operation: {current_op}.' + Fore.RESET)
+                    return False # failed writing to sheet.
+                
+
+                
+
+                print(Fore.RED + f'[WARN][{THIS_SCRIPT_NAME}] - service encountered an internal error on \'{current_op}\', sleeping {retry_sleep_time} seconds.' + Fore.RESET)
+
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+                time.sleep(retry_sleep_time)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying \'{current_op}\' for {retry_count} more times.' + Fore.RESET)
+            elif error_code == 503 and error_status == "UNAVAILABLE" and "service is currently unavailable" in error_message:
+                print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - operation failed.' + Fore.RESET)
+                retry_count -= 1
+
+                if retry_count == 0:
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - All {MAX_RETRY_COUNT} operation retries failed.' + Fore.RESET)
+                    print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - Last attempted \'gspread\' operation: {current_op}.' + Fore.RESET)
+                    return False # failed writing to sheet.
+                
+
+                
+
+                print(Fore.RED + f'[WARN][{THIS_SCRIPT_NAME}] - service was unavailable on \'{current_op}\', sleeping {retry_sleep_time} seconds.' + Fore.RESET)
+
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+                time.sleep(retry_sleep_time)
+
+                print(Fore.MAGENTA + f'[WARN][{THIS_SCRIPT_NAME}] - retrying \'{current_op}\' for {retry_count} more times.' + Fore.RESET)
+            elif error_code == 400 and error_status == "INVALID_ARGUMENT" and "exceeds grid limits" in error_message:
+                # If the exception was due to the row limit being hit, need to extend the sheet with more rows.
+                current_op = 'ws.add_rows'
+            else:
+                print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+                return False
 
 def get_js_files(package_path: str):
     js_files: List = []
@@ -618,7 +855,7 @@ def test_zeroday_task_cleanup(pid: int, npm_cache_path: str, io_lock: multiproce
 
     print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
 
-    # Need delete npm cache directory to save space on disk.
+    # Need to delete npm cache directory to save space on disk.
     if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
         shutil.rmtree(npm_cache_path)
 
@@ -632,6 +869,14 @@ def test_zeroday_task_cleanup(pid: int, npm_cache_path: str, io_lock: multiproce
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
 
     #process_out.close()
+
+def explodejs_killpg(explode_proc: subprocess.Popen) -> str:
+    try:
+        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        return f'os.killpg(os.getpgid({explode_proc.pid})): successful'
+    except ProcessLookupError as e:
+        return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{traceback.format_exc()}'
+
 
 def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, str, Dict]:
     """
@@ -788,6 +1033,10 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET)
 
+
+        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET, flush=True, file=process_out)
+        
+
         # Write explodejs.sh result data files.
         with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
             f.write(f"{end - start:.2f} seconds\n")
@@ -804,36 +1053,53 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         return (package, file_path, explodejs_path, grades)
     except FileNotFoundError as e:
 
-        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        
+        #killpg_msg: str = explodejs_killpg(explode_proc)
+        
 
-        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
-
-        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
         print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
+        print(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout.' + Fore.RESET, flush=True, file=process_out)
+
+        print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - container {neo4j_container_name} was likely terminated or crashed.' + Fore.RESET, flush=True, file=process_out)
+
+        #print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - no need to kill sub-process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
+    
         
-        main_terminal_msgs.append(Fore.RED + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
         main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-
         
 
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
+        #main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - no need to kill sub-process hierarchy.' + Fore.RESET)
+
+        main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning empty \'grades\' dict so that the main process terminates the pool and stops.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
 
         io_lock.acquire()
         print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
         io_lock.release()
 
-        # Need delete npm cache directory to save space on disk.
+        # Need to delete npm cache directory to save space on disk.
         if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
             shutil.rmtree(npm_cache_path)
 
-        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
-        #hierarchy_pkill(pid, explode_proc)
+        
 
+        process_out.close()
+        package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - FileNotFoundError when checking norm_file/taint_summary_file/symbolic_test_file.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
+        grades = {}
 
-        raise e
+        return (package, file_path, explodejs_path, grades)
 
     except subprocess.TimeoutExpired as e:
         
@@ -844,15 +1110,56 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         #print(f'[INFO][{THIS_SCRIPT_NAME}] - Timeout expired.', flush=True)
         
-        if os.path.exists(norm_file):
-            check_graph_construction_zeroday(grades, norm_file)
-        else: 
-            grades["graph_construction"] = "TIMEOUT"
-        if os.path.exists(taint_summary_file):
-            check_graph_construction_zeroday(grades, taint_summary_file)
-        else:
-            grades["detection"] = "TIMEOUT"
-        grades["symb_test"] = "TIMEOUT"
+        try:
+            if os.path.exists(norm_file):
+                check_graph_construction_zeroday(grades, norm_file)
+            else: 
+                grades["graph_construction"] = "TIMEOUT"
+            if os.path.exists(taint_summary_file):
+                check_graph_construction_zeroday(grades, taint_summary_file)
+            else:
+                grades["detection"] = "TIMEOUT"
+            grades["symb_test"] = "TIMEOUT"
+        except UnicodeDecodeError as e:
+
+            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+            #hierarchy_pkill(pid, explode_proc)
+            #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+            killpg_msg: str = explodejs_killpg(explode_proc)
+
+            print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+
+
+            print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET, flush=True, file=process_out)
+
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
+
+
+            main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+
+            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET)
+
+            main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning empty \'grades\' dict so that the main process terminates the pool and stops.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
+
+            
+            
+            # Need to delete npm cache directory to save space on disk.
+            if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+                shutil.rmtree(npm_cache_path)
+
+            process_out.close()
+            package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
+            grades = {}
+
+            return (package, file_path, explodejs_path, grades)
+
 
         # Need to stop the Docker container if it still exists after the timeout triggered.          
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
@@ -883,22 +1190,47 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
-            container_list.remove(neo4j_container_name)
+            if neo4j_container_name in container_list:
+                container_list.remove(neo4j_container_name)
 
             main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - we are assuming docker.errors.NotFound does not indicate result error' + Fore.RESET)
         except docker.errors.APIError as e:
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.' + Fore.RESET, flush=True, file=process_out)
             print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
+            
 
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - unknown docker API error.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
 
             # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
             #hierarchy_pkill(pid, explode_proc)
-            os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+            #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+            killpg_msg: str = explodejs_killpg(explode_proc)
             
-            # Need delete npm cache directory to save space on disk.
+            # Need to delete npm cache directory to save space on disk.
             if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
                 shutil.rmtree(npm_cache_path)
-            raise e
+
+            process_out.close()
+            package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
+            grades = {}
+
+            return (package, file_path, explodejs_path, grades)
+        
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+       # print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
+
+        #hierarchy_pkill(pid, explode_proc)
+        #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        killpg_msg: str = explodejs_killpg(explode_proc)
     
         # Stop the container in case it still existed.
         if neo4j_container_name in docker_containers:
@@ -912,16 +1244,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
             main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
+        
+
+        
+
+        #print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET)
+
         test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
-
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
-
-        #hierarchy_pkill(pid, explode_proc)
-        os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
-
-        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.' + Fore.RESET)
 
         process_out.close()
 
@@ -932,21 +1262,37 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
     except subprocess.CalledProcessError as e:
         print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
         print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
         
-        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
-        if os.path.exists(norm_file):
-            check_graph_construction_zeroday(grades, norm_file)
-        else: 
-            grades["graph_construction"] = "ERROR"
-        if os.path.exists(taint_summary_file):
-            check_vulnerability_detection(grades, taint_summary_file)
-        else:
-            grades["detection"] = "ERROR"
-        grades["symb_test"] = "ERROR"
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
+        
 
-        raise e
-    
+        # if os.path.exists(norm_file):
+        #     check_graph_construction_zeroday(grades, norm_file)
+        # else: 
+        #     grades["graph_construction"] = "ERROR"
+        # if os.path.exists(taint_summary_file):
+        #     check_vulnerability_detection(grades, taint_summary_file)
+        # else:
+        #     grades["detection"] = "ERROR"
+        # grades["symb_test"] = "ERROR"
+
+
+        # Need to delete npm cache directory to save space on disk.
+        if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+            shutil.rmtree(npm_cache_path)
+
+        process_out.close()
+        package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
+        grades = {}
 
     
     
@@ -999,7 +1345,7 @@ def docker_container_cleanup(container_names: ListProxy):
         except docker.errors.NotFound as e:
             print(Fore.RED + f'\n\n[CLEANUP][{THIS_SCRIPT_NAME}] - docker_client.containers bug: a container was stopped after this access but before the access finished.' + Fore.RESET, flush=True)
             print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - retrying...' + Fore.RESET, flush=True)
-            sys.sleep(3)
+            time.sleep(3)
         except docker.errors.APIError as e:
             print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True)
             print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - unknown docker API error.' + Fore.RESET, flush=True)
@@ -1140,7 +1486,7 @@ def read_dataset_index(index_path: str, package_start_ind: int = 0, package_fini
 
     return package_paths, dataset_package_file_paths
 
-def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
+def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreadsheet: gspread.Spreadsheet, target_sheet_name: str = "ZeroDay Dataset", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
 
@@ -1153,42 +1499,24 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         target_sheet_name = f"ZDC-{package_start_ind}-{package_finish_ind}"
 
     try:
-        ws: gspread.Worksheet = load_sheet(target_sheet_name)
+        ws: gspread.Worksheet = load_sheet(gspread_spreadsheet, target_sheet_name)
         print("Loaded gspread.Spreadsheet: {}".format(target_sheet_name))
     except gspread.exceptions.WorksheetNotFound:
 
         # Copy 'ZDC-Template' sheet which is already formatted.
-        template_sheet: gspread.Worksheet = load_sheet("ZDC-Template")
+        template_sheet: gspread.Worksheet = load_sheet(gspread_spreadsheet, "ZDC-Template")
 
         # We want to store the new worksheet at the end of the Google Sheet tabs.
-        target_index: int = len(sheet.worksheets())
+        target_index: int = len(gspread_spreadsheet.worksheets())
 
         ws: gspread.Worksheet = template_sheet.duplicate(insert_sheet_index=target_index, new_sheet_name=target_sheet_name)
         
 
-
-        #ws = sheet.add_worksheet(target_sheet_name,"999","20")
         print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
-
-    #input_packages = f"{input_packages}{os.path.sep}*"
-    #package_paths: List[str] = glob(ZERODAY_DATASET)
-    #package_paths: List[str] = glob(input_packages)
-    #package_paths.sort()
-
-    # if len(package_paths) == 0:
-    #     print("Zeroday dataset: found zero packages to process in the provided directory. Perhaps an argument error? Exiting.")
-    #     sys.exit(1)
-
     
 
-    #print(f'Zeroday dataset directory: {ZERODAY_DATASET}')
     print(f'Zeroday dataset directory: {input_packages}')
     
-
-    # if package_finish_ind == 0:
-    #     package_paths = package_paths[package_start_ind:]
-    # else:
-    #     package_paths = package_paths[package_start_ind:package_finish_ind]
 
     package_paths: List[str]
     dataset_package_file_paths: Dict[str, List[str]]
@@ -1379,7 +1707,10 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
         #import pdb
         #pdb.set_trace()
         
+
+
         try:
+            kb_interrupt: bool = False
             #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
             pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
             
@@ -1387,13 +1718,21 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
             # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
             # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
             # https://superfastpython.com/multiprocessing-pool-issue-tasks/
-            pool_closed: bool = False
+            closing_pool_normally: bool = False
+
+            closing_pool_from_error: bool = False
+            
             started_package_fh: TextIO = open(started_package_file_list, 'a')
             for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
                 res_package: str = result[0]
                 res_file: str = result[1]
                 res_explodejs_path: str = result[2]
                 res_grades: Dict = result[3]
+
+                if len(res_grades) == 0:
+                    closing_pool_from_error = True
+                    print(Fore.RED + f'[ERROR] - Detected an error from one of the workers\n{res_package}\n[ERROR] - Stopping everything...' + Fore.RESET)
+                    break
                
                 # NOTE: This lock.aquire() may be unnecessary, research it...
                 io_lock.acquire()
@@ -1408,7 +1747,9 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                     package_grades[res_package] = {}
                 package_grades[res_package][res_file] = res_grades
 
-                package_file_count[res_package] -= 1              
+                package_file_count[res_package] -= 1   
+
+                #write_succeeded: bool = False           
                 
                 if package_file_count[res_package] == 0:
                     # Remove "packages/src" prefix before writing the package to the sheet.
@@ -1425,43 +1766,52 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, target_sheet_na
                     
                     pprint.pprint(grades_d)
 
-                    update_zeroday_sheet(ws, res_package, grades_d)
                     
-                    add_package_to_tested_list(res_package, tested_package_file_list)
-                    #add_package_to_tested_list(res_package, ZERODAY_TESTED_LIST)
+                    write_succeeded: bool = update_zeroday_sheet(ws, res_package, grades_d)
+                    if write_succeeded:
+                        add_package_to_tested_list(res_package, tested_package_file_list)
+                    else:
+                        closing_pool_from_error = True
 
                 # NOTE: This lock.release() may be unnecessary
-                io_lock.release()       
+                io_lock.release()
+
+                if closing_pool_from_error:
+                    break
+                
 
             started_package_fh.close()
 
-            
-            pool.close()
-            pool.join()
-            pool_closed = True
+            if not closing_pool_from_error:
+                pool.close()
+                pool.join()
+                closing_pool_normally = True
 
         except FileNotFoundError as e:
             print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - FileNotFoundError in child process, stopping.' + Fore.RESET)
         except docker.errors.APIError as e:
-            pass
+            print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - docker.errors.APIError in child process, stopping.' + Fore.RESET)
         except KeyboardInterrupt:
             print(Fore.RED + f'\n[CLEANUP][{THIS_SCRIPT_NAME}] - KeyboardInterrupt, stopping.' + Fore.RESET)
+            kb_interrupt = True
         finally:
             print(Fore.RED + f'[CLEANUP][{THIS_SCRIPT_NAME}] - Closing Docker containers...' + Fore.RESET)
             
 
             # Need to terminate the multiprocessing pool in case it hasn't been closed.
             # See: https://stackoverflow.com/a/35134329
-            if not pool_closed:
+            if not closing_pool_normally:
                 pool.terminate()
 
 
             docker_container_cleanup(container_list)
 
-            
-
-        print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET)
-
+        if kb_interrupt:
+            print(Fore.MAGENTA + f'Stopped processing due to user CTRL+C. Exiting.' + Fore.RESET)
+        elif not closing_pool_normally:
+            print(Fore.MAGENTA + f'Stopped processing due to error, please check the logs. Exiting.' + Fore.RESET)
+        else:
+            print(Fore.MAGENTA + f'Processing finished. Exiting.' + Fore.RESET)
     
 def test_zeroday_dataset():
     ws = load_sheet("ZeroDay Dataset")
@@ -1601,6 +1951,10 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--parallelism", type=int, default=1)
     parser.add_argument("--index-only", action="store_true",
                         help="Generate the index of all .js/.cjs files and exit.")
+    
+    parser.add_argument("--target-gsheet", type=str, default="explode.js-vs-odgen",
+                        help="Target Google Sheet to use.")
+    
     parser.add_argument("-s", "--start-package", type=int, default=0,
                         help="Index of the package to start processing. Must be a non-negative integer lower than the value of '-f/--finish-package'.")
     parser.add_argument("-f", "--finish-package", type=int, default=0,
@@ -1646,6 +2000,19 @@ if __name__ == "__main__":
         print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Passed option to only generate dataset index. Exiting.' + Fore.RESET)
         sys.exit(0)
 
+    # explodejs-zeroday-multiprocessing-1
+    #SHEET_NAME: str = "explode.js-vs-odgen"
+    SHEET_NAME: str = args.target_gsheet
+    SERVICE_ACC_FILE: str = ".config/service_account.json"
+    gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = SERVICE_ACC_FILE, spreadsheet_name = SHEET_NAME)
+    if gspread_spreadsheet == None:
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+        sys.exit(1)
+    else:
+        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
+    #service_account: gspread.client.Client = gspread.service_account(filename=".config/service_account.json")
+    #sheet: gspread.Spreadsheet = service_account.open("explode.js-vs-odgen")
+
     
 
     if args.tool == "explode.js" and args.d == "zeroday":
@@ -1657,16 +2024,13 @@ if __name__ == "__main__":
             exit(1)
 
         #test_zeroday_dataset()
-
-
-
         sheet_name: str = "ZeroDay Concurrent Test"
 
         #pprint.pprint(args)
         #print(f"### DEBUG: {args}\n")
         #sys.exit(0)
 
-        test_zeroday_dataset_p(args.input, args.output_dir, 
+        test_zeroday_dataset_p(args.input, args.output_dir, gspread_spreadsheet,
                                target_sheet_name = sheet_name, concurrency_level = args.parallelism, 
                                package_start_ind = args.start_package, package_finish_ind = args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
