@@ -78,7 +78,9 @@ class QueryType:
         results = session.run(find_var_decls_query)
         var_decls = [ param_name ]
         for record in results:
-            var_decls.append(record["vx"]["IdentifierName"])
+            # distructering is also a variable declarator
+            if record["vx"]["IdentifierName"]:
+                var_decls.append(record["vx"]["IdentifierName"])
 
         return var_decls
 
