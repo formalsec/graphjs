@@ -1125,7 +1125,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         # Using 'start_new_session' to kill all subprocesses in a single call.
         # See: https://alexandra-zaharia.github.io/posts/kill-subprocess-and-its-children-on-timeout-python/
-        explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out, start_new_session=True, check=True)
+        explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out, start_new_session=True)
         
         explode_proc.wait(timeout=300)
 
