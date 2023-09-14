@@ -888,6 +888,112 @@ def explodejs_killpg(explode_proc: subprocess.Popen) -> str:
         #return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{traceback.format_exc()}'
         return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{str(e)}'
 
+def close_docker_containers(explode_proc: subprocess.Popen, package: str, file_path: str, neo4j_container_name: str, io_lock: multiprocessing.Lock, process_out: TextIO, main_terminal_msgs: List[str], container_list: ListProxy, npm_cache_path: str, explodejs_path: str, log_path: str, grades: Dict, grades_explodejs: str) -> Tuple[str, str, str, Dict]:
+
+    pid: int = explode_proc.pid
+
+    # Need to stop the Docker container if it still exists after the timeout triggered.          
+    print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
+
+    # Check list of Docker container names.
+    docker_client = docker.from_env()
+
+    docker_containers: Dict = {}
+
+    try:
+        
+        # Get a container object to manipulate the Docker container that was started for this task.
+        # See docker Client.containers.list:
+        # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.list
+        # We are using a 'filters' map due to a bug where accessing client.containers will produce docker.errors.NotFound
+        # if a Docker container was stopped after starting the access to client.containers but before it has finished:
+        # https://github.com/docker/docker-py/issues/2945
+        running_containers: List[docker.Container] = docker_client.containers.list(filters={
+            'name': neo4j_container_name,
+            'status': 'running'})
+        
+        for container in running_containers:
+            docker_containers[container.name] = container
+
+        
+    except docker.errors.NotFound as e:
+        print(Fore.Red + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET, flush=True, file=process_out)
+
+        print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+
+        if neo4j_container_name in container_list:
+            container_list.remove(neo4j_container_name)
+
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - we are assuming docker.errors.NotFound does not indicate result error' + Fore.RESET)
+    except docker.errors.APIError as e:
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
+        
+
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
+
+        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        #hierarchy_pkill(pid, explode_proc)
+        #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        killpg_msg: str = explodejs_killpg(explode_proc)
+        
+        # Need to delete npm cache directory to save space on disk.
+        if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+            shutil.rmtree(npm_cache_path)
+
+        process_out.close()
+
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
+
+        io_lock.acquire()
+        print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
+        io_lock.release()
+
+        package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
+        grades = {}
+
+        return (package, file_path, explodejs_path, grades)
+    
+    # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+    # print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
+
+    #hierarchy_pkill(pid, explode_proc)
+    #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+    killpg_msg: str = explodejs_killpg(explode_proc)
+
+    # Stop the container in case it still existed.
+    if neo4j_container_name in docker_containers:
+
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
+
+        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
+        
+        docker_containers[neo4j_container_name].stop()
+        container_list.remove(neo4j_container_name)
+
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
+
+    
+
+    
+
+    #print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
+
+    test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+
+    process_out.close()
+
+    return (package, file_path, explodejs_path, grades)
 
 def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, str, Dict]:
     """
@@ -1019,7 +1125,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         # Using 'start_new_session' to kill all subprocesses in a single call.
         # See: https://alexandra-zaharia.github.io/posts/kill-subprocess-and-its-children-on-timeout-python/
-        explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out, start_new_session=True)
+        explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out, start_new_session=True, check=True)
         
         explode_proc.wait(timeout=300)
 
@@ -1115,108 +1221,112 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             grades["detection"] = "TIMEOUT"
         grades["symb_test"] = "TIMEOUT"
 
-        # Need to stop the Docker container if it still exists after the timeout triggered.          
-        print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
+        package, file_path, explodejs_path, grades = close_docker_containers(explode_proc, package, file_path, neo4j_container_name, io_lock, process_out, main_terminal_msgs, container_list, npm_cache_path, explodejs_path, log_path, grades, grades_explodejs)
 
-        # Check list of Docker container names.
-        docker_client = docker.from_env()
+        return package, file_path, explodejs_path, grades
 
-        docker_containers: Dict = {}
+        # # Need to stop the Docker container if it still exists after the timeout triggered.          
+        # print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
 
-        try:
+        # # Check list of Docker container names.
+        # docker_client = docker.from_env()
+
+        # docker_containers: Dict = {}
+
+        # try:
             
-            # Get a container object to manipulate the Docker container that was started for this task.
-            # See docker Client.containers.list:
-            # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.list
-            # We are using a 'filters' map due to a bug where accessing client.containers will produce docker.errors.NotFound
-            # if a Docker container was stopped after starting the access to client.containers but before it has finished:
-            # https://github.com/docker/docker-py/issues/2945
-            running_containers: List[docker.Container] = docker_client.containers.list(filters={
-                'name': neo4j_container_name,
-                'status': 'running'})
+        #     # Get a container object to manipulate the Docker container that was started for this task.
+        #     # See docker Client.containers.list:
+        #     # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.list
+        #     # We are using a 'filters' map due to a bug where accessing client.containers will produce docker.errors.NotFound
+        #     # if a Docker container was stopped after starting the access to client.containers but before it has finished:
+        #     # https://github.com/docker/docker-py/issues/2945
+        #     running_containers: List[docker.Container] = docker_client.containers.list(filters={
+        #         'name': neo4j_container_name,
+        #         'status': 'running'})
             
-            for container in running_containers:
-                docker_containers[container.name] = container
+        #     for container in running_containers:
+        #         docker_containers[container.name] = container
 
             
-        except docker.errors.NotFound as e:
-            print(Fore.Red + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET, flush=True, file=process_out)
+        # except docker.errors.NotFound as e:
+        #     print(Fore.Red + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET, flush=True, file=process_out)
 
-            print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
+        #     print(Fore.Red + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
-            if neo4j_container_name in container_list:
-                container_list.remove(neo4j_container_name)
+        #     if neo4j_container_name in container_list:
+        #         container_list.remove(neo4j_container_name)
 
-            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
-            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - we are assuming docker.errors.NotFound does not indicate result error' + Fore.RESET)
-        except docker.errors.APIError as e:
-            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.' + Fore.RESET, flush=True, file=process_out)
-            print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
-            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
-            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
+        #     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.NotFound when iterating containers to find and stop {neo4j_container_name}.' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - we are assuming docker.errors.NotFound does not indicate result error' + Fore.RESET)
+        # except docker.errors.APIError as e:
+        #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.' + Fore.RESET, flush=True, file=process_out)
+        #     print(Fore.RED + f'\n\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+        #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+        #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
             
 
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
 
-            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-            #hierarchy_pkill(pid, explode_proc)
-            #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
-            killpg_msg: str = explodejs_killpg(explode_proc)
+        #     # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        #     #hierarchy_pkill(pid, explode_proc)
+        #     #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        #     killpg_msg: str = explodejs_killpg(explode_proc)
             
-            # Need to delete npm cache directory to save space on disk.
-            if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
-                shutil.rmtree(npm_cache_path)
+        #     # Need to delete npm cache directory to save space on disk.
+        #     if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+        #         shutil.rmtree(npm_cache_path)
 
-            process_out.close()
+        #     process_out.close()
 
-            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
 
-            io_lock.acquire()
-            print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
-            io_lock.release()
+        #     io_lock.acquire()
+        #     print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
+        #     io_lock.release()
 
-            package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
-            grades = {}
+        #     package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
+        #     grades = {}
 
-            return (package, file_path, explodejs_path, grades)
+        #     return (package, file_path, explodejs_path, grades)
         
-        # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-        # print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
+        # # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
+        # # print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
 
-        #hierarchy_pkill(pid, explode_proc)
-        #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
-        killpg_msg: str = explodejs_killpg(explode_proc)
+        # #hierarchy_pkill(pid, explode_proc)
+        # #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
+        # killpg_msg: str = explodejs_killpg(explode_proc)
     
-        # Stop the container in case it still existed.
-        if neo4j_container_name in docker_containers:
+        # # Stop the container in case it still existed.
+        # if neo4j_container_name in docker_containers:
 
-            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
+        #     main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
 
-            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
+        #     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
             
-            docker_containers[neo4j_container_name].stop()
-            container_list.remove(neo4j_container_name)
+        #     docker_containers[neo4j_container_name].stop()
+        #     container_list.remove(neo4j_container_name)
 
-            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
-
-        
+        #     main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - stopped Docker container {neo4j_container_name}' + Fore.RESET)
 
         
 
-        #print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
+        
 
-        test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+        # #print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
+        # main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
 
-        process_out.close()
+        # test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
-        return (package, file_path, explodejs_path, grades)
+        # process_out.close()
+
+        # return (package, file_path, explodejs_path, grades)
 
         
 
@@ -1247,19 +1357,24 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         grades["symb_test"] = f'ERROR - {str(e)}'
 
 
-        # Need to delete npm cache directory to save space on disk.
-        if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
-            shutil.rmtree(npm_cache_path)
+        package, file_path, explodejs_path, grades = close_docker_containers(explode_proc, package, file_path, neo4j_container_name, io_lock, process_out, main_terminal_msgs, container_list, npm_cache_path, explodejs_path, log_path, grades, grades_explodejs)
+
+        return package, file_path, explodejs_path, grades
+
+
+        # # Need to delete npm cache directory to save space on disk.
+        # if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
+        #     shutil.rmtree(npm_cache_path)
+
+        # # process_out.close()
+        # # package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
+        # # grades = {}
+
+        # test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
         # process_out.close()
-        # package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
-        # grades = {}
 
-        test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
-
-        process_out.close()
-
-        return (package, file_path, explodejs_path, grades)
+        # return (package, file_path, explodejs_path, grades)
 
     
     
