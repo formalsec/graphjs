@@ -1132,6 +1132,37 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         end = time.time()
 
         ret_code = explode_proc.returncode
+
+        if not ret_code == 0:
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.Popen returned non-0 exit status' + Fore.RESET, flush=True, file=process_out)
+            #print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+
+            #print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+            #print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
+            
+            #main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n\t{str(e)}' + Fore.RESET)
+            # main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+
+            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.Popen returned non-0 exit status' + Fore.RESET)
+            # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+            # main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+            # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
+            
+
+            if os.path.exists(norm_file):
+                check_graph_construction_zeroday(grades, norm_file)
+            else: 
+                grades["graph_construction"] = f'ERROR - {ret_code}'
+            if os.path.exists(taint_summary_file):
+                check_vulnerability_detection(grades, taint_summary_file)
+            else:
+                grades["detection"] = f'ERROR - {ret_code}'
+            grades["symb_test"] = f'ERROR - {ret_code}'
+
+
+            package, file_path, explodejs_path, grades = close_docker_containers(explode_proc, package, file_path, neo4j_container_name, io_lock, process_out, main_terminal_msgs, container_list, npm_cache_path, explodejs_path, log_path, grades, grades_explodejs)
+
+            return package, file_path, explodejs_path, grades
         
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, status: {ret_code}' + Fore.RESET)
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - writing result files.' + Fore.RESET)
@@ -1330,36 +1361,36 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
 
         
 
-    except subprocess.CalledProcessError as e:
-        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
-        print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
+    # except subprocess.CalledProcessError as e:
+    #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError' + Fore.RESET, flush=True, file=process_out)
+    #     print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
 
-        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
-        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
+    #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
+    #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
         
-        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n\t{str(e)}' + Fore.RESET)
-        # main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+    #     main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n\t{str(e)}' + Fore.RESET)
+    #     # main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
-        # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
-        # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
-        # main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
-        # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
+    #     # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
+    #     # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+    #     # main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+    #     # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
         
 
-        if os.path.exists(norm_file):
-            check_graph_construction_zeroday(grades, norm_file)
-        else: 
-            grades["graph_construction"] = f'ERROR - {str(e)}'
-        if os.path.exists(taint_summary_file):
-            check_vulnerability_detection(grades, taint_summary_file)
-        else:
-            grades["detection"] = f'ERROR - {str(e)}'
-        grades["symb_test"] = f'ERROR - {str(e)}'
+    #     if os.path.exists(norm_file):
+    #         check_graph_construction_zeroday(grades, norm_file)
+    #     else: 
+    #         grades["graph_construction"] = f'ERROR - {str(e)}'
+    #     if os.path.exists(taint_summary_file):
+    #         check_vulnerability_detection(grades, taint_summary_file)
+    #     else:
+    #         grades["detection"] = f'ERROR - {str(e)}'
+    #     grades["symb_test"] = f'ERROR - {str(e)}'
 
 
-        package, file_path, explodejs_path, grades = close_docker_containers(explode_proc, package, file_path, neo4j_container_name, io_lock, process_out, main_terminal_msgs, container_list, npm_cache_path, explodejs_path, log_path, grades, grades_explodejs)
+    #     package, file_path, explodejs_path, grades = close_docker_containers(explode_proc, package, file_path, neo4j_container_name, io_lock, process_out, main_terminal_msgs, container_list, npm_cache_path, explodejs_path, log_path, grades, grades_explodejs)
 
-        return package, file_path, explodejs_path, grades
+    #     return package, file_path, explodejs_path, grades
 
 
         # # Need to delete npm cache directory to save space on disk.
