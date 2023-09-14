@@ -335,7 +335,8 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
                     else:
                         grades["symb_test"] = "C"
             except UnicodeDecodeError as e:
-                grades["symb_test"] = f'ERROR - {str(e)}'
+                #grades["symb_test"] = f'ERROR - {str(e)}'
+                grades["symb_test"] = f'ERROR'
             break
     else:
         grades["symb_test"] = "D"
@@ -527,7 +528,8 @@ def check_vulnerability_detection(grades, taint_summary_file) -> None:
 
         grades["detection"] = ", ".join(found_vulns) if len(found_vulns) > 0 else "D"
     except UnicodeDecodeError as e:
-            grades["detection"] = f'ERROR - {str(e)}'
+        #grades["detection"] = f'ERROR - {str(e)}'
+        grades["detection"] = f'ERROR'
 
 def check_graph_construction_zeroday(grades, norm_file) -> None:
     try:
@@ -541,7 +543,8 @@ def check_graph_construction_zeroday(grades, norm_file) -> None:
             else:
                 grades["graph_construction"] = "A"
     except UnicodeDecodeError as e:
-        grades["graph_construction"] = f'ERROR - {str(e)}'
+        #grades["graph_construction"] = f'ERROR - {str(e)}'
+        grades["graph_construction"] = f'ERROR'
 
 
 def check_if_package_was_tested(package: str, packages_tested_file_path: str, lines: List[str] = None) -> bool:
@@ -1163,12 +1166,15 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             if os.path.exists(norm_file):
                 check_graph_construction_zeroday(grades, norm_file)
             else: 
-                grades["graph_construction"] = f'ERROR - {ret_code}'
+                #grades["graph_construction"] = f'ERROR - {ret_code}'
+                grades["graph_construction"] = f'ERROR'
             if os.path.exists(taint_summary_file):
                 check_vulnerability_detection(grades, taint_summary_file)
             else:
-                grades["detection"] = f'ERROR - {ret_code}'
-            grades["symb_test"] = f'ERROR - {ret_code}'
+                #grades["detection"] = f'ERROR - {ret_code}'
+                grades["detection"] = f'ERROR'
+            #grades["symb_test"] = f'ERROR - {ret_code}'
+            grades["symb_test"] = f'ERROR'
 
 
             package, file_path, explodejs_path, grades = close_docker_containers(explode_proc, package, file_path, neo4j_container_name, io_lock, process_out, main_terminal_msgs, container_list, npm_cache_path, explodejs_path, log_path, grades, grades_explodejs)
