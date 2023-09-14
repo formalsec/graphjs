@@ -1,5 +1,5 @@
 #!/bin/bash
-DEBUG=false
+DEBUG=true
 
 THIS_SCRIPT=$(basename "$BASH_SOURCE")
 
@@ -165,7 +165,7 @@ else
         # Checking for a substring inside a string.
         # See: https://linuxize.com/post/how-to-check-if-string-contains-substring-in-bash/
         if [[ "$docker_check" == *"Started"* ]]; then
-          echo "[INFO][$THIS_SCRIPT] - docker run command succeeded (--detach=$DEBUG)"
+          echo "[INFO][$THIS_SCRIPT] - verified Docker container $NEO4J_EXPLODEJS_CONTAINER (--detach=$DEBUG)"
           exit 0
         fi
 
