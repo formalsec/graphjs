@@ -886,7 +886,7 @@ def explodejs_killpg(explode_proc: subprocess.Popen) -> str:
         return f'os.killpg(os.getpgid({explode_proc.pid})): successful'
     except ProcessLookupError as e:
         #return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{traceback.format_exc()}'
-        return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{str(e)}'
+        return f'os.killpg(os.getpgid({explode_proc.pid})): {str(e)}'
 
 def close_docker_containers(explode_proc: subprocess.Popen, package: str, file_path: str, neo4j_container_name: str, io_lock: multiprocessing.Lock, process_out: TextIO, main_terminal_msgs: List[str], container_list: ListProxy, npm_cache_path: str, explodejs_path: str, log_path: str, grades: Dict, grades_explodejs: str) -> Tuple[str, str, str, Dict]:
 
@@ -952,7 +952,10 @@ def close_docker_containers(explode_proc: subprocess.Popen, package: str, file_p
 
         process_out.close()
 
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
+        if "successful" in killpg_msg:
+            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy:\t{killpg_msg}' + Fore.RESET)
+        else:
+            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - sub-process hierarchy not found.' + Fore.RESET)
 
         io_lock.acquire()
         print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
@@ -973,7 +976,7 @@ def close_docker_containers(explode_proc: subprocess.Popen, package: str, file_p
     # Stop the container in case it still existed.
     if neo4j_container_name in docker_containers:
 
-        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs.sh timed out, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs.sh exited, stopping Docker container {neo4j_container_name}...' + Fore.RESET)
 
         print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - {docker_containers[neo4j_container_name]}.stop()' + Fore.RESET, flush=True, file=process_out)
         
@@ -987,7 +990,11 @@ def close_docker_containers(explode_proc: subprocess.Popen, package: str, file_p
     
 
     #print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
-    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
+    #main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
+    if "successful" in killpg_msg:
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy:\t{killpg_msg}' + Fore.RESET)
+    else:
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - sub-process hierarchy not found.' + Fore.RESET)
 
     test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
@@ -1134,7 +1141,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         ret_code = explode_proc.returncode
 
         if not ret_code == 0:
-            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.Popen returned non-0 exit status' + Fore.RESET, flush=True, file=process_out)
+            print(Fore.RED + f'[WARN][{THIS_SCRIPT_NAME}] - PID {pid} - child subprocess.Popen process returned exit status: {ret_code}.' + Fore.RESET, flush=True, file=process_out)
             #print(Fore.RED + f'\n\t{traceback.format_exc()}' + Fore.RESET, flush=True, file=process_out)
 
             #print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
@@ -1143,7 +1150,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             #main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n\t{str(e)}' + Fore.RESET)
             # main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.Popen returned non-0 exit status' + Fore.RESET)
+            main_terminal_msgs.append(Fore.RED + f'[WARN][{THIS_SCRIPT_NAME}] - PID {pid} - child subprocess.Popen process returned exit status: {ret_code}.' + Fore.RESET)
             # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
             # main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
             # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
