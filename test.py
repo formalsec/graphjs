@@ -1024,10 +1024,14 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         explode_proc.wait(timeout=300)
 
         end = time.time()
-        
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET)
 
-        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET, flush=True, file=process_out)
+        ret_code = explode_proc.returncode
+        
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, status: {ret_code}' + Fore.RESET)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - writing result files.' + Fore.RESET)
+
+        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, status: {ret_code}' + Fore.RESET, flush=True, file=process_out)
+        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - writing result files.' + Fore.RESET, flush=True, file=process_out)
        
 
         # Write explodejs.sh result data files.
