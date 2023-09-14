@@ -45,7 +45,7 @@ if [ -z "$4" ]
     NEO4J_BOLT_PORT="7687"
 fi
 
-RESULTS_DIR="execution-results"
+#RESULTS_DIR="execution-results"
 
 # # Function to find free ports for the Docker Neo4j image.
 # # See: https://stackoverflow.com/a/45539101
@@ -100,12 +100,17 @@ echo "[INFO][$THIS_SCRIPT] - Running container $NEO4J_EXPLODEJS_CONTAINER - HTTP
 
 echo "[INFO][$THIS_SCRIPT] - Calling 'docker run' with --detach=$DEBUG"
 
+# Creating a special directory for the Docker logs.
+DOCKER_LOGS_PATH="$GRAPH_DIR_PATH/../docker-logs"
+mkdir -p "$DOCKER_LOGS_PATH"
+
 if [ "$DEBUG" = true ]; then
     # Run container
     
     docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v "$GRAPH_DIR_PATH":/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
+        -v "$DOCKER_LOGS_PATH":/var/lib/neo4j/logs \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
         #-e NEO4J_apoc_export_file_enabled=true \
         #-e NEO4J_apoc_import_file_enabled=true \
@@ -126,6 +131,7 @@ else
     docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v "$GRAPH_DIR_PATH":/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
+        -v "$DOCKER_LOGS_PATH":/var/lib/neo4j/logs \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
         #-e NEO4J_apoc_export_file_enabled=true \
         #-e NEO4J_apoc_import_file_enabled=true \
