@@ -869,14 +869,18 @@ def test_zeroday_task_cleanup(pid: int, npm_cache_path: str, io_lock: multiproce
     if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
         shutil.rmtree(npm_cache_path)
 
-    io_lock.acquire()
-    print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
-    io_lock.release()
+    
 
     with open(grades_explodejs, "w") as f:
         f.write(json.dumps(grades, indent=4) + '\n')
 
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
+
+    main_terminal_msgs.add(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET)
+
+    io_lock.acquire()
+    print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
+    io_lock.release()
 
     #process_out.close()
 
