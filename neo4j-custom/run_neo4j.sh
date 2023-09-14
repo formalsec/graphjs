@@ -1,5 +1,5 @@
 #!/bin/bash
-DEBUG=true
+DEBUG=false
 
 THIS_SCRIPT=$(basename "$BASH_SOURCE")
 
