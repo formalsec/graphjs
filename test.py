@@ -876,7 +876,7 @@ def test_zeroday_task_cleanup(pid: int, npm_cache_path: str, io_lock: multiproce
 
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET, flush=True, file=process_out)
 
-    main_terminal_msgs.append(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET)
+    main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - wrote grades to:\n\t{grades_explodejs}.' + Fore.RESET)
 
     io_lock.acquire()
     print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
@@ -1176,7 +1176,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
             return package, file_path, explodejs_path, grades
         
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, status: {ret_code}' + Fore.RESET)
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - writing result files.' + Fore.RESET)
+        #main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - writing result files.' + Fore.RESET)
 
         print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, status: {ret_code}' + Fore.RESET, flush=True, file=process_out)
         print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - writing result files.' + Fore.RESET, flush=True, file=process_out)
