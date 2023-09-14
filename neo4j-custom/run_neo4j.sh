@@ -45,7 +45,7 @@ if [ -z "$4" ]
     NEO4J_BOLT_PORT="7687"
 fi
 
-RESULTS_DIR="execution-results"
+#RESULTS_DIR="execution-results"
 
 # # Function to find free ports for the Docker Neo4j image.
 # # See: https://stackoverflow.com/a/45539101
@@ -76,7 +76,7 @@ RESULTS_DIR="execution-results"
 # Build neo4j Docker image.
 BUILD_IMAGE=false
 
-if [ $BUILD_IMAGE ]
+if [ "$BUILD_IMAGE" = "true" ]
 then
     echo "[INFO][$THIS_SCRIPT] - Building image for container $NEO4J_EXPLODEJS_CONTAINER"
     if [[ "$OSTYPE" =~ ^darwin ]]; then
@@ -100,12 +100,17 @@ echo "[INFO][$THIS_SCRIPT] - Running container $NEO4J_EXPLODEJS_CONTAINER - HTTP
 
 echo "[INFO][$THIS_SCRIPT] - Calling 'docker run' with --detach=$DEBUG"
 
+# Creating a special directory for the Docker logs.
+DOCKER_LOGS_PATH="$GRAPH_DIR_PATH/../docker-logs"
+mkdir -p "$DOCKER_LOGS_PATH"
+
 if [ "$DEBUG" = true ]; then
     # Run container
     
     docker run --rm --name $NEO4J_EXPLODEJS_CONTAINER -v "$GRAPH_DIR_PATH":/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
+        -v "$DOCKER_LOGS_PATH":/var/lib/neo4j/logs \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
         #-e NEO4J_apoc_export_file_enabled=true \
         #-e NEO4J_apoc_import_file_enabled=true \
@@ -126,6 +131,7 @@ else
     docker run -d --rm --name $NEO4J_EXPLODEJS_CONTAINER -v "$GRAPH_DIR_PATH":/var/lib/neo4j/import \
         --user $(id -u):$(id -g) \
         -e NEO4J_dbms_query__cache__size=0 \
+        -v "$DOCKER_LOGS_PATH":/var/lib/neo4j/logs \
         -p $NEO4J_HTTP_PORT:7474 -p $NEO4J_BOLT_PORT:7687 neo4j-docker
         #-e NEO4J_apoc_export_file_enabled=true \
         #-e NEO4J_apoc_import_file_enabled=true \
@@ -159,16 +165,16 @@ else
         # Checking for a substring inside a string.
         # See: https://linuxize.com/post/how-to-check-if-string-contains-substring-in-bash/
         if [[ "$docker_check" == *"Started"* ]]; then
-          echo "[INFO][$THIS_SCRIPT] - docker run command succeeded (--detach=$DEBUG)"
+          echo "[INFO][$THIS_SCRIPT] - verified Docker container $NEO4J_EXPLODEJS_CONTAINER (--detach=$DEBUG)"
           exit 0
         fi
 
       else
-          echo "[ERROR][$THIS_SCRIPT] - docker run exited early (either timeout expired or it crashed)."
-          echo "[ERROR][$THIS_SCRIPT] - exit code: $docker_status"
+          echo "[ERROR][$THIS_SCRIPT] - docker run did not behave as expected."
+          echo "[ERROR][$THIS_SCRIPT] - exit code: $docker_check_exit_code"
           echo "[ERROR][$THIS_SCRIPT] - 'docker logs --tail 1 $NEO4J_EXPLODEJS_CONTAINER 2>&1' output:"
           printf "\t$docker_check\n"
-          exit $docker_status
+          exit $docker_check_exit_code
       fi
       
       #grep -q "Started."

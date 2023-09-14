@@ -874,6 +874,12 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
     newObj.test = children[1].expr;
     newObj.body = createBlockStatement([...children[3].stmts, ...children[2].stmts] as Statement[]);
 
+    const init = children[0];
+    let newInit = init.stmts;
+    if ((newInit === undefined || newInit.length === 0) && init.expr !== null) {
+        newInit = [init.expr];
+    }
+
     if (!newObj.test) { // for (;;)
         newObj.test = { type: "Literal", value: true, raw: "true" }
         return {
@@ -893,7 +899,7 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
     });
 
     return {
-        stmts: [...children[0].stmts, ...children[1].stmts, newObj],
+        stmts: [...newInit, ...children[1].stmts, newObj],
         expr: null
     };
 }
