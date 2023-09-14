@@ -299,7 +299,7 @@ def test_explodejs(dataset_path, dataset, update_sheets, exploit, local):
                 else:
                     os.system(f"./explodejs.sh -xf {vulnerable_file_path} -c config.json -e {explodejs_path}")
                 check_graph_construction(grades, norm_file)
-                comapre_outputs(grades, expected_output_file, taint_summary_file)
+                compare_outputs(grades, expected_output_file, taint_summary_file)
                 check_symb_test_generation(grades, symbolic_test_file, explodejs_path)
                 print("Intermdiate grades:", grades)
         print("Final grades:", grades)
@@ -327,12 +327,15 @@ def check_symb_test_generation(grades, symb_test_file, explodejs_path):
     symb_test_file = os.path.basename(os.path.splitext(symb_test_file)[0])
     for file in os.listdir(explodejs_path):
         if symb_test_file in file:
-            with open(os.path.join(explodejs_path, file), "r", encoding='utf-8') as f:
-                symb_test_str = f.read()
-                if "esl_symbolic." in symb_test_str:
-                    grades["symb_test"] = "A"
-                else:
-                    grades["symb_test"] = "C"
+            try:
+                with open(os.path.join(explodejs_path, file), "r", encoding='utf-8') as f:
+                    symb_test_str = f.read()
+                    if "esl_symbolic." in symb_test_str:
+                        grades["symb_test"] = "A"
+                    else:
+                        grades["symb_test"] = "C"
+            except UnicodeDecodeError as e:
+                grades["symb_test"] = f'ERROR - {str(e)}'
             break
     else:
         grades["symb_test"] = "D"
@@ -416,7 +419,7 @@ def compare_params_types(expected, output):
 
     return True
 
-def comapre_outputs(grades, expected_output, output):
+def compare_outputs(grades, expected_output, output):
     try:
         expected = json.load(open(expected_output))
     except FileNotFoundError:
@@ -513,25 +516,32 @@ def check_vulnerability_detection(grades, taint_summary_file) -> None:
     vulnerabilities = ['command-injection', 'path-traversal', 'code-injection', 'prototype-pollution']
     found_vulns = []
 
-    with open(taint_summary_file, 'r', encoding='utf-8') as file:
-        content = file.read()
+    try:
 
-    for vuln in vulnerabilities:
-        if vuln in content:
-            found_vulns.append(vuln)
+        with open(taint_summary_file, 'r', encoding='utf-8') as file:
+            content = file.read()
 
-    grades["detection"] = ", ".join(found_vulns) if len(found_vulns) > 0 else "D"
+        for vuln in vulnerabilities:
+            if vuln in content:
+                found_vulns.append(vuln)
+
+        grades["detection"] = ", ".join(found_vulns) if len(found_vulns) > 0 else "D"
+    except UnicodeDecodeError as e:
+            grades["detection"] = f'ERROR - {str(e)}'
 
 def check_graph_construction_zeroday(grades, norm_file) -> None:
-    with open(norm_file, "r", encoding='utf-8') as f:
-        file_content = f.read()
-        regex = re.compile(r'Error: [A-Za-z]*Error')
-        if regex.search(file_content):
-            grades["graph_construction"] = "D"
-        elif "Trace: Expression" in file_content:
-            grades["graph_construction"] = "C"
-        else:
-            grades["graph_construction"] = "A"
+    try:
+        with open(norm_file, "r", encoding='utf-8') as f:
+            file_content = f.read()
+            regex = re.compile(r'Error: [A-Za-z]*Error')
+            if regex.search(file_content):
+                grades["graph_construction"] = "D"
+            elif "Trace: Expression" in file_content:
+                grades["graph_construction"] = "C"
+            else:
+                grades["graph_construction"] = "A"
+    except UnicodeDecodeError as e:
+        grades["graph_construction"] = f'ERROR - {str(e)}'
 
 
 def check_if_package_was_tested(package: str, packages_tested_file_path: str, lines: List[str] = None) -> bool:
@@ -853,7 +863,7 @@ def test_zeroday_task_cleanup(pid: int, npm_cache_path: str, io_lock: multiproce
     
     
 
-    print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
+    #print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed process hierarchy.' + Fore.RESET, flush=True, file=process_out)
 
     # Need to delete npm cache directory to save space on disk.
     if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
@@ -875,7 +885,8 @@ def explodejs_killpg(explode_proc: subprocess.Popen) -> str:
         os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
         return f'os.killpg(os.getpgid({explode_proc.pid})): successful'
     except ProcessLookupError as e:
-        return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{traceback.format_exc()}'
+        #return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{traceback.format_exc()}'
+        return f'os.killpg(os.getpgid({explode_proc.pid})): \n\t{str(e)}'
 
 
 def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: multiprocessing.Lock, process_port_map: DictProxy, container_list: ListProxy) -> Tuple[str, str, str, Dict]:
@@ -1006,36 +1017,18 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         # Measure explodejs.sh execution time with a timeout of 300 seconds (5 minutes).
         start = time.time()
 
-
-        #print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Pre explodejs.sh call:\n\t{explode_js_cmd}', flush=True)
-
-        #explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out)
-
         # Using 'start_new_session' to kill all subprocesses in a single call.
         # See: https://alexandra-zaharia.github.io/posts/kill-subprocess-and-its-children-on-timeout-python/
         explode_proc: subprocess.Popen = subprocess.Popen(explode_js_cmd, shell=True, stdout=process_out, stderr=process_out, start_new_session=True)
-
-        
-
-        #explode_proc = subprocess.Popen(explode_js_cmd, shell=True)
-
-        #explode_proc = subprocess.Popen(explode_js_cmd, stdout=process_out, stderr=process_out)
-        #proc_pid = explode_proc.pid
         
         explode_proc.wait(timeout=300)
 
-        #outs, errs = explode_proc.communicate(timeout=300)
-        
         end = time.time()
-
-        #print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - Post explodejs.sh call.', flush=True)
         
-
         main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET)
 
-
         print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - explodejs finished before timeout, writing result files.' + Fore.RESET, flush=True, file=process_out)
-        
+       
 
         # Write explodejs.sh result data files.
         with open(os.path.join(explodejs_path, "time.txt"), "w") as f:
@@ -1107,59 +1100,16 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(Fore.MAGENTA + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
 
         main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.TimeoutExpired.' + Fore.RESET)
-
-        #print(f'[INFO][{THIS_SCRIPT_NAME}] - Timeout expired.', flush=True)
-        
-        try:
-            if os.path.exists(norm_file):
-                check_graph_construction_zeroday(grades, norm_file)
-            else: 
-                grades["graph_construction"] = "TIMEOUT"
-            if os.path.exists(taint_summary_file):
-                check_graph_construction_zeroday(grades, taint_summary_file)
-            else:
-                grades["detection"] = "TIMEOUT"
-            grades["symb_test"] = "TIMEOUT"
-        except UnicodeDecodeError as e:
-
-            # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-            #hierarchy_pkill(pid, explode_proc)
-            #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
-            killpg_msg: str = explodejs_killpg(explode_proc)
-
-            print(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET, flush=True, file=process_out)
-            print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET, flush=True, file=process_out)
-
-
-            print(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET, flush=True, file=process_out)
-
-            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
-            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
-
-
-            main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
-
-
-            main_terminal_msgs.append(Fore.RED + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET)
-
-            main_terminal_msgs.append(Fore.RED + f'\n\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning empty \'grades\' dict so that the main process terminates the pool and stops.' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
-            main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
-
-            
-            
-            # Need to delete npm cache directory to save space on disk.
-            if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
-                shutil.rmtree(npm_cache_path)
-
-            process_out.close()
-            package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - UnicodeDecodeError when checking norm_file/taint_summary_file/symbolic_test_file.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
-            grades = {}
-
-            return (package, file_path, explodejs_path, grades)
-
+               
+        if os.path.exists(norm_file):
+            check_graph_construction_zeroday(grades, norm_file)
+        else: 
+            grades["graph_construction"] = "TIMEOUT"
+        if os.path.exists(taint_summary_file):
+            check_graph_construction_zeroday(grades, taint_summary_file)
+        else:
+            grades["detection"] = "TIMEOUT"
+        grades["symb_test"] = "TIMEOUT"
 
         # Need to stop the Docker container if it still exists after the timeout triggered.          
         print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - checking if container {neo4j_container_name} is still running after timeout.' + Fore.RESET, flush=True, file=process_out)
@@ -1220,13 +1170,20 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
                 shutil.rmtree(npm_cache_path)
 
             process_out.close()
+
+            main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
+
+            io_lock.acquire()
+            print("{}\n".format("\n".join(main_terminal_msgs)), flush=True)
+            io_lock.release()
+
             package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - docker.errors.APIError: unknown docker API error.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
             grades = {}
 
             return (package, file_path, explodejs_path, grades)
         
         # Kill all descendent processes of the current process (which is part of a multiprocessing.Pool)
-       # print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
+        # print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - before hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
 
         #hierarchy_pkill(pid, explode_proc)
         #os.killpg(os.getpgid(explode_proc.pid), signal.SIGTERM)
@@ -1249,7 +1206,7 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         
 
         #print(Fore.MAGENTA + f'\n\n[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - after hierarchy_pkill.' + Fore.RESET, flush=True, file=process_out)
-        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n{killpg_msg}' + Fore.RESET)
+        main_terminal_msgs.append(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - PID {pid} - killed sub-process hierarchy.\n\t{killpg_msg}' + Fore.RESET)
 
         test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
 
@@ -1266,33 +1223,39 @@ def test_zeroday_task(package: str, file_path: str, output_dir: str, io_lock: mu
         print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET, flush=True, file=process_out)
         print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET, flush=True, file=process_out)
         
-        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.' + Fore.RESET)
-        main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n\t{str(e)}' + Fore.RESET)
+        # main_terminal_msgs.append(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
 
-        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
-        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
-        main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
-        main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
+        # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - this should not happen, returning value so that the main process terminates the pool.' + Fore.RESET)
+        # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - check the log file:' + Fore.RESET)
+        # main_terminal_msgs.append(Fore.RED + f'\t{log_path}' + Fore.RESET)
+        # main_terminal_msgs.append(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - ##########\n' + Fore.RESET)
         
 
-        # if os.path.exists(norm_file):
-        #     check_graph_construction_zeroday(grades, norm_file)
-        # else: 
-        #     grades["graph_construction"] = "ERROR"
-        # if os.path.exists(taint_summary_file):
-        #     check_vulnerability_detection(grades, taint_summary_file)
-        # else:
-        #     grades["detection"] = "ERROR"
-        # grades["symb_test"] = "ERROR"
+        if os.path.exists(norm_file):
+            check_graph_construction_zeroday(grades, norm_file)
+        else: 
+            grades["graph_construction"] = f'ERROR - {str(e)}'
+        if os.path.exists(taint_summary_file):
+            check_vulnerability_detection(grades, taint_summary_file)
+        else:
+            grades["detection"] = f'ERROR - {str(e)}'
+        grades["symb_test"] = f'ERROR - {str(e)}'
 
 
         # Need to delete npm cache directory to save space on disk.
         if os.path.exists(npm_cache_path) and os.path.isdir(npm_cache_path):
             shutil.rmtree(npm_cache_path)
 
+        # process_out.close()
+        # package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
+        # grades = {}
+
+        test_zeroday_task_cleanup(pid, npm_cache_path, io_lock, grades, main_terminal_msgs, grades_explodejs, process_out)
+
         process_out.close()
-        package = f'[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - subprocess.CalledProcessError.\n[ERROR][{THIS_SCRIPT_NAME}] - PID {pid} - {log_path}'
-        grades = {}
+
+        return (package, file_path, explodejs_path, grades)
 
     
     
