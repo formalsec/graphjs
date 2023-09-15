@@ -1787,6 +1787,10 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreads
                         explodejs_path: str = started_packages[package][f]
                         grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
 
+                        if not (os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs)):
+                            package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
+                            continue
+
                     # If the current file had already been processed (results found on disk), 
                     # load its grades.
                     # We load its grades because we only write a package to the Google Sheet 
