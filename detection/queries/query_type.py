@@ -1,6 +1,11 @@
 from abc import abstractmethod
 import json
+
+import os
+
 import my_utils.utils as my_utils
+
+THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 
 class QueryType:
     debug = False #TODO: Delete
@@ -519,7 +524,7 @@ class QueryType:
                                 params_types["pdg_node_id"].add(node_id)
                         params_types = param_types_pointer
 
-            print("[INFO] - Assigning types to attacker-controlled data") 
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - Assigning types to attacker-controlled data.') 
             self.assign_types(session, params_types, config)
             self.simplify_objects(params_types, config, detection_record.get("tamp_obj", False), detection_record.get("param", False))
             attacker_controlled_data[source_cfg_id] = params_types
