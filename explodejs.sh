@@ -207,7 +207,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         fi
 
         if [ $ret_status -eq 0 ]; then
-            echo "[INFO][$THIS_SCRIPT] - $NEO4J_DIR/run_neo4j.shn succeeded."
+            echo "[INFO][$THIS_SCRIPT] - $NEO4J_DIR/run_neo4j.sh succeeded."
         else
             echo "[ERROR][$THIS_SCRIPT] - $NEO4J_DIR/run_neo4j.sh exited with status: $ret_status"
             echo "[ERROR][$THIS_SCRIPT] - exiting."
