@@ -659,7 +659,7 @@ def update_zeroday_sheet(ws: gspread.Spreadsheet, package: str, package_grades: 
     retry_sleep_time: int = 300
 
     # Number of seconds to sleep between calls to the gspread API.
-    inter_operation_sleep: int = 5
+    inter_operation_sleep: int = 10
 
     # In the event that all rows are used, try to increase the number of rows by 'row_incr' rows.
     row_incr: int = 1000 + file_ctr
@@ -2378,14 +2378,6 @@ if __name__ == "__main__":
         print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Passed option to only generate dataset index. Exiting.' + Fore.RESET)
         sys.exit(0)
 
-    #SHEET_NAME: str = args.target_gsheet
-    #SERVICE_ACC_FILE: str = ".config/service_account.json"
-    # gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = SERVICE_ACC_FILE, spreadsheet_name = SHEET_NAME)
-    # if gspread_spreadsheet == None:
-    #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
-    #     sys.exit(1)
-    # else:
-    #     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
 
     if args.tool == "explode.js" and args.d == "zeroday":
 
@@ -2400,9 +2392,7 @@ if __name__ == "__main__":
                                target_sheet_name = "ZDC", concurrency_level = args.parallelism, 
                                package_start_ind = args.start_package, package_finish_ind = args.finish_package)
         #test_zeroday_dataset()
-        #test_zeroday_dataset_p(args.input, args.output_dir, gspread_spreadsheet,
-        #                       target_sheet_name = "ZDC", concurrency_level = args.parallelism, 
-        #                       package_start_ind = args.start_package, package_finish_ind = args.finish_package)
+
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x, args.l)
