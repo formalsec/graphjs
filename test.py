@@ -72,9 +72,14 @@ def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_na
         try:
             
             current_op: str = 'gspread.service_account(filename=service_acc)'
+
+            print(f'[INFO] - gspread.service_account(filename={service_acc})')
+
             service_account: gspread.client.Client = gspread.service_account(filename=service_acc)
             current_op = 'gspread.client.Client.open(spreadsheet_name)'
             sheet: gspread.Spreadsheet = service_account.open(spreadsheet_name)
+
+            print(f'[INFO] - service_account.open({spreadsheet_name})')
 
             # If a 'gspread' operation was successful, reset the retry counter.
             return sheet
@@ -2036,12 +2041,14 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
         
 
         # Open connection to Google Sheet API using gspread.
-        gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc, spreadsheet_name = spreadsheet_name)
-        if gspread_spreadsheet == None:
-            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
-            sys.exit(1)
-        else:
-            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
+        gspread_spreadsheet: gspread.Spreadsheet = open_google_sheet_connection(
+            service_acc = service_acc, spreadsheet_name = spreadsheet_name)
+        # gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc, spreadsheet_name = spreadsheet_name)
+        # if gspread_spreadsheet == None:
+        #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+        #     sys.exit(1)
+        # else:
+        #     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
 
         # Create worksheet if it does not exist.
         target_sheet_name = f"{target_sheet_name}-{package_start_ind}-{package_finish_ind}"
