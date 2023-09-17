@@ -26,7 +26,7 @@ import time
 import traceback
 from typing import Dict, List, Tuple, TextIO, Set
 
-import google.auth
+from google.auth import exceptions as google_auth_exceptions
 
 # Some constants.
 DOCKER_CONTAINER_MAX_LEN: int = 128
@@ -80,7 +80,7 @@ def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_na
             return sheet
                 
 
-        except google.auth.exceptions.TransportError as e:
+        except google_auth_exceptions.TransportError as e:
             print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - unhandled error when trying to open worksheet {spreadsheet_name}' + Fore.RESET)
             print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
             return None    
