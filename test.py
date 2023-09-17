@@ -2403,7 +2403,7 @@ if __name__ == "__main__":
         
 
         test_zeroday_dataset_p(args.input, args.output_dir, 
-                               service_acc = args.target_gsheet, spreadsheet_name = '.config/service_account.json',
+                               service_acc = '.config/service_account.json', spreadsheet_name = args.target_gsheet,
                                target_sheet_name = "ZDC", concurrency_level = args.parallelism, 
                                package_start_ind = args.start_package, package_finish_ind = args.finish_package)
         #test_zeroday_dataset()
