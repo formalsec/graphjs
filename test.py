@@ -2055,7 +2055,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
 
         try:
             ws: gspread.Worksheet = load_sheet(gspread_spreadsheet, target_sheet_name)
-            print("Loaded gspread.Spreadsheet: {}".format(target_sheet_name))
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - Loaded gspread.Spreadsheet: {target_sheet_name}')
         except gspread.exceptions.WorksheetNotFound:
 
             # Copy 'ZDC-Template' sheet which is already formatted.
@@ -2067,20 +2067,19 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
             ws: gspread.Worksheet = template_sheet.duplicate(insert_sheet_index=target_index, new_sheet_name=target_sheet_name)
             
 
-            print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
+            print("[INFO][{THIS_SCRIPT_NAME}] - gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
         
         incomplete_pkg_num: int = 0
         for pkg_fc in package_file_count.values():
             if pkg_fc > 0:
                 incomplete_pkg_num += 1
 
-        print(f'Processing {len(package_f_tuples)} files from incomplete {incomplete_pkg_num} packages.')
+        print(f'[INFO][{THIS_SCRIPT_NAME}] - Processing {len(package_f_tuples)} files from incomplete {incomplete_pkg_num} packages.')
         
-        print("Creating pool with {} workers.".format(concurrency_level))
-        # See pitfalls of running multiprocessing.Pool:
-        # https://pythonspeed.com/articles/python-multiprocessing/
+        print(f'[INFO][{THIS_SCRIPT_NAME}] - Creating pool with {concurrency_level} workers.')
         
-       
+        
+        # Uncomment and use pdb debugging if necessary...
         #import pdb
         #pdb.set_trace()
         
@@ -2088,6 +2087,9 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
 
         try:
             kb_interrupt: bool = False
+
+            # See pitfalls of running multiprocessing.Pool:
+            # https://pythonspeed.com/articles/python-multiprocessing/
             #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
             pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
             
