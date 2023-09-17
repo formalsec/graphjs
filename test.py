@@ -26,6 +26,8 @@ import time
 import traceback
 from typing import Dict, List, Tuple, TextIO, Set
 
+import google.auth
+
 # Some constants.
 DOCKER_CONTAINER_MAX_LEN: int = 128
 THIS_SCRIPT_NAME: str = os. path. basename(__file__)
@@ -78,7 +80,10 @@ def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_na
             return sheet
                 
 
-            
+        except google.auth.exceptions.TransportError as e:
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - unhandled error when trying to open worksheet {spreadsheet_name}' + Fore.RESET)
+            print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
+            return None    
         except gspread.exceptions.APIError as e:
             
             error_json = e.response.json()
@@ -143,16 +148,6 @@ def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_na
                 print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - unhandled error when trying to open worksheet {spreadsheet_name}' + Fore.RESET)
                 print(Fore.RED + f'\n\t{traceback.format_exc()}\n' + Fore.RESET)
                 return None
-
-# sheet_name: str = "explode.js-vs-odgen"
-# service_acc_file: str = ".config/service_account.json"
-# sheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc_file, spreadsheet_name = sheet_name)
-# if sheet == None:
-#     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
-# else:
-#     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet sucessfully.' + Fore.RESET)
-# #service_account: gspread.client.Client = gspread.service_account(filename=".config/service_account.json")
-# #sheet: gspread.Spreadsheet = service_account.open("explode.js-vs-odgen")
 
 
 
@@ -1834,7 +1829,22 @@ def load_gspread_sheet(gspread_spreadsheet, target_sheet_name: str) -> gspread.W
 
     return ws
 
-def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreadsheet: gspread.Spreadsheet, target_sheet_name: str = "ZDC", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
+def open_google_sheet_connection(service_acc: str, spreadsheet_name: str) -> gspread.Spreadsheet:
+    # Open connection to Google Sheet API using gspread.
+    try:
+        gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc, spreadsheet_name = spreadsheet_name)
+        if gspread_spreadsheet == None:
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+            sys.exit(1)
+        else:
+            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {spreadsheet_name} sucessfully.' + Fore.RESET)
+    except google.auth.exceptions.TransportError e:
+        pass
+    
+    return gspread_spreadsheet
+
+#def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreadsheet: gspread.Spreadsheet, target_sheet_name: str = "ZDC", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
+def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: str, spreadsheet_name: str, target_sheet_name: str = "ZDC", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
 
@@ -1842,24 +1852,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreads
     @param concurrency_level: the size of the :class:`multiprocessing.Pool` to use for concurrent processses.
     """
 
-    # Create worksheet if it does not exist.
-    target_sheet_name = f"{target_sheet_name}-{package_start_ind}-{package_finish_ind}"
-
-    try:
-        ws: gspread.Worksheet = load_sheet(gspread_spreadsheet, target_sheet_name)
-        print("Loaded gspread.Spreadsheet: {}".format(target_sheet_name))
-    except gspread.exceptions.WorksheetNotFound:
-
-        # Copy 'ZDC-Template' sheet which is already formatted.
-        template_sheet: gspread.Worksheet = load_sheet(gspread_spreadsheet, "ZDC-Template")
-
-        # We want to store the new worksheet at the end of the Google Sheet tabs.
-        target_index: int = len(gspread_spreadsheet.worksheets())
-
-        ws: gspread.Worksheet = template_sheet.duplicate(insert_sheet_index=target_index, new_sheet_name=target_sheet_name)
-        
-
-        print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
+    
     
 
     print(f'Zeroday dataset directory: {input_packages}')
@@ -2039,9 +2032,38 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreads
         # See: https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool
 
 
+
         if len(package_f_tuples) == 0:
             print(f'All packages seem to have been processed. No pool was needed. Exiting.')
             return
+        
+
+        # Open connection to Google Sheet API using gspread.
+        gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc, spreadsheet_name = spreadsheet_name)
+        if gspread_spreadsheet == None:
+            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+            sys.exit(1)
+        else:
+            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
+
+        # Create worksheet if it does not exist.
+        target_sheet_name = f"{target_sheet_name}-{package_start_ind}-{package_finish_ind}"
+
+        try:
+            ws: gspread.Worksheet = load_sheet(gspread_spreadsheet, target_sheet_name)
+            print("Loaded gspread.Spreadsheet: {}".format(target_sheet_name))
+        except gspread.exceptions.WorksheetNotFound:
+
+            # Copy 'ZDC-Template' sheet which is already formatted.
+            template_sheet: gspread.Worksheet = load_sheet(gspread_spreadsheet, "ZDC-Template")
+
+            # We want to store the new worksheet at the end of the Google Sheet tabs.
+            target_index: int = len(gspread_spreadsheet.worksheets())
+
+            ws: gspread.Worksheet = template_sheet.duplicate(insert_sheet_index=target_index, new_sheet_name=target_sheet_name)
+            
+
+            print("gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
         
         incomplete_pkg_num: int = 0
         for pkg_fc in package_file_count.values():
@@ -2352,14 +2374,14 @@ if __name__ == "__main__":
         print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Passed option to only generate dataset index. Exiting.' + Fore.RESET)
         sys.exit(0)
 
-    SHEET_NAME: str = args.target_gsheet
-    SERVICE_ACC_FILE: str = ".config/service_account.json"
-    gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = SERVICE_ACC_FILE, spreadsheet_name = SHEET_NAME)
-    if gspread_spreadsheet == None:
-        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
-        sys.exit(1)
-    else:
-        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
+    #SHEET_NAME: str = args.target_gsheet
+    #SERVICE_ACC_FILE: str = ".config/service_account.json"
+    # gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = SERVICE_ACC_FILE, spreadsheet_name = SHEET_NAME)
+    # if gspread_spreadsheet == None:
+    #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+    #     sys.exit(1)
+    # else:
+    #     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
 
     if args.tool == "explode.js" and args.d == "zeroday":
 
@@ -2369,10 +2391,21 @@ if __name__ == "__main__":
             print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - There was an error preparing the docker image.' + Fore.RESET)
             exit(1)
 
-        #test_zeroday_dataset()
-        test_zeroday_dataset_p(args.input, args.output_dir, gspread_spreadsheet,
+        gspread_details: Dict[str, str] = {
+            'SHEET_NAME': args.target_gsheet,
+            'SERVICE_ACC_FILE': ".config/service_account.json"
+        }
+
+        
+
+        test_zeroday_dataset_p(args.input, args.output_dir, 
+                               service_acc = args.target_gsheet, spreadsheet_name = '.config/service_account.json',
                                target_sheet_name = "ZDC", concurrency_level = args.parallelism, 
                                package_start_ind = args.start_package, package_finish_ind = args.finish_package)
+        #test_zeroday_dataset()
+        #test_zeroday_dataset_p(args.input, args.output_dir, gspread_spreadsheet,
+        #                       target_sheet_name = "ZDC", concurrency_level = args.parallelism, 
+        #                       package_start_ind = args.start_package, package_finish_ind = args.finish_package)
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:
         # clean(VULNERABLE_EXAMPLE_DATASET, args.x)
         test_explodejs(VULNERABLE_EXAMPLE_DATASET, "Example Dataset", args.u, args.x, args.l)
