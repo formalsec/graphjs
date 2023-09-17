@@ -2393,14 +2393,7 @@ if __name__ == "__main__":
             print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Neo4j docker image is ready.' + Fore.RESET)
         else:
             print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - There was an error preparing the docker image.' + Fore.RESET)
-            exit(1)
-
-        gspread_details: Dict[str, str] = {
-            'SHEET_NAME': args.target_gsheet,
-            'SERVICE_ACC_FILE': ".config/service_account.json"
-        }
-
-        
+            exit(1)      
 
         test_zeroday_dataset_p(args.input, args.output_dir, 
                                service_acc = '.config/service_account.json', spreadsheet_name = args.target_gsheet,
