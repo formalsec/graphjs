@@ -1831,13 +1831,12 @@ def load_gspread_sheet(gspread_spreadsheet, target_sheet_name: str) -> gspread.W
 
 def open_google_sheet_connection(service_acc: str, spreadsheet_name: str) -> gspread.Spreadsheet:
     # Open connection to Google Sheet API using gspread.
-    try:
-        gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc, spreadsheet_name = spreadsheet_name)
-        if gspread_spreadsheet == None:
-            print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
-            sys.exit(1)
-        else:
-            print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {spreadsheet_name} sucessfully.' + Fore.RESET)
+    gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc, spreadsheet_name = spreadsheet_name)
+    if gspread_spreadsheet == None:
+        print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
+        sys.exit(1)
+    else:
+        print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {spreadsheet_name} sucessfully.' + Fore.RESET)
     
     return gspread_spreadsheet
 
