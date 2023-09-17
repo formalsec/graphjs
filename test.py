@@ -1838,8 +1838,6 @@ def open_google_sheet_connection(service_acc: str, spreadsheet_name: str) -> gsp
             sys.exit(1)
         else:
             print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {spreadsheet_name} sucessfully.' + Fore.RESET)
-    except google.auth.exceptions.TransportError e:
-        pass
     
     return gspread_spreadsheet
 
