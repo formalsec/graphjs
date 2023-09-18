@@ -30,7 +30,7 @@ from google.auth import exceptions as google_auth_exceptions
 
 # Some constants.
 DOCKER_CONTAINER_MAX_LEN: int = 128
-THIS_SCRIPT_NAME: str = os. path. basename(__file__)
+THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 INDEX_FILE_PACKAGE_TOKEN: str = ">>>>"
 DATASET_INDEX_NAME: str = "dataset-index.txt"
 # Number of retries that will be made in the face of the API stating the service 
@@ -1854,12 +1854,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
     @param concurrency_level: the size of the :class:`multiprocessing.Pool` to use for concurrent processses.
     """
 
+    print(f'[INFO][{THIS_SCRIPT_NAME}] - Zeroday dataset directory: {input_packages}')
     
-    
-
-    print(f'Zeroday dataset directory: {input_packages}')
-    
-
     package_paths: List[str]
     dataset_package_file_paths: Dict[str, List[str]]
     
@@ -1867,7 +1863,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
     package_paths, dataset_package_file_paths = read_dataset_index(index_path, package_start_ind, package_finish_ind)
 
 
-    print(f'Checking package indices [{package_start_ind}-{package_start_ind+len(package_paths)}[')
+    print(f'[INFO][{THIS_SCRIPT_NAME}] - Checking package indices [{package_start_ind}-{package_start_ind+len(package_paths)}[')
     for pp in package_paths:
         print(f'\t{pp}')
 
@@ -1918,23 +1914,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
                     if not curr_pckg in started_packages.keys():
                         started_packages[curr_pckg] = {}
 
-                    started_packages[curr_pckg][js_file] = explodejs_dir
-
-        # Get index file ready.
-        # index_file_path: str = os.path.join(output_dir, "packages-index.txt")
-
-        
-
-        
-
-        # if not os.path.exists(index_file_path):
-        #     dataset_package_file_paths: Dict[str, List[str]] = make_index_file(index_file_path=index_file_path, package_paths=package_paths)
-        # else:
-        #     dataset_package_file_paths: Dict[str, List[str]] = read_index_file(index_file_path=index_file_path)
-
-        
-        
-        
+                    started_packages[curr_pckg][js_file] = explodejs_dir   
 
         # Create or open the tested packages list file if it does not exist.
         tested_package_file_list: str = os.path.join(output_dir, "packages-tested.txt")
@@ -1951,41 +1931,23 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
             package = os.path.basename(package_path)
 
             # Skipping those that have been tested before first.
-            #if check_if_package_was_tested(package, ZERODAY_TESTED_LIST):
             if check_if_package_was_tested(package, tested_package_file_list, tested_lines):
                 print(Fore.MAGENTA + f'DONE: Package "{package}" has already been tested' + Fore.RESET)
                 continue
             else:
-
-                
-                
-                # Get paths of files associated to the current package.
-                
-                
-                
+            
+                # Get paths of files associated to the current package.                
                 file_paths: List[str] = dataset_package_file_paths[package]
                 package_file_count[package] = len(file_paths)
 
-                # if package == "0x-typescript-typings-5.3.2":
-                #     print(f'len(file_paths) = {file_paths}')
-                #     print(f'package_file_count[package] = {package_file_count[package]}')
-                #     sys.exit(0)
-
-                #file_paths: List[str] = get_js_files(package_path)
                 if package_file_count[package] == 0:
                     print(Fore.MAGENTA + f'EMPTY: Package "{package}" has no .js files' + Fore.RESET)
                     add_package_to_tested_list(package, tested_package_file_list)
                     continue
 
-                
-
                 print(Fore.MAGENTA + f'TODO: Package "{package}" has files left to process' + Fore.RESET)
 
                 for f in file_paths:
-
-                    # if package == "0x-typescript-typings-5.3.2":
-                    #     print(f'len(f) = {len(f)}\tf = {f}')
-                    #     sys.exit(0)
 
                     if not package in started_packages.keys():
                         package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
@@ -1994,61 +1956,40 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
                         package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
                         continue
                     else:
-
-                        #explodejs_path = f"{f}_explodejs"
+                        # Package file has been started, but did it finish?
                         explodejs_path: str = started_packages[package][f]
                         grades_explodejs: str = os.path.join(explodejs_path, "grades.json")
 
+                        # If this is True, then the file had been started but did not finish.
                         if not (os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs)):
                             package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
                             continue
 
-                    # If the current file had already been processed (results found on disk), 
-                    # load its grades.
-                    # We load its grades because we only write a package to the Google Sheet 
-                    # when all files have been processed.
-                    #if os.path.exists(grades_explodejs) and os.path.isfile(grades_explodejs):
-
                         if not package in package_grades:
                             package_grades[package] = {}
                         
-                        res_grades = json.load(open(grades_explodejs, "r"))
+                        # If the current package file had already been processed (results found on disk), 
+                        # load its grades.
+                        # We load its grades because we only write a package to the Google Sheet 
+                        # worksheet when all files have been processed.
+                        res_grades: Dict[str, str] = json.load(open(grades_explodejs, "r"))
 
                         package_grades[package][f] = res_grades
 
                         package_file_count[package] -= 1
 
                         print(Fore.MAGENTA + f'\tAlready processed: "{f}"' + Fore.RESET)
-                    # else:
-                    #     package_f_tuples.append((package, f, output_dir, io_lock, process_map, container_list))
+
         
 
-        #for t in package_f_tuples:
-        #    print(f"### DEBUG: {t}")
-        #sys.exit(0)
-
-        # Create a process pool with the specified 'concurrency_level'.
-        # Argument 'maxtasksperchild' limits how many task 'test_zeroday_task' executions
-        # will occur before the process is killed and a new one is created.
-        # This improves resource efficiency.
-        # See: https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool
-
-
-
         if len(package_f_tuples) == 0:
-            print(f'All packages seem to have been processed. No pool was needed. Exiting.')
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - All packages seem to have been processed. No pool was needed. Exiting.')
             return
         
 
         # Open connection to Google Sheet API using gspread.
         gspread_spreadsheet: gspread.Spreadsheet = open_google_sheet_connection(
             service_acc = service_acc, spreadsheet_name = spreadsheet_name)
-        # gspread_spreadsheet: gspread.Spreadsheet = open_sheet(service_acc = service_acc, spreadsheet_name = spreadsheet_name)
-        # if gspread_spreadsheet == None:
-        #     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - could not use Google Sheet API, exiting.' + Fore.RESET)
-        #     sys.exit(1)
-        # else:
-        #     print(Fore.MAGENTA + f'[INFO][{THIS_SCRIPT_NAME}] - opened Google Sheet API sheet {SHEET_NAME} sucessfully.' + Fore.RESET)
 
         # Create worksheet if it does not exist.
         target_sheet_name = f"{target_sheet_name}-{package_start_ind}-{package_finish_ind}"
@@ -2067,8 +2008,9 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
             ws: gspread.Worksheet = template_sheet.duplicate(insert_sheet_index=target_index, new_sheet_name=target_sheet_name)
             
 
-            print("[INFO][{THIS_SCRIPT_NAME}] - gspread.Spreadsheet {} not found. Created one.".format(target_sheet_name))
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - gspread.Spreadsheet {target_sheet_name} not found. Created one.')
         
+        # Calculate how many incomplete (either started or not started yet) packages we have.
         incomplete_pkg_num: int = 0
         for pkg_fc in package_file_count.values():
             if pkg_fc > 0:
@@ -2088,26 +2030,49 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
         try:
             kb_interrupt: bool = False
 
-            # See pitfalls of running multiprocessing.Pool:
+            # Create a process pool with the specified 'concurrency_level'.
+            # Argument 'maxtasksperchild' limits how many task 'test_zeroday_task' executions
+            # will occur before the process is killed and a new one is created.
+            # This improves resource efficiency.
+            # See: https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool
+            # Also beware of pitfalls when running multiprocessing.Pool:
             # https://pythonspeed.com/articles/python-multiprocessing/
-            #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
             pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, initializer=init_pool)
+            #pool: multiprocessing.Pool = multiprocessing.pool.Pool(processes=concurrency_level, maxtasksperchild=2, initializer=init_pool)
             
         
-            # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
-            # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
-            # https://superfastpython.com/multiprocessing-pool-issue-tasks/
+            
             closing_pool_normally: bool = False
 
             closing_pool_from_error: bool = False
             
             started_package_fh: TextIO = open(started_package_file_list, 'a')
-            for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
-                res_package: str = result[0]
-                res_file: str = result[1]
-                res_explodejs_path: str = result[2]
-                res_grades: Dict = result[3]
 
+            # See: https://superfastpython.com/multiprocessing-pool-imap_unordered/#How_to_Use_Poolimap_unordered
+            # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.imap_unordered
+            # https://superfastpython.com/multiprocessing-pool-issue-tasks/
+            for result in pool.imap_unordered(test_zeroday_task_star, package_f_tuples):
+
+                # The package of the .js/.cjs file that explodejs processed.
+                res_package: str = result[0]
+
+                # The actual .js/.cjs file path.
+                res_file: str = result[1]
+
+                # Path to the explodejs result directory for this file.
+                res_explodejs_path: str = result[2]
+
+                # Grades computed by explodejs.
+                # Example of 'res_grades':
+                #'perevorot-shop-2.0.116/src/dist/api.js': {
+                    #'detection': 'D',
+                    #'graph_construction': 'A',
+                    #'symb_test': 'D'}
+                #}
+                res_grades: Dict[str, str] = result[3]
+                
+                # HACK: in some situations, for a worker to communicate that an error
+                # happened during processing, 'res_grades' is set to an empty Dict.
                 if len(res_grades) == 0:
                     closing_pool_from_error = True
                     print(Fore.RED + f'[ERROR][{THIS_SCRIPT_NAME}] - Detected an error from one of the workers\n{res_package}' + Fore.RESET)
@@ -2118,24 +2083,23 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
                 io_lock.acquire()
 
                 # Create/update a file to indicate that a package has started
-                # to be processed but not yet finished.
-                #def add_package_to_tested_list(package: str, packages_tested_file_path: str) -> None:
-                #with open(started_package_file_list, 'a') as file:
+                # to be processed but has not necessarily yet finished.
                 started_package_fh.write(f'{res_package}||||{res_file}||||{res_explodejs_path}\n')
 
                 if not res_package in package_grades:
                     package_grades[res_package] = {}
                 package_grades[res_package][res_file] = res_grades
 
+                # One package left for package 'res_package'.
                 package_file_count[res_package] -= 1   
-
-                #write_succeeded: bool = False           
                 
+                # If we finished 'res_package', time to write its individual files' grades.
                 if package_file_count[res_package] == 0:
-                    # Remove "packages/src" prefix before writing the package to the sheet.
-
+                    
                     grades_d: Dict = {}
                     for curr_path, curr_grades in package_grades[res_package].items():
+
+                        # Remove "packages/src" prefix before writing the package to the Google Sheet spreadsheet.
                         cleaned_path = curr_path[curr_path.find(res_package) : ]
 
                         grades_d[cleaned_path] = curr_grades
