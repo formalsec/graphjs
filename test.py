@@ -73,13 +73,13 @@ def open_sheet(service_acc: str = ".config/service_account.json", spreadsheet_na
             
             current_op: str = 'gspread.service_account(filename=service_acc)'
 
-            print(f'[INFO] - gspread.service_account(filename={service_acc})')
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - gspread.service_account(filename={service_acc})')
 
             service_account: gspread.client.Client = gspread.service_account(filename=service_acc)
             current_op = 'gspread.client.Client.open(spreadsheet_name)'
             sheet: gspread.Spreadsheet = service_account.open(spreadsheet_name)
 
-            print(f'[INFO] - service_account.open({spreadsheet_name})')
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - service_account.open({spreadsheet_name})')
 
             # If a 'gspread' operation was successful, reset the retry counter.
             return sheet
