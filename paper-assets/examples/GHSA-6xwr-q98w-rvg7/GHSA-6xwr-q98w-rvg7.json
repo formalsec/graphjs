@@ -1,0 +1,35 @@
+{
+    "advisory": {
+        "ghsa_id": "GHSA-6xwr-q98w-rvg7", 
+        "cve_id": "CVE-2022-21803",
+        "cwe": "CWE-1321"
+    },
+    "correct_cwe": ["CWE-471", "CWE-1321"],
+    "correct_package_link": "https://registry.npmjs.org/nconf/-/nconf-0.11.3.tgz",
+    "vulnerability": {
+        "vulnerability_location": [
+            {
+                "source": {
+                    "file": "lib/nconf/stores/memory.js",
+                    "lineno": 63,
+                    "code": "Memory.prototype.set = function (key, value) {"
+                },
+                "sink": {
+                    "file": "lib/nconf/stores/memory.js",
+                    "lineno": 107,
+                    "code": "target[key] = value;"
+                }
+            }
+        ]
+    },
+    "poc": [
+        {
+            "url": "https://security.snyk.io/vuln/SNYK-JS-NCONF-2395478"
+        }
+    ],
+    "patch": [
+        {
+            "url": "https://github.com/indexzero/nconf/releases/tag/v0.11.4"
+        }
+    ]
+}

@@ -1,0 +1,1239 @@
+
+> parser@0.0.1 start
+> ts-node-dev --transpile-only ./src/parser.ts "-f" "/home/mikeelbyte/inesc/js-cpg/datasets/injection-dataset/CWE-471/GHSA-g954-5hwp-pp24/src/util.js" "-c" "/home/mikeelbyte/inesc/js-cpg/config.json" "--out" "--csv"
+
+[INFO] 18:06:18 ts-node-dev ver. 1.1.8 (using ts-node ver. 9.1.1, typescript ver. 4.5.5)
+Step - AST Parsing - concluded.
+Step - AST Normalization - concluded.
+
+Normalized code:
+'use strict';
+const v1 = require('./util/minimal');
+module.exports = v1;
+var util = module.exports;
+var roots = require('./roots');
+var Type;
+var Enum;
+const v2 = require('@protobufjs/codegen');
+util.codegen = v2;
+const v3 = require('@protobufjs/fetch');
+util.fetch = v3;
+const v4 = require('@protobufjs/path');
+util.path = v4;
+const v5 = util.inquire('fs');
+util.fs = v5;
+const toArray = function (object) {
+    if (object) {
+        var keys = Object.keys(object);
+        const v6 = keys.length;
+        var array = new Array(v6);
+        var index = 0;
+        const v7 = keys.length;
+        let v8 = index < v7;
+        while (v8) {
+            const v9 = index++;
+            const v10 = keys[v9];
+            const v11 = object[v10];
+            array[index] = v11;
+            v8 = index < v7;
+        }
+        return array;
+    }
+    const v12 = [];
+    return v12;
+};
+util.toArray = toArray;
+const toObject = function (array) {
+    var object = {};
+    var index = 0;
+    const v13 = array.length;
+    let v14 = index < v13;
+    while (v14) {
+        const v15 = index++;
+        var key = array[v15];
+        const v16 = index++;
+        var val = array[v16];
+        const v17 = val !== undefined;
+        if (v17) {
+            object[key] = val;
+        }
+        v14 = index < v13;
+    }
+    return object;
+};
+util.toObject = toObject;
+var safePropBackslashRe = /\\/g;
+var safePropQuoteRe = /"/g;
+const isReserved = function (name) {
+    const v18 = /^(?:do|if|in|for|let|new|try|var|case|else|enum|eval|false|null|this|true|void|with|break|catch|class|const|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/.test(name);
+    return v18;
+};
+util.isReserved = isReserved;
+const safeProp = function (prop) {
+    const v19 = /^[$\w_]+$/.test(prop);
+    const v20 = !v19;
+    const v21 = util.isReserved(prop);
+    const v22 = v20 || v21;
+    if (v22) {
+        const v23 = prop.replace(safePropBackslashRe, '\\\\');
+        const v24 = v23.replace(safePropQuoteRe, '\\"');
+        const v25 = '["' + v24;
+        const v26 = v25 + '"]';
+        return v26;
+    }
+    const v27 = '.' + prop;
+    return v27;
+};
+util.safeProp = safeProp;
+const ucFirst = function (str) {
+    const v28 = str.charAt(0);
+    const v29 = v28.toUpperCase();
+    const v30 = str.substring(1);
+    const v31 = v29 + v30;
+    return v31;
+};
+util.ucFirst = ucFirst;
+var camelCaseRe = /_([a-z])/g;
+const camelCase = function (str) {
+    const v32 = str.substring(0, 1);
+    const v33 = str.substring(1);
+    const v35 = function ($0, $1) {
+        const v34 = $1.toUpperCase();
+        return v34;
+    };
+    const v36 = v33.replace(camelCaseRe, v35);
+    const v37 = v32 + v36;
+    return v37;
+};
+util.camelCase = camelCase;
+const compareFieldsById = function (a, b) {
+    const v38 = a.id;
+    const v39 = b.id;
+    const v40 = v38 - v39;
+    return v40;
+};
+util.compareFieldsById = compareFieldsById;
+const decorateType = function (ctor, typeName) {
+    const v41 = ctor.$type;
+    if (v41) {
+        const v42 = ctor.$type;
+        const v43 = v42.name;
+        const v44 = v43 !== typeName;
+        const v45 = typeName && v44;
+        if (v45) {
+            const v46 = util.decorateRoot;
+            const v47 = ctor.$type;
+            const v48 = v46.remove(v47);
+            v48;
+            const v49 = ctor.$type;
+            v49.name = typeName;
+            const v50 = util.decorateRoot;
+            const v51 = ctor.$type;
+            const v52 = v50.add(v51);
+            v52;
+        }
+        const v53 = ctor.$type;
+        return v53;
+    }
+    const v54 = !Type;
+    if (v54) {
+        Type = require('./type');
+    }
+    const v55 = ctor.name;
+    const v56 = typeName || v55;
+    var type = new Type(v56);
+    const v57 = util.decorateRoot;
+    const v58 = v57.add(type);
+    v58;
+    type.ctor = ctor;
+    const v59 = {
+        value: type,
+        enumerable: false
+    };
+    const v60 = Object.defineProperty(ctor, '$type', v59);
+    v60;
+    const v61 = ctor.prototype;
+    const v62 = {
+        value: type,
+        enumerable: false
+    };
+    const v63 = Object.defineProperty(v61, '$type', v62);
+    v63;
+    return type;
+};
+util.decorateType = decorateType;
+var decorateEnumIndex = 0;
+const decorateEnum = function (object) {
+    const v64 = object.$type;
+    if (v64) {
+        const v65 = object.$type;
+        return v65;
+    }
+    const v66 = !Enum;
+    if (v66) {
+        Enum = require('./enum');
+    }
+    const v67 = decorateEnumIndex++;
+    const v68 = 'Enum' + v67;
+    var enm = new Enum(v68, object);
+    const v69 = util.decorateRoot;
+    const v70 = v69.add(enm);
+    v70;
+    const v71 = {
+        value: enm,
+        enumerable: false
+    };
+    const v72 = Object.defineProperty(object, '$type', v71);
+    v72;
+    return enm;
+};
+util.decorateEnum = decorateEnum;
+const setProperty = function (dst, path, value) {
+    const setProp = function (dst, path, value) {
+        var part = path.shift();
+        const v73 = path.length;
+        const v74 = v73 > 0;
+        if (v74) {
+            const v75 = dst[part];
+            const v76 = {};
+            const v77 = v75 || v76;
+            const v78 = setProp(v77, path, value);
+            dst[part] = v78;
+        } else {
+            var prevValue = dst[part];
+            if (prevValue) {
+                const v79 = [];
+                const v80 = v79.concat(prevValue);
+                value = v80.concat(value);
+            }
+            dst[part] = value;
+        }
+        return dst;
+    };
+    const v81 = typeof dst;
+    const v82 = v81 !== 'object';
+    if (v82) {
+        const v83 = TypeError('dst must be an object');
+        throw v83;
+    }
+    const v84 = !path;
+    if (v84) {
+        const v85 = TypeError('path must be specified');
+        throw v85;
+    }
+    path = path.split('.');
+    const v86 = setProp(dst, path, value);
+    return v86;
+};
+util.setProperty = setProperty;
+const v90 = function () {
+    const v87 = roots['decorated'];
+    const v88 = require('./root');
+    const v89 = v87 || (roots['decorated'] = new v88());
+    return v89;
+};
+const v91 = { get: v90 };
+const v92 = Object.defineProperty(util, 'decorateRoot', v91);
+v92;
+
+===============
+Step - Build AST - concluded.
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:318:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:80
+    at Array.map (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:66)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:318:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:80
+    at Array.map (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:66)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+Step - Build CFG - concluded.
+Step - Build CG - concluded.
+Trace: Expression WhileStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression UpdateExpression didn't match with case values.
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:762:21)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression CFG_WHILE_END didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression WhileStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression UpdateExpression didn't match with case values.
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:762:21)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression UpdateExpression didn't match with case values.
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:762:21)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression CFG_WHILE_END didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression UpdateExpression didn't match with case values.
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:762:21)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1027:31)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1027:31)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+Trace: Expression AssignmentExpression didn't match with case values.
+    at evalDep (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dependency_trackers.ts:712:21)
+    at evalDep (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dependency_trackers.ts:643:30)
+    at handleBinaryExpression (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:646:25)
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:740:20)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Step - Build PDG - concluded.
+
+Heap: Map(159) {
+  '805.v1-o1' => {},
+  '805.module-o2' => { exports: { location: '805.module-o2.exports-o3' } },
+  '805.module-o2.exports-o3' => {},
+  '805.roots-o4' => { "'decorated'": { location: "805.roots-o4.'decorated'-o157" } },
+  '805.v2-o5' => {},
+  '805.util-o6' => { codegen: { location: '805.v2-o5' } },
+  '805.util-o6.codegen-o7' => {},
+  '805.v3-o8' => {},
+  '805.util-o9' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' }
+  },
+  '805.util-o9.fetch-o10' => {},
+  '805.v4-o11' => {},
+  '805.util-o12' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' }
+  },
+  '805.util-o12.path-o13' => {},
+  '805.v5-o14' => {},
+  '805.util-o15' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' }
+  },
+  '805.util-o15.fs-o16' => {},
+  '807.this-o17' => {},
+  '807.object-o18' => { '*': { location: '807.object-o18.*-o69' } },
+  '805.util-o19' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' }
+  },
+  '805.util-o19.toArray-o20' => {},
+  '811.this-o21' => {},
+  '811.array-o22' => {
+    length: { location: '811.array-o22.length-o75' },
+    '*': { location: '811.array-o22.*-o77' }
+  },
+  '805.util-o23' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' }
+  },
+  '805.util-o23.toObject-o24' => {},
+  '815.this-o25' => {},
+  '815.name-o26' => {},
+  '805.util-o27' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' },
+    isReserved: { location: '805.util-o27.isReserved-o28' }
+  },
+  '805.util-o27.isReserved-o28' => {},
+  '817.this-o29' => {},
+  '817.prop-o30' => {},
+  '805.util-o31' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' },
+    isReserved: { location: '805.util-o27.isReserved-o28' },
+    safeProp: { location: '805.util-o31.safeProp-o32' }
+  },
+  '805.util-o31.safeProp-o32' => {},
+  '820.this-o33' => {},
+  '820.str-o34' => {},
+  '805.util-o35' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' },
+    isReserved: { location: '805.util-o27.isReserved-o28' },
+    safeProp: { location: '805.util-o31.safeProp-o32' },
+    ucFirst: { location: '805.util-o35.ucFirst-o36' }
+  },
+  '805.util-o35.ucFirst-o36' => {},
+  '822.this-o37' => {},
+  '822.str-o38' => {},
+  '805.util-o39' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' },
+    isReserved: { location: '805.util-o27.isReserved-o28' },
+    safeProp: { location: '805.util-o31.safeProp-o32' },
+    ucFirst: { location: '805.util-o35.ucFirst-o36' },
+    camelCase: { location: '805.util-o39.camelCase-o40' }
+  },
+  '805.util-o39.camelCase-o40' => {},
+  '826.this-o41' => {},
+  '826.a-o42' => { id: { location: '826.a-o42.id-o103' } },
+  '826.b-o43' => { id: { location: '826.b-o43.id-o104' } },
+  '805.util-o44' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' },
+    isReserved: { location: '805.util-o27.isReserved-o28' },
+    safeProp: { location: '805.util-o31.safeProp-o32' },
+    ucFirst: { location: '805.util-o35.ucFirst-o36' },
+    camelCase: { location: '805.util-o39.camelCase-o40' },
+    compareFieldsById: { location: '805.util-o44.compareFieldsById-o45' }
+  },
+  '805.util-o44.compareFieldsById-o45' => {},
+  '828.this-o46' => {},
+  '828.ctor-o47' => {
+    '$type': { location: '828.ctor-o47.$type-o106' },
+    name: { location: '828.ctor-o47.name-o116' }
+  },
+  '828.typeName-o48' => {},
+  '805.util-o49' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' },
+    isReserved: { location: '805.util-o27.isReserved-o28' },
+    safeProp: { location: '805.util-o31.safeProp-o32' },
+    ucFirst: { location: '805.util-o35.ucFirst-o36' },
+    camelCase: { location: '805.util-o39.camelCase-o40' },
+    compareFieldsById: { location: '805.util-o44.compareFieldsById-o45' },
+    decorateType: { location: '805.util-o49.decorateType-o50' }
+  },
+  '805.util-o49.decorateType-o50' => {},
+  '833.this-o51' => {},
+  '833.object-o52' => { '$type': { location: '833.object-o52.$type-o127' } },
+  '805.util-o53' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' },
+    isReserved: { location: '805.util-o27.isReserved-o28' },
+    safeProp: { location: '805.util-o31.safeProp-o32' },
+    ucFirst: { location: '805.util-o35.ucFirst-o36' },
+    camelCase: { location: '805.util-o39.camelCase-o40' },
+    compareFieldsById: { location: '805.util-o44.compareFieldsById-o45' },
+    decorateType: { location: '805.util-o49.decorateType-o50' },
+    decorateEnum: { location: '805.util-o53.decorateEnum-o54' }
+  },
+  '805.util-o53.decorateEnum-o54' => {},
+  '837.this-o55' => {},
+  '837.dst-o56' => {},
+  '837.path-o57' => {},
+  '837.value-o58' => {},
+  '805.util-o59' => {
+    codegen: { location: '805.v2-o5' },
+    fetch: { location: '805.v3-o8' },
+    path: { location: '805.v4-o11' },
+    fs: { location: '805.v5-o14' },
+    toArray: { location: '805.util-o19.toArray-o20' },
+    toObject: { location: '805.util-o23.toObject-o24' },
+    isReserved: { location: '805.util-o27.isReserved-o28' },
+    safeProp: { location: '805.util-o31.safeProp-o32' },
+    ucFirst: { location: '805.util-o35.ucFirst-o36' },
+    camelCase: { location: '805.util-o39.camelCase-o40' },
+    compareFieldsById: { location: '805.util-o44.compareFieldsById-o45' },
+    decorateType: { location: '805.util-o49.decorateType-o50' },
+    decorateEnum: { location: '805.util-o53.decorateEnum-o54' },
+    setProperty: { location: '805.util-o59.setProperty-o60' },
+    decorateRoot: { location: '805.util-o59.decorateRoot-o110' }
+  },
+  '805.util-o59.setProperty-o60' => {},
+  '845.this-o61' => {},
+  '805.v91-o62' => {},
+  '805.v92-o63' => {},
+  '807.keys-o64' => {
+    length: { location: '807.keys-o64.length-o65' },
+    '*': { location: '807.keys-o64.*-o68' }
+  },
+  '807.keys-o64.length-o65' => {},
+  '807.array-o66' => {},
+  '807.v8-o67' => {},
+  '807.keys-o64.*-o68' => {},
+  '807.object-o18.*-o69' => {},
+  '807.array-o70' => { '*': { location: '807.object-o18.*-o69' } },
+  '807.array-o70.*-o71' => {},
+  '807.v8-o72' => {},
+  '807.v12-o73' => {},
+  '811.object-o74' => {},
+  '811.array-o22.length-o75' => {},
+  '811.v14-o76' => {},
+  '811.array-o22.*-o77' => {},
+  '811.v17-o78' => {},
+  '811.object-o79' => { '*': { location: '811.array-o22.*-o77' } },
+  '811.object-o79.*-o80' => {},
+  '811.v14-o81' => {},
+  '815.v18-o82' => {},
+  '817.v19-o83' => {},
+  '817.v21-o84' => {},
+  '817.v22-o85' => {},
+  '817.v23-o86' => {},
+  '817.v24-o87' => {},
+  '817.v25-o88' => {},
+  '817.v26-o89' => {},
+  '817.v27-o90' => {},
+  '820.v28-o91' => {},
+  '820.v29-o92' => {},
+  '820.v30-o93' => {},
+  '820.v31-o94' => {},
+  '822.v32-o95' => {},
+  '822.v33-o96' => {},
+  '824.this-o97' => {},
+  '824.$0-o98' => {},
+  '824.$1-o99' => {},
+  '822.v36-o100' => {},
+  '822.v37-o101' => {},
+  '824.v34-o102' => {},
+  '826.a-o42.id-o103' => {},
+  '826.b-o43.id-o104' => {},
+  '826.v40-o105' => {},
+  '828.ctor-o47.$type-o106' => { name: { location: '828.ctor-o47.$type-o106.name-o107' } },
+  '828.ctor-o47.$type-o106.name-o107' => {},
+  '828.v44-o108' => {},
+  '828.v45-o109' => {},
+  '805.util-o59.decorateRoot-o110' => {},
+  '828.v48-o111' => {},
+  '828.v49-o112' => { name: { location: '828.typeName-o48' } },
+  '828.v49-o112.name-o113' => {},
+  '828.v52-o114' => {},
+  '828.Type-o115' => {},
+  '828.ctor-o47.name-o116' => {},
+  '828.v56-o117' => {},
+  '828.type-o118' => {},
+  '828.v58-o119' => {},
+  '828.type-o120' => { ctor: { location: '828.ctor-o47' } },
+  '828.type-o120.ctor-o121' => { prototype: { location: '828.type-o120.ctor-o121.prototype-o124' } },
+  '828.v59-o122' => {},
+  '828.v60-o123' => {},
+  '828.type-o120.ctor-o121.prototype-o124' => {},
+  '828.v62-o125' => {},
+  '828.v63-o126' => {},
+  '833.object-o52.$type-o127' => {},
+  '833.Enum-o128' => {},
+  '833.v68-o129' => {},
+  '833.enm-o130' => {},
+  '833.v70-o131' => {},
+  '833.v71-o132' => {},
+  '833.v72-o133' => {},
+  '839.this-o134' => {},
+  '839.dst-o135' => { '*': { location: '839.dst-o135.*-o146' } },
+  '839.path-o136' => { length: { location: '839.path-o136.length-o144' } },
+  '839.value-o137' => {},
+  '837.v82-o138' => {},
+  '837.v83-o139' => {},
+  '837.v85-o140' => {},
+  '837.path-o141' => {},
+  '837.v86-o142' => {},
+  '839.part-o143' => {},
+  '839.path-o136.length-o144' => {},
+  '839.v74-o145' => {},
+  '839.dst-o135.*-o146' => {},
+  '839.v76-o147' => {},
+  '839.v77-o148' => {},
+  '839.v78-o149' => {},
+  '839.dst-o150' => { '*': { location: '839.v78-o149' } },
+  '839.dst-o150.*-o151' => {},
+  '839.v79-o152' => {},
+  '839.v80-o153' => {},
+  '839.value-o154' => {},
+  '839.dst-o155' => { '*': { location: '839.value-o154' } },
+  '839.dst-o155.*-o156' => {},
+  "805.roots-o4.'decorated'-o157" => {},
+  '845.v88-o158' => {},
+  '845.v89-o159' => {}
+}
+Store: Map(130) {
+  '805.v1' => [ { location: '805.v1-o1' } ],
+  '805.module' => [ { location: '805.module-o2' } ],
+  '805.util' => [
+    { location: '805.module-o2.exports-o3' },
+    { location: '805.util-o6' },
+    { location: '805.util-o9' },
+    { location: '805.util-o12' },
+    { location: '805.util-o15' },
+    { location: '805.util-o19' },
+    { location: '805.util-o23' },
+    { location: '805.util-o27' },
+    { location: '805.util-o31' },
+    { location: '805.util-o35' },
+    { location: '805.util-o39' },
+    { location: '805.util-o44' },
+    { location: '805.util-o49' },
+    { location: '805.util-o53' },
+    { location: '805.util-o59' }
+  ],
+  '805.roots' => [ { location: '805.roots-o4' } ],
+  '805.v2' => [ { location: '805.v2-o5' }, { location: '805.util-o6.codegen-o7' } ],
+  '805.v3' => [ { location: '805.v3-o8' }, { location: '805.util-o9.fetch-o10' } ],
+  '805.v4' => [ { location: '805.v4-o11' }, { location: '805.util-o12.path-o13' } ],
+  '805.v5' => [ { location: '805.v5-o14' }, { location: '805.util-o15.fs-o16' } ],
+  '807.this' => [ { location: '807.this-o17' } ],
+  '807.object' => [ { location: '807.object-o18' } ],
+  '811.this' => [ { location: '811.this-o21' } ],
+  '811.array' => [ { location: '811.array-o22' } ],
+  '815.this' => [ { location: '815.this-o25' } ],
+  '815.name' => [ { location: '815.name-o26' } ],
+  '817.this' => [ { location: '817.this-o29' } ],
+  '817.prop' => [ { location: '817.prop-o30' } ],
+  '820.this' => [ { location: '820.this-o33' } ],
+  '820.str' => [ { location: '820.str-o34' } ],
+  '822.this' => [ { location: '822.this-o37' } ],
+  '822.str' => [ { location: '822.str-o38' } ],
+  '826.this' => [ { location: '826.this-o41' } ],
+  '826.a' => [ { location: '826.a-o42' } ],
+  '826.b' => [ { location: '826.b-o43' } ],
+  '828.this' => [ { location: '828.this-o46' } ],
+  '828.ctor' => [
+    { location: '828.ctor-o47' },
+    { location: '828.type-o120.ctor-o121' }
+  ],
+  '828.typeName' => [ { location: '828.typeName-o48' } ],
+  '833.this' => [ { location: '833.this-o51' } ],
+  '833.object' => [ { location: '833.object-o52' } ],
+  '837.this' => [ { location: '837.this-o55' } ],
+  '837.dst' => [ { location: '837.dst-o56' } ],
+  '837.path' => [ { location: '837.path-o57' }, { location: '837.path-o141' } ],
+  '837.value' => [ { location: '837.value-o58' } ],
+  '845.this' => [ { location: '845.this-o61' } ],
+  '805.v91' => [ { location: '805.v91-o62' } ],
+  '805.v92' => [ { location: '805.v92-o63' } ],
+  '807.keys' => [ { location: '807.keys-o64' } ],
+  '807.v6' => [ { location: '807.keys-o64.length-o65' } ],
+  '807.array' => [ { location: '807.array-o66' }, { location: '807.array-o70' } ],
+  '807.v7' => [ { location: '807.keys-o64.length-o65' } ],
+  '807.v8' => [ { location: '807.v8-o67' }, { location: '807.v8-o72' } ],
+  '807.v10' => [ { location: '807.keys-o64.*-o68' } ],
+  '807.v11' => [
+    { location: '807.object-o18.*-o69' },
+    { location: '807.array-o70.*-o71' }
+  ],
+  '807.v12' => [ { location: '807.v12-o73' } ],
+  '811.object' => [ { location: '811.object-o74' }, { location: '811.object-o79' } ],
+  '811.v13' => [ { location: '811.array-o22.length-o75' } ],
+  '811.v14' => [ { location: '811.v14-o76' }, { location: '811.v14-o81' } ],
+  '811.key' => [
+    { location: '811.array-o22.*-o77' },
+    { location: '811.object-o79.*-o80' }
+  ],
+  '811.val' => [
+    { location: '811.array-o22.*-o77' },
+    { location: '811.object-o79.*-o80' }
+  ],
+  '811.v17' => [ { location: '811.v17-o78' } ],
+  '815.v18' => [ { location: '815.v18-o82' } ],
+  '817.v19' => [ { location: '817.v19-o83' } ],
+  '817.v20' => [ { location: '817.v19-o83' } ],
+  '817.v21' => [ { location: '817.v21-o84' } ],
+  '817.v22' => [ { location: '817.v22-o85' } ],
+  '817.v23' => [ { location: '817.v23-o86' } ],
+  '817.v24' => [ { location: '817.v24-o87' } ],
+  '817.v25' => [ { location: '817.v25-o88' } ],
+  '817.v26' => [ { location: '817.v26-o89' } ],
+  '817.v27' => [ { location: '817.v27-o90' } ],
+  '820.v28' => [ { location: '820.v28-o91' } ],
+  '820.v29' => [ { location: '820.v29-o92' } ],
+  '820.v30' => [ { location: '820.v30-o93' } ],
+  '820.v31' => [ { location: '820.v31-o94' } ],
+  '822.v32' => [ { location: '822.v32-o95' } ],
+  '822.v33' => [ { location: '822.v33-o96' } ],
+  '824.this' => [ { location: '824.this-o97' } ],
+  '824.$0' => [ { location: '824.$0-o98' } ],
+  '824.$1' => [ { location: '824.$1-o99' } ],
+  '822.v36' => [ { location: '822.v36-o100' } ],
+  '822.v37' => [ { location: '822.v37-o101' } ],
+  '824.v34' => [ { location: '824.v34-o102' } ],
+  '826.v38' => [ { location: '826.a-o42.id-o103' } ],
+  '826.v39' => [ { location: '826.b-o43.id-o104' } ],
+  '826.v40' => [ { location: '826.v40-o105' } ],
+  '828.v41' => [
+    { location: '828.ctor-o47.$type-o106' },
+    { location: '828.v49-o112' }
+  ],
+  '828.v42' => [
+    { location: '828.ctor-o47.$type-o106' },
+    { location: '828.v49-o112' }
+  ],
+  '828.v43' => [
+    { location: '828.ctor-o47.$type-o106.name-o107' },
+    { location: '828.v49-o112.name-o113' }
+  ],
+  '828.v44' => [ { location: '828.v44-o108' } ],
+  '828.v45' => [ { location: '828.v45-o109' } ],
+  '828.v46' => [ { location: '805.util-o59.decorateRoot-o110' } ],
+  '828.v47' => [
+    { location: '828.ctor-o47.$type-o106' },
+    { location: '828.v49-o112' }
+  ],
+  '828.v48' => [ { location: '828.v48-o111' } ],
+  '828.v49' => [
+    { location: '828.ctor-o47.$type-o106' },
+    { location: '828.v49-o112' }
+  ],
+  '828.v50' => [ { location: '805.util-o59.decorateRoot-o110' } ],
+  '828.v51' => [ { location: '828.ctor-o47.$type-o106' } ],
+  '828.v52' => [ { location: '828.v52-o114' } ],
+  '828.v53' => [ { location: '828.ctor-o47.$type-o106' } ],
+  '828.Type' => [ { location: '828.Type-o115' } ],
+  '828.v55' => [ { location: '828.ctor-o47.name-o116' } ],
+  '828.v56' => [ { location: '828.v56-o117' } ],
+  '828.type' => [ { location: '828.type-o118' }, { location: '828.type-o120' } ],
+  '828.v57' => [ { location: '805.util-o59.decorateRoot-o110' } ],
+  '828.v58' => [ { location: '828.v58-o119' } ],
+  '828.v59' => [ { location: '828.v59-o122' } ],
+  '828.v60' => [ { location: '828.v60-o123' } ],
+  '828.v61' => [ { location: '828.type-o120.ctor-o121.prototype-o124' } ],
+  '828.v62' => [ { location: '828.v62-o125' } ],
+  '828.v63' => [ { location: '828.v63-o126' } ],
+  '833.v64' => [ { location: '833.object-o52.$type-o127' } ],
+  '833.v65' => [ { location: '833.object-o52.$type-o127' } ],
+  '833.Enum' => [ { location: '833.Enum-o128' } ],
+  '833.v68' => [ { location: '833.v68-o129' } ],
+  '833.enm' => [ { location: '833.enm-o130' } ],
+  '833.v69' => [ { location: '805.util-o59.decorateRoot-o110' } ],
+  '833.v70' => [ { location: '833.v70-o131' } ],
+  '833.v71' => [ { location: '833.v71-o132' } ],
+  '833.v72' => [ { location: '833.v72-o133' } ],
+  '839.this' => [ { location: '839.this-o134' } ],
+  '839.dst' => [
+    { location: '839.dst-o135' },
+    { location: '839.dst-o150' },
+    { location: '839.dst-o155' }
+  ],
+  '839.path' => [ { location: '839.path-o136' } ],
+  '839.value' => [ { location: '839.value-o137' }, { location: '839.value-o154' } ],
+  '837.v81' => [ { location: '837.dst-o56' } ],
+  '837.v82' => [ { location: '837.v82-o138' } ],
+  '837.v83' => [ { location: '837.v83-o139' } ],
+  '837.v84' => [ { location: '837.path-o57' } ],
+  '837.v85' => [ { location: '837.v85-o140' } ],
+  '837.v86' => [ { location: '837.v86-o142' } ],
+  '839.part' => [ { location: '839.part-o143' } ],
+  '839.v73' => [ { location: '839.path-o136.length-o144' } ],
+  '839.v74' => [ { location: '839.v74-o145' } ],
+  '839.v75' => [
+    { location: '839.dst-o135.*-o146' },
+    { location: '839.dst-o150.*-o151' },
+    { location: '839.dst-o155.*-o156' }
+  ],
+  '839.v76' => [ { location: '839.v76-o147' } ],
+  '839.v77' => [ { location: '839.v77-o148' } ],
+  '839.v78' => [ { location: '839.v78-o149' } ],
+  '839.prevValue' => [
+    { location: '839.dst-o135.*-o146' },
+    { location: '839.dst-o155.*-o156' }
+  ],
+  '839.v79' => [ { location: '839.v79-o152' } ],
+  '839.v80' => [ { location: '839.v80-o153' } ],
+  '845.v87' => [ { location: "805.roots-o4.'decorated'-o157" } ],
+  '845.v88' => [ { location: '845.v88-o158' } ],
+  '845.v89' => [ { location: '845.v89-o159' } ]
+}
+Refs: Map(149) {
+  '805.v1-o1' => [ '805.v1' ],
+  '805.module-o2' => [ '805.module' ],
+  '805.module-o2.exports-o3' => [ '805.util' ],
+  '805.roots-o4' => [ '805.roots' ],
+  '805.v2-o5' => [ '805.v2' ],
+  '805.util-o6' => [ '805.util' ],
+  '805.util-o6.codegen-o7' => [ '805.v2' ],
+  '805.v3-o8' => [ '805.v3' ],
+  '805.util-o9' => [ '805.util' ],
+  '805.util-o9.fetch-o10' => [ '805.v3' ],
+  '805.v4-o11' => [ '805.v4' ],
+  '805.util-o12' => [ '805.util' ],
+  '805.util-o12.path-o13' => [ '805.v4' ],
+  '805.v5-o14' => [ '805.v5' ],
+  '805.util-o15' => [ '805.util' ],
+  '805.util-o15.fs-o16' => [ '805.v5' ],
+  '807.this-o17' => [ '807.this' ],
+  '807.object-o18' => [ '807.object' ],
+  '805.util-o19' => [ '805.util' ],
+  '811.this-o21' => [ '811.this' ],
+  '811.array-o22' => [ '811.array' ],
+  '805.util-o23' => [ '805.util' ],
+  '815.this-o25' => [ '815.this' ],
+  '815.name-o26' => [ '815.name' ],
+  '805.util-o27' => [ '805.util' ],
+  '817.this-o29' => [ '817.this' ],
+  '817.prop-o30' => [ '817.prop' ],
+  '805.util-o31' => [ '805.util' ],
+  '820.this-o33' => [ '820.this' ],
+  '820.str-o34' => [ '820.str' ],
+  '805.util-o35' => [ '805.util' ],
+  '822.this-o37' => [ '822.this' ],
+  '822.str-o38' => [ '822.str' ],
+  '805.util-o39' => [ '805.util' ],
+  '826.this-o41' => [ '826.this' ],
+  '826.a-o42' => [ '826.a' ],
+  '826.b-o43' => [ '826.b' ],
+  '805.util-o44' => [ '805.util' ],
+  '828.this-o46' => [ '828.this' ],
+  '828.ctor-o47' => [ '828.ctor' ],
+  '828.typeName-o48' => [ '828.typeName' ],
+  '805.util-o49' => [ '805.util' ],
+  '833.this-o51' => [ '833.this' ],
+  '833.object-o52' => [ '833.object' ],
+  '805.util-o53' => [ '805.util' ],
+  '837.this-o55' => [ '837.this' ],
+  '837.dst-o56' => [ '837.dst', '837.v81' ],
+  '837.path-o57' => [ '837.path', '837.v84' ],
+  '837.value-o58' => [ '837.value' ],
+  '805.util-o59' => [ '805.util' ],
+  '845.this-o61' => [ '845.this' ],
+  '805.v91-o62' => [ '805.v91' ],
+  '805.v92-o63' => [ '805.v92' ],
+  '807.keys-o64' => [ '807.keys' ],
+  '807.keys-o64.length-o65' => [ '807.v6', '807.v7' ],
+  '807.array-o66' => [ '807.array' ],
+  '807.v8-o67' => [ '807.v8' ],
+  '807.keys-o64.*-o68' => [ '807.v10' ],
+  '807.object-o18.*-o69' => [ '807.v11' ],
+  '807.array-o70' => [ '807.array' ],
+  '807.array-o70.*-o71' => [ '807.v11' ],
+  '807.v8-o72' => [ '807.v8' ],
+  '807.v12-o73' => [ '807.v12' ],
+  '811.object-o74' => [ '811.object' ],
+  '811.array-o22.length-o75' => [ '811.v13' ],
+  '811.v14-o76' => [ '811.v14' ],
+  '811.array-o22.*-o77' => [ '811.key', '811.val' ],
+  '811.v17-o78' => [ '811.v17' ],
+  '811.object-o79' => [ '811.object' ],
+  '811.object-o79.*-o80' => [ '811.key', '811.val' ],
+  '811.v14-o81' => [ '811.v14' ],
+  '815.v18-o82' => [ '815.v18' ],
+  '817.v19-o83' => [ '817.v19', '817.v20' ],
+  '817.v21-o84' => [ '817.v21' ],
+  '817.v22-o85' => [ '817.v22' ],
+  '817.v23-o86' => [ '817.v23' ],
+  '817.v24-o87' => [ '817.v24' ],
+  '817.v25-o88' => [ '817.v25' ],
+  '817.v26-o89' => [ '817.v26' ],
+  '817.v27-o90' => [ '817.v27' ],
+  '820.v28-o91' => [ '820.v28' ],
+  '820.v29-o92' => [ '820.v29' ],
+  '820.v30-o93' => [ '820.v30' ],
+  '820.v31-o94' => [ '820.v31' ],
+  '822.v32-o95' => [ '822.v32' ],
+  '822.v33-o96' => [ '822.v33' ],
+  '824.this-o97' => [ '824.this' ],
+  '824.$0-o98' => [ '824.$0' ],
+  '824.$1-o99' => [ '824.$1' ],
+  '822.v36-o100' => [ '822.v36' ],
+  '822.v37-o101' => [ '822.v37' ],
+  '824.v34-o102' => [ '824.v34' ],
+  '826.a-o42.id-o103' => [ '826.v38' ],
+  '826.b-o43.id-o104' => [ '826.v39' ],
+  '826.v40-o105' => [ '826.v40' ],
+  '828.ctor-o47.$type-o106' => [ '828.v41', '828.v42', '828.v47', '828.v49', '828.v51', '828.v53' ],
+  '828.ctor-o47.$type-o106.name-o107' => [ '828.v43' ],
+  '828.v44-o108' => [ '828.v44' ],
+  '828.v45-o109' => [ '828.v45' ],
+  '805.util-o59.decorateRoot-o110' => [ '828.v46', '828.v50', '828.v57', '833.v69' ],
+  '828.v48-o111' => [ '828.v48' ],
+  '828.v49-o112' => [ '828.v41', '828.v42', '828.v47', '828.v49' ],
+  '828.v49-o112.name-o113' => [ '828.v43' ],
+  '828.v52-o114' => [ '828.v52' ],
+  '828.Type-o115' => [ '828.Type' ],
+  '828.ctor-o47.name-o116' => [ '828.v55' ],
+  '828.v56-o117' => [ '828.v56' ],
+  '828.type-o118' => [ '828.type' ],
+  '828.v58-o119' => [ '828.v58' ],
+  '828.type-o120' => [ '828.type' ],
+  '828.type-o120.ctor-o121' => [ '828.ctor' ],
+  '828.v59-o122' => [ '828.v59' ],
+  '828.v60-o123' => [ '828.v60' ],
+  '828.type-o120.ctor-o121.prototype-o124' => [ '828.v61' ],
+  '828.v62-o125' => [ '828.v62' ],
+  '828.v63-o126' => [ '828.v63' ],
+  '833.object-o52.$type-o127' => [ '833.v64', '833.v65' ],
+  '833.Enum-o128' => [ '833.Enum' ],
+  '833.v68-o129' => [ '833.v68' ],
+  '833.enm-o130' => [ '833.enm' ],
+  '833.v70-o131' => [ '833.v70' ],
+  '833.v71-o132' => [ '833.v71' ],
+  '833.v72-o133' => [ '833.v72' ],
+  '839.this-o134' => [ '839.this' ],
+  '839.dst-o135' => [ '839.dst' ],
+  '839.path-o136' => [ '839.path' ],
+  '839.value-o137' => [ '839.value' ],
+  '837.v82-o138' => [ '837.v82' ],
+  '837.v83-o139' => [ '837.v83' ],
+  '837.v85-o140' => [ '837.v85' ],
+  '837.path-o141' => [ '837.path' ],
+  '837.v86-o142' => [ '837.v86' ],
+  '839.part-o143' => [ '839.part' ],
+  '839.path-o136.length-o144' => [ '839.v73' ],
+  '839.v74-o145' => [ '839.v74' ],
+  '839.dst-o135.*-o146' => [ '839.v75', '839.prevValue' ],
+  '839.v76-o147' => [ '839.v76' ],
+  '839.v77-o148' => [ '839.v77' ],
+  '839.v78-o149' => [ '839.v78' ],
+  '839.dst-o150' => [ '839.dst' ],
+  '839.dst-o150.*-o151' => [ '839.v75' ],
+  '839.v79-o152' => [ '839.v79' ],
+  '839.v80-o153' => [ '839.v80' ],
+  '839.value-o154' => [ '839.value' ],
+  '839.dst-o155' => [ '839.dst' ],
+  '839.dst-o155.*-o156' => [ '839.v75', '839.prevValue' ],
+  "805.roots-o4.'decorated'-o157" => [ '845.v87' ],
+  '845.v88-o158' => [ '845.v88' ],
+  '845.v89-o159' => [ '845.v89' ]
+}
+Graph Nodes: Map(159) {
+  '805.v1-o1' => 848,
+  '805.module-o2' => 850,
+  '805.module-o2.exports-o3' => 851,
+  '805.roots-o4' => 852,
+  '805.v2-o5' => 853,
+  '805.util-o6' => 854,
+  '805.util-o6.codegen-o7' => 855,
+  '805.v3-o8' => 856,
+  '805.util-o9' => 857,
+  '805.util-o9.fetch-o10' => 858,
+  '805.v4-o11' => 859,
+  '805.util-o12' => 860,
+  '805.util-o12.path-o13' => 861,
+  '805.v5-o14' => 862,
+  '805.util-o15' => 863,
+  '805.util-o15.fs-o16' => 864,
+  '807.this-o17' => 865,
+  '807.object-o18' => 866,
+  '805.util-o19' => 867,
+  '805.util-o19.toArray-o20' => 868,
+  '811.this-o21' => 869,
+  '811.array-o22' => 870,
+  '805.util-o23' => 871,
+  '805.util-o23.toObject-o24' => 872,
+  '815.this-o25' => 873,
+  '815.name-o26' => 874,
+  '805.util-o27' => 875,
+  '805.util-o27.isReserved-o28' => 876,
+  '817.this-o29' => 877,
+  '817.prop-o30' => 878,
+  '805.util-o31' => 879,
+  '805.util-o31.safeProp-o32' => 880,
+  '820.this-o33' => 881,
+  '820.str-o34' => 882,
+  '805.util-o35' => 883,
+  '805.util-o35.ucFirst-o36' => 884,
+  '822.this-o37' => 885,
+  '822.str-o38' => 886,
+  '805.util-o39' => 887,
+  '805.util-o39.camelCase-o40' => 888,
+  '826.this-o41' => 889,
+  '826.a-o42' => 890,
+  '826.b-o43' => 891,
+  '805.util-o44' => 892,
+  '805.util-o44.compareFieldsById-o45' => 893,
+  '828.this-o46' => 894,
+  '828.ctor-o47' => 895,
+  '828.typeName-o48' => 896,
+  '805.util-o49' => 897,
+  '805.util-o49.decorateType-o50' => 898,
+  '833.this-o51' => 899,
+  '833.object-o52' => 900,
+  '805.util-o53' => 901,
+  '805.util-o53.decorateEnum-o54' => 902,
+  '837.this-o55' => 903,
+  '837.dst-o56' => 904,
+  '837.path-o57' => 905,
+  '837.value-o58' => 906,
+  '805.util-o59' => 907,
+  '805.util-o59.setProperty-o60' => 908,
+  '845.this-o61' => 909,
+  '805.v91-o62' => 910,
+  '805.v92-o63' => 911,
+  '807.keys-o64' => 912,
+  '807.keys-o64.length-o65' => 913,
+  '807.array-o66' => 914,
+  '807.v8-o67' => 915,
+  '807.keys-o64.*-o68' => 916,
+  '807.object-o18.*-o69' => 917,
+  '807.array-o70' => 918,
+  '807.array-o70.*-o71' => 919,
+  '807.v8-o72' => 920,
+  '807.v12-o73' => 921,
+  '811.object-o74' => 922,
+  '811.array-o22.length-o75' => 923,
+  '811.v14-o76' => 924,
+  '811.array-o22.*-o77' => 925,
+  '811.v17-o78' => 926,
+  '811.object-o79' => 927,
+  '811.object-o79.*-o80' => 928,
+  '811.v14-o81' => 929,
+  '815.v18-o82' => 930,
+  '817.v19-o83' => 931,
+  '817.v21-o84' => 932,
+  '817.v22-o85' => 933,
+  '817.v23-o86' => 934,
+  '817.v24-o87' => 935,
+  '817.v25-o88' => 936,
+  '817.v26-o89' => 937,
+  '817.v27-o90' => 938,
+  '820.v28-o91' => 939,
+  '820.v29-o92' => 940,
+  '820.v30-o93' => 941,
+  '820.v31-o94' => 942,
+  '822.v32-o95' => 943,
+  '822.v33-o96' => 944,
+  '824.this-o97' => 945,
+  '824.$0-o98' => 946,
+  '824.$1-o99' => 947,
+  '822.v36-o100' => 948,
+  '822.v37-o101' => 949,
+  '824.v34-o102' => 950,
+  '826.a-o42.id-o103' => 951,
+  '826.b-o43.id-o104' => 952,
+  '826.v40-o105' => 953,
+  '828.ctor-o47.$type-o106' => 954,
+  '828.ctor-o47.$type-o106.name-o107' => 955,
+  '828.v44-o108' => 956,
+  '828.v45-o109' => 957,
+  '805.util-o59.decorateRoot-o110' => 958,
+  '828.v48-o111' => 959,
+  '828.v49-o112' => 960,
+  '828.v49-o112.name-o113' => 961,
+  '828.v52-o114' => 962,
+  '828.Type-o115' => 963,
+  '828.ctor-o47.name-o116' => 964,
+  '828.v56-o117' => 965,
+  '828.type-o118' => 966,
+  '828.v58-o119' => 967,
+  '828.type-o120' => 968,
+  '828.type-o120.ctor-o121' => 969,
+  '828.v59-o122' => 970,
+  '828.v60-o123' => 971,
+  '828.type-o120.ctor-o121.prototype-o124' => 972,
+  '828.v62-o125' => 973,
+  '828.v63-o126' => 974,
+  '833.object-o52.$type-o127' => 975,
+  '833.Enum-o128' => 976,
+  '833.v68-o129' => 977,
+  '833.enm-o130' => 978,
+  '833.v70-o131' => 979,
+  '833.v71-o132' => 980,
+  '833.v72-o133' => 981,
+  '839.this-o134' => 982,
+  '839.dst-o135' => 983,
+  '839.path-o136' => 984,
+  '839.value-o137' => 985,
+  '837.v82-o138' => 986,
+  '837.v83-o139' => 987,
+  '837.v85-o140' => 988,
+  '837.path-o141' => 989,
+  '837.v86-o142' => 990,
+  '839.part-o143' => 991,
+  '839.path-o136.length-o144' => 992,
+  '839.v74-o145' => 993,
+  '839.dst-o135.*-o146' => 994,
+  '839.v76-o147' => 995,
+  '839.v77-o148' => 996,
+  '839.v78-o149' => 997,
+  '839.dst-o150' => 998,
+  '839.dst-o150.*-o151' => 999,
+  '839.v79-o152' => 1000,
+  '839.v80-o153' => 1001,
+  '839.value-o154' => 1002,
+  '839.dst-o155' => 1003,
+  '839.dst-o155.*-o156' => 1004,
+  "805.roots-o4.'decorated'-o157" => 1005,
+  '845.v88-o158' => 1006,
+  '845.v89-o159' => 1007
+}
+Func Contexts: Map(13) {
+  807 => [ 807, 805 ],
+  811 => [ 805 ],
+  815 => [ 815, 805 ],
+  817 => [ 817, 817, 805, 817, 817 ],
+  820 => [ 820, 820, 805, 820 ],
+  822 => [ 822, 822, 805, 822 ],
+  824 => [ 824, 822, 822, 805, 822 ],
+  826 => [ 805 ],
+  828 => [
+    828, 828, 828,
+    805, 828, 828,
+    828
+  ],
+  833 => [ 833, 833, 805, 833 ],
+  837 => [ 837, 837, 805, 837, 837 ],
+  839 => [ 839, 839, 805, 837, 839, 839 ],
+  845 => [ 845, 805 ]
+}
+Require Chain: Map(8) {
+  './util/minimal' => [ '805.v1' ],
+  './roots' => [ '805.roots' ],
+  '@protobufjs/codegen' => [ '805.v2' ],
+  '@protobufjs/fetch' => [ '805.v3' ],
+  '@protobufjs/path' => [ '805.v4' ],
+  './type' => [ '828.Type' ],
+  './enum' => [ '833.Enum' ],
+  './root' => [ '845.v88' ]
+}
+Variable Map: Map(13) {
+  '805.v1' => './util/minimal',
+  '805.roots' => './roots',
+  '805.v2' => '@protobufjs/codegen',
+  '805.v3' => '@protobufjs/fetch',
+  '805.v4' => '@protobufjs/path',
+  '817.v20' => undefined,
+  '828.v54' => undefined,
+  '828.Type' => './type',
+  '833.v66' => undefined,
+  '833.Enum' => './enum',
+  '837.v81' => undefined,
+  '837.v84' => undefined,
+  '845.v88' => './root'
+}

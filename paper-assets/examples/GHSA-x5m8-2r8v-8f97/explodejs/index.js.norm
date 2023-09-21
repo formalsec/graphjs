@@ -1,0 +1,1049 @@
+
+> parser@0.0.1 start
+> ts-node-dev --transpile-only ./src/parser.ts "-f" "/home/mikeelbyte/inesc/js-cpg/datasets/injection-dataset/CWE-471/GHSA-x5m8-2r8v-8f97/src/index.js" "-c" "/home/mikeelbyte/inesc/js-cpg/config.json" "--out" "--csv"
+
+[INFO] 18:34:27 ts-node-dev ver. 1.1.8 (using ts-node ver. 9.1.1, typescript ver. 4.5.5)
+Step - AST Parsing - concluded.
+Step - AST Normalization - concluded.
+
+Normalized code:
+const isObject = function (o, allowArray) {
+    const v1 = typeof o;
+    const v2 = 'object' === v1;
+    const v3 = o && v2;
+    const v4 = Array.isArray(o);
+    const v5 = !v4;
+    const v6 = allowArray || v5;
+    const v7 = v3 && v6;
+    return v7;
+};
+const isBasic = function (b) {
+    const v8 = typeof b;
+    const v9 = 'string' === v8;
+    const v10 = typeof b;
+    const v11 = 'number' === v10;
+    const v12 = v9 || v11;
+    return v12;
+};
+const get = function (obj, path, dft) {
+    const v13 = isObject(obj, true);
+    const v14 = !v13;
+    if (v14) {
+        return dft;
+    }
+    const v15 = isBasic(path);
+    if (v15) {
+        const v16 = obj[path];
+        return v16;
+    }
+    var i = 0;
+    const v17 = path.length;
+    let v18 = i < v17;
+    while (v18) {
+        const v20 = path[i];
+        const v21 = null == (obj = obj[v20]);
+        if (v21) {
+            return dft;
+        }
+        const v19 = i++;
+        v18 = i < v17;
+    }
+    return obj;
+};
+const isNonNegativeInteger = function (i) {
+    const v22 = Number.isInteger(i);
+    const v23 = i >= 0;
+    const v24 = v22 && v23;
+    return v24;
+};
+const set = function (obj, path, value) {
+    const v25 = !obj;
+    if (v25) {
+        const v26 = new Error('libnested.set: first arg must be an object');
+        throw v26;
+    }
+    const v27 = isBasic(path);
+    if (v27) {
+        return obj[path] = value;
+    }
+    var i = 0;
+    const v28 = path.length;
+    let v29 = i < v28;
+    while (v29) {
+        const v31 = path.length;
+        const v32 = v31 - 1;
+        const v33 = i === v32;
+        if (v33) {
+            const v34 = path[i];
+            obj[v34] = value;
+        } else {
+            const v35 = path[i];
+            const v36 = obj[v35];
+            const v37 = null == v36;
+            if (v37) {
+                const v38 = path[i];
+                const v39 = i + 1;
+                const v40 = path[v39];
+                const v41 = isNonNegativeInteger(v40);
+                const v42 = [];
+                const v43 = {};
+                let v44;
+                if (v41) {
+                    v44 = v42;
+                } else {
+                    v44 = v43;
+                }
+                const v45 = obj[v38];
+                obj = v45;
+            } else {
+                const v46 = path[i];
+                const v47 = isPrototypePolluted(v46);
+                const v48 = !v47;
+                if (v48) {
+                    const v49 = path[i];
+                    obj = obj[v49];
+                }
+            }
+        }
+        const v30 = i++;
+        v29 = i < v28;
+    }
+    return value;
+};
+const each = function (obj, iter, includeArrays, path) {
+    const v50 = [];
+    path = path || v50;
+    const v51 = Array.isArray(obj);
+    if (v51) {
+        const v52 = !includeArrays;
+        if (v52) {
+            return false;
+        }
+        var k = 0;
+        const v53 = obj.length;
+        let v54 = k < v53;
+        while (v54) {
+            var v = obj[k];
+            const v56 = isObject(v, includeArrays);
+            if (v56) {
+                const v57 = path.concat(k);
+                const v58 = each(v, iter, includeArrays, v57);
+                const v59 = false === v58;
+                if (v59) {
+                    return false;
+                }
+            } else {
+                const v60 = path.concat(k);
+                const v61 = iter(v, v60);
+                const v62 = false === v61;
+                if (v62) {
+                    return false;
+                }
+            }
+            const v55 = k++;
+            v54 = k < v53;
+        }
+    } else {
+        let k;
+        for (k in obj) {
+            var v = obj[k];
+            const v63 = isObject(v, includeArrays);
+            if (v63) {
+                const v64 = path.concat(k);
+                const v65 = each(v, iter, includeArrays, v64);
+                const v66 = false === v65;
+                if (v66) {
+                    return false;
+                }
+            } else {
+                const v67 = path.concat(k);
+                const v68 = iter(v, v67);
+                const v69 = false === v68;
+                if (v69) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+};
+const map = function (obj, iter, out, includeArrays) {
+    let out;
+    const v70 = Array.isArray(obj);
+    const v71 = out || v70;
+    const v72 = [];
+    const v73 = {};
+    if (v71) {
+        out = v72;
+    } else {
+        out = v73;
+    }
+    const v76 = function (val, path) {
+        const v74 = iter(val, path);
+        const v75 = set(out, path, v74);
+        v75;
+    };
+    const v77 = each(obj, v76, includeArrays);
+    v77;
+    return out;
+};
+const paths = function (obj, incluedArrays) {
+    var out = [];
+    const v79 = function (_, path) {
+        const v78 = out.push(path);
+        v78;
+    };
+    const v80 = each(obj, v79, incluedArrays);
+    v80;
+    return out;
+};
+const id = function (e) {
+    return e;
+};
+const clone = function (obj) {
+    const v81 = isObject(obj, true);
+    const v82 = !v81;
+    if (v82) {
+        return obj;
+    }
+    var _obj;
+    const v83 = Array.isArray(obj);
+    const v84 = [];
+    const v85 = {};
+    if (v83) {
+        _obj = v84;
+    } else {
+        _obj = v85;
+    }
+    let k;
+    for (k in obj) {
+        const v86 = obj[k];
+        const v87 = clone(v86);
+        _obj[k] = v87;
+    }
+    return _obj;
+};
+const isPrototypePolluted = function (key) {
+    const v88 = [
+        '__proto__',
+        'constructor',
+        'prototype'
+    ];
+    const v89 = v88.includes(key);
+    return v89;
+};
+exports.get = get;
+exports.set = set;
+exports.each = each;
+exports.map = map;
+exports.paths = paths;
+exports.clone = clone;
+exports.copy = clone;
+
+===============
+Step - Build AST - concluded.
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:318:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:80
+    at Array.map (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:180:66)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:90:48
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/cfg_builder.ts:88:41)
+Step - Build CFG - concluded.
+Step - Build CG - concluded.
+Trace: Expression WhileStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression AssignmentExpression didn't match with case values.
+    at evalDep (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dependency_trackers.ts:712:21)
+    at evalDep (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dependency_trackers.ts:643:30)
+    at handleBinaryExpression (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:646:25)
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:740:20)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression UpdateExpression didn't match with case values.
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:762:21)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+Trace: Expression CFG_WHILE_END didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression ThrowStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1027:31)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression AssignmentExpression didn't match with case values.
+    at evalDep (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dependency_trackers.ts:712:21)
+    at handleReturnArgument (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:876:25)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1071:35)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1027:31)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression WhileStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression UpdateExpression didn't match with case values.
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:762:21)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+Trace: Expression CFG_WHILE_END didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression WhileStatement didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression UpdateExpression didn't match with case values.
+    at handleVariableAssignment (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:762:21)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1059:35)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+Trace: Expression CFG_WHILE_END didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1037:35)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression FOR_END didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1050:49)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+Trace: Expression Identifier didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Trace: Expression FOR_END didn't match with case values.
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1127:25)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+    at /home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1136:31
+    at Array.forEach (<anonymous>)
+    at traverse (/home/mikeelbyte/inesc/js-cpg/parser/src/traverse/dependency/dep_builder.ts:1134:14)
+Step - Build PDG - concluded.
+
+Heap: Map(121) {
+  '707.this-o1' => {},
+  '707.o-o2' => {},
+  '707.allowArray-o3' => {},
+  '709.this-o4' => {},
+  '709.b-o5' => {},
+  '711.this-o6' => {},
+  '711.obj-o7' => { '*': { location: '711.obj-o7.*-o45' } },
+  '711.path-o8' => {
+    length: { location: '711.path-o8.length-o46' },
+    '*': { location: '711.path-o8.*-o48' }
+  },
+  '711.dft-o9' => {},
+  '717.this-o10' => {},
+  '717.i-o11' => {},
+  '719.this-o12' => {},
+  '719.obj-o13' => { '*': { location: '719.obj-o13.*-o63' } },
+  '719.path-o14' => {
+    length: { location: '719.path-o14.length-o56' },
+    '*': { location: '719.path-o14.*-o60' }
+  },
+  '719.value-o15' => {},
+  '728.this-o16' => {},
+  '728.obj-o17' => {
+    length: { location: '728.obj-o17.length-o74' },
+    '*': { location: '728.obj-o17.*-o76' }
+  },
+  '728.iter-o18' => {},
+  '728.includeArrays-o19' => {},
+  '728.path-o20' => {},
+  '740.this-o21' => {},
+  '740.obj-o22' => {},
+  '740.iter-o23' => {},
+  '740.out-o24' => {},
+  '740.includeArrays-o25' => {},
+  '745.this-o26' => {},
+  '745.obj-o27' => {},
+  '745.incluedArrays-o28' => {},
+  '749.this-o29' => {},
+  '749.e-o30' => {},
+  '751.this-o31' => {},
+  '751.obj-o32' => { '*': { location: '751.obj-o32.*-o113' } },
+  '756.this-o33' => {},
+  '756.key-o34' => {},
+  '707.v2-o35' => {},
+  '707.v3-o36' => {},
+  '707.v4-o37' => {},
+  '707.v6-o38' => {},
+  '707.v7-o39' => {},
+  '709.v9-o40' => {},
+  '709.v11-o41' => {},
+  '709.v12-o42' => {},
+  '711.v13-o43' => {},
+  '711.v15-o44' => {},
+  '711.obj-o7.*-o45' => {},
+  '711.path-o8.length-o46' => {},
+  '711.v18-o47' => {},
+  '711.path-o8.*-o48' => {},
+  '711.v21-o49' => {},
+  '711.v18-o50' => {},
+  '717.v22-o51' => {},
+  '717.v23-o52' => {},
+  '717.v24-o53' => {},
+  '719.v26-o54' => {},
+  '719.v27-o55' => {},
+  '719.path-o14.length-o56' => {},
+  '719.v29-o57' => {},
+  '719.v32-o58' => {},
+  '719.v33-o59' => {},
+  '719.path-o14.*-o60' => {},
+  '719.obj-o61' => { '*': { location: '719.value-o15' } },
+  '719.obj-o61.*-o62' => {},
+  '719.obj-o13.*-o63' => {},
+  '719.v37-o64' => {},
+  '719.v39-o65' => {},
+  '719.v41-o66' => {},
+  '719.v42-o67' => {},
+  '719.v43-o68' => {},
+  '719.v47-o69' => {},
+  '719.v29-o70' => {},
+  '728.v50-o71' => {},
+  '728.path-o72' => {},
+  '728.v51-o73' => {},
+  '728.obj-o17.length-o74' => {},
+  '728.v54-o75' => {},
+  '728.obj-o17.*-o76' => {},
+  '728.v56-o77' => {},
+  '728.v57-o78' => {},
+  '728.v58-o79' => {},
+  '728.v59-o80' => {},
+  '728.v60-o81' => {},
+  '728.v61-o82' => {},
+  '728.v62-o83' => {},
+  '728.v54-o84' => {},
+  '728.v63-o85' => {},
+  '728.v64-o86' => {},
+  '728.v65-o87' => {},
+  '728.v66-o88' => {},
+  '728.v67-o89' => {},
+  '728.v68-o90' => {},
+  '728.v69-o91' => {},
+  '740.v70-o92' => {},
+  '740.v71-o93' => {},
+  '740.v72-o94' => {},
+  '740.v73-o95' => {},
+  '743.this-o96' => {},
+  '743.val-o97' => {},
+  '743.path-o98' => {},
+  '740.v77-o99' => {},
+  '743.v74-o100' => {},
+  '743.v75-o101' => {},
+  '745.out-o102' => {},
+  '747.this-o103' => {},
+  '747._-o104' => {},
+  '747.path-o105' => {},
+  '745.v80-o106' => {},
+  '747.v78-o107' => {},
+  '751.v81-o108' => {},
+  '751.v83-o109' => {},
+  '751.v84-o110' => {},
+  '751.v85-o111' => {},
+  '751.k-o112' => {},
+  '751.obj-o32.*-o113' => {},
+  '751.v87-o114' => {},
+  '751._obj-o115' => { '*': { location: '751.v87-o114' } },
+  '751._obj-o115.*-o116' => {},
+  '756.v88-o117' => {
+    '0': { location: '756.v88-o117.0-o118' },
+    '1': { location: '756.v88-o117.1-o119' },
+    '2': { location: '756.v88-o117.2-o120' }
+  },
+  '756.v88-o117.0-o118' => {},
+  '756.v88-o117.1-o119' => {},
+  '756.v88-o117.2-o120' => {},
+  '756.v89-o121' => {}
+}
+Store: Map(128) {
+  '707.this' => [ { location: '707.this-o1' } ],
+  '707.o' => [ { location: '707.o-o2' } ],
+  '707.allowArray' => [ { location: '707.allowArray-o3' } ],
+  '709.this' => [ { location: '709.this-o4' } ],
+  '709.b' => [ { location: '709.b-o5' } ],
+  '711.this' => [ { location: '711.this-o6' } ],
+  '711.obj' => [ { location: '711.obj-o7' } ],
+  '711.path' => [ { location: '711.path-o8' } ],
+  '711.dft' => [ { location: '711.dft-o9' } ],
+  '717.this' => [ { location: '717.this-o10' } ],
+  '717.i' => [ { location: '717.i-o11' } ],
+  '719.this' => [ { location: '719.this-o12' } ],
+  '719.obj' => [
+    { location: '719.obj-o13' },
+    { location: '719.obj-o61' },
+    { location: '719.obj-o13.*-o63' }
+  ],
+  '719.path' => [ { location: '719.path-o14' } ],
+  '719.value' => [ { location: '719.value-o15' }, { location: '719.obj-o61.*-o62' } ],
+  '728.this' => [ { location: '728.this-o16' } ],
+  '728.obj' => [ { location: '728.obj-o17' } ],
+  '728.iter' => [ { location: '728.iter-o18' } ],
+  '728.includeArrays' => [ { location: '728.includeArrays-o19' } ],
+  '728.path' => [ { location: '728.path-o20' }, { location: '728.path-o72' } ],
+  '740.this' => [ { location: '740.this-o21' } ],
+  '740.obj' => [ { location: '740.obj-o22' } ],
+  '740.iter' => [ { location: '740.iter-o23' } ],
+  '740.out' => [
+    { location: '740.out-o24' },
+    { location: '740.v72-o94' },
+    { location: '740.v73-o95' }
+  ],
+  '740.includeArrays' => [ { location: '740.includeArrays-o25' } ],
+  '745.this' => [ { location: '745.this-o26' } ],
+  '745.obj' => [ { location: '745.obj-o27' } ],
+  '745.incluedArrays' => [ { location: '745.incluedArrays-o28' } ],
+  '749.this' => [ { location: '749.this-o29' } ],
+  '749.e' => [ { location: '749.e-o30' } ],
+  '751.this' => [ { location: '751.this-o31' } ],
+  '751.obj' => [ { location: '751.obj-o32' } ],
+  '756.this' => [ { location: '756.this-o33' } ],
+  '756.key' => [ { location: '756.key-o34' } ],
+  '707.v1' => [ { location: '707.o-o2' } ],
+  '707.v2' => [ { location: '707.v2-o35' } ],
+  '707.v3' => [ { location: '707.v3-o36' } ],
+  '707.v4' => [ { location: '707.v4-o37' } ],
+  '707.v5' => [ { location: '707.v4-o37' } ],
+  '707.v6' => [ { location: '707.v6-o38' } ],
+  '707.v7' => [ { location: '707.v7-o39' } ],
+  '709.v8' => [ { location: '709.b-o5' } ],
+  '709.v9' => [ { location: '709.v9-o40' } ],
+  '709.v10' => [ { location: '709.b-o5' } ],
+  '709.v11' => [ { location: '709.v11-o41' } ],
+  '709.v12' => [ { location: '709.v12-o42' } ],
+  '711.v13' => [ { location: '711.v13-o43' } ],
+  '711.v14' => [ { location: '711.v13-o43' } ],
+  '711.v15' => [ { location: '711.v15-o44' } ],
+  '711.v16' => [ { location: '711.obj-o7.*-o45' } ],
+  '711.v17' => [ { location: '711.path-o8.length-o46' } ],
+  '711.v18' => [ { location: '711.v18-o47' }, { location: '711.v18-o50' } ],
+  '711.v20' => [ { location: '711.path-o8.*-o48' } ],
+  '711.v21' => [ { location: '711.v21-o49' } ],
+  '717.v22' => [ { location: '717.v22-o51' } ],
+  '717.v23' => [ { location: '717.v23-o52' } ],
+  '717.v24' => [ { location: '717.v24-o53' } ],
+  '719.v25' => [ { location: '719.obj-o13' }, { location: '719.obj-o61' } ],
+  '719.v26' => [ { location: '719.v26-o54' } ],
+  '719.v27' => [ { location: '719.v27-o55' } ],
+  '719.v28' => [ { location: '719.path-o14.length-o56' } ],
+  '719.v29' => [ { location: '719.v29-o57' }, { location: '719.v29-o70' } ],
+  '719.v31' => [ { location: '719.path-o14.length-o56' } ],
+  '719.v32' => [ { location: '719.v32-o58' } ],
+  '719.v33' => [ { location: '719.v33-o59' } ],
+  '719.v34' => [ { location: '719.path-o14.*-o60' } ],
+  '719.v35' => [ { location: '719.path-o14.*-o60' } ],
+  '719.v36' => [ { location: '719.obj-o13.*-o63' } ],
+  '719.v37' => [ { location: '719.v37-o64' } ],
+  '719.v38' => [ { location: '719.path-o14.*-o60' } ],
+  '719.v39' => [ { location: '719.v39-o65' } ],
+  '719.v40' => [ { location: '719.path-o14.*-o60' } ],
+  '719.v41' => [ { location: '719.v41-o66' } ],
+  '719.v42' => [ { location: '719.v42-o67' } ],
+  '719.v43' => [ { location: '719.v43-o68' } ],
+  '719.v44' => [ { location: '719.v42-o67' }, { location: '719.v43-o68' } ],
+  '719.v45' => [ { location: '719.obj-o13.*-o63' } ],
+  '719.v46' => [ { location: '719.path-o14.*-o60' } ],
+  '719.v47' => [ { location: '719.v47-o69' } ],
+  '719.v48' => [ { location: '719.v47-o69' } ],
+  '719.v49' => [ { location: '719.path-o14.*-o60' } ],
+  '728.v50' => [ { location: '728.v50-o71' } ],
+  '728.v51' => [ { location: '728.v51-o73' } ],
+  '728.v52' => [ { location: '728.includeArrays-o19' } ],
+  '728.v53' => [ { location: '728.obj-o17.length-o74' } ],
+  '728.v54' => [ { location: '728.v54-o75' }, { location: '728.v54-o84' } ],
+  '728.v' => [ { location: '728.obj-o17.*-o76' } ],
+  '728.v56' => [ { location: '728.v56-o77' } ],
+  '728.v57' => [ { location: '728.v57-o78' } ],
+  '728.v58' => [ { location: '728.v58-o79' } ],
+  '728.v59' => [ { location: '728.v59-o80' } ],
+  '728.v60' => [ { location: '728.v60-o81' } ],
+  '728.v61' => [ { location: '728.v61-o82' } ],
+  '728.v62' => [ { location: '728.v62-o83' } ],
+  '728.v63' => [ { location: '728.v63-o85' } ],
+  '728.v64' => [ { location: '728.v64-o86' } ],
+  '728.v65' => [ { location: '728.v65-o87' } ],
+  '728.v66' => [ { location: '728.v66-o88' } ],
+  '728.v67' => [ { location: '728.v67-o89' } ],
+  '728.v68' => [ { location: '728.v68-o90' } ],
+  '728.v69' => [ { location: '728.v69-o91' } ],
+  '740.v70' => [ { location: '740.v70-o92' } ],
+  '740.v71' => [ { location: '740.v71-o93' } ],
+  '740.v72' => [ { location: '740.v72-o94' } ],
+  '740.v73' => [ { location: '740.v73-o95' } ],
+  '743.this' => [ { location: '743.this-o96' } ],
+  '743.val' => [ { location: '743.val-o97' } ],
+  '743.path' => [ { location: '743.path-o98' } ],
+  '740.v77' => [ { location: '740.v77-o99' } ],
+  '743.v74' => [ { location: '743.v74-o100' } ],
+  '743.v75' => [ { location: '743.v75-o101' } ],
+  '745.out' => [ { location: '745.out-o102' } ],
+  '747.this' => [ { location: '747.this-o103' } ],
+  '747._' => [ { location: '747._-o104' } ],
+  '747.path' => [ { location: '747.path-o105' } ],
+  '745.v80' => [ { location: '745.v80-o106' } ],
+  '747.v78' => [ { location: '747.v78-o107' } ],
+  '751.v81' => [ { location: '751.v81-o108' } ],
+  '751.v82' => [ { location: '751.v81-o108' } ],
+  '751.v83' => [ { location: '751.v83-o109' } ],
+  '751.v84' => [ { location: '751.v84-o110' } ],
+  '751.v85' => [ { location: '751.v85-o111' }, { location: '751._obj-o115' } ],
+  '751._obj' => [
+    { location: '751.v84-o110' },
+    { location: '751.v85-o111' },
+    { location: '751._obj-o115' }
+  ],
+  '751.k' => [ { location: '751.k-o112' } ],
+  '751.v86' => [ { location: '751.obj-o32.*-o113' } ],
+  '751.v87' => [
+    { location: '751.v87-o114' },
+    { location: '751._obj-o115.*-o116' }
+  ],
+  '756.v88' => [ { location: '756.v88-o117' } ],
+  '756.v89' => [ { location: '756.v89-o121' } ]
+}
+Refs: Map(118) {
+  '707.this-o1' => [ '707.this' ],
+  '707.o-o2' => [ '707.o', '707.v1' ],
+  '707.allowArray-o3' => [ '707.allowArray' ],
+  '709.this-o4' => [ '709.this' ],
+  '709.b-o5' => [ '709.b', '709.v8', '709.v10' ],
+  '711.this-o6' => [ '711.this' ],
+  '711.obj-o7' => [ '711.obj' ],
+  '711.path-o8' => [ '711.path' ],
+  '711.dft-o9' => [ '711.dft' ],
+  '717.this-o10' => [ '717.this' ],
+  '717.i-o11' => [ '717.i' ],
+  '719.this-o12' => [ '719.this' ],
+  '719.obj-o13' => [ '719.obj', '719.v25' ],
+  '719.path-o14' => [ '719.path' ],
+  '719.value-o15' => [ '719.value' ],
+  '728.this-o16' => [ '728.this' ],
+  '728.obj-o17' => [ '728.obj' ],
+  '728.iter-o18' => [ '728.iter' ],
+  '728.includeArrays-o19' => [ '728.includeArrays', '728.v52' ],
+  '728.path-o20' => [ '728.path' ],
+  '740.this-o21' => [ '740.this' ],
+  '740.obj-o22' => [ '740.obj' ],
+  '740.iter-o23' => [ '740.iter' ],
+  '740.out-o24' => [ '740.out' ],
+  '740.includeArrays-o25' => [ '740.includeArrays' ],
+  '745.this-o26' => [ '745.this' ],
+  '745.obj-o27' => [ '745.obj' ],
+  '745.incluedArrays-o28' => [ '745.incluedArrays' ],
+  '749.this-o29' => [ '749.this' ],
+  '749.e-o30' => [ '749.e' ],
+  '751.this-o31' => [ '751.this' ],
+  '751.obj-o32' => [ '751.obj' ],
+  '756.this-o33' => [ '756.this' ],
+  '756.key-o34' => [ '756.key' ],
+  '707.v2-o35' => [ '707.v2' ],
+  '707.v3-o36' => [ '707.v3' ],
+  '707.v4-o37' => [ '707.v4', '707.v5' ],
+  '707.v6-o38' => [ '707.v6' ],
+  '707.v7-o39' => [ '707.v7' ],
+  '709.v9-o40' => [ '709.v9' ],
+  '709.v11-o41' => [ '709.v11' ],
+  '709.v12-o42' => [ '709.v12' ],
+  '711.v13-o43' => [ '711.v13', '711.v14' ],
+  '711.v15-o44' => [ '711.v15' ],
+  '711.obj-o7.*-o45' => [ '711.v16' ],
+  '711.path-o8.length-o46' => [ '711.v17' ],
+  '711.v18-o47' => [ '711.v18' ],
+  '711.path-o8.*-o48' => [ '711.v20' ],
+  '711.v21-o49' => [ '711.v21' ],
+  '711.v18-o50' => [ '711.v18' ],
+  '717.v22-o51' => [ '717.v22' ],
+  '717.v23-o52' => [ '717.v23' ],
+  '717.v24-o53' => [ '717.v24' ],
+  '719.v26-o54' => [ '719.v26' ],
+  '719.v27-o55' => [ '719.v27' ],
+  '719.path-o14.length-o56' => [ '719.v28', '719.v31' ],
+  '719.v29-o57' => [ '719.v29' ],
+  '719.v32-o58' => [ '719.v32' ],
+  '719.v33-o59' => [ '719.v33' ],
+  '719.path-o14.*-o60' => [ '719.v34', '719.v35', '719.v38', '719.v40', '719.v46', '719.v49' ],
+  '719.obj-o61' => [ '719.obj', '719.v25' ],
+  '719.obj-o61.*-o62' => [ '719.value' ],
+  '719.obj-o13.*-o63' => [ '719.v36', '719.v45', '719.obj', '719.obj' ],
+  '719.v37-o64' => [ '719.v37' ],
+  '719.v39-o65' => [ '719.v39' ],
+  '719.v41-o66' => [ '719.v41' ],
+  '719.v42-o67' => [ '719.v42', '719.v44' ],
+  '719.v43-o68' => [ '719.v43', '719.v44' ],
+  '719.v47-o69' => [ '719.v47', '719.v48' ],
+  '719.v29-o70' => [ '719.v29' ],
+  '728.v50-o71' => [ '728.v50' ],
+  '728.path-o72' => [ '728.path' ],
+  '728.v51-o73' => [ '728.v51' ],
+  '728.obj-o17.length-o74' => [ '728.v53' ],
+  '728.v54-o75' => [ '728.v54' ],
+  '728.obj-o17.*-o76' => [ '728.v', '728.v' ],
+  '728.v56-o77' => [ '728.v56' ],
+  '728.v57-o78' => [ '728.v57' ],
+  '728.v58-o79' => [ '728.v58' ],
+  '728.v59-o80' => [ '728.v59' ],
+  '728.v60-o81' => [ '728.v60' ],
+  '728.v61-o82' => [ '728.v61' ],
+  '728.v62-o83' => [ '728.v62' ],
+  '728.v54-o84' => [ '728.v54' ],
+  '728.v63-o85' => [ '728.v63' ],
+  '728.v64-o86' => [ '728.v64' ],
+  '728.v65-o87' => [ '728.v65' ],
+  '728.v66-o88' => [ '728.v66' ],
+  '728.v67-o89' => [ '728.v67' ],
+  '728.v68-o90' => [ '728.v68' ],
+  '728.v69-o91' => [ '728.v69' ],
+  '740.v70-o92' => [ '740.v70' ],
+  '740.v71-o93' => [ '740.v71' ],
+  '740.v72-o94' => [ '740.v72', '740.out' ],
+  '740.v73-o95' => [ '740.v73', '740.out' ],
+  '743.this-o96' => [ '743.this' ],
+  '743.val-o97' => [ '743.val' ],
+  '743.path-o98' => [ '743.path' ],
+  '740.v77-o99' => [ '740.v77' ],
+  '743.v74-o100' => [ '743.v74' ],
+  '743.v75-o101' => [ '743.v75' ],
+  '745.out-o102' => [ '745.out' ],
+  '747.this-o103' => [ '747.this' ],
+  '747._-o104' => [ '747._' ],
+  '747.path-o105' => [ '747.path' ],
+  '745.v80-o106' => [ '745.v80' ],
+  '747.v78-o107' => [ '747.v78' ],
+  '751.v81-o108' => [ '751.v81', '751.v82' ],
+  '751.v83-o109' => [ '751.v83' ],
+  '751.v84-o110' => [ '751.v84', '751._obj' ],
+  '751.v85-o111' => [ '751.v85', '751._obj' ],
+  '751.k-o112' => [ '751.k' ],
+  '751.obj-o32.*-o113' => [ '751.v86' ],
+  '751.v87-o114' => [ '751.v87' ],
+  '751._obj-o115' => [ '751.v85', '751._obj' ],
+  '751._obj-o115.*-o116' => [ '751.v87' ],
+  '756.v88-o117' => [ '756.v88' ],
+  '756.v89-o121' => [ '756.v89' ]
+}
+Graph Nodes: Map(121) {
+  '707.this-o1' => 759,
+  '707.o-o2' => 760,
+  '707.allowArray-o3' => 761,
+  '709.this-o4' => 762,
+  '709.b-o5' => 763,
+  '711.this-o6' => 764,
+  '711.obj-o7' => 765,
+  '711.path-o8' => 766,
+  '711.dft-o9' => 767,
+  '717.this-o10' => 768,
+  '717.i-o11' => 769,
+  '719.this-o12' => 770,
+  '719.obj-o13' => 771,
+  '719.path-o14' => 772,
+  '719.value-o15' => 773,
+  '728.this-o16' => 774,
+  '728.obj-o17' => 775,
+  '728.iter-o18' => 776,
+  '728.includeArrays-o19' => 777,
+  '728.path-o20' => 778,
+  '740.this-o21' => 779,
+  '740.obj-o22' => 780,
+  '740.iter-o23' => 781,
+  '740.out-o24' => 782,
+  '740.includeArrays-o25' => 783,
+  '745.this-o26' => 784,
+  '745.obj-o27' => 785,
+  '745.incluedArrays-o28' => 786,
+  '749.this-o29' => 787,
+  '749.e-o30' => 788,
+  '751.this-o31' => 789,
+  '751.obj-o32' => 790,
+  '756.this-o33' => 791,
+  '756.key-o34' => 792,
+  '707.v2-o35' => 793,
+  '707.v3-o36' => 794,
+  '707.v4-o37' => 795,
+  '707.v6-o38' => 796,
+  '707.v7-o39' => 797,
+  '709.v9-o40' => 798,
+  '709.v11-o41' => 799,
+  '709.v12-o42' => 800,
+  '711.v13-o43' => 801,
+  '711.v15-o44' => 802,
+  '711.obj-o7.*-o45' => 803,
+  '711.path-o8.length-o46' => 804,
+  '711.v18-o47' => 805,
+  '711.path-o8.*-o48' => 806,
+  '711.v21-o49' => 807,
+  '711.v18-o50' => 808,
+  '717.v22-o51' => 809,
+  '717.v23-o52' => 810,
+  '717.v24-o53' => 811,
+  '719.v26-o54' => 812,
+  '719.v27-o55' => 813,
+  '719.path-o14.length-o56' => 814,
+  '719.v29-o57' => 815,
+  '719.v32-o58' => 816,
+  '719.v33-o59' => 817,
+  '719.path-o14.*-o60' => 818,
+  '719.obj-o61' => 819,
+  '719.obj-o61.*-o62' => 820,
+  '719.obj-o13.*-o63' => 821,
+  '719.v37-o64' => 822,
+  '719.v39-o65' => 823,
+  '719.v41-o66' => 824,
+  '719.v42-o67' => 825,
+  '719.v43-o68' => 826,
+  '719.v47-o69' => 827,
+  '719.v29-o70' => 828,
+  '728.v50-o71' => 829,
+  '728.path-o72' => 830,
+  '728.v51-o73' => 831,
+  '728.obj-o17.length-o74' => 832,
+  '728.v54-o75' => 833,
+  '728.obj-o17.*-o76' => 834,
+  '728.v56-o77' => 835,
+  '728.v57-o78' => 836,
+  '728.v58-o79' => 837,
+  '728.v59-o80' => 838,
+  '728.v60-o81' => 839,
+  '728.v61-o82' => 840,
+  '728.v62-o83' => 841,
+  '728.v54-o84' => 842,
+  '728.v63-o85' => 843,
+  '728.v64-o86' => 844,
+  '728.v65-o87' => 845,
+  '728.v66-o88' => 846,
+  '728.v67-o89' => 847,
+  '728.v68-o90' => 848,
+  '728.v69-o91' => 849,
+  '740.v70-o92' => 850,
+  '740.v71-o93' => 851,
+  '740.v72-o94' => 852,
+  '740.v73-o95' => 853,
+  '743.this-o96' => 854,
+  '743.val-o97' => 855,
+  '743.path-o98' => 856,
+  '740.v77-o99' => 857,
+  '743.v74-o100' => 858,
+  '743.v75-o101' => 859,
+  '745.out-o102' => 860,
+  '747.this-o103' => 861,
+  '747._-o104' => 862,
+  '747.path-o105' => 863,
+  '745.v80-o106' => 864,
+  '747.v78-o107' => 865,
+  '751.v81-o108' => 866,
+  '751.v83-o109' => 867,
+  '751.v84-o110' => 868,
+  '751.v85-o111' => 869,
+  '751.k-o112' => 870,
+  '751.obj-o32.*-o113' => 871,
+  '751.v87-o114' => 872,
+  '751._obj-o115' => 873,
+  '751._obj-o115.*-o116' => 874,
+  '756.v88-o117' => 875,
+  '756.v88-o117.0-o118' => 876,
+  '756.v88-o117.1-o119' => 877,
+  '756.v88-o117.2-o120' => 878,
+  '756.v89-o121' => 879
+}
+Func Contexts: Map(13) {
+  707 => [ 707, 705 ],
+  709 => [ 705 ],
+  711 => [ 711, 705, 711 ],
+  717 => [ 717, 705 ],
+  719 => [ 719, 719, 705, 719 ],
+  728 => [
+    728, 728, 728, 728,
+    728, 728, 705, 728,
+    728, 728, 728, 728
+  ],
+  740 => [ 740, 705, 740 ],
+  743 => [ 743, 740, 705, 740, 743 ],
+  745 => [ 745, 705 ],
+  747 => [ 747, 745, 705 ],
+  749 => [ 705 ],
+  751 => [ 751, 751, 705, 751 ],
+  756 => [ 756, 705 ]
+}
+Require Chain: Map(0) {}
+Variable Map: Map(13) {
+  '707.v1' => undefined,
+  '707.v5' => undefined,
+  '709.v8' => undefined,
+  '709.v10' => undefined,
+  '711.v14' => undefined,
+  '719.v25' => undefined,
+  '719.v44' => 'v43',
+  '719.obj' => 'v45.v49',
+  '719.v48' => undefined,
+  '728.v52' => undefined,
+  '740.out' => 'v73',
+  '751.v82' => undefined,
+  '751._obj' => 'v85'
+}

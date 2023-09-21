@@ -1,6 +1,6 @@
 import { GraphNode } from "./node";
 import { GraphEdge } from "./edge";
-import { OutputManager } from "../../output/output_strategy";
+import { type OutputManager } from "../../output/output_strategy";
 
 export class Graph {
     private nodeCounter: number;
@@ -9,6 +9,8 @@ export class Graph {
     private _edges: Map<number, GraphEdge>;
     private _outputManager: OutputManager | null;
     private _startNodes: Map<string, GraphNode[]>; // Change this to a custom type
+    private _taintNode: number;
+    private _sinkNodes: Map<string, number>;
 
     constructor(outputManager: OutputManager | null) {
         this.nodeCounter = 0;
@@ -19,37 +21,61 @@ export class Graph {
 
         this._outputManager = outputManager;
         this._startNodes = new Map();
+
+        this._taintNode = -1;
+        this._sinkNodes = new Map();
     }
 
-    get nodes() {
+    get nodes(): Map<number, GraphNode> {
         return this._nodes;
     }
 
-    get edges() {
+    get edges(): Map<number, GraphEdge> {
         return this._edges;
     }
 
-    get number_nodes() {
+    get number_nodes(): number {
         return this.nodeCounter;
     }
 
-    get number_edges() {
+    get number_edges(): number {
         return this.edgeCounter;
     }
 
-    get startNodes() {
+    get startNodes(): Map<string, GraphNode[]> {
         return this._startNodes;
     }
 
-    /**
-     * @param {OutputManager} outputManager
-     */
+    get taintNode(): number {
+        return this._taintNode;
+    }
+
+    get sinkNodes(): Map<string, number> {
+        return this._sinkNodes;
+    }
+
     set outputManager(outputManager: OutputManager) {
         this._outputManager = outputManager;
     }
 
-    addNode(label: string, obj: any) {
-        // eslint-disable-next-line no-plusplus
+    addTaintNode(): GraphNode {
+        const id = this.nodeCounter++;
+        const node = new GraphNode(id, "TAINT_SOURCE", { type: "TAINT" });
+        this.nodes.set(id, node);
+        this._taintNode = id;
+        return node;
+    }
+
+    addSinkNode(sink: string): GraphNode {
+        const id = this.nodeCounter++;
+        const node = new GraphNode(id, "TAINT_SINK", { type: "TAINT", label: sink });
+        node.identifier = sink;
+        this.nodes.set(id, node);
+        this._sinkNodes.set(sink, id);
+        return node;
+    }
+
+    addNode(label: string, obj: any): GraphNode {
         const id = this.nodeCounter++;
         const node = new GraphNode(id, label, obj);
         this.nodes.set(id, node);
@@ -69,7 +95,7 @@ export class Graph {
         }
     }
 
-    addStartNodes(nodeType: string, startNode: GraphNode) {
+    addStartNodes(nodeType: string, startNode: GraphNode): void {
         const oldNodeArray = this._startNodes.get(nodeType);
         if (oldNodeArray) {
             oldNodeArray.push(startNode);
@@ -79,14 +105,7 @@ export class Graph {
         }
     }
 
-
-
-    clearUnusedObjectNodes() {
-        this._nodes = new Map([...this._nodes].filter((n) => n[1].used));
-        this._edges = new Map([...this._edges].filter((e) => e[1].nodes[0].used && e[1].nodes[1].used));
-    }
-
-    output(filename: string) {
+    output(filename: string): void {
         if (this._outputManager) this._outputManager.output(this, filename);
         else console.log("Output Manager is null");
     }

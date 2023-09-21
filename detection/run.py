@@ -1,45 +1,41 @@
-from ast import arg
 from neo4j import GraphDatabase
 from queries.queries import Queries
-from queries.find_functions import *
 import my_utils.utils as my_utils
+import argparse
+import os
+import time
 from sys import argv
-import json
+from sys import stderr
 
-NEO4J_CONN_STRING="bolt://127.0.0.1:7687"
+THIS_SCRIPT_NAME: str = os.path.basename(__file__)
+
+print(f'[INFO][{THIS_SCRIPT_NAME}] - start: {time.time()*1000}', file=stderr) # START QUERY TIME
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-f", "--normalized_file", type=str, required=True,
+					help="Path to the normalized version of the file being tested.")
+parser.add_argument("-o", "--output", type=str, default="taint_summary.json",
+					help="Taint summary output file.")
+parser.add_argument("-b", "--bolt-port", type=str, default="7687",
+					help="Target Neo4j container bolt port.")
+
+args = parser.parse_args()
+
+NEO4J_CONN_STRING="bolt://127.0.0.1:" + args.bolt_port
 
 config = my_utils.read_config()
 neo_driver = GraphDatabase.driver(NEO4J_CONN_STRING, auth=('', ''))
 
 with neo_driver.session() as session:
-	sinks, new_sinks, package_sinks, packages = my_utils.get_all_sinks_from_config(config)
-	my_utils.console(sinks, debug=False)
-	my_utils.console(new_sinks, debug=False)
-	my_utils.console(package_sinks, debug=False)
-	my_utils.console(packages, debug=False)
-
-	sinks = find_sink_function_calls(session, sinks, new_sinks, package_sinks, packages)
-	my_utils.console(sinks, debug=False)
-
-	all_sources = my_utils.get_all_sources_from_config(config)
-	my_utils.console(all_sources, debug=False)
-
-	sources = find_source_objects_variables_and_functions(session, all_sources)
-	my_utils.console(sources, debug=False)
-
-	param_types = find_param_objects_and_types(sources, session)
-	my_utils.console(param_types, debug=False)
-
+	vuln_paths = []
+	# Optimization: Data reconstruction takes some time, by using this data structure, the same data is only constructed once
+	attacker_controlled_data = {}
 	for query_type in Queries().get_query_types():
-		paths = query_type.find_pdg_paths(session, sources, sinks)
-		my_utils.console(paths, debug=False)
+		query_type.find_vulnerable_paths(session, vuln_paths, attacker_controlled_data, args.normalized_file, config)
 
-		results = query_type.validate_pdg_paths(paths, param_types, session)
-		if len(results) > 0:
-			print("{} vulnerability detected!".format(query_type.get_type()))
-			my_utils.console(results)
-			# my_utils.save_output(argv, results, query_type.get_type(), True)
-			my_utils.save_output_multi_files(argv, results)
-		else:
-			print("No vulnerability detected for type - {}".format(query_type.get_type()))
-			# my_utils.save_output(argv, results, query_type.get_type(), False)
+	if len(vuln_paths) > 0:
+		# my_utils.console(vuln_paths)
+		my_utils.save_output(vuln_paths, args.output)
+	else:
+		print(f'[INFO][{THIS_SCRIPT_NAME}] - No vulnerabilities detected.')
+		my_utils.save_output(vuln_paths, args.output)

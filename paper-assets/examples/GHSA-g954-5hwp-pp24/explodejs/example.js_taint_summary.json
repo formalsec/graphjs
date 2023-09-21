@@ -1,0 +1,70 @@
+[
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProp",
+        "source_lineno": 2,
+        "sink": "dst[part] = v6;",
+        "sink_lineno": 11,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": "{'*': 'array'} | array",
+            "path": "{'length': 'number'} | array | string",
+            "value": "any"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProp",
+        "source_lineno": 2,
+        "sink": "dst[part] = value;",
+        "sink_lineno": 19,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": "{'*': 'array'} | array",
+            "path": "{'length': 'number'} | array | string",
+            "value": "any"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProperty",
+        "source_lineno": 1,
+        "sink": "dst[part] = v6;",
+        "sink_lineno": 11,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": "{'*': 'array'} | array",
+            "path": "array | string",
+            "value": "any"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProperty",
+        "source_lineno": 1,
+        "sink": "dst[part] = value;",
+        "sink_lineno": 19,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": "{'*': 'array'} | array",
+            "path": "array | string",
+            "value": "any"
+        }
+    }
+]

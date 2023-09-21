@@ -1,28 +1,41 @@
-import { Identifier } from "estree";
-import { GraphEdge } from "../traverse/graph/edge";
-import { GraphNode } from "../traverse/graph/node";
+import { type Identifier } from "estree";
+import { type Store } from "../traverse/dependency/dependency_trackers";
+import { type StorageValue } from "../traverse/dependency/sto_factory";
+import { type GraphEdge } from "../traverse/graph/edge";
+import { type GraphNode } from "../traverse/graph/node";
 
-/* eslint-disable no-plusplus */
 let VAR_COUNT = 1;
 let NODE_COUNT = 1;
 let OBJ_COUNT = 1;
 
-export function copyObj(obj: any): any {
-    const newObj = JSON.parse(JSON.stringify(obj));
-    return newObj;
+function replacer(key: any, value: any): object {
+    if (value instanceof Map) {
+        return { dataType: 'Map', value: [...value] };
+    } else { return value; }
 }
 
-export const getNextNodeId = () => NODE_COUNT++;
+function reviver(key: any, value: any): object {
+    if (typeof value === 'object' && value !== null && value.dataType === 'Map') {
+        return new Map(value.value);
+    }
+    return value;
+}
 
-export const resetNodeId = () => NODE_COUNT = 1;
+export function copyObj(obj: any): any {
+    return JSON.parse(JSON.stringify(obj, replacer), reviver);
+}
 
-export const getNextVariableName = () => `v${VAR_COUNT++}`;
+export const getNextNodeId = (): number => NODE_COUNT++;
 
-export const resetVariableCount = () => VAR_COUNT = 1;
+export const resetNodeId = (): number => { NODE_COUNT = 1; return NODE_COUNT }
+
+export const getNextVariableName = (): string => `v${VAR_COUNT++}`;
+
+export const resetVariableCount = (): number => { VAR_COUNT = 1; return VAR_COUNT };
 
 export interface ContextNames {
-    pdgObjName: string,
-    pdgObjNameContext: string,
+    pdgObjName: string
+    pdgObjNameContext: string
 }
 
 export const getNextObjectName = (variableName: string, variableNameContext: string): ContextNames => {
@@ -32,9 +45,11 @@ export const getNextObjectName = (variableName: string, variableNameContext: str
     return { pdgObjName, pdgObjNameContext };
 };
 
-export const resetObjectCount = () => OBJ_COUNT = 1;
+export const resetObjectCount = (): number => { OBJ_COUNT = 1; return OBJ_COUNT };
 
-export const printJSON = (json: any) => console.log(JSON.stringify(json, null, 2));
+export const printJSON = (json: any): void => { console.log(JSON.stringify(json, null, 2)); };
+
+export const printStatus = (step: string): void => { console.log(`Step - ${step} - concluded.`); }
 
 export function clone<T>(a: T): T {
     return JSON.parse(JSON.stringify(a));
@@ -63,6 +78,16 @@ export function getAllASTEdges(parent: GraphNode, childLabel: string): GraphEdge
 export function createThisExpression(): Identifier {
     return {
         type: "Identifier",
-        name: "this",
+        name: "this"
     };
+}
+
+export function deepCopyStore(s: Store): Store {
+    const storeCloned: Store = new Map();
+
+    s.forEach((values: StorageValue[], key: string) => {
+        storeCloned.set(key, clone(values));
+    });
+
+    return storeCloned;
 }

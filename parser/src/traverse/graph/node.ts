@@ -1,18 +1,35 @@
-import { GraphEdge } from "./edge";
+import { type Dependency } from "../dependency/dep_factory";
+import { type GraphEdge } from "./edge";
 
+/*
+ * This class represents the graph nodes
+ */
 export class GraphNode {
     private _id: number;
+    /* This value can be:
+    - [AST, CFG] for starter nodes
+    - Type of AST statement, for AST nodes
+    - CFG_F_START, CFG_END, CFG_IF_END, CFG_WHILE_END, CFG_TRY_STMT_END, FOR_END, for CFG nodes */
     private _type: string;
     private _obj: any;
     private _edges: GraphEdge[];
+    // This value represents the identifier of the node for CFG nodes (Program, ArrowFunctionExpression, FunctionDeclaration, FunctionExpression, LabeledStatement)
     private _identifier: string | null;
+    // This value represents the namespace for start/end CFG nodes (__main__, #n_anon) - same as __functionName__
     private _namespace: string | null;
-    private _variableName: string | null;
+    // This value represents the name of the function for function CFG nodes (ArrowFunctionExpression, FunctionDeclaration, FunctionExpression, LabeledStatement)
     private _functionName: string | null;
+    // This value represents the id of the start CFG node for the flow
     private _functionContext: number;
+    // This value represents the id of the graph node that contains the function declaration
     private _functionNodeId: number;
     private _internalStructure: any;
     private _used: boolean;
+    private _cfgEndNodeId: number;
+    private _writeAllSubObjects: Dependency[];
+    private _arguments: boolean;
+    // This value represents additional information for AST nodes: object type for Literal, operator type for BinaryExpression and computation type for MemberExpression
+    private _subtype: string;
 
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
@@ -21,23 +38,26 @@ export class GraphNode {
         this._edges = [];
         this._identifier = null;
         this._namespace = null;
-        this._variableName = null;
         this._functionName = null;
         this._functionContext = 0;
         this._functionNodeId = -1;
         this._internalStructure = null;
         this._used = false;
+        this._cfgEndNodeId = -1;
+        this._writeAllSubObjects = [];
+        this._arguments = false;
+        this._subtype = ""
     }
 
-    get id() {
+    get id(): number {
         return this._id;
     }
 
-    get type() {
+    get type(): string {
         return this._type;
     }
 
-    get obj() {
+    get obj(): any {
         return this._obj;
     }
 
@@ -45,11 +65,11 @@ export class GraphNode {
         this._obj = obj;
     }
 
-    get edges() {
+    get edges(): GraphEdge[] {
         return this._edges;
     }
 
-    get identifier() {
+    get identifier(): string | null {
         return this._identifier;
     }
 
@@ -57,7 +77,7 @@ export class GraphNode {
         this._identifier = identifierStr;
     }
 
-    get namespace() {
+    get namespace(): string | null {
         return this._namespace;
     }
 
@@ -65,15 +85,7 @@ export class GraphNode {
         this._namespace = namespace;
     }
 
-    get variableName() {
-        return this._variableName;
-    }
-
-    set variableName(variableName) {
-        this._variableName = variableName;
-    }
-
-    get functionName() {
+    get functionName(): string | null {
         return this._functionName;
     }
 
@@ -81,7 +93,7 @@ export class GraphNode {
         this._functionName = name;
     }
 
-    get functionContext() {
+    get functionContext(): number {
         return this._functionContext;
     }
 
@@ -89,7 +101,7 @@ export class GraphNode {
         this._functionContext = id;
     }
 
-    get functionNodeId() {
+    get functionNodeId(): number {
         return this._functionNodeId;
     }
 
@@ -97,7 +109,7 @@ export class GraphNode {
         this._functionNodeId = id;
     }
 
-    get internalStructure() {
+    get internalStructure(): any {
         return this._internalStructure;
     }
 
@@ -105,19 +117,51 @@ export class GraphNode {
         this._internalStructure = struct;
     }
 
-    get used() {
+    get used(): boolean {
         return this._used;
     }
 
-    setUsed() {
+    get cfgEndNodeId(): number {
+        return this._cfgEndNodeId;
+    }
+
+    set cfgEndNodeId(id: number) {
+        this._cfgEndNodeId = id;
+    }
+
+    get writeAllSubObjects(): Dependency[] {
+        return this._writeAllSubObjects;
+    }
+
+    get arguments(): boolean {
+        return this._arguments;
+    }
+
+    set arguments(value: boolean) {
+        this._arguments = value;
+    }
+
+    addWriteAllSubObjects(dep: Dependency): void {
+        this._writeAllSubObjects.push(dep);
+    }
+
+    setUsed(): void {
         this._used = true;
     }
 
-    addEdge(edge: GraphEdge) {
+    addEdge(edge: GraphEdge): void {
         this._edges.push(edge);
     }
 
-    accept(visitor: any) {
+    get subtype(): string {
+        return this._subtype;
+    }
+
+    set subtype(value: string) {
+        this._subtype = value;
+    }
+
+    accept(visitor: any): void {
         visitor.visit(this);
     }
 }

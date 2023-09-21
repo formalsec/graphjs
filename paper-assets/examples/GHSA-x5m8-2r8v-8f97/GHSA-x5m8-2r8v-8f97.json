@@ -1,0 +1,35 @@
+{
+    "advisory": {
+        "ghsa_id": "GHSA-x5m8-2r8v-8f97", 
+        "cve_id": "CVE-2022-25352",
+        "cwe": "CWE-1321"
+    },
+    "correct_cwe": ["CWE-471", "CWE-1321"],
+    "correct_package_link": "https://registry.npmjs.org/libnested/-/libnested-1.5.1.tgz",
+    "vulnerability": {
+        "vulnerability_location": [
+            {
+                "source": {
+                    "file": "index.js",
+                    "lineno": 22,
+                    "code": "function set (obj, path, value) {"
+                },
+                "sink": {
+                    "file": "index.js",
+                    "lineno": 27,
+                    "code": "obj[path[i]] = value"
+                }
+            }
+        ]
+    },
+    "poc": [
+        {
+            "url": "https://security.snyk.io/vuln/SNYK-JS-LIBNESTED-2342117"
+        }
+    ],
+    "patch": [
+        {
+            "url": "https://github.com/dominictarr/libnested/commit/c1129865d75fbe52b5a4f755ad3110ca5420f2e1"
+        }
+    ]
+}

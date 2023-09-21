@@ -1,2 +1,1 @@
-const v1 = `string` + `concat`;
-const x = v1;
+const x = `string` + `concat`;

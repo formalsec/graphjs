@@ -1,0 +1,96 @@
+[
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProp",
+        "source_lineno": 183,
+        "sink": "dst[part] = v78;",
+        "sink_lineno": 192,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": "{'*': 'array'} | array",
+            "path": "{'length': 'number'} | array | string",
+            "value": "any"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProp",
+        "source_lineno": 183,
+        "sink": "dst[part] = value;",
+        "sink_lineno": 200,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": "{'*': 'array'} | array",
+            "path": "{'length': 'number'} | array | string",
+            "value": "any"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProperty",
+        "source_lineno": 182,
+        "sink": "dst[part] = v78;",
+        "sink_lineno": 192,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": "{'*': 'array'} | array",
+            "path": "array | string",
+            "value": "any"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "setProperty",
+        "source_lineno": 182,
+        "sink": "dst[part] = value;",
+        "sink_lineno": 200,
+        "tainted_params": [
+            "dst",
+            "path",
+            "value"
+        ],
+        "params_types": {
+            "dst": "{'*': 'array'} | array",
+            "path": "array | string",
+            "value": "any"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "toObject",
+        "source_lineno": 37,
+        "sink": "object[key] = val;",
+        "sink_lineno": 49,
+        "tainted_params": [
+            "array"
+        ],
+        "params_types": {
+            "array": "{'length': 'number', '*': 'any'} | array | string"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "toArray",
+        "source_lineno": 16,
+        "sink": "array[index] = v11;",
+        "sink_lineno": 28,
+        "tainted_params": [
+            "object"
+        ],
+        "params_types": {
+            "object": "{'*': 'any'} | array"
+        }
+    }
+]

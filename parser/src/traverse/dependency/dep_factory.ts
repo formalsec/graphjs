@@ -1,80 +1,73 @@
 enum DependencyType {
-    DEmpty,
-    DConst,
     DVar,
     DObject,
     DCallee,
-};
+}
 
 export interface Dependency {
-    type: string,
-    name?: string,
-    value?: string,
-    source?: number,
-    destination?: number,
-    sourceObjName?: string
-};
+    type: string
+    source: number
+    name: string
+    destination?: number
+    arg?: number
+    isProp?: boolean
+}
 
-export class DependencyFactory {
-    static DConst(c: string, stmtId: number): Dependency {
-        return {
-            type: DependencyType[DependencyType.DConst],
-            value: c,
-            source: stmtId,
-            destination: stmtId,
-        };
-    }
+export function DVar(name: string, source: number, arg?: number, isProp?: boolean): Dependency {
+    return {
+        type: DependencyType[DependencyType.DVar],
+        name,
+        source,
+        arg,
+        isProp
+    };
+}
 
-    static DEmpty(): Dependency {
-        return {
-            type: DependencyType[DependencyType.DEmpty]
-        };
-    }
+export function DObject(propName: string, destination: number, sourceObjId: number): Dependency {
+    return {
+        type: DependencyType[DependencyType.DObject],
+        name: propName,
+        source: sourceObjId,
+        destination
+    };
+}
 
-    static DVar(name: string, destination: number, source: number): Dependency {
-        return {
-            type: DependencyType[DependencyType.DVar],
-            name: name,
-            source: source,
-            destination: destination,
-        };
-    }
+export function isDVar(dep: Dependency): boolean {
+    return dep.type === DependencyType[DependencyType.DVar];
+}
 
-    static isDVar(dep: Dependency) {
-        return dep.type === DependencyType[DependencyType.DVar];
-    }
+export function isDCallee(dep: Dependency): boolean {
+    return dep.type === DependencyType[DependencyType.DCallee];
+}
 
-    static isDEmpty(dep: Dependency) {
-        return dep.type === DependencyType[DependencyType.DEmpty];
-    }
+export function isDObject(dep: Dependency): boolean {
+    return dep.type === DependencyType[DependencyType.DObject];
+}
 
-    static DObject(propName: string, destination: number, sourceObjId: number, sourceObjName?: string): Dependency {
-        return {
-            type: DependencyType[DependencyType.DObject],
-            name: propName,
-            source: sourceObjId,
-            destination,
-            sourceObjName,
-        };
-    }
+export function changeToCalleeDep(dep: Dependency): Dependency {
+    return {
+        type: DependencyType[DependencyType.DCallee],
+        name: dep.name,
+        source: dep.source,
+        destination: dep.destination
+    };
+}
 
-    static changeToCalleeDep(dep: Dependency) {
-        return {
-            type: DependencyType[DependencyType.DCallee],
-            name: dep.name,
-            source: dep.source,
-            destination: dep.destination,
-        };
+export function translate(depType: string): string {
+    switch (depType) {
+        case DependencyType[DependencyType.DVar]:
+            return "DEP";
+        case DependencyType[DependencyType.DCallee]:
+            return "ARG";
+        default:
+            return "UNKNOWN";
     }
+}
 
-    static translate(depType: string) {
-        switch(depType) {
-            case DependencyType[DependencyType.DVar]:
-                return "VAR";
-            case DependencyType[DependencyType.DCallee]:
-                return "CALLEE";
-            default:
-                return "UNKNOWN";
-        }
-    }
+export function includes(deps: Dependency[], item: Dependency): boolean {
+    return deps.findIndex((dep) => {
+        return dep.type === item.type &&
+            dep.name === item.name &&
+            dep.source === item.source
+    }) >= 0;
 }

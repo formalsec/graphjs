@@ -1,18 +1,39 @@
-import { GraphNode } from "./node";
+import { type GraphNode } from "./node";
 
+/*
+ * This interface represents the information that can be associated with each graph edge
+ * EdgeInfo is one of the arguments of GraphEdge constructor
+ */
 export interface EdgeInfo {
-    type: string,
-    label: string,
-    objName: string,
-    argumentIndex: number,
-    paramIndex: number,
-    stmtIndex: number,
-    elementIndex: number,
-    expressionIndex: number,
-    methodIndex: number,
-    specifierIndex: number,
-    sourceObjName: string,
-};
+    /* This value can be:
+    - AST: edge between AST nodes
+    - CFG: edge between CFG nodes
+    - FD: edge between the function declaration (AST) and the start of the flow (CFG) */
+    type: string
+    /* This value can represent:
+    - Number of the statement (AST)
+    - Type of the statement (AST) */
+    label: string
+    objName: string
+    // This value represents the argument index for AST nodes (CallExpression, NewExpression)
+    argumentIndex: number
+    // This value represents the parameter index for AST nodes (ArrowFunctionExpression, FunctionDeclaration, FunctionExpression, CatchClause)
+    paramIndex: number
+    // This value represents the statement index for AST nodes (BlockStatement)
+    stmtIndex: number
+    // This value represents the element index for AST nodes (ArrayExpression)
+    elementIndex: number
+    // This value represents the expression index for AST nodes (TemplateLiteral)
+    expressionIndex: number
+    // This value represents the method index for AST nodes (ClassBody)
+    methodIndex: number
+    // This value represents the specifier index for AST nodes (ExportNamedDeclaration)
+    specifierIndex: number
+    sourceObjName: string
+    // This value represents if the edge is from the property or object in dependency edges
+    // To differentiate the edges of obj[x] = value
+    isPropertyDependency: boolean
+}
 
 export class GraphEdge {
     private _id: number;
@@ -28,6 +49,7 @@ export class GraphEdge {
     private _method_index: number;
     private _specifier_index: number;
     private _source_obj_name: string;
+    private _isPropertyDependency: boolean;
 
     constructor(id: number, node1: GraphNode, node2: GraphNode, edgeInfo: EdgeInfo) {
         this._id = id;
@@ -49,61 +71,66 @@ export class GraphEdge {
         this._expression_index = edgeInfo.expressionIndex;
         this._method_index = edgeInfo.methodIndex;
         this._specifier_index = edgeInfo.specifierIndex;
+        this._isPropertyDependency = edgeInfo.isPropertyDependency || false;
     }
 
-    get id() {
+    get id(): number {
         return this._id;
     }
 
-    get nodes() {
+    get nodes(): GraphNode[] {
         return this._nodes;
     }
 
-    get type() {
+    get type(): string {
         return this._type;
     }
 
-    get label() {
+    get label(): string {
         return this._label;
     }
 
-    get objName() {
+    get objName(): string {
         return this._obj_name;
     }
 
-    get argumentIndex() {
+    get argumentIndex(): number {
         return this._argument_index;
     }
 
-    get paramIndex() {
+    get paramIndex(): number {
         return this._param_index;
     }
 
-    get stmtIndex() {
+    get stmtIndex(): number {
         return this._stmt_index;
     }
 
-    get elementIndex() {
+    get elementIndex(): number {
         return this._element_index;
     }
 
-    get expressionIndex() {
+    get expressionIndex(): number {
         return this._expression_index;
     }
 
-    get methodIndex() {
+    get methodIndex(): number {
         return this._method_index;
     }
 
-    get specifierIndex() {
+    get specifierIndex(): number {
         return this._specifier_index;
     }
 
-    get sourceObjName() {
+    get sourceObjName(): string {
         return this._source_obj_name;
     }
 
-    set sourceObjName(name: string) {
-        this._source_obj_name = name;
+    get isPropertyDependency(): boolean {
+        return this._isPropertyDependency;
+    }
+
+    set isPropertyDependency(value: boolean) {
+        this._isPropertyDependency = value;
     }
 }

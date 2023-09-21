@@ -1,10 +1,12 @@
 const v1 = 23 + 19;
-const v4 = v1 === 42;
-if (v4) {
-    var x;
-    const v2 = alert('yes!');
+switch (v1) {
+default:
+    const v2 = alert('huh?');
     v2;
-} else {
-    const v3 = alert('huh?');
+    break;
+case 42:
+    var x;
+    const v3 = alert('yes!');
     v3;
+    break;
 }

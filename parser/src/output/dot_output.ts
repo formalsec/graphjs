@@ -2,7 +2,7 @@ import { OutputWriter } from "./output_writer";
 import { Graph } from "../traverse/graph/graph";
 import { GraphNode } from "../traverse/graph/node";
 import { GraphEdge } from "../traverse/graph/edge";
-
+import path from "path";
 import graphviz from "graphviz";
 import escodegen from "escodegen";
 
@@ -10,6 +10,14 @@ function getNodeLabel(n: GraphNode, showCode: any) {
     let label = `#${n.id} ${n.type} (${n.functionContext})`;
     if (n.obj) {
         switch (n.type) {
+            case "TAINT_SOURCE":
+                label = `#${n.id} ${n.type}`;
+                break;
+
+            case "TAINT_SINK":
+                label = `#${n.id} ${n.type} (${n.identifier})`;
+                break;
+
             case "PDG_OBJECT":
                 // label = `#${n.id} ${n.type} ${n.identifier}`;
                 label = `#${n.id} ${n.identifier}`;
@@ -73,6 +81,15 @@ function getNodeLabel(n: GraphNode, showCode: any) {
                 break;
             }
 
+            case "ReturnStatement": {
+                if (showCode) {
+                    const code = escodegen.generate(n.obj);
+                    // label = `#${n.id} ${n.type} \n\n${code}`;
+                    label = `#${n.id}» ${code}`;
+                }
+                break;
+            }
+
             default:
                 break;
         }
@@ -85,11 +102,15 @@ function getEdgeLabel(e: GraphEdge) {
     let label;
 
     switch (e.label) {
-        case "VAR":
+        case "NV":
+        case "SO":
+        case "DEP": {
+            label = `${e.label}(${e.objName})`;
+            break;
+        }
+
         case "CALLEE":
         case "REF":
-        case "NEW_VERSION":
-        case "SUB_OBJECT":
         case "WRITE":
         case "LOOKUP":
         case "CREATE": {
@@ -98,6 +119,10 @@ function getEdgeLabel(e: GraphEdge) {
             } else {
                 label = `${e.label} ${e.objName}`;
             }
+            break;
+        }
+        case "SINK": {
+            label = `${e.label} (${e.objName})`;
             break;
         }
 
@@ -147,6 +172,7 @@ function getEdgeColor(e: GraphEdge) {
         case "CFG":
             color = "red";
             break;
+        case "SUB":
         case "PDG":
             color = "darkgreen";
             break;
@@ -158,6 +184,20 @@ function getEdgeColor(e: GraphEdge) {
     }
 
     return color;
+}
+
+function getEdgeStyle(e: GraphEdge) {
+    let style;
+    switch (e.type) {
+        case "REF":
+        case "SINK":
+            style = "dashed";
+            break;
+        default:
+            style = "solid";
+    }
+
+    return style;
 }
 
 function getNodeColor(n: GraphNode) {
@@ -172,6 +212,9 @@ function getNodeColor(n: GraphNode) {
                 break;
             case "PDG":
                 color = "darkgreen";
+                break;
+            case "TAINT":
+                color = "goldenrod4";
                 break;
             default:
                 color = "black";
@@ -193,6 +236,8 @@ export class DotOutput extends OutputWriter {
             .filter((entry) => !options.ignore.includes(entry[0]))
             .map((entry) => graph.startNodes.get(entry[0])).flat();
 
+        nodesToPrint.push(graph.nodes.get(graph.taintNode));
+
         while (nodesToPrint.length > 0) {
             const n = nodesToPrint.shift();
             if (n) {
@@ -202,6 +247,11 @@ export class DotOutput extends OutputWriter {
                 }
 
                 if (options.ignore && options.ignore.includes(n.obj.type)) {
+                    // eslint-disable-next-line no-continue
+                    continue;
+                }
+
+                if (options.ignore_func && options.ignore_func.includes(n.identifier)) {
                     // eslint-disable-next-line no-continue
                     continue;
                 }
@@ -238,6 +288,7 @@ export class DotOutput extends OutputWriter {
 
                         if (!options.ignore.includes(e.type)) {
                             const edgeColor = getEdgeColor(e);
+                            const edgeStyle = getEdgeStyle(e);
                             gDot.addEdge(
                                 getNodeLabel(n1, this.showCode),
                                 getNodeLabel(n2, this.showCode),
@@ -245,6 +296,7 @@ export class DotOutput extends OutputWriter {
                                     label: edgeLabel,
                                     fontcolor: edgeColor,
                                     color: edgeColor,
+                                    style: edgeStyle,
                                 },
                             );
                         }
@@ -254,6 +306,6 @@ export class DotOutput extends OutputWriter {
         }
 
         // console.log(gDot.to_dot());
-        gDot.output("svg", `${filename}.svg`);
+        gDot.output("svg", path.join(filename, "graph.svg"));
     }
 }

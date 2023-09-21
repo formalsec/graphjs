@@ -1,9 +1,7 @@
-switch (23 + 19) {
-  case 42:
-  case 19 + 23:
-    var x;
-    alert("yes!");
+switch (x) {
+  case 0:
+    alert(0);
     break;
-  default:
-    alert("huh?");
+  case 1:
+    alert(1)
 }

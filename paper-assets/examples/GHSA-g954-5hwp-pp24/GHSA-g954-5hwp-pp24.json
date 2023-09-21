@@ -1,0 +1,31 @@
+{
+    "advisory": {
+        "ghsa_id": "GHSA-g954-5hwp-pp24", 
+        "cve_id": "CVE-2022-25878",
+        "cwe": "CWE-1321"
+    },
+    "correct_cwe": ["CWE-471", "CWE-1321"],
+    "correct_package_link": "https://registry.npmjs.org/protobufjs/-/protobufjs-6.11.0.tgz",
+    "vulnerability": {
+        "vulnerability_extend.js_symbolic_test_5_1 copylocation": [
+            {
+                "block": {
+                    "file": "src/util.js",
+                    "start_lineno": 176,
+                    "end_lineno": 197,
+                    "code": "util.setProperty = function setProperty(dst, path, value) { function setProp(dst, path, value) {var part = path.shift(); if (path.length > 0) {     dst[part] = setProp(dst[part] || {}, path, value); } else {     var prevValue = dst[part];     if (prevValue)         value = [].concat(prevValue).concat(value);     dst[part] = value; } return dst;} if (typeof dst !== \"objec\")    throw TypeError(\"dst must be an object\");if (!path)    throw TypeError(\"path must be specified\"); path = path.split(\".\");return setProp(dst, path, value); };"
+                }
+            }
+        ]
+    },
+    "poc": [
+        {
+            "url": "https://security.snyk.io/vuln/SNYK-JS-PROTOBUFJS-2441248"
+        }
+    ],
+    "patch": [
+        {
+            "url": "https://github.com/protobufjs/protobuf.js/commit/b5f1391dff5515894830a6570e6d73f5511b2e8f"
+        }
+    ]
+}

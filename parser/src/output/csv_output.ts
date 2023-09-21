@@ -1,20 +1,21 @@
 import fs from "fs";
 import { OutputWriter } from "./output_writer";
-
+import path from "path";
 import { Graph } from "../traverse/graph/graph";
 import { GraphNode } from "../traverse/graph/node";
 import { GraphEdge } from "../traverse/graph/edge";
 import { Literal } from "estree";
+import escodegen from "escodegen";
 
 export class CSVOutput extends OutputWriter {
-    // eslint-disable-next-line class-methods-use-this
-    output(graph: Graph, options: any, filename: string) {
+    private showCode: any;
+    output(graph: Graph, options: any, fileDir: string): void {
+        this.showCode = options.show_code || false;
         // NODES
-        // Id:ID¿Type¿Raw¿Location¿Label:LABEL
+        // Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL
 
-        const nodesWriteStream = fs.createWriteStream(`${filename}_nodes.csv`);
-        nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Label:LABEL\n");
-        // nodesWriteStream.write("Id:ID¿Type¿IdentifierName¿Location¿Label:LABEL\n");
+        const nodesWriteStream = fs.createWriteStream(path.join(fileDir, "nodes.csv"));
+        nodesWriteStream.write("Id:ID¿Type¿SubType¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL\n");
 
         graph.nodes.forEach((node: GraphNode) => {
             const n = [];
@@ -25,24 +26,28 @@ export class CSVOutput extends OutputWriter {
             // node type
             n.push(node.type);
 
+            // node subtype
+            n.push(node.subtype)
+
             // node identifier name
             switch (node.type) {
-            case "Identifier":
-            case "VariableDeclarator":
-            case "FunctionDeclaration":
-            case "PDG_OBJECT":
-            case "CFG_F_START":
-            case "CFG_F_END":
-            case "CFG_IF_END":
-                n.push(node.identifier);
-                break;
+                case "Identifier":
+                case "VariableDeclarator":
+                case "FunctionDeclaration":
+                case "PDG_OBJECT":
+                case "CFG_F_START":
+                case "CFG_F_END":
+                case "CFG_IF_END":
+                case "TAINT_SINK":
+                    n.push(node.identifier);
+                    break;
 
-            default:
-                n.push("");
+                default:
+                    n.push("");
             }
 
             // Raw
-            if (node.type == "Literal") {
+            if (node.type === "Literal") {
                 const lit = node.obj as Literal;
                 n.push(lit.raw);
             } else n.push("");
@@ -56,6 +61,11 @@ export class CSVOutput extends OutputWriter {
             if (node.obj.loc) n.push(JSON.stringify(node.obj.loc));
             else n.push("");
 
+            if (this.showCode && ["VariableDeclarator", "ExpressionStatement", "ReturnStatement"].includes(node.type)) {
+                const code = JSON.stringify(escodegen.generate(node.obj));
+                n.push(code);
+            } else n.push("");
+
             // label
             n.push(node.type);
 
@@ -66,8 +76,8 @@ export class CSVOutput extends OutputWriter {
         // RELS
         // FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿ArgumentIndex
 
-        const edgesWriteStream = fs.createWriteStream(`${filename}_rels.csv`);
-        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex¿ParamIndex¿StmtIndex¿ElementIndex¿ExpressionIndex¿MethodIndex¿SourceObjName\n");
+        const edgesWriteStream = fs.createWriteStream(path.join(fileDir, "rels.csv"));
+        edgesWriteStream.write("FromId:START_ID¿ToId:END_ID¿RelationLabel:TYPE¿RelationType¿IdentifierName¿ArgumentIndex¿ParamIndex¿StmtIndex¿ElementIndex¿ExpressionIndex¿MethodIndex¿SourceObjName¿IsProp\n");
 
         graph.edges.forEach((edge: GraphEdge) => {
             const e = [];
@@ -114,6 +124,10 @@ export class CSVOutput extends OutputWriter {
             // source obj name
             if (edge.sourceObjName) e.push(edge.sourceObjName);
             else e.push("");
+
+            // is dependency of property
+            if (edge.isPropertyDependency) e.push(edge.isPropertyDependency);
+            else e.push(false);
 
             edgesWriteStream.write(`${e.join("¿")}\n`);
         });

@@ -1,0 +1,35 @@
+{
+    "advisory": {
+        "ghsa_id": "GHSA-wwg2-2crq-6grr", 
+        "cve_id": "CVE-2020-28267",
+        "cwe": "CWE-1321"
+    },
+    "correct_cwe": ["CWE-471", "CWE-1321"],
+    "correct_package_link": "https://registry.npmjs.org/@strikeentco/set/-/set-1.0.0.tgz",
+    "vulnerability": {
+        "vulnerability_location": [
+            {
+                "source": {
+                    "file": "set/main.js",
+                    "lineno": 15,
+                    "code": "module.exports = (obj, path, val, sep = '.') => {"
+                },
+                "sink": {
+                    "file": "set/main.js",
+                    "lineno": 11,
+                    "code": "tmp[parts[i]] = val;"
+                }
+            }
+        ]
+    },
+    "poc": [
+        {
+            "url": "https://www.mend.io/vulnerability-database/CVE-2020-28267"
+        }
+    ],
+    "patch": [
+        {
+            "url": "https://github.com/strikeentco/set/commit/102cc6b2e1d1e0c928ced87e75df759d5541ff60"
+        }
+    ]
+}

@@ -1,6 +1,9 @@
 from os import path
 import json
 from pprint import pprint
+from sys import argv 
+import linecache
+import re
 
 
 def console(s, debug=True):
@@ -10,27 +13,22 @@ def console(s, debug=True):
 		except:
 			pprint(s)
 
-
-def save_output(argv, results, type, detected):
-	if len(argv) >= 2:
-		output = argv[1]
-		with open(output, "a") as f:
-			if detected:
-				f.write("{} vulnerability detected!\n".format(type))
-				f.write(json.dumps(results, indent=4) + '\n')
-			else:
-				f.write("no vulnerability detected for type - {}\n".format(type))
+def save_output(vuln_paths, output_file):
+	#with open(output_file, "w") as f:
+	with open(output_file, "w", encoding='utf-8') as f:
+		f.write(json.dumps(vuln_paths, indent=4) + '\n')
 
 def save_output_multi_files(argv, results):
 	if len(argv) >= 2:
 		output = argv[1]
 		for i in range(len(results)):
-			with open(f"{output}.{i}.exjs", "w") as f:
+			# with open(f"{output}.{i}.exjs", "w") as f:
+			with open(f"{output}.{i}.exjs", "w", encoding='utf-8') as f:
 				f.write(json.dumps(results[i], indent=4) + '\n')
 
 def read_config():
 	file_path = path.realpath(path.dirname(__file__))
-	config_path = path.join(file_path, "../config.json")
+	config_path = path.join(file_path, "../../config.json")
 	with open(config_path, "r") as configFile:
 		return json.load(configFile)
 
@@ -56,21 +54,53 @@ def get_all_sinks_from_config(config):
 		raise Exception("Config file is missing the sinks")
 	return sinks, new_sinks, package_sinks, packages
 
+def get_sinks_from_config(config):
+	if "sinks" in config:
+		sinks = []
+		for injection_type in config["sinks"].values():
+			for sink in injection_type:
+				sinks.append(sink["sink"])
+		return sinks
+	else:
+		raise Exception("Config file is missing the sinks")
+
 def get_all_sources_from_config(config):
 	if "sources" in config:
 		return config["sources"]
 	else:
 		raise Exception("Config file is missing the sources")
 
+def get_built_in_functions(config):
+	if "sinks" in config:
+		sinks = []
+		for injection_type in config["sinks"].values():
+			for sink in injection_type:
+				sinks.append(sink["sink"])
+		return sinks
+	else:
+		raise Exception("Config file is missing the sinks")
 
-def format_properties(tmp_properties):
-	properties = []
-	for i, key in enumerate(tmp_properties):
-		properties.append({"name": key})
-		prop = properties[i]
-		prop.update(tmp_properties[key])
-		prop.pop("context", None)
-		if "properties" in prop:
-			prop["properties"] = format_properties(prop["properties"])
+def get_injection_type(sink, config):
+	if "sinks" in config:
+		for injection_type, vulns in config["sinks"].items():
+			for vuln in vulns:
+				if vuln["sink"] == sink:
+					return injection_type 
+	else:
+		raise Exception("Config file is missing the sinks")
 
-	return properties 
+def get_code_line_from_file(filename, lineno):
+	line = linecache.getline(filename, lineno)
+	return line.lstrip().replace("\n", "")
+
+
+def format_name(input_str):
+	parts = input_str.split('.')
+	desired_words = []
+	for part in parts:
+		if part.startswith('-o'):
+			break
+		elif part[0].isdigit():
+			continue
+		desired_words.append(part.split('-')[0])
+	return '.'.join(desired_words)

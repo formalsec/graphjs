@@ -1,4 +1,3 @@
-const v1 = Math.min;
-const v2 = 23 + 19;
-const v3 = v1(23, v2);
-v3;
+const v1 = 23 + 19;
+const v2 = Math.min(23, v1);
+v2;
