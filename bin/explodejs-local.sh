@@ -56,6 +56,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         ## Run queries stage
         echo "[INFO] - Running queries."
         QUERIES=$(realpath ../detection)
+        echo $TAINT_SUMMARY
         python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY 2> "$EXPLODEJS_DIR/query_times.txt"
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then

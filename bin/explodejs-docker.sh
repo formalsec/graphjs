@@ -45,7 +45,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         cd $NEO4J_DIR
 
         ## Import CPG to Neo4j
-        $NEO4J_DIR/run_neo4j_docker.sh $GRAPH_DIR
+        $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR
 
         cd $(dirname $THIS_DIR)
 
