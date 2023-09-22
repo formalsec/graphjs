@@ -51,22 +51,6 @@ Example:
 `./explodejs-local.sh -f ../../explodejs-datasets/example-dataset/vulnerable/injection/example-0/example-0.js -s`
 
 
-### Program options
-
-| Description                                                	 |    Flag       	     |    Default      	    | Required 	 | Requires 	 |
-|--------------------------------------------------------------|:-------------------:|:--------------------:|------------|------------|
-| JavaScript file to be analyzed                             	 | -f <filename>     	 | -                  	 | Yes      	 | -        	 |
-| Location of the configuration file                         	 | -c <filename>     	 | _'../config.json'_ 	 | No       	 | -        	 |
-| Location of the normalized file                            	 | -o <filename>     	 | -                  	 | No       	 | -        	 |
-| Location of the graph output directory (csv and svg files) 	 | -g <directory>    	 | _'src/graphs/'_    	 | No       	 | -        	 |
-| Output the graph csv files                                 	 | --csv             	 | _false_            	 | No       	 | -        	 |
-| Output the graph figure                                    	 | --graph           	 | _false_            	 | No       	 | -        	 |
-| Set array of structures to ignore in graph figure          	 | --i=[AST, CFG...] 	 | _[]_               	 | No       	 | _graph_  	 |
-| Set array of functions to ignore in graph figure           	 | --if=[...]        	 | _[]_               	 | No       	 | _graph_  	 |
-| Show the code in each statement in graph figure            	 | --sc              	 | _false_            	 | No       	 | _graph_  	 |
-| Silent mode (not verbose)                                  	 | --silent          	 | _false_            	 | No       	 | -        	 |
-
-
 ### Explode.js phases
 
 #### 1. Build the code property graph (representation of source code)
@@ -87,3 +71,30 @@ This stage queries the graphs to capture vulnerable code patterns, e.g. a data d
 The code for the queries is in the [detection](./detection) folder.
 
 This step uses the graph csv output and produces a summary file (*taint_summary.json*) with the detection results.
+
+#### 3. Generate the exploit
+
+This stage automatically generates an exploit for the vulnerability.
+
+### Generate only the graph 
+
+- Execute inside the *parser* folder
+
+```bash
+npm start -- -f <file_to_be_analyzed> [options]
+```
+
+#### Program options
+
+| Description                                                	 |    Flag       	     |    Default      	    | Required 	 | Requires 	 |
+|--------------------------------------------------------------|:-------------------:|:--------------------:|------------|------------|
+| JavaScript file to be analyzed                             	 | -f <filename>     	 | -                  	 | Yes      	 | -        	 |
+| Location of the configuration file                         	 | -c <filename>     	 | _'../config.json'_ 	 | No       	 | -        	 |
+| Location of the normalized file                            	 | -o <filename>     	 | -                  	 | No       	 | -        	 |
+| Location of the graph output directory (csv and svg files) 	 | -g <directory>    	 | _'src/graphs/'_    	 | No       	 | -        	 |
+| Output the graph csv files                                 	 | --csv             	 | _false_            	 | No       	 | -        	 |
+| Output the graph figure                                    	 | --graph           	 | _false_            	 | No       	 | -        	 |
+| Set array of structures to ignore in graph figure          	 | --i=[AST, CFG...] 	 | _[]_               	 | No       	 | _graph_  	 |
+| Set array of functions to ignore in graph figure           	 | --if=[...]        	 | _[]_               	 | No       	 | _graph_  	 |
+| Show the code in each statement in graph figure            	 | --sc              	 | _false_            	 | No       	 | _graph_  	 |
+| Silent mode (not verbose)                                  	 | --silent          	 | _false_            	 | No       	 | -        	 |

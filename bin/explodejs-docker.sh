@@ -28,9 +28,9 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     ### CPG construction Stage
     echo "[INFO] - Generating graph"
     if [ $SILENT_OP = true ]; then
-        npm start -s --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --silent
+        npm start -s --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --silent --graph --i=AST --sc
     else
-        npm start --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv 2>&1 | tee $NORM
+        npm start --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --graph --i=AST --sc 2>&1 | tee $NORM
     fi
 
     ### Query phase
