@@ -1221,7 +1221,7 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     const callee = children[0].expr;
-    const stmts: Node[] = children[0].stmts;
+    const stmts: Node[] = [];
     newObj.callee = callee;
     newObj.arguments = flatExprs(children.slice(1));
 
