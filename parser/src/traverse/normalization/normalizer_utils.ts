@@ -1221,7 +1221,6 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     const callee = children[0].expr;
-    const stmts: Node[] = [];
     newObj.callee = callee;
     newObj.arguments = flatExprs(children.slice(1));
 
@@ -1230,7 +1229,7 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
             parent.type === "AssignmentExpression" ||
             parent.type === "AwaitExpression")) {
         return {
-            stmts: [...flatStmts(children), ...stmts],
+            stmts: [...flatStmts(children)],
             expr: newObj
         };
     }
@@ -1238,7 +1237,7 @@ export function normCallExpression(obj: CallExpression, children: Normalization[
     const { id, decl } = createVariableDeclaration(newObj);
 
     return {
-        stmts: [...flatStmts(children), ...stmts, decl],
+        stmts: [...flatStmts(children), decl],
         expr: id
     };
 }
