@@ -1,8 +1,11 @@
 from queries.query_type import QueryType
 import my_utils.utils as my_utils
 import json
+import os
 import time
 from sys import stderr
+
+THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 
 class PrototypePollution(QueryType):
 	"""
@@ -265,5 +268,5 @@ class PrototypePollution(QueryType):
 				if vuln_path not in vuln_paths:
 					vuln_paths.append(vuln_path)
 
-		print(f"proto_pollution_reconstruction: {time.time()*1000}", file=stderr) # END_TIMER_PROTO_POLLUTION_RECONSTRUCTION
+		print(f'[INFO][{THIS_SCRIPT_NAME}] - proto_pollution_reconstruction: {time.time()*1000}', file=stderr) # END_TIMER_PROTO_POLLUTION_RECONSTRUCTION
 		return vuln_paths

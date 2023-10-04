@@ -193,11 +193,28 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         echo "[INFO][$THIS_SCRIPT] - Docker Neo4j using ports HTTP-$NEO4J_HTTP_PORT:7474 BOLT-$NEO4J_BOLT_PORT:7687"
 
         cd "$NEO4J_DIR"
+        ret_status=0
         if [ $SILENT_OP = true ]; then
-            $NEO4J_DIR/run_neo4j.sh "$GRAPH_DIR" $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
+            $NEO4J_DIR/run_neo4j.sh "$GRAPH_DIR" $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT # || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
+            ret_status=$?
+            #echo "[ERROR][$THIS_SCRIPT] - $NEO4J_DIR/run_neo4j.sh exited with status: $ret_status"
+            #exit $ret_status
         else
-            $NEO4J_DIR/run_neo4j.sh "$GRAPH_DIR" $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
+            $NEO4J_DIR/run_neo4j.sh "$GRAPH_DIR" $CONTAINER_NAME $NEO4J_HTTP_PORT $NEO4J_BOLT_PORT # || die "[ERROR][$THIS_SCRIPT] caught error from $NEO4J_DIR/run_neo4j.sh, stopping."
+            ret_status=$?
+            #echo "[ERROR][$THIS_SCRIPT] - $NEO4J_DIR/run_neo4j.sh exited with status: $ret_status"
+            #exit $ret_status
         fi
+
+        if [ $ret_status -eq 0 ]; then
+            echo "[INFO][$THIS_SCRIPT] - $NEO4J_DIR/run_neo4j.sh succeeded."
+        else
+            echo "[ERROR][$THIS_SCRIPT] - $NEO4J_DIR/run_neo4j.sh exited with status: $ret_status"
+            echo "[ERROR][$THIS_SCRIPT] - exiting."
+            exit $ret_status
+        fi
+        
+
         cd $(dirname "$THIS_DIR")
 
         # run all queries

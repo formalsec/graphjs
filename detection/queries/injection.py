@@ -1,8 +1,11 @@
 from queries.query_type import QueryType
 import my_utils.utils as my_utils
 import json
+import os
 import time
 from sys import stderr
+
+THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 
 class Injection(QueryType):
 	injection_query = f"""
@@ -34,11 +37,11 @@ class Injection(QueryType):
 		"""
 		Find injection vulnerabilities paths.
 		"""
-		print("[INFO] - Running injection query")
+		print(f'[INFO][{THIS_SCRIPT_NAME}] - Running injection query.')
 		results = session.run(self.injection_query)
-		print(f"injection_detection: {time.time()*1000}", file=stderr) # END_TIMER_INJECTION_DETECTION
+		print(f'[INFO][{THIS_SCRIPT_NAME}] - injection_detection: {time.time()*1000}.', file=stderr) # END_TIMER_INJECTION_DETECTION
 
-		print("[INFO] - Reconstructing attacker-controlled data")
+		print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
 		for record in results:
 			sink_name = record["sink"]["IdentifierName"]
 			source_cfg = record["source_cfg"]
@@ -60,5 +63,5 @@ class Injection(QueryType):
 			if vuln_path not in vuln_paths:
 				vuln_paths.append(vuln_path)
 
-		print(f"injection_reconstruction: {time.time()*1000}", file=stderr) # END_TIMER_INJECTION_RECONSTRUCTION
+		print(f'[INFO][{THIS_SCRIPT_NAME}] - injection_reconstruction: {time.time()*1000}.', file=stderr) # END_TIMER_INJECTION_RECONSTRUCTION
 		return vuln_paths

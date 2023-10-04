@@ -11,7 +11,7 @@ import argparse
 PACKAGES_SRC = "datasets/package-dataset/packages-src/*"
 
 # Google Sheets Config
-service_account = gspread.service_account(filename=".config/service_account.json")
+service_account = gspread.service_account(filename="../.config/service_account.json")
 sheet = service_account.open("explode.js-vs-odgen")
 
 
