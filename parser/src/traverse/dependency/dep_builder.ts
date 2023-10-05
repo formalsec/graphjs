@@ -123,25 +123,28 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     const propName = (memExpNode.obj.computed && prop.type !== "Literal") ? '*' : prop.obj.name; // dynamic property
     const objectLocations: number[] = trackers.storeGetObjectLocations(objName, memExpNode.functionContext)
 
+    // evaluate dependency of expression
+    const deps: Dependency[] = evalDep(trackers, stmtId, memExpNode);
+
     // Add Prop
     const propertyLocations: number[] = trackers.addProp(objectLocations, objName, propName, stmt.functionContext, stmtId)
     checkIfSource(propertyLocations, config, trackers, stmtId, prop)
 
-    propertyLocations.forEach((location: number) => {
-        trackers.storeAddLocation(variable.name, location, stmt.functionContext)
-        trackers.graphCreateReferenceEdge(stmtId, location)
+    objectLocations.forEach((location: number) => {
+        const objectLocation: GraphNode | undefined = trackers.graphGetNode(location);
+        const propertyLocation: GraphNode | undefined = trackers.graphGetObjectPropertyLocation(location, propName);
+        if (propertyLocation && objectLocation && objectLocation.propertyDependencies?.length > 0)
+            deps.push(...objectLocation.propertyDependencies)
     })
 
-    // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, memExpNode);
-
-    let subObjId = deps
-        .filter(d => DependencyFactory.isDObject(d))
-        .map(d => d.source).slice(-1)[0];
+    propertyLocations.forEach((location: number) => {
+        trackers.storeAddLocation(variable.name, location, stmt.functionContext)
+    })
 
     // If right side of the assignment (memExpNode) is the argument keyword referring to the function arguments, we need to create the object corresponding to the left side
-    if (!subObjId && obj.obj.name === "arguments") {
-        subObjId = trackers.createNewObject(stmtId, stmt.functionContext, variable)
+    if (!propertyLocations.length && obj.obj.name === "arguments") {
+        const subObjId = trackers.createNewObject(stmtId, stmt.functionContext, variable)
+        propertyLocations.push(subObjId)
         deps.forEach((dep: Dependency) => {
             trackers.graphCreateDependencyEdge(dep.source, subObjId, dep)
         })
@@ -160,7 +163,9 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         trackers.addVariableMap(`${stmt.functionContext}.${variable.name}`, functionMap);
     }
 
-    trackers.graphCreateMemberExpressionDependencies(stmtId, subObjId, deps);
+    propertyLocations.forEach((location: number) => {
+        trackers.graphCreateMemberExpressionDependencies(stmtId, location, deps);
+    });
 
     return trackers;
 }
@@ -538,6 +543,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
         const auxiliaryFunctionSummary: boolean = config.summaries.auxiliary_functions.includes(callName);
         if (!auxiliaryFunctionSummary) return trackers;
         // Get arguments that are functions
+        // @ts-ignore this is because of the filter but raises an error anyway
         const innerFunctions: GraphNode[] = callArgs.filter(arg => arg.identifier != null)
             .map(arg => trackers.getFunctionNodeFromName(arg.identifier ?? "?"))
             .filter((fn: GraphNode | undefined) => fn !== undefined)
@@ -552,7 +558,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
                 const callArgumentLocation = trackers.getObjectVersions(calleeName, callNode.functionContext).slice(-1)[0];
                 const callArgumentNode: GraphNode | undefined = trackers.graphGetNode(callArgumentLocation)
                 if (callArgumentNode) {
-                    trackers.graphCreateSubObjectEdge(callArgumentNode.id, arg.id, '*')
+                    trackers.graphCreatePropertyEdge(callArgumentNode.id, arg.id, '*')
                 }
             });
         });

@@ -26,7 +26,7 @@ export class GraphNode {
     private _internalStructure: any;
     private _used: boolean;
     private _cfgEndNodeId: number;
-    private _writeAllSubObjects: Dependency[];
+    private _propertyDependencies: Dependency[]; // stores the dependencies of the tainted properties
     private _arguments: boolean;
     // This value represents additional information for AST nodes: object type for Literal, operator type for BinaryExpression and computation type for MemberExpression
     private _subtype: string;
@@ -44,7 +44,7 @@ export class GraphNode {
         this._internalStructure = null;
         this._used = false;
         this._cfgEndNodeId = -1;
-        this._writeAllSubObjects = [];
+        this._propertyDependencies = [];
         this._arguments = false;
         this._subtype = ""
     }
@@ -129,8 +129,8 @@ export class GraphNode {
         this._cfgEndNodeId = id;
     }
 
-    get writeAllSubObjects(): Dependency[] {
-        return this._writeAllSubObjects;
+    get propertyDependencies(): Dependency[] {
+        return this._propertyDependencies;
     }
 
     get arguments(): boolean {
@@ -141,8 +141,8 @@ export class GraphNode {
         this._arguments = value;
     }
 
-    addWriteAllSubObjects(dep: Dependency): void {
-        this._writeAllSubObjects.push(dep);
+    addPropertyDependencies(dep: Dependency[]): void {
+        this._propertyDependencies.push(...dep);
     }
 
     setUsed(): void {

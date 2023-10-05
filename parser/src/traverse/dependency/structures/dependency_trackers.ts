@@ -319,9 +319,15 @@ export class DependencyTracker {
         // 1. Create new version locations
         const newLocations: number[] =  []
         objectLocations.forEach((location: number) => {
+            const oldLocation: GraphNode  | undefined = this.graphGetNode(location);
             const newLocation: GraphNode = this.graphAddLocation(objName, context, stmtId);
             this.graphCreateNewVersionEdge(location, newLocation.id, propName);
             newLocations.push(newLocation.id)
+            if (propName === "*") {
+                newLocation.addPropertyDependencies(deps)
+            } else if (oldLocation && oldLocation.propertyDependencies.length > 0) {
+                newLocation.addPropertyDependencies(oldLocation.propertyDependencies)
+            }
         })
 
         // 2. Update store for locations
@@ -395,22 +401,6 @@ export class DependencyTracker {
 
     graphCreatePropertyEdge(location: number, propertyLocation: number, property: string, deps: Dependency[] = []): void {
         this.graph.addEdge(location, propertyLocation, { type: "PDG", label: "SO", objName: property });
-
-        // if we are writing all possible subObject
-        if (property === '*') {
-            const objNode = this.graph.nodes.get(location);
-            deps.filter(dep => DependencyFactory.isDVar(dep)).forEach(dep => objNode?.addWriteAllSubObjects(dep));
-        }
-    }
-
-    graphCreateSubObjectEdge(objId: number, subObjId: number, propName: string, deps: Dependency[] = []): void {
-        this.graph.addEdge(objId, subObjId, { type: "PDG", label: "SO", objName: propName });
-
-        // if we are writing all possible subObject
-        if (propName === '*') {
-            const objNode = this.graph.nodes.get(objId);
-            deps.filter(dep => DependencyFactory.isDVar(dep)).forEach(dep => objNode?.addWriteAllSubObjects(dep));
-        }
     }
 
     graphCreateCallStatementDependencyEdges(stmtId: number, newObjId: number, deps: Dependency[]): void {
@@ -592,12 +582,6 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
                 .map((location: number) => trackers.graphGetNode(location))
 
             let deps: Dependency[] = [];
-            locationNodes.forEach((node: GraphNode | undefined) => {
-                if (node && node.writeAllSubObjects.length > 0) {
-                    deps.push(...node.writeAllSubObjects)
-                }
-            })
-
             // if the member expression is computed and is not a Literal then we have to evaluate the dependencies
             // of the property as it is a variable, because it influences the object otherwise treat it is a Literal
             if (node.obj.computed && prop.type !== "Literal") {
@@ -609,10 +593,7 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             // if the prop is a Literal or the member expression is not
             // computed then we just evaluate the dependencies for the object
             const objIdsProp: number[] = trackers.graphGetObjectVersionsPropertyLocations(objName, obj.functionContext, prop.obj.name);
-            deps = [
-                ...deps,
-                ...objIdsProp.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId))
-            ]
+            deps = objIdsProp.map(objId => DependencyFactory.DObject(prop.obj.name, stmtId, objId))
             return deps;
         }
 
