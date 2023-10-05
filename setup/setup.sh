@@ -17,7 +17,7 @@ if [ $? -ne 0 ]; then
 else
     printf "[$THIS_SCRIPT][INFO] - 'python3' found, trying to install necessary packages.\n"
     python3 -m pip install --user -U pip
-    python3 -m pip install --user -U dill gspread colorama docker gspread psutil neo4j
+    python3 -m pip install --user -U dill gspread colorama docker gspread psutil neo4j google-auth
 fi
 
 

@@ -14,14 +14,16 @@ def console(s, debug=True):
 			pprint(s)
 
 def save_output(vuln_paths, output_file):
-	with open(output_file, "w") as f:
+	#with open(output_file, "w") as f:
+	with open(output_file, "w", encoding='utf-8') as f:
 		f.write(json.dumps(vuln_paths, indent=4) + '\n')
 
 def save_output_multi_files(argv, results):
 	if len(argv) >= 2:
 		output = argv[1]
 		for i in range(len(results)):
-			with open(f"{output}.{i}.exjs", "w") as f:
+			# with open(f"{output}.{i}.exjs", "w") as f:
+			with open(f"{output}.{i}.exjs", "w", encoding='utf-8') as f:
 				f.write(json.dumps(results[i], indent=4) + '\n')
 
 def read_config():

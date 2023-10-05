@@ -874,6 +874,12 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
     newObj.test = children[1].expr;
     newObj.body = createBlockStatement([...children[3].stmts, ...children[2].stmts] as Statement[]);
 
+    const init = children[0];
+    let newInit = init.stmts;
+    if ((newInit === undefined || newInit.length === 0) && init.expr !== null) {
+        newInit = [init.expr];
+    }
+
     if (!newObj.test) { // for (;;)
         newObj.test = { type: "Literal", value: true, raw: "true" }
         return {
@@ -893,7 +899,7 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
     });
 
     return {
-        stmts: [...children[0].stmts, ...children[1].stmts, newObj],
+        stmts: [...newInit, ...children[1].stmts, newObj],
         expr: null
     };
 }
@@ -919,14 +925,18 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
         // If the right expression is an object expression (not empty) and the left expression is a member expression
         // we need to separate the statements
         // newObj is memExp = newVar
-        if ((rightExpr.type === "ObjectExpression" && rightExpr.properties.length) && leftExpr.type === "MemberExpression" && (!parent || parent.type !== "SequenceExpression")) {
+        const isLeftMemberExpr = leftExpr.type === "MemberExpression"
+        const isRightObjectExpr = rightExpr.type === "ObjectExpression"
+        const isRightNonemptyObjectExpr = isRightObjectExpr && rightExpr.properties.length
+        const isNotSequenceParent = !parent || parent.type !== "SequenceExpression"
+        if (isRightNonemptyObjectExpr && isLeftMemberExpr && isNotSequenceParent) {
             // Create assignment newVar = objExpr (right) and add to statements
             const { id, decl } = createVariableDeclaration(rightExpr);
             // Create assignment memExp (left) = newVar
             newObj.right = id;
             const stmts = [...children[1].stmts, decl]
             return { stmts, expr: newObj }
-        } else if (rightExpr.type === "ObjectExpression" && (!parent || parent.type !== "SequenceExpression")) {
+        } else if (isRightObjectExpr && isNotSequenceParent) {
             const newAssignments: ExpressionStatement[] = [];
             // push declarations for each property using accesses to new variable
             rightExpr.properties.forEach((prop) => {
@@ -947,7 +957,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             }
             const stmts = [...children[1].stmts, ...newAssignments]
             return { stmts, expr: assignmentValue ?? newObj }
-        } else if (rightExpr.type === "ObjectExpression" && parent && parent.type === "SequenceExpression") {
+        } else if (isRightObjectExpr && parent && parent.type === "SequenceExpression") {
             const { id, decl } = createVariableDeclaration(createEmptyObject());
             const newAssignments: ExpressionStatement[] = [];
             rightExpr.properties.forEach((prop) => {
@@ -988,6 +998,8 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 return { stmts, expr: leftExpr }
             } else return { stmts, expr: null };
         } else if (rightExpr.type === "CallExpression") {
+            const stmts0 = children[0].stmts
+            const stmts1 = children[1].stmts
             if (leftExpr.type !== "Identifier") {
                 // create new random identifier
                 const newIdentifier = createRandomIdentifier()
@@ -998,14 +1010,14 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 newObj.right = newIdentifier;
 
                 return {
-                    stmts: [...children[1].stmts, decl],
+                    stmts: [...stmts0, ...stmts1, decl],
                     expr: newObj
                 };
             } else {
                 newObj.right = rightExpr;
 
                 return {
-                    stmts: [...children[1].stmts],
+                    stmts: [...stmts0, ...stmts1],
                     expr: newObj
                 };
             }
@@ -1223,7 +1235,7 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     const callee = children[0].expr;
-    const stmts: Node[] = [];
+    const stmts: Node[] = children[0].stmts;
     newObj.callee = callee;
     newObj.arguments = flatExprs(children.slice(1));
 
