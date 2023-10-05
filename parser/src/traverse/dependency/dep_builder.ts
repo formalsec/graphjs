@@ -139,6 +139,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
 
     propertyLocations.forEach((location: number) => {
         trackers.storeAddLocation(variable.name, location, stmt.functionContext)
+        trackers.graphCreateReferenceEdge(stmtId, location)
     })
 
     // If right side of the assignment (memExpNode) is the argument keyword referring to the function arguments, we need to create the object corresponding to the left side
@@ -175,7 +176,7 @@ function handleArrayExpression(stmtId: number, functionContext: number, variable
     const locations = trackers.storeGetObjectLocations(variable.name, functionContext)
 
     if (!locations.length) {
-        const location = trackers.createNewObject(stmtId, functionContext, variable)
+        const location: number = trackers.createNewObject(stmtId, functionContext, variable)
         locations.push(location)
     }
 
@@ -323,8 +324,8 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
     })
 
     // Evaluate dependencies
-    const deps: Dependency[] = evalDep(trackers, stmtId, expNode);
-    deps.forEach((dep: Dependency) => { trackers.graphCreateReferenceEdge(stmtId, dep.source); });
+    //const deps: Dependency[] = evalDep(trackers, stmtId, expNode);
+    //deps.forEach((dep: Dependency) => { trackers.graphCreateReferenceEdge(stmtId, dep.source); });
 
     // create map entry
     trackers.addVariableMap(variable.name, expNode.obj.name);
@@ -382,11 +383,15 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     if (objectLocations.length > 0) {
         trackers.addVersion(stmtId, objName, functionContext, propName, deps)
     } else {
-        const newObjId: number = trackers.createNewObject(stmtId, functionContext, obj.obj);
-        const subObjId = trackers.addProp([newObjId], obj.obj.name, propName, functionContext, stmtId)
-        deps.forEach((dep: Dependency) => {
-            trackers.graphCreateDependencyEdge(dep.source, subObjId[0], dep)
-        });
+        const rightLocations: number[] = evalSto(trackers, right);
+        // Only create new object if relevant (right side is also an object)
+        if (rightLocations.length) {
+            const newObjId: number = trackers.createNewObject(stmtId, functionContext, obj.obj);
+            const subObjId = trackers.addProp([newObjId], obj.obj.name, propName, functionContext, stmtId)
+            deps.forEach((dep: Dependency) => {
+                trackers.graphCreateDependencyEdge(dep.source, subObjId[0], dep)
+            });
+        }
     }
     return trackers;
 }
@@ -408,7 +413,7 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
     const subObj: number[] = trackers.graphGetObjectVersionsPropertyLocations(objName, right.functionContext, propName)
 
     if (!subObj.length) {
-        const newObjId = trackers.createNewObject(stmtId, right.obj.functionContext, left.obj)
+        const newObjId = trackers.createNewObject(stmtId, right.functionContext, left.obj)
         deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, newObjId, dep) });
     }
     return trackers;
@@ -571,10 +576,6 @@ function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: Depe
     // evaluate dependency of expression
     const deps = evalDep(trackers, stmtId, expNode);
 
-    if (deps.length > 0) {
-        // create reference edge for value of return
-        trackers.graphCreateReferenceEdge(stmtId, deps[0].source);
-    }
     // Create edge to the start of the function
     // const functionNode = expNode.functionContext;
     // trackers.graphCreateReturnEdge(deps[0].source, functionNode)

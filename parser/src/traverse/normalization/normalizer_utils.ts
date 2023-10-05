@@ -1080,6 +1080,20 @@ export function normUpdateExpression(obj: UpdateExpression | UnaryExpression, ch
     if (argument) {
         newObj.argument = argument;
 
+        /*
+        if (obj.argument.type !== "MemberExpression") {
+            const { id, decl } = createVariableDeclaration(newObj);
+
+            return {
+                stmts: [...children[0].stmts, decl],
+                expr: id
+            };
+        }
+        else {
+            return { stmts: [], expr: newObj };
+        }
+        */
+
         const { id, decl } = createVariableDeclaration(newObj);
 
         return {
