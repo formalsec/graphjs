@@ -260,17 +260,19 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
                 _endSwitch.identifier = node.id.toString();
                 node.cfgEndNodeId = _endSwitch.id;
 
-                graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test" });
-                if (!consequent || !consequent.length) {
-                    graph.addEdge(test.exit.id, _endSwitch.id, { type: "CFG" });
-                } else {
-                    graph.addEdge(test.exit.id, consequent[0].root.id, { type: "CFG", label: "TRUE" });
-                    let previousNode = consequent[0].exit
-                    consequent.slice(1).forEach(consequentNode => {
-                        graph.addEdge(previousNode.id, consequentNode.root.id, { type: "CFG" });
-                        previousNode = consequentNode.exit;
-                    })
-                    graph.addEdge(previousNode.id, _endSwitch.id, { type: "CFG" });
+                if (test) {
+                    graph.addEdge(node.id, test.root.id, {type: "CFG", label: "test"});
+                    if (!consequent || !consequent.length) {
+                        graph.addEdge(test.exit.id, _endSwitch.id, {type: "CFG"});
+                    } else {
+                        graph.addEdge(test.exit.id, consequent[0].root.id, {type: "CFG", label: "TRUE"});
+                        let previousNode = consequent[0].exit
+                        consequent.slice(1).forEach(consequentNode => {
+                            graph.addEdge(previousNode.id, consequentNode.root.id, {type: "CFG"});
+                            previousNode = consequentNode.exit;
+                        })
+                        graph.addEdge(previousNode.id, _endSwitch.id, {type: "CFG"});
+                    }
                 }
 
                 return {

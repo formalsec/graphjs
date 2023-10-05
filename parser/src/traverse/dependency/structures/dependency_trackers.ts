@@ -220,9 +220,6 @@ export class DependencyTracker {
         const nodeLocation: GraphNode = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
         nodeLocation.identifier = locationName;
 
-        // Creates reference edge
-        this.graphCreateReferenceEdge(stmtId, nodeLocation.id)
-
         return nodeLocation;
     }
 
@@ -307,6 +304,8 @@ export class DependencyTracker {
         const location = this.graphAddLocation(variable.name, functionContext, stmtId)
         // Add to store
         this.storeAddLocation(variable.name, location.id, functionContext)
+        // Create reference edge
+        this.graphCreateReferenceEdge(stmtId, location.id)
         return location.id;
     }
 
@@ -336,6 +335,11 @@ export class DependencyTracker {
         deps.forEach(dep => {
             propertyLocations.forEach((id: number) => {
                 this.graphCreateDependencyEdge(dep.source, id, dep); });
+        })
+
+        // Add reference edges
+        propertyLocations.forEach((id: number) => {
+            this.graphCreateReferenceEdge(stmtId, id)
         })
     }
 
@@ -372,7 +376,9 @@ export class DependencyTracker {
 
     graphCreateDependencyEdge(source: number, destination: number, dep: Dependency): void {
         if (source !== destination) {
-            this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name, isPropertyDependency: dep.isProp });
+            const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+            if (!sourceEdges.includes(destination))
+                this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name, isPropertyDependency: dep.isProp });
         }
     }
 
@@ -417,7 +423,7 @@ export class DependencyTracker {
         const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
         const calleeDeps = deps.filter(dep => DependencyFactory.isDCallee(dep));
 
-        calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
+        // calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
         varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
     }
 
