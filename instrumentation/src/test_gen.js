@@ -390,7 +390,8 @@ function generate_test(prog, config) {
   let source = get_complete_source(parsed_prog, config.source);
   var func_call = `${source}(${param_names.join(", ")});\n`;
   /** Assignments + Program + Function Call */
-  return assignment_templates + '\n\n\n' + parsed_prog + '\n\n' + func_call;
+  return "const esl_symbolic = require('esl_symbolic');\n" +
+    assignment_templates + '\n\n' + parsed_prog + '\n\n' + func_call;
 }
 
 module.exports = generate_test;
