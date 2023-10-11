@@ -137,10 +137,18 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
             deps.push(...objectLocation.propertyDependencies)
     })
 
-    propertyLocations.forEach((location: number) => {
-        trackers.storeAddLocation(variable.name, location, stmt.functionContext)
-        trackers.graphCreateReferenceEdge(stmtId, location)
-    })
+    // If variable is an object being redefined
+    const variableLocations: number[] = trackers.storeGetObjectLocations(variable.name, memExpNode.functionContext)
+    if (variableLocations.length) {
+        variableLocations.forEach((location: number, index: number) => {
+            trackers.storeUpdateLocation(variable.name, location, propertyLocations[index], stmt.functionContext)
+            trackers.graphCreateReferenceEdge(stmtId, location)
+        })
+    } else {
+        propertyLocations.forEach((location: number) => {
+            trackers.storeAddLocation(variable.name, location, stmt.functionContext)
+        })
+    }
 
     // If right side of the assignment (memExpNode) is the argument keyword referring to the function arguments, we need to create the object corresponding to the left side
     if (!propertyLocations.length && obj.obj.name === "arguments") {
@@ -608,12 +616,12 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
 
     const visitedNodes: number[] = [];
 
-    function traverse(node: GraphNode, currentNamespace: string | null, curTrackers: DependencyTracker): DependencyTracker {
+    function traverse(node: GraphNode, currentNamespace: string | null, curTrackers: DependencyTracker, isLoop: boolean): DependencyTracker {
         if (node === null) return curTrackers;
 
         // to avoid duplicate traversal of a node with more than one "from" CFG edge
         if (visitedNodes.includes(node.id)) return curTrackers;
-        visitedNodes.push(node.id);
+        if (!isLoop) visitedNodes.push(node.id);
 
         // check all possible statements after normalization
         switch (node.type) {
@@ -669,7 +677,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                 // process then branch
                 // until end if node
                 const thenEdge = cfgEdges[0];
-                curTrackers = traverse(thenEdge.nodes[1], currentNamespace, curTrackers);
+                curTrackers = traverse(thenEdge.nodes[1], currentNamespace, curTrackers, isLoop);
                 thenStore = curTrackers.storeSnapshot();
                 mergedStore = thenStore;
 
@@ -679,7 +687,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                     // restore store to original store before using the edge
                     curTrackers.setStore(origStore);
                     const elseEdge = cfgEdges[1];
-                    curTrackers = traverse(elseEdge.nodes[1], currentNamespace, curTrackers);
+                    curTrackers = traverse(elseEdge.nodes[1], currentNamespace, curTrackers, isLoop);
                     elseStore = curTrackers.storeSnapshot();
                     mergedStore = curTrackers.storeMergeStores(thenStore, elseStore);
                 }
@@ -692,7 +700,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                 if (endIfNodeId > 0) {
                     const endIfNode = graph.nodes.get(endIfNodeId);
                     const nextNode = endIfNode?.edges[0].nodes[1];
-                    if (nextNode) curTrackers = traverse(nextNode, currentNamespace, curTrackers);
+                    if (nextNode) curTrackers = traverse(nextNode, currentNamespace, curTrackers, isLoop);
                 }
 
                 return curTrackers;
@@ -739,6 +747,17 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                 break;
             }
 
+            case "WhileStatement": {
+                node.edges
+                    .filter((edge: GraphEdge) => edge.type === "CFG")
+                    .forEach((edge: GraphEdge) => {
+                        const n = edge.nodes[1];
+                        curTrackers = traverse(n, currentNamespace, curTrackers, true);
+                    });
+                break;
+                isLoop = false
+            }
+
             default:
                 console.trace(`Expression ${node.type} didn't match with case values.`);
                 break;
@@ -749,7 +768,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
             .filter((edge: GraphEdge) => edge.type === "CFG")
             .forEach((edge: GraphEdge) => {
                 const n = edge.nodes[1];
-                curTrackers = traverse(n, currentNamespace, curTrackers);
+                curTrackers = traverse(n, currentNamespace, curTrackers, isLoop);
             });
 
         return curTrackers;

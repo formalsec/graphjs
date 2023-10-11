@@ -1,9 +1,10 @@
 var exec = require('child_process').exec
 module.exports = f;
 
-function f(obj, key, value) {
-    obj[key] = value
-    obj.b = "banana"
-    exec(obj.p);
+function f(key, value) {
+    const a = {}
+    a[key] = value
+    a.b = "banana"
+    exec(a.p);
 }
 

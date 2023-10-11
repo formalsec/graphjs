@@ -532,7 +532,7 @@ export function normTemplateLiteral(obj: TemplateLiteral, children: Normalizatio
 
     if (parent &&
         (parent.type === "CallExpression" ||
-        parent.type === "ReturnStatement")) {
+            parent.type === "ReturnStatement")) {
         const { id, decl } = createVariableDeclaration(newObj);
         return {
             stmts: [...flatStmts(children), decl],
@@ -808,7 +808,7 @@ export function normWhileStatement(obj: WhileStatement, children: Normalization[
     const objId = newObj.test.name;
     children[0].stmts.forEach((stmt) => {
         if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
-        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
             stmt.kind = "let";
             const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
             newObj.body = concatToBody(newObj.body, newAssignment);
@@ -855,7 +855,7 @@ export function normDoWhileStatement(obj: DoWhileStatement, children: Normalizat
     // Change test declaration to assignment (if exists)
     children[0].stmts.forEach((stmt) => {
         if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
-        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
             const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
             // Append condition statement to the end of body
             newObj.body = concatToBody(newObj.body, newAssignment);
@@ -890,7 +890,7 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
     const objId = newObj.test.name;
     children[1].stmts.forEach((stmt) => {
         if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
-        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
             // Append test condition
             stmt.kind = "let";
             const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
@@ -925,18 +925,14 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
         // If the right expression is an object expression (not empty) and the left expression is a member expression
         // we need to separate the statements
         // newObj is memExp = newVar
-        const isLeftMemberExpr = leftExpr.type === "MemberExpression"
-        const isRightObjectExpr = rightExpr.type === "ObjectExpression"
-        const isRightNonemptyObjectExpr = isRightObjectExpr && rightExpr.properties.length
-        const isNotSequenceParent = !parent || parent.type !== "SequenceExpression"
-        if (isRightNonemptyObjectExpr && isLeftMemberExpr && isNotSequenceParent) {
+        if ((rightExpr.type === "ObjectExpression" && rightExpr.properties.length) && leftExpr.type === "MemberExpression" && (!parent || parent.type !== "SequenceExpression")) {
             // Create assignment newVar = objExpr (right) and add to statements
             const { id, decl } = createVariableDeclaration(rightExpr);
             // Create assignment memExp (left) = newVar
             newObj.right = id;
             const stmts = [...children[1].stmts, decl]
             return { stmts, expr: newObj }
-        } else if (isRightObjectExpr && isNotSequenceParent) {
+        } else if (rightExpr.type === "ObjectExpression" && (!parent || parent.type !== "SequenceExpression")) {
             const newAssignments: ExpressionStatement[] = [];
             // push declarations for each property using accesses to new variable
             rightExpr.properties.forEach((prop) => {
@@ -957,7 +953,7 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
             }
             const stmts = [...children[1].stmts, ...newAssignments]
             return { stmts, expr: assignmentValue ?? newObj }
-        } else if (isRightObjectExpr && parent && parent.type === "SequenceExpression") {
+        } else if (rightExpr.type === "ObjectExpression" && parent && parent.type === "SequenceExpression") {
             const { id, decl } = createVariableDeclaration(createEmptyObject());
             const newAssignments: ExpressionStatement[] = [];
             rightExpr.properties.forEach((prop) => {
@@ -998,8 +994,6 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 return { stmts, expr: leftExpr }
             } else return { stmts, expr: null };
         } else if (rightExpr.type === "CallExpression") {
-            const stmts0 = children[0].stmts
-            const stmts1 = children[1].stmts
             if (leftExpr.type !== "Identifier") {
                 // create new random identifier
                 const newIdentifier = createRandomIdentifier()
@@ -1010,14 +1004,14 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 newObj.right = newIdentifier;
 
                 return {
-                    stmts: [...stmts0, ...stmts1, decl],
+                    stmts: [...children[1].stmts, decl],
                     expr: newObj
                 };
             } else {
                 newObj.right = rightExpr;
 
                 return {
-                    stmts: [...stmts0, ...stmts1],
+                    stmts: [...children[1].stmts],
                     expr: newObj
                 };
             }
@@ -1079,20 +1073,6 @@ export function normUpdateExpression(obj: UpdateExpression | UnaryExpression, ch
     // if the argument was not normalization we just ignore
     if (argument) {
         newObj.argument = argument;
-
-        /*
-        if (obj.argument.type !== "MemberExpression") {
-            const { id, decl } = createVariableDeclaration(newObj);
-
-            return {
-                stmts: [...children[0].stmts, decl],
-                expr: id
-            };
-        }
-        else {
-            return { stmts: [], expr: newObj };
-        }
-        */
 
         const { id, decl } = createVariableDeclaration(newObj);
 
@@ -1235,7 +1215,7 @@ export function normArrowFunctionExpression(obj: ArrowFunctionExpression, childr
 export function normCallExpression(obj: CallExpression, children: Normalization[], parent: Node | null): Normalization {
     const newObj = copyObj(obj);
     const callee = children[0].expr;
-    const stmts: Node[] = children[0].stmts;
+    const stmts: Node[] = [];
     newObj.callee = callee;
     newObj.arguments = flatExprs(children.slice(1));
 

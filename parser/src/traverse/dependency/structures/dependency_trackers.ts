@@ -15,6 +15,9 @@ export type Store = Map<string, number[]>;
 type FContexts = Map<number, number[]>;
 type RequireChain = Map<string, string[]>;
 type VPMap = Map<string, string>;
+// Each operation contains the type of operation and the nodes. E.g. { operation: "nv_*", nodes { left: 1, right: 2 } }
+type Operation = { operation: string, node: number}
+type AssignmentMap = Map<number, Array<Operation>>
 
 export class DependencyTracker {
     // This value represents the current state of the graph
@@ -29,6 +32,8 @@ export class DependencyTracker {
     private requireChain: RequireChain;
     // This value represents a map of variable name to package name
     private variableMap: VPMap;
+    // This value represents a map of the operations corresponding to each program assignment
+    private assignments: AssignmentMap;
 
     constructor(graph: Graph, functionContexts: FContexts) {
         this.graph = graph;
@@ -37,6 +42,7 @@ export class DependencyTracker {
         this.intraContextStack = new Array<number>();
         this.requireChain = new Map();
         this.variableMap = new Map();
+        this.assignments = new Map();
     }
 
     private setContext(newContext: number[]): void {
@@ -51,6 +57,10 @@ export class DependencyTracker {
 
     private setVariableMap(newVariableMap: VPMap): void {
         this.variableMap = new Map(newVariableMap);
+    }
+
+    private setAssignmentMap(assignmentMap: AssignmentMap): void {
+        this.assignments = new Map(assignmentMap);
     }
 
     pushIntraContext(context: number): void {
@@ -80,6 +90,23 @@ export class DependencyTracker {
 
     checkVariableMap(variableName: string): string | undefined {
         return this.variableMap.get(variableName);
+    }
+
+    addAssignment(assignmentNumber: number, op: Operation): void {
+        const ops: Operation[] | undefined = this.assignments.get(assignmentNumber)
+        if (ops) {
+            this.assignments.set(assignmentNumber, [...ops, op]);
+        }
+        else this.assignments.set(assignmentNumber, [op]);
+    }
+
+    checkAssignment(assignmentNumber: number, operation: string): number | undefined {
+        const ops: Operation[] | undefined = this.assignments.get(assignmentNumber)
+        if (ops) {
+            const sameOperations: Operation[] = ops.filter((op: Operation) => op.operation === operation)
+            return sameOperations.length? sameOperations[0].node : undefined;
+        }
+        return undefined
     }
 
 
@@ -129,7 +156,7 @@ export class DependencyTracker {
             objectLocations.forEach((location: number) => {
                 location === oldLocation ? newObjectLocations.push(newLocation) : newObjectLocations.push(location)
             })
-            this.store.set(objContextName, newObjectLocations)
+            this.store.set(objContextName, [...new Set(newObjectLocations)])
         }
         // If object does not exist, create new object in store with new location
         else {
@@ -189,12 +216,13 @@ export class DependencyTracker {
                 mergedStore.set(key, value);
             } else {
                 // include all storage values in storeB that were not in storeA for this key
-                const mergedLocs: number[] | undefined = mergedStore.get(key);
+                let mergedLocs: number[] = mergedStore.get(key) ?? [];
                 value.forEach((s: number) => {
-                    if (mergedLocs && !mergedLocs.includes(s)) {
-                        mergedStore.set(key, [...mergedLocs, s])
+                    if (!mergedLocs.includes(s)) {
+                        mergedLocs.push(s)
                     }
                 });
+                mergedStore.set(key, mergedLocs)
             }
         });
         return mergedStore;
@@ -281,11 +309,22 @@ export class DependencyTracker {
             // 1. Check if property exists
             let propertyLocation = this.graphGetObjectPropertyLocation(location, property)
 
-            // 2. If property does not exist, need to create the object property
+            // 2. Check if property was already created for this assignment (loop case)
+            const propertyAssigned: number | undefined = this.checkAssignment(stmtId, `p_${property}`)
+            if (propertyAssigned) {
+                // 2.1. If property edge does not exist, create it
+                if (propertyLocation?.id !== propertyAssigned) {
+                    this.graphCreatePropertyEdge(location, propertyAssigned, property);
+                    propertyLocation = this.graphGetNode(propertyAssigned)
+                }
+            }
+
+            // 3. If property does not exist, need to create the object property
             if (!propertyLocation) {
                 // 2.1 Add property location to graph
                 propertyLocation = this.graphAddLocation(`${objectName}.${property}`, context, stmtId)
                 this.graphCreatePropertyEdge(location, propertyLocation.id, property);
+                this.addAssignment(stmtId, { operation: `p_${property}`, node: propertyLocation.id})
 
                 // 2.2 Add property location to store
                 // this.storeAddLocation(objectName, location, context)
@@ -316,16 +355,29 @@ export class DependencyTracker {
         const objectLocations: number[] = this.storeGetObjectLocations(objName, context)
 
         // 1. Create new version locations
+        // Note: check if it was already created in the same assignment (loops)
         const newLocations: number[] =  []
         objectLocations.forEach((location: number) => {
             const oldLocation: GraphNode  | undefined = this.graphGetNode(location);
-            const newLocation: GraphNode = this.graphAddLocation(objName, context, stmtId);
-            this.graphCreateNewVersionEdge(location, newLocation.id, propName);
-            newLocations.push(newLocation.id)
-            if (propName === "*") {
-                newLocation.addPropertyDependencies(deps)
-            } else if (oldLocation && oldLocation.propertyDependencies.length > 0) {
-                newLocation.addPropertyDependencies(oldLocation.propertyDependencies)
+            // Check if node already has a new version edge for this assignment
+            const newVersionAssigned: number | undefined = this.checkAssignment(stmtId, `nv_${propName}`)
+            if (newVersionAssigned) {
+                const newVersionEdges: GraphEdge[] | undefined = oldLocation?.edges.filter((edge: GraphEdge) => edge.type === "PDG" && edge.label === "NV" && edge.objName === propName)
+                if ((newVersionEdges?.length && newVersionEdges[0].nodes[1].id !== newVersionAssigned) || !newVersionEdges || !newVersionEdges?.length) {
+                    this.graphCreateNewVersionEdge(location, newVersionAssigned, propName);
+                }
+                newLocations.push(newVersionAssigned)
+            }
+            else {
+                const newLocation: GraphNode = this.graphAddLocation(objName, context, stmtId);
+                this.graphCreateNewVersionEdge(location, newLocation.id, propName);
+                this.addAssignment(stmtId, { operation: `nv_${propName}`, node: newLocation.id})
+                newLocations.push(newLocation.id)
+                if (propName === "*") {
+                    newLocation.addPropertyDependencies(deps)
+                } else if (oldLocation && oldLocation.propertyDependencies.length > 0) {
+                    newLocation.addPropertyDependencies(oldLocation.propertyDependencies)
+                }
             }
         })
 
@@ -523,6 +575,7 @@ export class DependencyTracker {
         clone.setContext(this.intraContextStack);
         clone.setRequireChain(this.requireChain);
         clone.setVariableMap(this.variableMap);
+        clone.setAssignmentMap(this.assignments);
         return clone;
     }
 
