@@ -1,9 +1,7 @@
 function f() {
     obj = {}
-    for (let i = 0; i < 5; i++) {
-        if (true) {
-            obj[key] = value
+    for (let i = 0; i < obj.length; i++ ) {
+    //    for (let key in obj) {
+            const x = 0
         }
-        obj = obj[key]
-    }
 }
