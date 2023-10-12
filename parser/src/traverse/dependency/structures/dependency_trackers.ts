@@ -339,13 +339,21 @@ export class DependencyTracker {
     * Creates a new object: creates location in graph and adds to store
      */
     createNewObject(stmtId: number, functionContext: number, variable: Identifier): number {
-        // Create location
-        const location = this.graphAddLocation(variable.name, functionContext, stmtId)
-        // Add to store
-        this.storeAddLocation(variable.name, location.id, functionContext)
-        // Create reference edge
-        this.graphCreateReferenceEdge(stmtId, location.id)
-        return location.id;
+        // Check if object was already created (because of loops)
+        let newObjectAssigned: number | undefined = this.checkAssignment(stmtId, `obj_${variable.name}`)
+        console.log("Assigned:", newObjectAssigned)
+        console.log(newObjectAssigned)
+        if (!newObjectAssigned) {
+            // Create location
+            const location = this.graphAddLocation(variable.name, functionContext, stmtId)
+            newObjectAssigned = location.id
+            // Add to store
+            this.storeAddLocation(variable.name, location.id, functionContext)
+            // Create reference edge
+            this.graphCreateReferenceEdge(stmtId, location.id)
+            this.addAssignment(stmtId, { operation: `obj_${variable.name}`, node: newObjectAssigned})
+        }
+        return newObjectAssigned;
     }
 
     /*
@@ -428,8 +436,12 @@ export class DependencyTracker {
 
 
     /** Methods for adding edges in the graph **/
-    graphCreateReferenceEdge(source: number, destination: number, label: string = ""): void {
-        this.graph.addEdge(source, destination, { type: "REF", label });
+    graphCreateReferenceEdge(source: number, destination: number): void {
+        const refEdges: number[] = this.graphGetNode(source)?.edges
+            .filter((edge: GraphEdge) => edge.type === "REF" )
+                .map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+        if(!refEdges.includes(destination))
+            this.graph.addEdge(source, destination, { type: "REF" });
     }
 
     graphCreateDependencyEdge(source: number, destination: number, dep: Dependency): void {

@@ -142,7 +142,6 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     if (variableLocations.length) {
         variableLocations.forEach((location: number, index: number) => {
             trackers.storeUpdateLocation(variable.name, location, propertyLocations[index], stmt.functionContext)
-            trackers.graphCreateReferenceEdge(stmtId, location)
         })
     } else {
         propertyLocations.forEach((location: number) => {
@@ -319,7 +318,6 @@ function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Ident
     const newNodeId = trackers.createNewObject(stmtId, stmt.functionContext, variable);
 
     deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep); });
-    trackers.graphCreateReferenceEdge(stmtId, newNodeId);
 
     return trackers;
 }
@@ -330,10 +328,6 @@ function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Ident
     locations.forEach((location: number) => {
         trackers.storeAddLocation(variable.name, location, stmt.functionContext)
     })
-
-    // Evaluate dependencies
-    //const deps: Dependency[] = evalDep(trackers, stmtId, expNode);
-    //deps.forEach((dep: Dependency) => { trackers.graphCreateReferenceEdge(stmtId, dep.source); });
 
     // create map entry
     trackers.addVariableMap(variable.name, expNode.obj.name);
@@ -419,6 +413,7 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
 
     // Check if sub-obj exists
     const subObj: number[] = trackers.graphGetObjectVersionsPropertyLocations(objName, right.functionContext, propName)
+    console.log("subObj: ", subObj)
 
     if (!subObj.length) {
         const newObjId = trackers.createNewObject(stmtId, right.functionContext, left.obj)
@@ -662,7 +657,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                 // the CFG "extracts" this node from the AST and inlines it in the
                 // control flow
                 const deps = evalDep(curTrackers, ifTest.id, ifTest);
-                deps.forEach(dep => { curTrackers.graphCreateReferenceEdge(ifTest.id, dep.source); });
+                // deps.forEach(dep => { curTrackers.graphCreateReferenceEdge(ifTest.id, dep.source); });
 
                 const origStore = curTrackers.storeSnapshot();
                 let thenStore: Store = new Map();
@@ -711,10 +706,6 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                 if (initNode) {
                     curTrackers = handleVariableAssignment(node.id, node, node, initNode, config, curTrackers);
                 }
-                // else {
-                //     // trackers.addVariable(p.obj.name, funcNode.id);
-                //     curTrackers = createAndStoreNewObjectNode(node.id, node, node.obj.id, curTrackers).newTrackers;
-                // }
                 break;
             }
 
@@ -759,7 +750,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
             }
 
             default:
-                console.trace(`Expression ${node.type} didn't match with case values.`);
+                //console.trace(`Expression ${node.type} didn't match with case values.`);
                 break;
         }
 
@@ -777,7 +768,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
     // traverse CFG nodes
     const startNodes = graph.startNodes.get("CFG");
     startNodes?.forEach((node: GraphNode) => {
-        trackers = traverse(node, node.namespace, trackers);
+        trackers = traverse(node, node.namespace, trackers, false);
     });
 
     // Taint parameters without origin

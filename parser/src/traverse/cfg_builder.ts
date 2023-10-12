@@ -287,8 +287,8 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
 
                 const _endIf = graph.addNode("CFG_WHILE_END", { type: "CFG" });
                 _endIf.identifier = node.id.toString();
-
                 graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test" });
+
                 graph.addEdge(test.exit.id, body.root.id, { type: "CFG", label: "TRUE" });
                 graph.addEdge(test.exit.id, _endIf.id, { type: "CFG", label: "FALSE" });
                 graph.addEdge(body.exit.id, _endIf.id, { type: "CFG" });
@@ -352,10 +352,10 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
                 _endIf.identifier = node.id.toString();
 
                 graph.addEdge(node.id, left.root.id, { type: "CFG" });
-                graph.addEdge(left.exit.id, body.root.id, { type: "CFG" });
-                graph.addEdge(body.exit.id, right.root.id, { type: "CFG" });
-                graph.addEdge(right.exit.id, node.id, { type: "CFG" });
-                graph.addEdge(right.exit.id, _endIf.id, { type: "CFG" });
+
+                graph.addEdge(left.root.id, body.root.id, { type: "CFG", label: "init" });
+                graph.addEdge(left.root.id, _endIf.id, { type: "CFG", label: "end" });
+                graph.addEdge(body.exit.id, _endIf.id, { type: "CFG" });
 
                 return {
                     root: node,
