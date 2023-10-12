@@ -341,8 +341,6 @@ export class DependencyTracker {
     createNewObject(stmtId: number, functionContext: number, variable: Identifier): number {
         // Check if object was already created (because of loops)
         let newObjectAssigned: number | undefined = this.checkAssignment(stmtId, `obj_${variable.name}`)
-        console.log("Assigned:", newObjectAssigned)
-        console.log(newObjectAssigned)
         if (!newObjectAssigned) {
             // Create location
             const location = this.graphAddLocation(variable.name, functionContext, stmtId)

@@ -413,7 +413,6 @@ function handleForInStatement(stmtId: number, left: GraphNode, right: GraphNode,
 
     // Check if sub-obj exists
     const subObj: number[] = trackers.graphGetObjectVersionsPropertyLocations(objName, right.functionContext, propName)
-    console.log("subObj: ", subObj)
 
     if (!subObj.length) {
         const newObjId = trackers.createNewObject(stmtId, right.functionContext, left.obj)
@@ -750,7 +749,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
             }
 
             default:
-                //console.trace(`Expression ${node.type} didn't match with case values.`);
+                console.trace(`Expression ${node.type} didn't match with case values.`);
                 break;
         }
 
