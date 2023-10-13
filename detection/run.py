@@ -34,7 +34,7 @@ with neo_driver.session() as session:
 		query_type.find_vulnerable_paths(session, vuln_paths, attacker_controlled_data, args.normalized_file, config)
 
 	if len(vuln_paths) > 0:
-		# my_utils.console(vuln_paths)
+		my_utils.console(vuln_paths)
 		my_utils.save_output(vuln_paths, args.output)
 	else:
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - No vulnerabilities detected.')
