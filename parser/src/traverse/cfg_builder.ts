@@ -196,9 +196,10 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
                 if (node.obj.callee.type === "Identifier") calledFunction = node.obj.callee.name;
                 else if (node.obj.callee.type === "MemberExpression") calledFunction = node.obj.callee.object.name;
                 const functionContextList: number[] = functionContexts.get(node.functionContext) ?? []
-                functionContextList.push(node.functionContext)
+                const currentFunctionContextList: number[] = [...functionContextList] // To avoid make changes to the array in the following computations
+                currentFunctionContextList.push(node.functionContext)
                 let isFunctionDeclared: boolean = false;
-                functionContextList.reverse().forEach((currentContext: number) => {
+                currentFunctionContextList.reverse().forEach((currentContext: number) => {
                     const calledFunctionId = functionList.get(`${currentContext}.${calledFunction}`)
                     if (calledFunctionId !== undefined && parentNode && !isFunctionDeclared) {
                         graph.addEdge(parentNode.id, calledFunctionId, { type: "CG", label: "CG" })
