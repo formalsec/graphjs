@@ -526,7 +526,7 @@ class QueryType:
 
             print(f'[INFO][{THIS_SCRIPT_NAME}] - Assigning types to attacker-controlled data.') 
             self.assign_types(session, params_types, config)
-            self.simplify_objects(params_types, config, detection_record.get("tamp_obj", False), detection_record.get("param", False))
+            # self.simplify_objects(params_types, config, detection_record.get("tamp_obj", False), detection_record.get("param", False))
             attacker_controlled_data[source_cfg_id] = params_types
         else:        
             params_types = attacker_controlled_data[source_cfg_id]

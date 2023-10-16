@@ -14,7 +14,7 @@ class PrototypePollution(QueryType):
 	proto_pollution_query = """
 		MATCH
 			// First lookup sub-query
-			(obj:PDG_)
+			(obj:PDG_OBJECT)
 				-[first_lookup:PDG]	
 					->(sub_obj:PDG_OBJECT),
 			// Object assignment sub-query
@@ -24,8 +24,8 @@ class PrototypePollution(QueryType):
 						-[second_lookup:PDG]
 							->(property:PDG_OBJECT),
 			// First lookup property is tainted sub-query
-			(source:TAINTED_SOURCE)
-				-[key_taint:TAINT]
+			(source:TAINT_SOURCE)
+				-[key_taint:PDG]
 					->(key:PDG_OBJECT)
 						-[tainted_key_path:PDG*1..]
 							->(sub_obj),
@@ -37,18 +37,18 @@ class PrototypePollution(QueryType):
 							->(nv_sub_obj),
 			// Object assignment assigned value is tainted sub-query
 			(source)
-				-[value_taint:TAINT]
+				-[value_taint:PDG]
 					->(value:PDG_OBJECT)
 						-[tainted_value_path:PDG*1..]
 							->(property),
 			// AST source sub-query
-			(source_ast)
+			(source_cfg)
 				-[source_ref:REF]
 					->(value),
-			// AST objcet assignment sub-query
-			(assignment_ast)
+			// AST object assignment sub-query
+			(assignment_cfg)
 				-[assignment_ref:REF]
-					->(nv_sub_obj)
+					->(property)
 		WHERE
 			first_lookup.RelationType = "SO" AND
 			first_lookup.IdentifierName = "*" AND
@@ -56,7 +56,9 @@ class PrototypePollution(QueryType):
 			nv.IdentifierName = "*" AND
 			second_lookup.RelationType = "SO" AND
 			second_lookup.IdentifierName = "*" AND
+			key_taint.RelationType = "TAINT" AND
 			subKey_taint.RelationType = "TAINT" AND
+			value_taint.RelationType = "TAINT" AND
 			ALL(edge IN tainted_key_path WHERE
 				edge.RelationType = "SO" OR 
 				edge.RelationType = "ARG" OR
@@ -316,7 +318,7 @@ class PrototypePollution(QueryType):
 			for record in results:
 				source_cfg = record["source_cfg"]
 				source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
-				sink_lineno = json.loads(record["sink_cfg"]["Location"])["start"]["line"]
+				sink_lineno = json.loads(record["assignment_cfg"]["Location"])["start"]["line"]
 				sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
 				tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, record, attacker_controlled_data, config)
 
