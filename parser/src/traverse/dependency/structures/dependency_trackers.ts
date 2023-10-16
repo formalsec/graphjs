@@ -395,10 +395,17 @@ export class DependencyTracker {
         // 3. Add property (locations and store)
         const propertyLocations: number[] = this.addProp(newLocations, objName, propName, context, stmtId)
 
-        // Process dependencies of the right side of the assignment
+
+        // Process dependencies of the left and right side of the assignment
         deps.forEach(dep => {
-            propertyLocations.forEach((id: number) => {
-                this.graphCreateDependencyEdge(dep.source, id, dep); });
+            if (dep.isProp) {
+                propertyLocations.forEach((id: number) => {
+                    this.graphCreateDependencyEdge(dep.source, id, dep); });
+            }
+            else {
+                newLocations.forEach((id: number) => {
+                    this.graphCreateDependencyEdge(dep.source, id, dep); });
+            }
         })
 
         // Add reference edges
@@ -503,9 +510,7 @@ export class DependencyTracker {
         // Add object to store
         this.storeAddLocation(paramName, nodeObj.id, context)
 
-        // connect taint node (only if it is an outer function)
-        // const isTainted = !this.isInnerFunction(context)
-        // if (isTainted)
+        // Connect taint node
         const matchTemporaryFunction: RegExpMatchArray | null | undefined = funcExpNode.functionName?.match("[v]\\d+")
         const isAnonymous: boolean = matchTemporaryFunction !== null && matchTemporaryFunction !== undefined
             ? matchTemporaryFunction.length > 0
