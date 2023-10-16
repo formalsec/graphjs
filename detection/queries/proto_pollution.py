@@ -16,7 +16,8 @@ class PrototypePollution(QueryType):
 			// First lookup sub-query
 			(obj:PDG_OBJECT)
 				-[first_lookup:PDG]	
-					->(sub_obj:PDG_OBJECT),
+					->(sub_obj:PDG_OBJECT)
+        MATCH
 			// Object assignment sub-query
 			(sub_obj:PDG_OBJECT)
 				-[nv:PDG]
@@ -28,7 +29,8 @@ class PrototypePollution(QueryType):
 				-[key_taint:PDG]
 					->(key:PDG_OBJECT)
 						-[tainted_key_path:PDG*1..]
-							->(sub_obj),
+							->(sub_obj)
+        MATCH
 			// Object assignment property is tainted sub-query 
 			(source)
 				-[subKey_taint:PDG]
