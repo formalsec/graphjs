@@ -76,6 +76,79 @@ class PrototypePollution(QueryType):
 		RETURN *
 	"""
 	"""
+	Prototype Pollution Recursive Query
+	"""
+	proto_pollution_recursive_query = """
+		MATCH
+			// First lookup sub-query
+			(obj:PDG_OBJECT)
+				-[first_lookup:PDG]	
+					->(sub_obj:PDG_OBJECT)
+		MATCH
+			// Arg
+			(sub_obj)
+				-[arg:PDG]	
+					->(obj)
+        MATCH
+			// Object assignment sub-query
+			(obj)
+				-[nv:PDG]
+					->(nv_sub_obj:PDG_OBJECT)
+						-[second_lookup:PDG]
+							->(property:PDG_OBJECT),
+			// First lookup property is tainted sub-query
+			(source:TAINT_SOURCE)
+				-[key_taint:PDG]
+					->(key:PDG_OBJECT)
+						-[tainted_key_path:PDG*1..]
+							->(sub_obj)
+        MATCH
+			// Object assignment property is tainted sub-query 
+			(source)
+				-[subKey_taint:PDG]
+					->(subKey:PDG_OBJECT)
+						-[tainted_subKey_path:PDG*1..]
+							->(nv_sub_obj)
+		MATCH
+			// Object assignment assigned value is tainted sub-query
+			(source)
+				-[value_taint:PDG]
+					->(value:PDG_OBJECT)
+						-[tainted_value_path:PDG*1..]
+							->(property),
+			// AST source sub-query
+			(source_cfg)
+				-[source_ref:REF]
+					->(value),
+			// AST object assignment sub-query
+			(assignment_cfg)
+				-[assignment_ref:REF]
+					->(property)
+		WHERE
+			first_lookup.RelationType = "SO" AND
+			first_lookup.IdentifierName = "*" AND
+			nv.RelationType = "NV" AND
+			nv.IdentifierName = "*" AND
+			second_lookup.RelationType = "SO" AND
+			second_lookup.IdentifierName = "*" AND
+			key_taint.RelationType = "TAINT" AND
+			subKey_taint.RelationType = "TAINT" AND
+			value_taint.RelationType = "TAINT" AND
+			ALL(edge IN tainted_key_path WHERE
+				edge.RelationType = "SO" OR 
+				edge.RelationType = "ARG" OR
+				edge.RelationType = "DEP") AND
+			ALL(edge IN tainted_subKey_path WHERE
+				edge.RelationType = "SO" OR 
+				edge.RelationType = "ARG" OR
+				edge.RelationType = "DEP") AND
+			ALL(edge IN tainted_value_path WHERE
+				edge.RelationType = "SO" OR 
+				edge.RelationType = "ARG" OR
+				edge.RelationType = "DEP") 
+		RETURN *
+	"""
+	"""
 	Find all prototype pollution. 
 	Will lead to a lot of false positives but if the graph 
 	is well parsed the false negative rate will be close to 0.
@@ -304,7 +377,10 @@ class PrototypePollution(QueryType):
 	# 	("several_levels_lookups_query", several_levels_lookups_query)
 	# ]
 	# queries = [("lookup_query", lookup_query)]
-	queries = [("proto_pollution_query", proto_pollution_query)]
+	queries = [
+		("proto_pollution_query", proto_pollution_query),
+		("proto_pollution_recursive_query", proto_pollution_recursive_query),
+	]
 
 	def __init__(self):
 		QueryType.__init__(self, "Prototype Pollution")
