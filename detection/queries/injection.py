@@ -42,7 +42,9 @@ class Injection(QueryType):
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - injection_detection: {time.time()*1000}.', file=stderr) # END_TIMER_INJECTION_DETECTION
 
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
+		print(len(results))
 		for record in results:
+			print(record)
 			sink_name = record["sink"]["IdentifierName"]
 			source_cfg = record["source_cfg"]
 			source_ast = record["source_ast"]
