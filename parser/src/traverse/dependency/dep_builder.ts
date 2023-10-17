@@ -240,9 +240,12 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
             // Dependency callee <-- arguments
             // We filter the deps to avoid having cycles in dependencies, e.g. orig = utils.escape(orig);
             const acycleDeps = deps.filter((dep: Dependency) => dep.source !== returnLocation)
-            acycleDeps.forEach(d => {
-                if (latestCalleeObj && d.source !== latestCalleeObj.id) trackers.graphCreateCallDependencyEdge(d.source, latestCalleeObj.id, d.name)
-            })
+            // Check if calle is an imported package
+            if (latestCalleeObj && !trackers.checkRequireChain(latestCalleeObj.identifier)) {
+                acycleDeps.forEach(d => {
+                    if (latestCalleeObj && d.source !== latestCalleeObj.id) trackers.graphCreateDependencyEdge(d.source, latestCalleeObj.id, d)
+                })
+            }
             // Dependency ret <-- arguments
             trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, acycleDeps)
         }

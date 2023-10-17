@@ -84,6 +84,10 @@ export class DependencyTracker {
         this.addVariableMap(variableName, packageName);
     }
 
+    checkRequireChain(variableName: string | null): string[] {
+        return variableName? this.requireChain.get(variableName) ?? [] : [];
+    }
+
     addVariableMap(variableName: string, functionMap: string): void {
         this.variableMap.set(variableName, functionMap);
     }
@@ -457,6 +461,10 @@ export class DependencyTracker {
         }
     }
 
+    graphCreateCallDependencyEdge(source: number, destination: number, objName: string): void {
+        this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName });
+    }
+
     graphCreateArgumentEdge(source: number, functionArg: number, sourceName?: string): void {
         if (!sourceName) this.graph.addEdge(source, functionArg, { type: "PDG", label: "ARG", objName: sourceName });
         else this.graph.addEdge(source, functionArg, { type: "PDG", label: "ARG", objName: sourceName });
@@ -484,10 +492,6 @@ export class DependencyTracker {
 
         // calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
         varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
-    }
-
-    graphCreateCallDependencyEdge(source: number, destination: number, objName: string): void {
-        this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName });
     }
 
     graphCreateMemberExpressionDependencies(stmtId: number, newObjId: number, deps: Dependency[]): void {
