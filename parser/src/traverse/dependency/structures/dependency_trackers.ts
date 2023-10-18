@@ -461,8 +461,20 @@ export class DependencyTracker {
         }
     }
 
+    graphCreateCallStatementDependencyEdges(stmtId: number, newObjId: number, deps: Dependency[]): void {
+        const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
+        const calleeDeps = deps.filter(dep => DependencyFactory.isDCallee(dep));
+
+        // calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
+        varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
+    }
+
     graphCreateCallDependencyEdge(source: number, destination: number, objName: string): void {
-        this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName });
+        if (source !== destination) {
+            const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+            if (!sourceEdges.includes(destination))
+                this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName });
+        }
     }
 
     graphCreateArgumentEdge(source: number, functionArg: number, sourceName?: string): void {
@@ -484,14 +496,6 @@ export class DependencyTracker {
 
     graphCreatePropertyEdge(location: number, propertyLocation: number, property: string, deps: Dependency[] = []): void {
         this.graph.addEdge(location, propertyLocation, { type: "PDG", label: "SO", objName: property });
-    }
-
-    graphCreateCallStatementDependencyEdges(stmtId: number, newObjId: number, deps: Dependency[]): void {
-        const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
-        const calleeDeps = deps.filter(dep => DependencyFactory.isDCallee(dep));
-
-        // calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
-        varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
     }
 
     graphCreateMemberExpressionDependencies(stmtId: number, newObjId: number, deps: Dependency[]): void {
