@@ -315,12 +315,11 @@ export class DependencyTracker {
 
             // 2. Check if property was already created for this assignment (loop case)
             const propertyAssigned: number | undefined = this.checkAssignment(stmtId, `p_${property}`)
-            if (propertyAssigned) {
+            if (propertyAssigned && !propertyLocation) {
                 // 2.1. If property edge does not exist, create it
-                if (propertyLocation?.id !== propertyAssigned) {
-                    this.graphCreatePropertyEdge(location, propertyAssigned, property);
-                    propertyLocation = this.graphGetNode(propertyAssigned)
-                }
+                this.graphCreatePropertyEdge(location, propertyAssigned, property);
+                propertyLocation = this.graphGetNode(propertyAssigned)
+
             }
 
             // 3. If property does not exist, need to create the object property
@@ -478,8 +477,17 @@ export class DependencyTracker {
     }
 
     graphCreateArgumentEdge(source: number, functionArg: number, sourceName?: string): void {
-        if (!sourceName) this.graph.addEdge(source, functionArg, { type: "PDG", label: "ARG", objName: sourceName });
-        else this.graph.addEdge(source, functionArg, { type: "PDG", label: "ARG", objName: sourceName });
+        if (source !== functionArg) {
+            const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+            if (!sourceEdges.includes(functionArg)) {
+                if (!sourceName) this.graph.addEdge(source, functionArg, {
+                    type: "PDG",
+                    label: "ARG",
+                    objName: sourceName
+                });
+                else this.graph.addEdge(source, functionArg, {type: "PDG", label: "ARG", objName: sourceName});
+            }
+        }
     }
 
     graphCreateSourceEdge(source: number, destination: number, index: number): void {
@@ -491,7 +499,9 @@ export class DependencyTracker {
     }
 
     graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string): void {
-        this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName });
+        const sourceEdges: number[] = this.graphGetNode(oldObjId)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+        if (!sourceEdges.includes(newObjId))
+            this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName });
     }
 
     graphCreatePropertyEdge(location: number, propertyLocation: number, property: string, deps: Dependency[] = []): void {
@@ -528,8 +538,11 @@ export class DependencyTracker {
     }
 
     addTaintedNodeEdge(nodeId: number, stmtId: number, index: number, isTainted: boolean = true): void {
-        if (isTainted) this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" }); // this.create source edge
-        this.graphCreateSourceEdge(stmtId, nodeId, index !== undefined ? index : -1); // sources from argv e.g. do not connect as param edge?
+        const sourceEdges: number[] = this.graphGetNode(this.graph.taintNode)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+        if (!sourceEdges.includes(nodeId)) {
+            if (isTainted) this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" }); // this.create source edge
+            this.graphCreateSourceEdge(stmtId, nodeId, index !== undefined ? index : -1); // sources from argv e.g. do not connect as param edge?
+        }
     }
 
     checkArgumentSource(functionContext: number, trackers: DependencyTracker): Dependency[] {

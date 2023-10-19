@@ -151,15 +151,18 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
 
     // If right side of the assignment (memExpNode) is the argument keyword referring to the function arguments, we need to create the object corresponding to the left side
     if (!propertyLocations.length && obj.obj.name === "arguments") {
-        const subObjId = trackers.createNewObject(stmtId, stmt.functionContext, variable)
-        propertyLocations.push(subObjId)
-        deps.forEach((dep: Dependency) => {
-            trackers.graphCreateDependencyEdge(dep.source, subObjId, dep)
-        })
-        // If there are no dependencies from the pre-defined arguments, then, we need to taint the left side object
-        const functionNode: GraphNode | undefined = trackers.getFunctionNode(stmt.functionContext);
-        const index = prop.type === "Literal" && typeof prop.obj.value === "number" ? prop.obj.value : undefined;
-        if (functionNode) trackers.addTaintedNodeEdge(subObjId, functionNode.id, index)
+        let newObjectAssigned: number | undefined = trackers.checkAssignment(stmtId, `obj_${variable.name}`)
+        if (!newObjectAssigned) {
+            const subObjId = trackers.createNewObject(stmtId, stmt.functionContext, variable)
+            propertyLocations.push(subObjId)
+            deps.forEach((dep: Dependency) => {
+                trackers.graphCreateDependencyEdge(dep.source, subObjId, dep)
+            })
+            // If there are no dependencies from the pre-defined arguments, then, we need to taint the left side object
+            const functionNode: GraphNode | undefined = trackers.getFunctionNode(stmt.functionContext);
+            const index = prop.type === "Literal" && typeof prop.obj.value === "number" ? prop.obj.value : undefined;
+            if (functionNode) trackers.addTaintedNodeEdge(subObjId, functionNode.id, index)
+        }
     }
 
     // Add variable reference to variable map
