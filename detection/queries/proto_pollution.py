@@ -20,12 +20,12 @@ class PrototypePollution(QueryType):
 	check_lookup_pattern = """
 		MATCH
 			(obj:PDG_OBJECT)
-				-[first_lookup:PDG]	
+				-[first_lookup:PDG]
 					->(sub_obj:PDG_OBJECT)
 						-[nv:PDG]
-						->(nv_sub_obj:PDG_OBJECT)
-							-[second_lookup:PDG]
-								->(property:PDG_OBJECT)
+							->(nv_sub_obj:PDG_OBJECT)
+								-[second_lookup:PDG]
+									->(property:PDG_OBJECT)
 		WHERE
 			first_lookup.RelationType = "SO" AND
 			first_lookup.IdentifierName = "*" AND
@@ -49,6 +49,7 @@ class PrototypePollution(QueryType):
 		WHERE
 			first_lookup.RelationType = "SO" AND
 			first_lookup.IdentifierName = "*" AND
+			arg.RelationType = "ARG" AND
 			nv.RelationType = "NV" AND
 			nv.IdentifierName = "*" AND
 			second_lookup.RelationType = "SO" AND
@@ -60,11 +61,11 @@ class PrototypePollution(QueryType):
 	def check_taint_key(self, first_lookup_obj):
 		return f"""
 			MATCH 
-			(source:TAINT_SOURCE)
-				-[key_taint:PDG]
-					->(key:PDG_OBJECT)
-						-[tainted_key_path:PDG*1..]
-							->(sub_obj)
+				(source:TAINT_SOURCE)
+					-[key_taint:PDG]
+						->(key:PDG_OBJECT)
+							-[tainted_key_path:PDG*1..]
+								->(sub_obj)
 			WHERE
 				sub_obj.Id = \"{first_lookup_obj}\" AND
 				key_taint.RelationType = "TAINT" AND
@@ -260,16 +261,16 @@ class PrototypePollution(QueryType):
 					source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
 					sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
 					sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
-					#tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, record, attacker_controlled_data, config)
+					# tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, ast_result, attacker_controlled_data, config)
 
 					vuln_path = {
 						"vuln_type": "prototype-pollution",
 						"source": source_cfg["IdentifierName"],
 						"source_lineno": source_lineno,
 						"sink": sink,
-						"sink_lineno": sink_lineno#,
-						#"tainted_params": tainted_params,
-						#git "params_types": params_types,
+						"sink_lineno": sink_lineno,
+						# "tainted_params": tainted_params,
+						# "params_types": params_types,
 					}
 
 					if vuln_path not in vuln_paths:
