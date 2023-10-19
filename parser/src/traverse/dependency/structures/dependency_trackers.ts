@@ -455,8 +455,11 @@ export class DependencyTracker {
     graphCreateDependencyEdge(source: number, destination: number, dep: Dependency): void {
         if (source !== destination) {
             const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
-            if (!sourceEdges.includes(destination))
-                this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name, isPropertyDependency: dep.isProp });
+            if (!sourceEdges.includes(destination)) {
+                const destinationEdges: number[] = this.graphGetNode(destination)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+                if (!destinationEdges.includes(source))
+                    this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name, isPropertyDependency: dep.isProp });
+            }
         }
     }
 
@@ -500,7 +503,7 @@ export class DependencyTracker {
 
     graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string): void {
         const sourceEdges: number[] = this.graphGetNode(oldObjId)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
-        if (!sourceEdges.includes(newObjId))
+        if (!sourceEdges.includes(newObjId) && oldObjId !== newObjId)
             this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName });
     }
 
