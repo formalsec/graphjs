@@ -14,6 +14,10 @@ import { GraphEdge } from "../../graph/edge";
 export type Store = Map<string, number[]>;
 type FContexts = Map<number, number[]>;
 type RequireChain = Map<string, string[]>;
+
+// Each lazy require contains the name of the package and an alias, if it exists
+type LazyRequire = { name: string, alias: string | undefined }
+type LazyRequires = Map<string, LazyRequire[]>;
 type VPMap = Map<string, string>;
 // Each operation contains the type of operation and the nodes. E.g. { operation: "nv_*", nodes { left: 1, right: 2 } }
 type Operation = { operation: string, node: number}
@@ -28,8 +32,10 @@ export class DependencyTracker {
     private readonly funcContexts: FContexts;
     // This value represents the current context stack
     private intraContextStack: number[];
-    // This value represents chains of "request" dependencies
+    // This value represents chains of "require" dependencies
     private requireChain: RequireChain;
+    // This value represents chains of lazy "require" dependencies
+    private lazyRequireChain: LazyRequires;
     // This value represents a map of variable name to package name
     private variableMap: VPMap;
     // This value represents a map of the operations corresponding to each program assignment
@@ -41,6 +47,7 @@ export class DependencyTracker {
         this.funcContexts = functionContexts;
         this.intraContextStack = new Array<number>();
         this.requireChain = new Map();
+        this.lazyRequireChain = new Map();
         this.variableMap = new Map();
         this.assignments = new Map();
     }
@@ -53,6 +60,10 @@ export class DependencyTracker {
 
     private setRequireChain(newRequireChain: RequireChain): void {
         this.requireChain = new Map(newRequireChain);
+    }
+
+    private setLazyRequireChain(newLazyRequireChain: LazyRequires): void {
+        this.lazyRequireChain = new Map(newLazyRequireChain);
     }
 
     private setVariableMap(newVariableMap: VPMap): void {
@@ -82,6 +93,59 @@ export class DependencyTracker {
         if (pChain) pChainValue = [...pChain, variableName];
         this.requireChain.set(packageName, pChainValue);
         this.addVariableMap(variableName, packageName);
+    }
+
+    // Adds lazy require to map (lazy -> methods[])
+    addLazyRequire(packageName: string, methodName: string | undefined = undefined, aliasName: string | undefined = undefined): void {
+        const lazyRequires: LazyRequire[] | undefined = this.lazyRequireChain.get(packageName);
+        // If adding a new method to an existing package
+        if (lazyRequires && methodName) {
+            this.lazyRequireChain.set(packageName, [...lazyRequires, { name: methodName, alias: aliasName}])
+        }
+        //If adding a new package, without method yet (init)
+        else if (!lazyRequires) {
+            this.lazyRequireChain.set(packageName, [])
+        }
+    }
+
+    // Checks if a function call is a lazy require (e.g. lazy = v(require))
+    checkIfFunctionIsLazyRequire(functionName: string, callNode: GraphNode): boolean {
+        const variableName: string = `${callNode.functionContext}.${functionName}`;
+        const packageName: string | undefined = this.checkVariableMap(variableName);
+        if (!this.checkVariableMap(variableName)) return false
+
+        if (callNode.obj.callee.type === "Identifier"
+            && callNode.obj.arguments.length) {
+            const require: boolean = callNode.obj.arguments
+                .filter((element: any) => element.type === "Identifier")
+                .some((element: any) => element.name === "require")
+            return require
+        }
+        return false
+    }
+
+    // Checks if function call is defining a new lazy require
+    checkIfLazyDefinition(callNode: GraphNode): void {
+        if (callNode.obj.callee.type === "Identifier") {
+            const requires: LazyRequire[] | undefined = this.lazyRequireChain.get(callNode.obj.callee.name)
+            // If function call is a lazy require package
+            if (requires && callNode.obj.arguments.length > 1) {
+                const packageName: string = callNode.obj.arguments[0].type === "Literal" ? callNode.obj.arguments[0].value : "";
+                const packageAlias: string = callNode.obj.arguments[1].type === "Literal" ? callNode.obj.arguments[1].value : "";
+                this.addLazyRequire(callNode.obj.callee.name, packageName, packageAlias)
+            }
+        }
+    }
+
+    checkIfLazyCall(calleeName: string, functionName: string): string | undefined {
+        const lazyRequires: LazyRequire[] | undefined = this.lazyRequireChain.get(calleeName)
+        if (lazyRequires && lazyRequires.length) {
+            return lazyRequires.find((require: LazyRequire) => require.name === functionName || require.alias === functionName)?.name
+        }
+    }
+
+    checkLazyRequire(functionName: string): LazyRequire[] {
+        return this.lazyRequireChain.get(functionName) ?? [];
     }
 
     checkRequireChain(variableName: string | null): string[] {
@@ -610,6 +674,7 @@ export class DependencyTracker {
         clone.setStore(this.store);
         clone.setContext(this.intraContextStack);
         clone.setRequireChain(this.requireChain);
+        clone.setLazyRequireChain(this.lazyRequireChain);
         clone.setVariableMap(this.variableMap);
         clone.setAssignmentMap(this.assignments);
         return clone;
@@ -619,6 +684,7 @@ export class DependencyTracker {
         console.log("Store:", this.store);
         console.log("Func Contexts:", this.funcContexts);
         console.log("Require Chain:", this.requireChain);
+        console.log("Lazy Requires", this.lazyRequireChain)
         console.log("Variable Map:", this.variableMap);
     }
 }

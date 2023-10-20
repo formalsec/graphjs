@@ -22,5 +22,11 @@
         { "function": "shift", "deps": [] },
         { "function": "find", "deps": [] }
     ],
-    "auxiliary_functions": ["forEach", "then"]
+    "auxiliary_functions": ["forEach", "then"],
+    "packages": [
+        {
+            "name": "for-own",
+            "ops" : []
+        }
+    ]
 }
