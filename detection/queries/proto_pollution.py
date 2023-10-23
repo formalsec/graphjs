@@ -303,5 +303,5 @@ class PrototypePollution(QueryType):
 
 	def increment_reconstruction(self):
 		pp_reconstruction_time = (time.time() - self.start_time)*1000  # to ms
-		self.reconstruction += pp_reconstruction_time
+		self.reconstruction_time += pp_reconstruction_time
 		self.start_timer()
