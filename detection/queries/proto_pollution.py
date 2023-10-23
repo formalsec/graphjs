@@ -218,13 +218,18 @@ class PrototypePollution(QueryType):
 
 	def __init__(self):
 		QueryType.__init__(self, "Prototype Pollution")
+		self.start_time = None
+		self.detection_time = 0
+		self.reconstruction_time = 0
 
 	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, config):
 		"""
 		Find prototype pollution vulnerabilities paths.
 		"""
 		print(f"[INFO] - Running prototype pollution query: {self.queries[0][0]}")
+		self.start_timer()  # start timer
 		pattern_results = session.run(self.queries[0][1])
+		self.increment_detection()  # time injection
 
 		for pattern in pattern_results:
 			self.first_lookup_obj = pattern.get('sub_obj')._properties.get("Id")
@@ -234,34 +239,36 @@ class PrototypePollution(QueryType):
 			print(f"[INFO] - Running prototype pollution query: {self.queries[1][0]}")
 			taint_key_results = session.run(self.check_taint_key(self.first_lookup_obj))
 			# If query is unable to find a taint key path, go to next pattern
-			has_tainted_key = False
-			for r in taint_key_results:
-				has_tainted_key = True
-			if not has_tainted_key:
+			if taint_key_results.peek() is None:
+				self.increment_detection()  # time injection
 				continue
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[2][0]}")
 			taint_assignment_results = session.run(self.check_tainted_assignment(self.assignment_obj))
 			# If query is unable to find a taint assignment path, go to next pattern
-			has_tainted_assignment = False
-			for r in taint_assignment_results:
-				has_tainted_assignment = True
-			if not has_tainted_assignment:
+			if taint_assignment_results.peek() is None:
+				self.increment_detection()  # time injection
 				continue
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[3][0]}")
 			taint_sub_key_results = session.run(self.check_taint_sub_key(self.second_lookup_obj))
 			# If query is unable to find a taint sub key path, go to next pattern
+			if taint_sub_key_results.peek() is None:
+				self.increment_detection()  # time injection
+				continue
+
 			for tainted_source in taint_sub_key_results:
 				source = tainted_source.get('value')._properties.get("Id")
 				print(f"[INFO] - Running prototype pollution query: {self.queries[4][0]}")
 				ast_results = session.run(self.get_ast_source_and_assignment(source, self.second_lookup_obj))
+				self.increment_detection()  # time injection
+
 				for ast_result in ast_results:
 					source_cfg = ast_result["source_cfg"]
 					source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
 					sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
 					sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
-					# tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, ast_result, attacker_controlled_data, config)
+					tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, ast_result, attacker_controlled_data, config)
 
 					vuln_path = {
 						"vuln_type": "prototype-pollution",
@@ -269,13 +276,32 @@ class PrototypePollution(QueryType):
 						"source_lineno": source_lineno,
 						"sink": sink,
 						"sink_lineno": sink_lineno,
-						# "tainted_params": tainted_params,
-						# "params_types": params_types,
+						"tainted_params": tainted_params,
+						"params_types": params_types,
 					}
 
 					if vuln_path not in vuln_paths:
 						vuln_paths.append(vuln_path)
 
-		print(vuln_paths)
-		print(f'[INFO][{THIS_SCRIPT_NAME}] - proto_pollution_reconstruction: {time.time()*1000}', file=stderr) # END_TIMER_PROTO_POLLUTION_RECONSTRUCTION
+					self.increment_reconstruction()  # time injection
+
+		self.time_stats()
 		return vuln_paths
+
+	# Timer related functions
+	def start_timer(self):
+		self.start_time = time.time()
+
+	def time_stats(self):
+		print(f'pp_detection: {self.detection_time}', file=stderr)  # output to file
+		print(f'pp_reconstruction: {self.reconstruction_time}', file=stderr)  # output to file
+
+	def increment_detection(self):
+		pp_detection_time = (time.time() - self.start_time)*1000  # to ms
+		self.detection_time += pp_detection_time
+		self.start_timer()
+
+	def increment_reconstruction(self):
+		pp_reconstruction_time = (time.time() - self.start_time)*1000  # to ms
+		self.reconstruction += pp_reconstruction_time
+		self.start_timer()

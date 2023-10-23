@@ -29,17 +29,19 @@ class Injection(QueryType):
 			param_ref.RelationType = "param" 
 		RETURN *
 	"""
-	
+
 	def __init__(self):
 		QueryType.__init__(self, "Injection")
+		self.start_time = None
 
 	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, config):
 		"""
 		Find injection vulnerabilities paths.
 		"""
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - Running injection query.')
+		self.start_timer()  # start timer
 		results = session.run(self.injection_query)
-		print(f'[INFO][{THIS_SCRIPT_NAME}] - injection_detection: {time.time()*1000}.', file=stderr) # END_TIMER_INJECTION_DETECTION
+		self.time_detection()  # time injection
 
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
 		for record in results:
@@ -49,19 +51,32 @@ class Injection(QueryType):
 			param_name = my_utils.format_name(record["param"]["IdentifierName"])
 			source_location = json.loads(source_cfg["Location"])
 			sink_location = json.loads(record["sink_cfg"]["Location"])
-			#tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, record, attacker_controlled_data, config)
+			tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, record, attacker_controlled_data, config)
 
 			vuln_path = {
 				"vuln_type": my_utils.get_injection_type(sink_name, config),
 				"source":  source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" or source_ast["Type"] == "ArrowFunctionExpression" else param_name,
 				"source_lineno": source_location["start"]["line"],
 				"sink": sink_name,
-				"sink_lineno": sink_location["start"]["line"]#,
-				#"tainted_params": tainted_params,
-				#"params_types": params_types,
+				"sink_lineno": sink_location["start"]["line"],
+				"tainted_params": tainted_params,
+				"params_types": params_types,
 			}
 			if vuln_path not in vuln_paths:
 				vuln_paths.append(vuln_path)
 
-		print(f'[INFO][{THIS_SCRIPT_NAME}] - injection_reconstruction: {time.time()*1000}.', file=stderr) # END_TIMER_INJECTION_RECONSTRUCTION
+		self.time_reconstruction()
 		return vuln_paths
+
+	# Timer related functions
+	def start_timer(self):
+		self.start_time = time.time()
+
+	def time_detection(self):
+		injection_detection_time = (time.time() - self.start_time)*1000  # to ms
+		print(f'injection_detection: {injection_detection_time}', file=stderr)  # output to file
+		self.start_timer()
+
+	def time_reconstruction(self):
+		reconstruction_detection_time = (time.time() - self.start_time)*1000  # to ms
+		print(f'injection_detection: {reconstruction_detection_time}', file=stderr)  # output to file
