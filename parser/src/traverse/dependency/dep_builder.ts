@@ -727,6 +727,9 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                 if (initNode) {
                     curTrackers = handleVariableAssignment(node.id, node, node, initNode, config, curTrackers);
                 }
+                else {
+                    curTrackers.createNewObject(node.id, node.functionContext, node.obj.id);
+                }
                 break;
             }
 
