@@ -56,7 +56,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         ## Run queries stage
         echo "[INFO] - Running queries."
         QUERIES=$(realpath ../detection)
-        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY 2> "$EXPLODEJS_DIR/query_times.txt"
+        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY 2> "$EXPLODEJS_DIR/time_stats.txt"
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do
