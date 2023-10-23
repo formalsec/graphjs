@@ -19,3 +19,8 @@ export function getFunctionName(node: GraphNode): { calleeName: string, function
     }
     return { calleeName, functionName }
 }
+
+export function getObjectNameFromIdentifier(identifier: string | null): string | undefined {
+    return identifier?.split('.').pop()?.split('-')[0];
+
+}

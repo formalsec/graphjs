@@ -26,7 +26,15 @@
     "packages": [
         {
             "name": "for-own",
-            "ops" : []
+            "ops" : [
+                {"type": "sub_object", "objs": [0, 1]}
+            ]
+        },
+        {
+            "name": "for-in",
+            "ops" : [
+                {"type": "sub_object", "objs": [0, 1]}
+            ]
         }
     ]
 }

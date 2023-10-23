@@ -10,6 +10,8 @@ import * as DependencyFactory from "../dep_factory";
 import { type Dependency } from "../dep_factory";
 import { type Identifier } from "estree";
 import { GraphEdge } from "../../graph/edge";
+import { type PackageOperation } from "../../../utils/summary_reader";
+import { getObjectNameFromIdentifier } from "../utils/nodes";
 
 export type Store = Map<string, number[]>;
 type FContexts = Map<number, number[]>;
@@ -87,12 +89,33 @@ export class DependencyTracker {
         return contexts !== undefined && contexts.length > 1;
     }
 
+    /*
+     Package Require Logic
+     */
+
     addRequireChainEntry(variableName: string, packageName: string): void {
         const pChain = this.requireChain.get(packageName);
         let pChainValue: string[] = [variableName];
         if (pChain) pChainValue = [...pChain, variableName];
         this.requireChain.set(packageName, pChainValue);
         this.addVariableMap(variableName, packageName);
+    }
+
+    // Check if a function call is a require (lazy or not) and if so, add to corresponding structures
+    checkRequires(functionName: string, callNode: GraphNode, variable: Identifier): void {
+        // If function call is a simple require, add require to RequireChainEntry
+        if (functionName === "require") {
+            const packageName = getAllASTNodes(callNode, "arg")[0];
+            const variableName: string = `${callNode.functionContext}.${variable.name}`
+            this.addRequireChainEntry(variableName, packageName.obj.value);
+        }
+        // If function call is a lazy require, add to LazyRequires
+        else if (this.checkIfFunctionIsLazyRequire(functionName, callNode)) {
+            const packageVariableName: string = variable.name;
+            this.addLazyRequire(packageVariableName)
+        }
+        // If function call is a definition of a lazy require, update LazyRequire structure
+        else this.checkIfLazyDefinition(callNode);
     }
 
     // Adds lazy require to map (lazy -> methods[])
@@ -124,14 +147,14 @@ export class DependencyTracker {
         return false
     }
 
-    // Checks if function call is defining a new lazy require
+    // Checks if function call is defining a new lazy require (e.g. const v2 = lazy(<name>, <alias>);
     checkIfLazyDefinition(callNode: GraphNode): void {
         if (callNode.obj.callee.type === "Identifier") {
             const requires: LazyRequire[] | undefined = this.lazyRequireChain.get(callNode.obj.callee.name)
             // If function call is a lazy require package
             if (requires && callNode.obj.arguments.length > 1) {
-                const packageName: string = callNode.obj.arguments[0].type === "Literal" ? callNode.obj.arguments[0].value : "";
-                const packageAlias: string = callNode.obj.arguments[1].type === "Literal" ? callNode.obj.arguments[1].value : "";
+                const packageName: string | undefined = callNode.obj.arguments[0].type === "Literal" ? callNode.obj.arguments[0].value : undefined;
+                const packageAlias: string | undefined= callNode.obj.arguments[1].type === "Literal" ? callNode.obj.arguments[1].value : undefined;
                 this.addLazyRequire(callNode.obj.callee.name, packageName, packageAlias)
             }
         }
@@ -151,6 +174,8 @@ export class DependencyTracker {
     checkRequireChain(variableName: string | null): string[] {
         return variableName? this.requireChain.get(variableName) ?? [] : [];
     }
+
+
 
     addVariableMap(variableName: string, functionMap: string): void {
         this.variableMap.set(variableName, functionMap);
@@ -577,6 +602,38 @@ export class DependencyTracker {
             .filter(dep => DependencyFactory.isDVar(dep))
             .forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
     }
+
+
+    translateOperations(operations: PackageOperation[], callNode: GraphNode, functionContext: number, stmtId: number): void {
+        const callArgs: GraphNode[] = getAllASTNodes(callNode, "arg");
+
+        operations.forEach((op: PackageOperation) => {
+            switch (op.type) {
+                case "sub_object": {
+                    // Create property of object
+                    const objectName: string = callArgs[0].identifier ?? ""
+                    const objectLocations: number[] = this.getObjectVersions(objectName, functionContext)
+                    const propertyLocations: number[] = this.addProp(objectLocations, objectName, '*', functionContext, stmtId)
+
+                    // Map summary dependencies
+                    const functionLocation = this.getFunctionNodeFromName(callArgs[1].identifier ?? "")
+                    if (!functionLocation) break; // This should not happen
+                    const calledArgNodes: GraphNode[] = functionLocation.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param").map((edge: GraphEdge) => edge.nodes[1])
+                    if (op.objs.some((obj: number) => obj >= calledArgNodes.length)) break; // This should not happen
+                    propertyLocations.forEach((location: number) => {
+                        // Create argument edge between new property and function argument
+                        this.graphCreateArgumentEdge(location, calledArgNodes[op.objs[0]].id)
+                        // Create dependency edge between new property and function argument
+                        const keyDependency: string | undefined = getObjectNameFromIdentifier(calledArgNodes[op.objs[1]].identifier)
+                        if (keyDependency)
+                            this.graphCreateCallDependencyEdge(calledArgNodes[op.objs[1]].id, location, keyDependency)
+
+                    })
+                }
+            }
+        })
+    }
+
 
     /** Methods for adding nodes **/
     addParamNode(stmtId: number, paramObj: GraphNode, index: number, funcExpNode: GraphNode, context: number): void {

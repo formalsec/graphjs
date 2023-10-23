@@ -211,18 +211,24 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     const returnLocation = trackers.createNewObject(stmtId, functionContext, variable);
 
     // Process dependencies of the call
-    // 1. If callee is not a member expression, get dependencies of the arguments
-    // 2. If callee is a member expression, also process dependencies between the subjects of the call
-    //    E.g. dependencies of object (arr) being called upon (e.g. arr.push(x))
     const deps = evalDep(trackers, stmtId, callNode); // Dependencies of the arguments
+
+    // 1. If callee is not a member expression, create dependencies from the arguments to the return object
     if (callNode.obj.callee.type !== "MemberExpression") {
-        trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, deps);
-    } else if (callNode.obj.callee.type === "MemberExpression") {
+        // Check if this call is a call of package with a summary
+        const packageSummary: PackageOperation[] | undefined = config.summaries.packages.get(calleeName);
+        if (packageSummary?.length) {
+            // TODO
+        } else {
+            trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, deps);
+        }
+    }
+    else if (callNode.obj.callee.type === "MemberExpression") {
+        // Get callee object (e.g. path in path.call(args))
         let latestCalleeObj = trackers.graphGetNode(trackers.storeGetObjectLocations(calleeName, callNode.functionContext).slice(-1)[0])
         // Get summary for the function
         const functionSummary: SummaryDependency[] | undefined = config.summaries.arrays.get(functionName);
-        // If function summary exists
-        let lazyFunctionName: string | undefined
+        // If function summary exists, process dependencies according to summary
         if (latestCalleeObj && functionSummary?.length) {
             // For each summary item (obj, dependencies)
             functionSummary.forEach((summaryItem) => {
@@ -237,28 +243,33 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
                 })
             })
         }
-        // Check if lazy call
-        else if (lazyFunctionName = trackers.checkIfLazyCall(calleeName, functionName)) {
-            const packageSummary: PackageOperation[] | undefined = config.summaries.packages.get(lazyFunctionName);
-            // If function summary exists
-        // If there is no summary available, assume all dependencies
-        } else if ((functionSummary && !functionSummary.length) ?? !functionSummary) {
-            if (latestCalleeObj && latestCalleeObj.id === returnLocation) {
-                latestCalleeObj = trackers.graphGetNode(trackers.getObjectVersions(calleeName, callNode.functionContext).slice(-2)[0]);
+        // If function summary does not exist
+        else {
+            // Check if this call is a call of package with a summary or a package that was lazy required
+            const lazyFunctionName: string | undefined = trackers.checkIfLazyCall(calleeName, functionName);
+            const lazyPackageSummary: PackageOperation[] | undefined = lazyFunctionName? config.summaries.packages.get(lazyFunctionName) : undefined;
+            if (lazyPackageSummary) {
+                trackers.translateOperations(lazyPackageSummary, callNode, functionContext, stmtId)
             }
-            // Dependency ret <-- callee
-            if (latestCalleeObj && latestCalleeObj.id !== returnLocation) trackers.graphCreateCallDependencyEdge(latestCalleeObj.id, returnLocation, calleeName)
-            // Dependency callee <-- arguments
-            // We filter the deps to avoid having cycles in dependencies, e.g. orig = utils.escape(orig);
-            const acycleDeps = deps.filter((dep: Dependency) => dep.source !== returnLocation)
-            // Check if calle is an imported package
-            if (latestCalleeObj && !trackers.checkRequireChain(latestCalleeObj.identifier)) {
-                acycleDeps.forEach(d => {
-                    if (latestCalleeObj && d.source !== latestCalleeObj.id) trackers.graphCreateDependencyEdge(d.source, latestCalleeObj.id, d)
-                })
+            // If the callee is not a package with a summary, process all dependencies
+            else {
+                if (latestCalleeObj && latestCalleeObj.id === returnLocation) {
+                    latestCalleeObj = trackers.graphGetNode(trackers.getObjectVersions(calleeName, callNode.functionContext).slice(-2)[0]);
+                }
+                // Dependency ret <-- callee
+                if (latestCalleeObj && latestCalleeObj.id !== returnLocation) trackers.graphCreateCallDependencyEdge(latestCalleeObj.id, returnLocation, calleeName)
+                // Dependency callee <-- arguments
+                // We filter the deps to avoid having cycles in dependencies, e.g. orig = utils.escape(orig);
+                const acycleDeps = deps.filter((dep: Dependency) => dep.source !== returnLocation)
+                // Check if calle is an imported package
+                if (latestCalleeObj && !trackers.checkRequireChain(latestCalleeObj.identifier)) {
+                    acycleDeps.forEach(d => {
+                        if (latestCalleeObj && d.source !== latestCalleeObj.id) trackers.graphCreateDependencyEdge(d.source, latestCalleeObj.id, d)
+                    })
+                }
+                // Dependency ret <-- arguments
+                trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, acycleDeps)
             }
-            // Dependency ret <-- arguments
-            trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, acycleDeps)
         }
     }
 
@@ -271,21 +282,11 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         if (variableMap) trackers.addVariableMap(`${callNode.functionContext}.${variable.name}`, variableMap);
     })
 
-    // Add requires
-    if (functionName === "require") {
-        const packageName = getAllASTNodes(callNode, "arg")[0];
-        const variableName: string = `${callNode.functionContext}.${variable.name}`
-        trackers.addRequireChainEntry(variableName, packageName.obj.value);
-    }
-    else if (trackers.checkIfFunctionIsLazyRequire(functionName, callNode)) {
-        const packageVariableName: string = variable.name;
-        trackers.addLazyRequire(packageVariableName)
-    }
-    else trackers.checkIfLazyDefinition(callNode);
+    // Check requires
+    trackers.checkRequires(functionName, callNode, variable)
 
     return trackers;
 }
-
 
 function handleObjectExpression(stmtId: number, functionContext: number, variable: Identifier, objExp: GraphNode, trackers: DependencyTracker): DependencyTracker {
     trackers.createNewObject(stmtId, functionContext, variable)

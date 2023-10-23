@@ -2,7 +2,7 @@ import fs = require("fs");
 
 export interface PackageOperation {
     type: string
-    nodes: number[]
+    objs: number[]
 }
 
 export interface SummaryDependency {
