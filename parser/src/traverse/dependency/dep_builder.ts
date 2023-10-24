@@ -568,29 +568,52 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
             }
         }
     } else if (callASTNode.type === "MemberExpression") { // Check if argument of call is an inner function
-        // If function is not js native, we don't know its behaviour, so, we do not map
+        // Check if call edge exist or if function is js native, otherwise we don't know its behaviour, so, we do not map
         const auxiliaryFunctionSummary: boolean = config.summaries.auxiliary_functions.includes(callName);
-        if (!auxiliaryFunctionSummary) return trackers;
-        // Get arguments that are functions
-        // @ts-ignore this is because of the filter but raises an error anyway
-        const innerFunctions: GraphNode[] = callArgs.filter(arg => arg.identifier != null)
-            .map(arg => trackers.getFunctionNodeFromName(arg.identifier ?? "?"))
-            .filter((fn: GraphNode | undefined) => fn !== undefined)
-        // Get arguments that are variables
-        // const varFunctions = callArgs.filter(arg => !anonFunctionsIds.includes(arg.id))
+        if (auxiliaryFunctionSummary) {
+            // Get arguments that are functions
+            // @ts-ignore this is because of the filter but raises an error anyway
+            const innerFunctions: GraphNode[] = callArgs.filter(arg => arg.identifier != null)
+                .map(arg => trackers.getFunctionNodeFromName(arg.identifier ?? "?"))
+                .filter((fn: GraphNode | undefined) => fn !== undefined)
+            // Get arguments that are variables
+            // const varFunctions = callArgs.filter(arg => !anonFunctionsIds.includes(arg.id))
 
-        // We need to map the anonFuncArgs - each anon function arg depends on the callee node obj and arguments of functions   TODO: summary for this
-        innerFunctions.forEach((fnNode: GraphNode) => {
-            // PDG arguments from the inner function
-            const calledArgNodes: GraphNode[] = fnNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param").map((edge: GraphEdge) => edge.nodes[1])
-            calledArgNodes.forEach((arg: GraphNode) => {
-                const callArgumentLocation = trackers.getObjectVersions(calleeName, callNode.functionContext).slice(-1)[0];
-                const callArgumentNode: GraphNode | undefined = trackers.graphGetNode(callArgumentLocation)
-                if (callArgumentNode) {
-                    trackers.graphCreatePropertyEdge(callArgumentNode.id, arg.id, '*')
-                }
+            // We need to map the anonFuncArgs - each anon function arg depends on the callee node obj and arguments of functions   TODO: summary for this
+            innerFunctions.forEach((fnNode: GraphNode) => {
+                // PDG arguments from the inner function
+                const calledArgNodes: GraphNode[] = fnNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param").map((edge: GraphEdge) => edge.nodes[1])
+                calledArgNodes.forEach((arg: GraphNode) => {
+                    const callArgumentLocation = trackers.getObjectVersions(calleeName, callNode.functionContext).slice(-1)[0];
+                    const callArgumentNode: GraphNode | undefined = trackers.graphGetNode(callArgumentLocation)
+                    if (callArgumentNode) {
+                        trackers.graphCreatePropertyEdge(callArgumentNode.id, arg.id, '*')
+                    }
+                });
             });
-        });
+            return trackers;
+        } else {
+            // Get graph node (calledNode) of the called function (to get the params)
+            const calledFunctions: GraphNode[] = trackers.graphGetNode(stmtId)?.edges.filter((edge: GraphEdge) => edge.label === "CG").map((edge: GraphEdge) => edge.nodes[1]) ?? []
+            if (calledFunctions.length) {
+                const calledNode: GraphNode = calledFunctions[0];
+                // Get graph nodes of the params of the called function
+                const calledArgNodes: GraphNode[] = calledNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param").map((edge: GraphEdge) => edge.nodes[1])
+                if (calledArgNodes.length) {
+                    // We iterate by the arguments of the statement with the call (variables) because some invocations don't have all the arguments
+                    callArgs.forEach((callArg: GraphNode, i: number) => {
+                        let callArgumentNode;
+                        if (callArg.identifier !== null) {
+                            const callArgumentLocation = trackers.getObjectVersions(callArg.identifier, callNode.functionContext).slice(-1)[0];
+                            callArgumentNode = trackers.graphGetNode(callArgumentLocation)
+                        }
+                        if (callArgumentNode?.identifier && calledArgNodes.length > i) {
+                            trackers.graphCreateArgumentEdge(callArgumentNode.id, calledArgNodes[i].id);
+                        }
+                    });
+                }
+            }
+        }
     }
 
     return trackers;
