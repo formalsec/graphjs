@@ -141,7 +141,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     const variableLocations: number[] = trackers.storeGetObjectLocations(variable.name, memExpNode.functionContext)
     if (variableLocations.length) {
         variableLocations.forEach((location: number, index: number) => {
-            trackers.storeUpdateLocation(variable.name, location, propertyLocations[index], stmt.functionContext)
+            trackers.storeUpdateLocation(variable.name, location, [propertyLocations[index]], stmt.functionContext)
         })
     } else {
         propertyLocations.forEach((location: number) => {
