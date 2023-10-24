@@ -79,4 +79,4 @@ class Injection(QueryType):
 
 	def time_reconstruction(self):
 		reconstruction_detection_time = (time.time() - self.start_time)*1000  # to ms
-		print(f'injection_detection: {reconstruction_detection_time}', file=stderr)  # output to file
+		print(f'injection_reconstruction: {reconstruction_detection_time}', file=stderr)  # output to file
