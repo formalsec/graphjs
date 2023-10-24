@@ -40,7 +40,7 @@ class PrototypePollution(QueryType):
 			(obj:PDG_OBJECT)
 				-[first_lookup:PDG]	
 					->(sub_obj:PDG_OBJECT)
-						-[arg:PDG]
+						-[arg:PDG*]
 							->(arg_sub_obj:PDG_OBJECT)
 								-[nv:PDG]
 									->(nv_sub_obj:PDG_OBJECT)
@@ -49,7 +49,7 @@ class PrototypePollution(QueryType):
 		WHERE
 			first_lookup.RelationType = "SO" AND
 			first_lookup.IdentifierName = "*" AND
-			arg.RelationType = "ARG" AND
+			ALL(edge IN arg WHERE edge.RelationType = "ARG") AND
 			nv.RelationType = "NV" AND
 			nv.IdentifierName = "*" AND
 			second_lookup.RelationType = "SO" AND
