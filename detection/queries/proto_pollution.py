@@ -268,16 +268,16 @@ class PrototypePollution(QueryType):
 					source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
 					sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
 					sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
-					tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, ast_result, attacker_controlled_data, config)
+					#tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, ast_result, attacker_controlled_data, config)
 
 					vuln_path = {
 						"vuln_type": "prototype-pollution",
 						"source": source_cfg["IdentifierName"],
 						"source_lineno": source_lineno,
 						"sink": sink,
-						"sink_lineno": sink_lineno,
-						"tainted_params": tainted_params,
-						"params_types": params_types,
+						"sink_lineno": sink_lineno#,
+						#"tainted_params": tainted_params,
+						#"params_types": params_types,
 					}
 
 					if vuln_path not in vuln_paths:
