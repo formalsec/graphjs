@@ -235,7 +235,7 @@ export class DependencyTracker {
     * Updates an object's old location to a new location
     * Used when adding a new version
     */
-    storeUpdateLocation(objName: string, oldLocation: number, newLocation: number, context: number) {
+    storeUpdateLocation(objName: string, oldLocation: number, newLocations: number[], context: number) {
         // Check if object exists
         const objContextName: string = `${context}.${objName}`
         const objectExists: boolean = this.store.has(objContextName)
@@ -243,17 +243,21 @@ export class DependencyTracker {
         // If object exists, add update location
         if (objectExists) {
             const objectLocations: number[] = this.store.get(objContextName) ?? []
-            const newObjectLocations: number[] = []
+            let newObjectLocations: number[] = []
 
             // Search for old location and replace with new location
             objectLocations.forEach((location: number) => {
-                location === oldLocation ? newObjectLocations.push(newLocation) : newObjectLocations.push(location)
+                if (location === oldLocation) {
+                    newObjectLocations.length? newObjectLocations.push(...newLocations) : newObjectLocations = newLocations
+                } else {
+                    newObjectLocations.push(location)
+                }
             })
             this.store.set(objContextName, [...new Set(newObjectLocations)])
         }
         // If object does not exist, create new object in store with new location
         else {
-            this.store.set(objContextName, [newLocation])
+            this.store.set(objContextName, newLocations)
         }
     }
 
@@ -481,7 +485,7 @@ export class DependencyTracker {
 
         // 2. Update store for locations
         newLocations.forEach((location: number, i: number) => {
-            this.storeUpdateLocation(objName, objectLocations[i], location, context);
+            this.storeUpdateLocation(objName, objectLocations[i], [location], context);
         })
 
         // 3. Add property (locations and store)

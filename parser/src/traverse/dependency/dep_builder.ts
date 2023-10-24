@@ -334,12 +334,32 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
 }
 
 function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Identifier, BinExpNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, BinExpNode);
+    // If expression is ||, create new object or update existing object with two versions instead of dependencies
+    if (BinExpNode.type === "LogicalExpression" && BinExpNode.obj.operator === "||" && BinExpNode.obj.right.type === "Identifier" && BinExpNode.obj.left.type === "Identifier") {
+        // Get right side objects
+        const rightBinExpNode: number[] = trackers.getObjectVersions(BinExpNode.obj.right.name, stmt.functionContext)
+        // Get left side objects
+        const leftBinExpNode: number[] = trackers.getObjectVersions(BinExpNode.obj.left.name, stmt.functionContext)
+        const binExpNodeVersions: number[] = [...rightBinExpNode, ...leftBinExpNode]
 
-    const newNodeId = trackers.createNewObject(stmtId, stmt.functionContext, variable);
-
-    deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep); });
+        // Check if object exists
+        const returnObjectVersions: number[] = trackers.getObjectVersions(variable.name, stmt.functionContext)
+        // If object exists, update store
+        if (returnObjectVersions.length) {
+            returnObjectVersions.forEach((return_obj: number) => {
+                trackers.storeUpdateLocation(variable.name, return_obj, binExpNodeVersions, stmt.functionContext)
+            })
+        } else { // If object does not exist, create object with store
+            binExpNodeVersions.forEach((location: number) => {
+                trackers.storeAddLocation(variable.name, location, stmt.functionContext)
+            })
+        }
+    } else {
+        // Evaluate dependency of expression
+        const deps = evalDep(trackers, stmtId, BinExpNode);
+        const newNodeId = trackers.createNewObject(stmtId, stmt.functionContext, variable);
+        deps.forEach(dep => { trackers.graphCreateDependencyEdge(dep.source, newNodeId, dep); });
+    }
 
     return trackers;
 }
@@ -550,20 +570,19 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
         if (calledFunctions.length) {
             const calledNode: GraphNode = calledFunctions[0].nodes[1];
             // Get graph nodes of the params of the called function
-            const calledArgNodes: GraphNode[] = calledNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param").map((edge: GraphEdge) => edge.nodes[1])
+            const calledArgNodes: GraphNode[] = calledNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param" && edge.paramIndex >= 0).map((edge: GraphEdge) => edge.nodes[1])
             if (calledArgNodes.length) {
                 // We iterate by the arguments of the statement with the call (variables) because some invocations don't have all the arguments
                 callArgs.forEach((callArg: GraphNode, i: number) => {
-                    let callArgumentNode;
                     if (callArg.identifier !== null) {
-                        const callArgumentLocation = trackers.getObjectVersions(callArg.identifier, callNode.functionContext).slice(-1)[0];
-                        callArgumentNode = trackers.graphGetNode(callArgumentLocation)
+                        const callArgumentLocations: number[] = trackers.getObjectVersions(callArg.identifier, callNode.functionContext);
+                        callArgumentLocations.forEach((location: number) => {
+                            const callArgumentNode = trackers.graphGetNode(location);
+                            if (callArgumentNode?.identifier && calledArgNodes.length > i) {
+                                trackers.graphCreateArgumentEdge(callArgumentNode.id, calledArgNodes[i].id);
+                            }
+                        });
                     }
-                    if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                        trackers.graphCreateArgumentEdge(callArgumentNode.id, calledArgNodes[i].id);
-                        // if (trackers.isRecursive(callName, functionContext)) trackers.addTaintedNodeEdge(callArgumentNode.id, stmtId, i);
-                    }// else if (callArgumentNode && callArg.type === "Literal") trackers.markNodeWithOrigin(callArgumentNode.id) // Not a variable
-                    // else if (callArgumentNode) trackers.addTaintedNodeEdge(callArgumentNode.id, stmtId, i) // If not able to find a mapping, resort to TAINT_SOURCE (to be safe)
                 });
             }
         }
