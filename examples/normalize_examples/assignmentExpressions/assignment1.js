@@ -1,3 +1,7 @@
 let x;
+let y;
+let z;
 
-x = 1;
+x = y = 1;
+
+x = y = z = 1;
