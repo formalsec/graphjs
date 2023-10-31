@@ -2221,7 +2221,7 @@ def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt
             for l in lines:
                 full_path: str = f"{input_path}{os.path.sep}{l.strip()}"
                 specific_packages.append(full_path)
-        index_name = index_name[: index_name.rfind('.')] + '-' + len(specific_packages) + '.txt'
+        index_name = index_name[: index_name.rfind('.')] + '-' + str(len(specific_packages)) + '.txt'
 
     index_file_path: str = os.path.join(input_path, index_name)
 
