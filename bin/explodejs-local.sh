@@ -28,7 +28,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     ### CPG construction Stage
     echo "[INFO] - Generating graph"
     if [ $SILENT_OP = true ]; then
-        npm start -s --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --silent --graph --i=AST
+        npm start -s --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --silent
     else
         npm start --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --graph --i=AST --sc  2>&1 | tee $NORM
     fi
@@ -56,7 +56,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         ## Run queries stage
         echo "[INFO] - Running queries."
         QUERIES=$(realpath ../detection)
-        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY 2> "$EXPLODEJS_DIR/query_times.txt"
+        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY 2> "$EXPLODEJS_DIR/time_stats.txt"
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do

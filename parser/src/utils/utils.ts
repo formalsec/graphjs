@@ -1,6 +1,5 @@
 import { type Identifier } from "estree";
-import { type Store } from "../traverse/dependency/dependency_trackers";
-import { type StorageValue } from "../traverse/dependency/sto_factory";
+import { type Store } from "../traverse/dependency/structures/dependency_trackers";
 import { type GraphEdge } from "../traverse/graph/edge";
 import { type GraphNode } from "../traverse/graph/node";
 
@@ -38,16 +37,13 @@ export interface ContextNames {
     pdgObjNameContext: string
 }
 
-export const getNextObjectName = (variableName: string, variableNameContext: string): ContextNames => {
-    const objNumber = OBJ_COUNT++;
-    const pdgObjName = `${variableName}-o${objNumber}`;
-    const pdgObjNameContext = `${variableNameContext}-o${objNumber}`;
-    return { pdgObjName, pdgObjNameContext };
+export const getNextLocationName = (variableName: string, context: number): string => {
+    const objectNumber: number = OBJ_COUNT++;
+    return `${context}.${variableName}-o${objectNumber}`;
+
 };
 
 export const resetObjectCount = (): number => { OBJ_COUNT = 1; return OBJ_COUNT };
-
-export const printJSON = (json: any): void => { console.log(JSON.stringify(json, null, 2)); };
 
 export const printStatus = (step: string): void => { console.log(`Step - ${step} - concluded.`); }
 
@@ -61,10 +57,6 @@ export function getASTNode(parent: GraphNode, childLabel: string): GraphNode {
 
 export function getFDNode(parent: GraphNode): GraphNode {
     return parent.edges.filter(e => e.type === "FD")[0]?.nodes[1];
-}
-
-export function getASTChildren(parent: GraphNode): GraphNode[] {
-    return parent.edges.filter(e => e.type === "AST").map(e => e.nodes[1]);
 }
 
 export function getAllASTNodes(parent: GraphNode, childLabel: string): GraphNode[] {
@@ -85,7 +77,7 @@ export function createThisExpression(): Identifier {
 export function deepCopyStore(s: Store): Store {
     const storeCloned: Store = new Map();
 
-    s.forEach((values: StorageValue[], key: string) => {
+    s.forEach((values: number[], key: string) => {
         storeCloned.set(key, clone(values));
     });
 

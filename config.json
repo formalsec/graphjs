@@ -62,6 +62,13 @@
                 ]
             },
             {
+                "sink": "execAsync",
+                "type": "package",
+                "packages": [
+                    {"package": "async-execute", "args": [ 1 ]}
+                ]
+            },
+            {
                 "sink": "execFile",
                 "type": "package",
                 "packages": [

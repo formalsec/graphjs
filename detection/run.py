@@ -3,13 +3,8 @@ from queries.queries import Queries
 import my_utils.utils as my_utils
 import argparse
 import os
-import time
-from sys import argv
-from sys import stderr
 
 THIS_SCRIPT_NAME: str = os.path.basename(__file__)
-
-print(f'[INFO][{THIS_SCRIPT_NAME}] - start: {time.time()*1000}', file=stderr) # START QUERY TIME
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--normalized_file", type=str, required=True,
@@ -39,3 +34,5 @@ with neo_driver.session() as session:
 	else:
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - No vulnerabilities detected.')
 		my_utils.save_output(vuln_paths, args.output)
+
+neo_driver.close()

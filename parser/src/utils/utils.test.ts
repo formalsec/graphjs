@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import { copyObj, getNextNodeId, resetNodeId, resetVariableCount, getNextVariableName, getNextObjectName, resetObjectCount } from "./utils";
+import { copyObj, getNextNodeId, resetNodeId, resetVariableCount, getNextVariableName, getNextLocationName, resetObjectCount } from "./utils";
 
 test("create immutable copy of object", () => {
     const inputObj = {
@@ -45,19 +45,15 @@ test("reset object count", () => {
 test("get variable name", () => {
     resetObjectCount();
 
-    const x1 = getNextObjectName("x", "1.x");
-    expect(x1.pdgObjName).toBe("x-o1");
-    expect(x1.pdgObjNameContext).toBe("1.x-o1");
+    const x1 = getNextLocationName("x", 1);
+    expect(x1).toBe("1.x-o1");
 
-    const y1 = getNextObjectName("y", "1.y");
-    expect(y1.pdgObjName).toBe("y-o2");
-    expect(y1.pdgObjNameContext).toBe("1.y-o2");
+    const y1 = getNextLocationName("y", 1);
+    expect(y1).toBe("1.y-o2");
 
-    const w1 = getNextObjectName("w", "1.w");
-    expect(w1.pdgObjName).toBe("w-o3");
-    expect(w1.pdgObjNameContext).toBe("1.w-o3");
+    const w1 = getNextLocationName("w", 1);
+    expect(w1).toBe("1.w-o3");
 
-    const x2 = getNextObjectName("x", "1.x");
-    expect(x2.pdgObjName).toBe("x-o4");
-    expect(x2.pdgObjNameContext).toBe("1.x-o4");
+    const x2 = getNextLocationName("x", 1);
+    expect(x2).toBe("1.x-o4");
 });
