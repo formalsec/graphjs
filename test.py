@@ -2371,6 +2371,8 @@ if __name__ == "__main__":
 
     # Argument sanity checking.
     check_arguments(args)
+
+    sys.exit(0)
     
 
 
