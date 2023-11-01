@@ -1863,7 +1863,7 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
     index_path: str = os.path.join(input_packages, DATASET_INDEX_NAME)
     package_paths, dataset_package_file_paths = read_dataset_index(index_path, package_start_ind, package_finish_ind)
 
-
+    print(f'[INFO][{THIS_SCRIPT_NAME}] - Will use packages listed in index file:\n\t{index_path}.')
     print(f'[INFO][{THIS_SCRIPT_NAME}] - Checking package indices [{package_start_ind}-{package_start_ind+len(package_paths)}[')
 
     print(f'[INFO][{THIS_SCRIPT_NAME}] - Package count: {len(package_paths)}')
@@ -2230,7 +2230,8 @@ def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt
 
             print(f'[INFO][{THIS_SCRIPT_NAME}] - Flag --specific-package-list specified {len(specific_packages)} packages.')
         index_name = index_name[: index_name.rfind('.')] + '-' + str(len(specific_packages)) + '.txt'
-
+        global DATASET_INDEX_NAME 
+        DATASET_INDEX_NAME = index_name
     index_file_path: str = os.path.join(input_path, index_name)
 
     package_paths: List[str]
@@ -2270,6 +2271,9 @@ def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt
                 index_fh.write(f'{package}{INDEX_FILE_PACKAGE_TOKEN}{INDEX_FILE_PACKAGE_TOKEN.join(file_paths)}\n')
 
         print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - generated dataset index:\n\t{package_ctr} packages\n\t{js_file_ctr} files.' + Fore.RESET)
+
+    
+    print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - index:\n\t{index_file_path}...' + Fore.RESET)
 
     return True
 
@@ -2336,6 +2340,11 @@ def check_arguments(args):
             sys.exit(1)
 
     # Generate an index file for the whole dataset.
+    # if len(args.specific_index_name) > 0:
+    #     index_name
+    # else:
+    #     index_name: str = DATASET_INDEX_NAME
+
     if not generate_dataset_index(args.input, DATASET_INDEX_NAME, args.specific_package_list):
         sys.exit(1)
     
@@ -2374,6 +2383,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--specific-package-list", type=str, default="",
                         help="Path to a specific list of packages to focus on", required=False)
+    # parser.add_argument("--specific-index-name", type=str, default="",
+    #                     help="Specific index name to create.", required=False)
 
     args = parser.parse_args()
 
