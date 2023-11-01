@@ -1865,6 +1865,11 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
 
 
     print(f'[INFO][{THIS_SCRIPT_NAME}] - Checking package indices [{package_start_ind}-{package_start_ind+len(package_paths)}[')
+
+    print(f'[INFO][{THIS_SCRIPT_NAME}] - Package count: {len(package_paths)}')
+
+    sys.exit(0)
+
     for pp in package_paths:
         print(f'\t{pp}')
 
@@ -2218,9 +2223,11 @@ def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt
     if len(specific_package_list) > 0:
         with open(specific_package_list, 'r') as spl:
             lines = spl.readlines()
+            
             for l in lines:
                 full_path: str = f"{input_path}{os.path.sep}{l.strip()}"
                 specific_packages.append(full_path)
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - Flag --specific-package-list specified {len(package_paths)} packages.')
         index_name = index_name[: index_name.rfind('.')] + '-' + str(len(specific_packages)) + '.txt'
 
     index_file_path: str = os.path.join(input_path, index_name)
@@ -2372,7 +2379,7 @@ if __name__ == "__main__":
     # Argument sanity checking.
     check_arguments(args)
 
-    sys.exit(0)
+    
     
 
 
