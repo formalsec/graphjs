@@ -1868,7 +1868,8 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
 
     print(f'[INFO][{THIS_SCRIPT_NAME}] - Package count: {len(package_paths)}')
 
-    sys.exit(0)
+    #sys.exit(0)
+    
 
     for pp in package_paths:
         print(f'\t{pp}')
