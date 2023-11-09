@@ -133,8 +133,10 @@ if (argv.graph) {
     graph.outputManager = new OutputManager(graphOptions, new DotOutput());
     graph.output(argv.g);
 }
+const second_end = performance.now()
 
 const statsFileName = path.join(argv.g, 'graph_stats.json')
 fs.writeFileSync(statsFileName, `{ "edges": ${graph.edges.size}, "nodes": ${graph.nodes.size}}`)
 const timeFileName = path.join(argv.g, 'time_graph_stats.json')
 fs.writeFileSync(timeFileName, `${(end - start)}`)
+fs.writeFileSync(timeFileName, `${(second_end - end)}`)
