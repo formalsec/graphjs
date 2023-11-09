@@ -117,8 +117,10 @@ if (!fs.existsSync(configFile)) console.error(`${configFile} is not a valid conf
 // Generate code property graph
 const config = readConfig(configFile);
 const start = performance.now()
+console.log(start)
 const graph = parse(filename, config, normalizedPath, silentMode);
 const end = performance.now()
+console.log(end)
 if (!graph) console.error(`Unable to generate code property graph`);
 
 // Generate output files
