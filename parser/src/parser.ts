@@ -11,6 +11,8 @@ const { buildPDG } = require("./traverse/dependency/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
+const { performance } = require('perf_hooks');
+
 import { type CFGraphReturn } from "./traverse/cfg_builder";
 
 import { printStatus } from "./utils/utils";
@@ -114,7 +116,9 @@ if (!fs.existsSync(configFile)) console.error(`${configFile} is not a valid conf
 
 // Generate code property graph
 const config = readConfig(configFile);
+const start = performance.now()
 const graph = parse(filename, config, normalizedPath, silentMode);
+const end = performance.now()
 if (!graph) console.error(`Unable to generate code property graph`);
 
 // Generate output files
@@ -132,4 +136,5 @@ if (argv.graph) {
 
 const statsFileName = path.join(argv.g, 'graph_stats.json')
 fs.writeFileSync(statsFileName, `{ "edges": ${graph.edges.size}, "nodes": ${graph.nodes.size}}`)
-
+const timeFileName = path.join(argv.g, 'time_graph_stats.json')
+fs.writeFileSync(timeFileName, `${(end - start)}`)
