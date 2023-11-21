@@ -1,10 +1,10 @@
 module.exports = f;
 
-function f(obj, path, value) {
-    const dotPath = path.split(".")
-    for (let i = 0; i < dotPath.length; i++) {
-        const key = dotPath[i]
-        if (i === dotPath.length - 1) {
+function f(obj, dotPath, value) {
+    const path = dotPath.split(".")
+    for (let i = 0; i < path.length; i++) {
+        const key = path[i]
+        if (i === path.length - 1) {
             obj[key] = value
         }
         obj = obj[key]
