@@ -22,5 +22,19 @@
         { "function": "shift", "deps": [] },
         { "function": "find", "deps": [] }
     ],
-    "auxiliary_functions": ["forEach", "then"]
+    "auxiliary_functions": ["forEach", "then"],
+    "packages": [
+        {
+            "name": "for-own",
+            "ops" : [
+                {"type": "sub_object", "objs": [0, 1]}
+            ]
+        },
+        {
+            "name": "for-in",
+            "ops" : [
+                {"type": "sub_object", "objs": [0, 1]}
+            ]
+        }
+    ]
 }

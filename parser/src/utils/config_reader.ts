@@ -96,7 +96,7 @@ export function readConfig(filePath: string): Config {
         });
     }
 
-    const summaries = readSummaries("src/summaries.json");
+    const summaries = readSummaries("../parser/src/summaries.json");
 
     return {
         functions: functionSinks,

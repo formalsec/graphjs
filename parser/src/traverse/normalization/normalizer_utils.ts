@@ -532,7 +532,7 @@ export function normTemplateLiteral(obj: TemplateLiteral, children: Normalizatio
 
     if (parent &&
         (parent.type === "CallExpression" ||
-        parent.type === "ReturnStatement")) {
+            parent.type === "ReturnStatement")) {
         const { id, decl } = createVariableDeclaration(newObj);
         return {
             stmts: [...flatStmts(children), decl],
@@ -808,7 +808,7 @@ export function normWhileStatement(obj: WhileStatement, children: Normalization[
     const objId = newObj.test.name;
     children[0].stmts.forEach((stmt) => {
         if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
-        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
             stmt.kind = "let";
             const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
             newObj.body = concatToBody(newObj.body, newAssignment);
@@ -855,7 +855,7 @@ export function normDoWhileStatement(obj: DoWhileStatement, children: Normalizat
     // Change test declaration to assignment (if exists)
     children[0].stmts.forEach((stmt) => {
         if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
-        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
             const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
             // Append condition statement to the end of body
             newObj.body = concatToBody(newObj.body, newAssignment);
@@ -890,7 +890,7 @@ export function normForStatement(obj: ForStatement, children: Normalization[]): 
     const objId = newObj.test.name;
     children[1].stmts.forEach((stmt) => {
         if (stmt.type === "VariableDeclaration" && stmt.declarations[0] && stmt.declarations[0].type === "VariableDeclarator" &&
-        stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
+            stmt.declarations[0].id.type === "Identifier" && stmt.declarations[0].id.name === objId && stmt.declarations[0].init) {
             // Append test condition
             stmt.kind = "let";
             const newAssignment = createExpressionAssignment(objId, stmt.declarations[0].init)
