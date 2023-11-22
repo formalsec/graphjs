@@ -1,8 +1,0 @@
-{
-  "name": "paper-vulnerable-example",
-  "version": "1.0.0",
-  "main": "code.js",
-  "dependencies": {
-    "shelljs": "^0.8.5"
-  }
-}

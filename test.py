@@ -1846,6 +1846,7 @@ def open_google_sheet_connection(service_acc: str, spreadsheet_name: str) -> gsp
     return gspread_spreadsheet
 
 #def test_zeroday_dataset_p(input_packages: str, output_dir: str, gspread_spreadsheet: gspread.Spreadsheet, target_sheet_name: str = "ZDC", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
+#def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: str, spreadsheet_name: str, target_sheet_name: str = "ZDC", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0, package_list_path: str = '') -> None:
 def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: str, spreadsheet_name: str, target_sheet_name: str = "ZDC", concurrency_level: int = 1, package_start_ind: int = 0, package_finish_ind: int = 0) -> None:
     """
     Makes a list of all the NPM package files and distributs their analysis across a :class:`multiprocessing.Pool` of concurrent processes.
@@ -1862,8 +1863,14 @@ def test_zeroday_dataset_p(input_packages: str, output_dir: str, service_acc: st
     index_path: str = os.path.join(input_packages, DATASET_INDEX_NAME)
     package_paths, dataset_package_file_paths = read_dataset_index(index_path, package_start_ind, package_finish_ind)
 
-
+    print(f'[INFO][{THIS_SCRIPT_NAME}] - Will use packages listed in index file:\n\t{index_path}.')
     print(f'[INFO][{THIS_SCRIPT_NAME}] - Checking package indices [{package_start_ind}-{package_start_ind+len(package_paths)}[')
+
+    print(f'[INFO][{THIS_SCRIPT_NAME}] - Package count: {len(package_paths)}')
+
+    #sys.exit(0)
+    
+
     for pp in package_paths:
         print(f'\t{pp}')
 
@@ -2210,12 +2217,31 @@ def test_zeroday_dataset():
         else:
             print(Fore.MAGENTA + f'Package "{package}" has already been tested' + Fore.RESET)
 
-def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt') -> bool:
+def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt', specific_package_list: str = '') -> bool:
+
+    # Load the specific packages to process, if a list was given.
+    specific_packages: List[str] = []
+    if len(specific_package_list) > 0:
+        with open(specific_package_list, 'r') as spl:
+            lines = spl.readlines()
+            
+            for l in lines:
+                full_path: str = f"{input_path}{os.path.sep}{l.strip()}"
+                specific_packages.append(full_path)
+
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - Flag --specific-package-list specified {len(specific_packages)} packages.')
+        index_name = index_name[: index_name.rfind('.')] + '-' + str(len(specific_packages)) + '.txt'
+        global DATASET_INDEX_NAME 
+        DATASET_INDEX_NAME = index_name
     index_file_path: str = os.path.join(input_path, index_name)
 
-    # Interact with the operating system to get all packages, sorted.
-    input_packages = f"{input_path}{os.path.sep}*"
-    package_paths: List[str] = glob(input_packages)
+    package_paths: List[str]
+    if len(specific_packages) > 0:
+        package_paths = specific_packages
+    else:
+        # Interact with the operating system to get all packages, sorted.
+        input_packages = f"{input_path}{os.path.sep}*"
+        package_paths = glob(input_packages)
     package_paths.sort()
 
     # If there were no packages found, warn the user and exit.
@@ -2247,6 +2273,9 @@ def generate_dataset_index(input_path: str, index_name: str = 'dataset-index.txt
 
         print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - generated dataset index:\n\t{package_ctr} packages\n\t{js_file_ctr} files.' + Fore.RESET)
 
+    
+    print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - index:\n\t{index_file_path}...' + Fore.RESET)
+
     return True
 
 def build_neo4j_docker_image(target_docker_image: str ='neo4j-docker') -> bool:
@@ -2275,38 +2304,7 @@ def build_neo4j_docker_image(target_docker_image: str ='neo4j-docker') -> bool:
     
     return True
 
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("tool", choices=["explode.js", "odgen", "zeroday"], 
-                        help="Which tool should be tested?")
-    parser.add_argument("-i", "--input", help="path to directory with npm packages.", type=str, default="", required=True)
-    parser.add_argument("-o", "--output-dir", help="file information output directory - will be created if it does not exist.", type=str, default="", required=True)
-    parser.add_argument("-d", type=str, default="example",
-                        help="What dataset should be tested?")
-    parser.add_argument("-u", action="store_true",
-                        help="Update google sheets?")
-    parser.add_argument("-t", action="store_true")
-    parser.add_argument("-x", action="store_true",
-                        help="Update google sheets?")
-    parser.add_argument("-l", action="store_true",
-                        help="Run neo4j locally")
-    parser.add_argument("-p", "--parallelism", type=int, default=1)
-    parser.add_argument("--index-only", action="store_true",
-                        help="Generate the index of all .js/.cjs files and exit.")
-    
-    parser.add_argument("--target-gsheet", type=str, default="explode.js-vs-odgen",
-                        help="Target Google Sheet to use.")
-    
-    parser.add_argument("-s", "--start-package", type=int, default=0,
-                        help="Index of the package to start processing. Must be a non-negative integer lower than the value of '-f/--finish-package'.")
-    parser.add_argument("-f", "--finish-package", type=int, default=0,
-                        help="Index of the package to finish processing. Must be an integer greater than '-s/--start-package'")
-    args = parser.parse_args()
-
-    ###### Argument sanity checking.
-
+def check_arguments(args):
     # Range of packages to evaluate in this execution.
     if not (args.start_package == 0 and args.finish_package == 0):
         if args.start_package < 0:
@@ -2336,13 +2334,66 @@ if __name__ == "__main__":
             args.output_dir = os.path.expanduser(args.output_dir).replace('\\', '/')
         pathlib.Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
+    # Are we passing in a file path with explicit packages to process?
+    if len(args.specific_package_list) > 0:
+        if not (os.path.exists(args.specific_package_list) and os.path.isfile(args.specific_package_list)):
+            print(f"Error. '--specific-package-list' must be a path to an existing directory. Exiting.")
+            sys.exit(1)
+
     # Generate an index file for the whole dataset.
-    if not generate_dataset_index(args.input, DATASET_INDEX_NAME):
+    # if len(args.specific_index_name) > 0:
+    #     index_name
+    # else:
+    #     index_name: str = DATASET_INDEX_NAME
+
+    if not generate_dataset_index(args.input, DATASET_INDEX_NAME, args.specific_package_list):
         sys.exit(1)
     
     if args.index_only == True:
         print(Fore.MAGENTA + f'[STARTUP][{THIS_SCRIPT_NAME}] - Passed option to only generate dataset index. Exiting.' + Fore.RESET)
         sys.exit(0)
+
+    
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("tool", choices=["explode.js", "odgen", "zeroday"], 
+                        help="Which tool should be tested?")
+    parser.add_argument("-i", "--input", help="path to directory with npm packages.", type=str, default="", required=True)
+    parser.add_argument("-o", "--output-dir", help="file information output directory - will be created if it does not exist.", type=str, default="", required=True)
+    parser.add_argument("-d", type=str, default="example",
+                        help="What dataset should be tested?")
+    parser.add_argument("-u", action="store_true",
+                        help="Update google sheets?")
+    parser.add_argument("-t", action="store_true")
+    parser.add_argument("-x", action="store_true",
+                        help="Update google sheets?")
+    parser.add_argument("-l", action="store_true",
+                        help="Run neo4j locally")
+    parser.add_argument("-p", "--parallelism", type=int, default=1)
+    parser.add_argument("--index-only", action="store_true",
+                        help="Generate the index of all .js/.cjs files and exit.")
+    
+    parser.add_argument("--target-gsheet", type=str, default="explode.js-vs-odgen",
+                        help="Target Google Sheet to use.")
+    
+    parser.add_argument("-s", "--start-package", type=int, default=0,
+                        help="Index of the package to start processing. Must be a non-negative integer lower than the value of '-f/--finish-package'.")
+    parser.add_argument("-f", "--finish-package", type=int, default=0,
+                        help="Index of the package to finish processing. Must be an integer greater than '-s/--start-package'")
+
+    parser.add_argument("--specific-package-list", type=str, default="",
+                        help="Path to a specific list of packages to focus on", required=False)
+    # parser.add_argument("--specific-index-name", type=str, default="",
+    #                     help="Specific index name to create.", required=False)
+
+    args = parser.parse_args()
+
+    # Argument sanity checking.
+    check_arguments(args)
+
+    
+    
 
 
     if args.tool == "explode.js" and args.d == "zeroday":
@@ -2356,7 +2407,7 @@ if __name__ == "__main__":
         test_zeroday_dataset_p(args.input, args.output_dir, 
                                service_acc = '.config/service_account.json', spreadsheet_name = args.target_gsheet,
                                target_sheet_name = "ZDC", concurrency_level = args.parallelism, 
-                               package_start_ind = args.start_package, package_finish_ind = args.finish_package)
+                               package_start_ind = args.start_package, package_finish_ind = args.finish_package) #package_list_path = args.specific_package_list)
         #test_zeroday_dataset()
 
     elif args.tool == "explode.js" and ("d" not in args or args.d == "example") and not args.t:

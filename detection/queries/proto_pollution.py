@@ -203,6 +203,69 @@ class PrototypePollution(QueryType):
 		RETURN *
 	"""
 	"""
+	Prototype Pollution Query
+	"""
+	proto_pollution_query = """
+		MATCH
+			// First lookup sub-query
+			(obj:PDG_)
+				-[first_lookup:PDG]	
+					->(sub_obj:PDG_OBJECT),
+			// Object assignment sub-query
+			(sub_obj:PDG_OBJECT)
+				-[nv:PDG]
+					->(nv_sub_obj:PDG_OBJECT)
+						-[second_lookup:PDG]
+							->(property:PDG_OBJECT),
+			// First lookup property is tainted sub-query
+			(source:TAINTED_SOURCE)
+				-[key_taint:TAINT]
+					->(key:PDG_OBJECT)
+						-[tainted_key_path:PDG*1..]
+							->(sub_obj),
+			// Object assignment property is tainted sub-query 
+			(source)
+				-[subKey_taint:PDG]
+					->(subKey:PDG_OBJECT)
+						-[tainted_subKey_path:PDG*1..]
+							->(nv_sub_obj),
+			// Object assignment assigned value is tainted sub-query
+			(source)
+				-[value_taint:TAINT]
+					->(value:PDG_OBJECT)
+						-[tainted_value_path:PDG*1..]
+							->(property),
+			// AST source sub-query
+			(source_ast)
+				-[source_ref:REF]
+					->(value),
+			// AST objcet assignment sub-query
+			(assignment_ast)
+				-[assignment_ref:REF]
+					->(nv_sub_obj)
+		WHERE
+			first_lookup.RelationType = "SO" AND
+			first_lookup.IdentifierName = "*" AND
+			nv.RelationType = "NV" AND
+			nv.IdentifierName = "*" AND
+			second_lookup.RelationType = "SO" AND
+			second_lookup.IdentifierName = "*" AND
+			subKey_taint.RelationType = "TAINT" AND
+			ALL(edge IN tainted_key_path WHERE
+				edge.RelationType = "SO" OR 
+				edge.RelationType = "ARG" OR
+				edge.RelationType = "DEP") AND
+			ALL(edge IN tainted_subKey_path WHERE
+				edge.RelationType = "SO" OR 
+				edge.RelationType = "ARG" OR
+				edge.RelationType = "DEP") AND
+			ALL(edge IN tainted_value_path WHERE
+				edge.RelationType = "SO" OR 
+				edge.RelationType = "ARG" OR
+				edge.RelationType = "DEP") 
+		RETURN *
+	"""
+	"""
 	Find all prototype pollution. 
 	Will lead to a lot of false positives but if the graph 
 	is well parsed the false negative rate will be close to 0.
