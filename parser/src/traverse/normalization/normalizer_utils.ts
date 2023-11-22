@@ -762,6 +762,15 @@ export function normConditionalExpression(obj: ConditionalExpression, children: 
         newAlternateStatements.push(createGenericExpressionAssignment(newId as Pattern, alternate));
         testExpr = id;
         declStmt.push(decl);
+    }
+    else if (alternate.type === "AssignmentExpression") {
+        const newId = createRandomIdentifier();
+        const { id, decl } = createVariableDeclarationWithIdentifier(newId, null);
+        newConsequentStatements.push(createGenericExpressionAssignment(newId as Pattern, consequent));
+        newAlternateStatements.push(createGenericExpressionAssignment(alternate.left, alternate.right));
+        newAlternateStatements.push(createExpressionAssignment(newId.name, alternate.left as Expression));
+        testExpr = id;
+        declStmt.push(decl);
     } else {
         const newId = createRandomIdentifier();
         const { id, decl } = createVariableDeclarationWithIdentifier(newId, null);
@@ -1021,15 +1030,14 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                     expr: newObj
                 };
             }
-        } else if (rightExpr.type === "AssignmentExpression") {
-            const newIdentifier = createRandomIdentifier()
+        } else if (rightExpr.type === "AssignmentExpression" && ["Identifier", "MemberExpression"].includes(leftExpr.type)) {
+            // @ts-ignore because is already in the second if condition
+            const newAssignment = createGenericExpressionAssignment(rightExpr.left, rightExpr.right)
             const newRightExpr = copyObj(rightExpr.left);
-
-            const decl = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr).decl;
-            newObj.right = newIdentifier;
+            newObj.right = newRightExpr;
 
             return {
-                stmts: [...children[0].stmts, ...children[1].stmts, decl],
+                stmts: [...children[0].stmts, ...children[1].stmts, newAssignment],
                 expr: newObj
             };
         } else if (rightExpr.type === "MemberExpression" && leftExpr.type === "MemberExpression") {
