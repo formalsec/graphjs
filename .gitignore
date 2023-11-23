@@ -21,4 +21,5 @@ datasets/zeroday-dataset/packages/
 
 .vscode/
 .idea/
+*.iml
 .DS_Store
