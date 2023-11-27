@@ -1,4 +1,0 @@
-colorama==0.4.6
-dill==0.3.6
-gspread==5.10.0
-neo4j==5.9.0

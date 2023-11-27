@@ -5,7 +5,7 @@ ROOT_DIR=$(dirname $PWD)
 THIS_DIR=$PWD
 
 # Import argument parsing functions
-source "$ROOT_DIR"/scripts/utils/parse_arguments.sh
+source "$THIS_DIR"/parse_arguments.sh
 
 # Check argument to single javascript source file
 if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
