@@ -116,12 +116,7 @@ if (!fs.existsSync(configFile)) console.error(`${configFile} is not a valid conf
 
 // Generate code property graph
 const config = readConfig(configFile);
-const start = performance.now()
-console.log(Date.now())
-console.log(start)
 const graph = parse(filename, config, normalizedPath, silentMode);
-const end = performance.now()
-console.log(end)
 if (!graph) console.error(`Unable to generate code property graph`);
 
 // Generate output files
@@ -136,9 +131,6 @@ if (argv.graph) {
     graph.outputManager = new OutputManager(graphOptions, new DotOutput());
     graph.output(argv.g);
 }
-const second_end = performance.now()
 
 const statsFileName = path.join(argv.g, 'graph_stats.json')
 fs.writeFileSync(statsFileName, `{ "edges": ${graph.edges.size}, "nodes": ${graph.nodes.size}}`)
-const timeFileName = path.join(argv.g, 'time_graph_stats.json')
-fs.writeFileSync(timeFileName, `${(end - start)}`)

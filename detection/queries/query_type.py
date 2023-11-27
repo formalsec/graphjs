@@ -1,14 +1,13 @@
 from abc import abstractmethod
-import json
-
 import os
-
 import my_utils.utils as my_utils
 
 THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 
+
 class QueryType:
-    debug = False #TODO: Delete
+    debug = False  # TODO: Delete
+
     def __init__(self, str_type):
         self.type = str_type
 
@@ -18,7 +17,7 @@ class QueryType:
     @abstractmethod
     def find_vulnerable_paths(self, session, vuln_paths, vuln_file, config):
         pass
-    
+
     def get_obj_recon_queries(self, source):
         recon_query = f"""
             MATCH
@@ -65,7 +64,7 @@ class QueryType:
                 ref_edge.ParamIndex
         """
         return [recon_query, recon_logical_expr_query]
-    
+
     def find_variable_declarators(self, session, param_name, obj_ids):
         """
         Find variable declarators in the graph that depend on param_name
@@ -81,7 +80,7 @@ class QueryType:
         """
 
         results = session.run(find_var_decls_query)
-        var_decls = [ param_name ]
+        var_decls = [param_name]
         for record in results:
             # distructering is also a variable declarator
             if record["vx"]["IdentifierName"]:
@@ -120,7 +119,7 @@ class QueryType:
         """
         results = session.run(arr_static_methods_query)
         for result in results:
-            if self.debug: print("Array, Number, Object: Static Methdos, e.g. Array.isArray(param)") 
+            if self.debug: print("Array, Number, Object: Static Methdos, e.g. Array.isArray(param)")
             types.add(result["type.IdentifierName"].lower())
         # Array, Boolean, Function, Number, Object, String: Node.js Built-in Functions, e.g. path.join(arr)
         any_built_in_functions_query = f"""
@@ -139,11 +138,12 @@ class QueryType:
         """
         results = session.run(any_built_in_functions_query)
         for result in results:
-            if self.debug: print("Array, Boolean, Function, Number, Object, String: Node.js Built-in Functions, e.g. fs.join(arr)") 
+            if self.debug: print(
+                "Array, Boolean, Function, Number, Object, String: Node.js Built-in Functions, e.g. fs.join(arr)")
             function = functions_signatures[result["function.IdentifierName"]]
             args_types = function["args_types"]
             arg = int(result["arg"]["ArgumentIndex"])
-            if len(args_types) >= arg: 
+            if len(args_types) >= arg:
                 types.add(args_types[arg - 1])
             elif arg > len(args_types) and "rest?" in function:
                 types.add(args_types[0])
@@ -172,7 +172,8 @@ class QueryType:
         """
         results = session.run(any_typeof_query)
         for result in results:
-            if self.debug: print("Array, Boolean, Function, Number, Object, String: typeof keyword, e.g. typeof param === \"function\"") 
+            if self.debug: print(
+                "Array, Boolean, Function, Number, Object, String: typeof keyword, e.g. typeof param === \"function\"")
             types.add(result["literal.Raw"].replace("'", ""))
         # ================================= Function ================================
         # Function (Any): Function call, e.g. param()
@@ -189,7 +190,7 @@ class QueryType:
             """
             results = session.run(func_func_call_query)
             if results.peek():
-                if self.debug: print("Function (Any): Function call, e.g. param()") 
+                if self.debug: print("Function (Any): Function call, e.g. param()")
                 return "function"
         # ================================== Array ==================================
         # Array: Prototype function call, e.g. param.join('')
@@ -213,7 +214,7 @@ class QueryType:
             """
             results = session.run(arr_proto_func_call_query)
             if results.peek():
-                if self.debug: print("Array: Prototype function call, e.g. param.join('')") 
+                if self.debug: print("Array: Prototype function call, e.g. param.join('')")
                 types.add("array")
         # Array: ForOfStatement, e.g. for i of param
         if "array" not in types:
@@ -229,7 +230,7 @@ class QueryType:
             """
             results = session.run(arr_proto_func_call_query)
             if results.peek():
-                if self.debug: print("Array: ForOfStatement, e.g. for i of param") 
+                if self.debug: print("Array: ForOfStatement, e.g. for i of param")
                 types.add("array")
         # ================================ Boolean ================================
         # Boolean: Binary Expression, e.g. param === true 
@@ -250,7 +251,7 @@ class QueryType:
             """
             results = session.run(bool_bin_exp_query)
             if results.peek():
-                if self.debug: print("Boolean: Binary Expression, e.g. param === true ") 
+                if self.debug: print("Boolean: Binary Expression, e.g. param === true ")
                 types.add("bool")
         # ================================= Number ==================================
         # Number: Binary Expression, e.g. param + 4
@@ -270,7 +271,7 @@ class QueryType:
             """
             results = session.run(num_bin_exp_query)
             if results.peek():
-                if self.debug: print("Number: Binary Expression, e.g. param + 4") 
+                if self.debug: print("Number: Binary Expression, e.g. param + 4")
                 types.add("number")
         # Number: Binary Expression with number operators, e.g. param / num
         if "number" not in types:
@@ -286,7 +287,7 @@ class QueryType:
             """
             results = session.run(num_bin_exp_query)
             if results.peek():
-                if self.debug: print("Number: Binary Expression with number operators, e.g. param / num") 
+                if self.debug: print("Number: Binary Expression with number operators, e.g. param / num")
                 types.add("number")
         # ================================= String ==================================
         # String: Prototype function call, e.g. param.charAt(0)
@@ -310,7 +311,7 @@ class QueryType:
             """
             results = session.run(str_proto_func_call_query)
             if results.peek():
-                if self.debug: print("String: Prototype function call, e.g. param.charAt(0)") 
+                if self.debug: print("String: Prototype function call, e.g. param.charAt(0)")
                 types.add("string")
         # String: Binary Expression concatenation, e.g. param + "string"
         if "string" not in types:
@@ -330,7 +331,7 @@ class QueryType:
             """
             results = session.run(str_bin_exp_query)
             if results.peek():
-                if self.debug: print("String: Binary Expression concatenation, e.g. param + \"string\"") 
+                if self.debug: print("String: Binary Expression concatenation, e.g. param + \"string\"")
                 types.add("string")
         # String: Template Literal, e.g. `This is a string ${param}`
         if "string" not in types:
@@ -346,7 +347,7 @@ class QueryType:
             results = session.run(str_tmplt_literal_query)
             if results.peek():
                 # print("# String: Template Literal, e.g. `This is a string $param`")
-                if self.debug: print("String: Template Literal, e.g. `This is a string ${param}") 
+                if self.debug: print("String: Template Literal, e.g. `This is a string ${param}")
                 types.add("string")
         # String: Function call argument, e.g. eval(param)
         if "string" not in types:
@@ -369,7 +370,7 @@ class QueryType:
             """
             results = session.run(str_func_call_query)
             if results.peek():
-                if self.debug: print("String: Function call argument, e.g. eval(param)") 
+                if self.debug: print("String: Function call argument, e.g. eval(param)")
                 types.add("string")
         # String: Member expression function call argument, e.g. child_process.exec(param)
         if "string" not in types:
@@ -394,7 +395,7 @@ class QueryType:
             """
             results = session.run(str_mem_exp_func_call_query)
             if results.peek():
-                if self.debug: print("String: Member expression function call argument, e.g. child_process.exec(param)") 
+                if self.debug: print("String: Member expression function call argument, e.g. child_process.exec(param)")
                 types.add("string")
         # String: Member Expression Computed property, e.g. obj[param]
         if "string" not in types:
@@ -411,7 +412,7 @@ class QueryType:
             """
             results = session.run(prop_str_query)
             if results.peek():
-                if self.debug: print("String: Member Expression Computed property, e.g. obj[param]") 
+                if self.debug: print("String: Member Expression Computed property, e.g. obj[param]")
                 types.add("string")
 
         types = list(types)
@@ -429,7 +430,7 @@ class QueryType:
                 else:
                     d[i].pop("pdg_node_id", None)
                     self.assign_types(session, d[i], config)
-                
+
     def is_lazy_object(self, obj):
         """
         Check if object is lazy-object, e.g, {"*": {"*": "any"}}
@@ -455,22 +456,27 @@ class QueryType:
         1 - Some objects might be arrays. 
         2 - Some objects don't contain useful information (lazy-objects), e.g, {"*": {"*": "any"}}  
         """
-        polluted_object_name = polluted_object["IdentifierName"].split(".")[1].split("-")[0] if polluted_object else polluted_object
-        polluting_value_name = polluting_value["IdentifierName"].split(".")[1].split("-")[0] if polluting_value else polluting_value
+        polluted_object_name = polluted_object["IdentifierName"].split(".")[1].split("-")[
+            0] if polluted_object else polluted_object
+        polluting_value_name = polluting_value["IdentifierName"].split(".")[1].split("-")[
+            0] if polluting_value else polluting_value
         for i, v in params_types.items():
-            if isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()): 
+            if isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()):
                 arr = []
                 for key, value in params_types[i].items():
-                    if key.isdigit(): 
+                    if key.isdigit():
                         arr.extend(["any"] * (int(key) - len(arr)))
                         arr.insert(int(key), value)
                 if all(key == "length" or key.isdigit() or key == "*" for key in params_types[i].keys()):
                     params_types[i] = arr
                 else:
                     params_types[i] = f"{params_types[i]} | {arr}"
-            elif isinstance(v, dict) and "length" in params_types[i] and all(key == "length" or key == "*" or key in config["prototypes"]["string"]  for key in params_types[i].keys()):
+            elif isinstance(v, dict) and "length" in params_types[i] and all(
+                    key == "length" or key == "*" or key in config["prototypes"]["string"] for key in
+                    params_types[i].keys()):
                 params_types[i] = f"{params_types[i]} | array | string"
-            elif isinstance(v, dict) and ("length" in params_types[i] and all(key == "length" or key == "*" for key in params_types[i].keys())):
+            elif isinstance(v, dict) and ("length" in params_types[i] and all(
+                    key == "length" or key == "*" for key in params_types[i].keys())):
                 params_types[i] = f"{params_types[i]} | array"
             elif self.is_lazy_object(params_types[i]) and polluted_object_name == i:
                 params_types[i] = f"polluted-object | array"
@@ -480,7 +486,7 @@ class QueryType:
                 params_types[i] = f"lazy-object | array"
             elif isinstance(v, dict):
                 self.simplify_objects(params_types[i], config)
-    
+
     def reconstruct_attacker_controlled_data(self, session, detection_record, attacker_controlled_data, config):
         """
         Find and reconstruct the parameters controlled by an attacker.
@@ -503,7 +509,7 @@ class QueryType:
                     obj_recon_flag = True
                     if param_name not in params_types:
                         params_types[param_name] = {
-                            "pdg_node_id": set([ param["Id"] ])
+                            "pdg_node_id": set([param["Id"]])
                         }
                     else:
                         param_types_pointer = params_types
@@ -512,9 +518,9 @@ class QueryType:
                             node_id = rel.nodes[1]["Id"]
                             if rel["RelationType"] == "SO" and obj_recon_flag:
                                 prop_name = rel["IdentifierName"]
-                                if prop_name not in params_types: 
+                                if prop_name not in params_types:
                                     params_types[prop_name] = {
-                                        "pdg_node_id": set([ node_id ])
+                                        "pdg_node_id": set([node_id])
                                     }
                                 else:
                                     params_types[prop_name]["pdg_node_id"].add(node_id)
@@ -524,11 +530,12 @@ class QueryType:
                                 params_types["pdg_node_id"].add(node_id)
                         params_types = param_types_pointer
 
-            print(f'[INFO][{THIS_SCRIPT_NAME}] - Assigning types to attacker-controlled data.') 
+            print(f'[INFO][{THIS_SCRIPT_NAME}] - Assigning types to attacker-controlled data.')
             self.assign_types(session, params_types, config)
             # self.simplify_objects(params_types, config, detection_record.get("tamp_obj", False), detection_record.get("param", False))
             attacker_controlled_data[source_cfg_id] = params_types
-        else:        
+        else:
             params_types = attacker_controlled_data[source_cfg_id]
 
-        return list(params_types.keys()), params_types 
+        return list(params_types.keys()), params_types
+

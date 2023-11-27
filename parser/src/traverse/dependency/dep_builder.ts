@@ -411,7 +411,7 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     const objectLocations: number[] = evalSto(trackers, obj);
 
     // Evaluate the dependencies for the right side
-    let deps: Dependency[] = evalDep(trackers, stmtId, right);
+    let deps: Dependency[] = evalDep(trackers, stmtId, right, undefined, true);
 
     // if the member expression is computed and is not a Literal then we have to evaluate the dependencies
     // of the property as it is a variable, because it influences the object otherwise treat it is a Literal

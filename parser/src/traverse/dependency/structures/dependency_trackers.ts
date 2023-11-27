@@ -458,9 +458,9 @@ export class DependencyTracker {
 
         // 1. Create new version locations
         // Note: check if it was already created in the same assignment (loops)
-        const newLocations: number[] =  []
+        const newLocations: number[] = []
         objectLocations.forEach((location: number) => {
-            const oldLocation: GraphNode  | undefined = this.graphGetNode(location);
+            const oldLocation: GraphNode | undefined = this.graphGetNode(location);
             // Check if node already has a new version edge for this assignment
             const newVersionAssigned: number | undefined = this.checkAssignment(stmtId, `nv_${propName}`)
             if (newVersionAssigned) {
@@ -469,8 +469,7 @@ export class DependencyTracker {
                     this.graphCreateNewVersionEdge(location, newVersionAssigned, propName);
                 }
                 newLocations.push(newVersionAssigned)
-            }
-            else {
+            } else {
                 const newLocation: GraphNode = this.graphAddLocation(objName, context, stmtId);
                 this.graphCreateNewVersionEdge(location, newLocation.id, propName);
                 this.addAssignment(stmtId, { operation: `nv_${propName}`, node: newLocation.id})
@@ -750,7 +749,7 @@ export class DependencyTracker {
     }
 }
 
-export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode, arg?: number, isProp: boolean=false): Dependency[] {
+export function evalDep(trackers: DependencyTracker, stmtId: number, node: GraphNode, arg?: number, isProp: boolean = false): Dependency[] {
     switch (node.type) {
         case "Literal":
             return [];
