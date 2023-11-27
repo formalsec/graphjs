@@ -4,16 +4,16 @@ Graph.js is a static vulnerability scanner specialized in analyzing _npm_
 packages and detecting taint-style and prototype pollution vulnerabilities.
 
 - Currently, detects 4 types of vulnerabilities: 
-  - _Path Traversal_ (CWE-22);
-  - _Command Injection_ (CWE-94);
-  - _Code Execution_ (CWE-78);
-  - _Prototype Pollution_ (CWE-1321).
+    - _Path Traversal_ (CWE-22);
+    - _Command Injection_ (CWE-94);
+    - _Code Execution_ (CWE-78);
+    - _Prototype Pollution_ (CWE-1321).
 - Our evaluation on two curated datasets (VulcaN [1]; SecBench) shows that it significantly
   outperforms ODGen, the state-of-the-art tool, with lower false negatives and shorter analysis time.
 
-## Publications
+### Publications
 
-- <a href="https://ieeexplore.ieee.org/document/10168679">**VulcaN Dataset [1]</a>:** Tiago Brito, Mafalda Ferreira, Miguel Monteiro, Pedro Lopes, Miguel Barros, José Fragoso Santos, Nuno Santos: 
+- <a href="https://ieeexplore.ieee.org/document/10168679">**VulcaN Dataset [1]**</a>: Tiago Brito, Mafalda Ferreira, Miguel Monteiro, Pedro Lopes, Miguel Barros, José Fragoso Santos, Nuno Santos: 
 *"Study of JavaScript Static Analysis Tools for Vulnerability Detection in Node.js Packages"*,
 in *IEEE Transactions on Reliability 2023 (ToR 2023)*.
 ```
@@ -27,7 +27,7 @@ in *IEEE Transactions on Reliability 2023 (ToR 2023)*.
 }
 ```
 
-- **<a href="https://www.computer.org/csdl/proceedings-article/sp/2023/933600b014/1Js0DzhaXNm">RuleKeeper</a>:**
+- <a href="https://www.computer.org/csdl/proceedings-article/sp/2023/933600b014/1Js0DzhaXNm">**RuleKeeper**</a>:
 Mafalda Ferreira, Tiago Brito, José Fragoso Santos, Nuno Santos: 
 *"RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks"*, 
 in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023.
@@ -44,24 +44,24 @@ in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023
 }
 ```
 
-## Repositories
+### Repositories
 
 - [VulcaN](https://github.com/VulcaN-Study/Supplementary-Material)
 - [RuleKeeper](https://github.com/rulekeeper/rulekeeperhttps://github.com/rulekeeper/rulekeeper)
 
-## Installation
+### Installation
 
 Graph.js generates a graph using [npm](https://www.npmjs.com/)/[node](https://nodejs.org/en) and uses [Neo4j](https://neo4j.com/) to query the graph. <br>
 This last component can be executed in a docker container (easier setup) or locally.
 Both program versions are located in the [bin](./bin) folder.
 
-### Requirements
+#### Requirements
 - [npm](https://www.npmjs.com/) (I've tested v8.5.1, v9.5.1 and v9.4.0)
 - [node](https://nodejs.org/en) (I've tested v18.16.1, v19.6.0)
 - (**if locally**) [neo4j](https://neo4j.com/) (I've tested v5.9.0). Instructions: https://neo4j.com/docs/operations-manual/current/installation/linux/
 
 
-## Usage
+### Usage
 
 Graph.js provides a command-line interface. Run it without arguments for a short description.
 
@@ -89,32 +89,32 @@ By default, all the results are stored in a *graphjs-results* folder, in the roo
 ```
 graphjs-results
 ├── graph
-│   ├── graph_stats.json (stores some metrics)
-│   ├── nodes.csv (csv file of the graph nodes)
-│   └── rels.csv (csv file of the graph relationships)
+│   ├── graph_stats.json (stores some metrics)
+│   ├── nodes.csv (csv file of the graph nodes)
+│   └── rels.csv (csv file of the graph relationships)
 ├── normalized.js (normalized code)
 └── taint_summary.json (detection results)
 ```
 
 
-### Run using docker
+#### Run using docker
 - Execute inside the *bin* folder
 - If first time, execute the setup (`./setup.sh`)
 - Have docker service running
 - Create a config file (*/neo4j-custom/.config* ) with your password
-  - e.g. `password=<your-password>`
+    - e.g. `password=<your-password>`
 
 ```bash
 ./graphjs-docker.sh -f <file_to_analyze> -s
 ```
 
 
-### Run locally
+#### Run locally
 - Execute inside the *bin* folder
 - If first time, execute the setup (`./setup.sh`)
 - Edit file [detection/run.py](detection/run.py) (line 27) with your neo4j credentials.
-  - E.g. `auth=('neo4j', 'neo4jadmin')`
-  - If it is your first time setting up neo4j, you might need to update the password (`neo4j-admin dbms set-initial-password <password>`)
+    - E.g. `auth=('neo4j', 'neo4jadmin')`
+    - If it is your first time setting up neo4j, you might need to update the password (`neo4j-admin dbms set-initial-password <password>`)
 
 ```bash
 ./graphjs-local.sh -f <file_to_analyze> -s
