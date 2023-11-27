@@ -9,13 +9,13 @@ source "$ROOT_DIR"/scripts/utils/parse_arguments.sh
 
 # Check argument to single javascript source file
 if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
-    echo "Running Explode.js for $FILEPATH"
+    echo "Running Graph.js for $FILEPATH"
 
-    # Clean Explode.js output if it exists
-    if [ -d "$EXPLODEJS_DIR" ] ; then
-        rm -rf "$EXPLODEJS_DIR"/!(*expected_output.json)
+    # Clean Graph.js output if it exists
+    if [ -d "$GRAPHJS_DIR" ] ; then
+        rm -rf "$GRAPHJS_DIR"/!(*expected_output.json)
     else
-        mkdir -p $EXPLODEJS_DIR 
+        mkdir -p $GRAPHJS_DIR
     fi
 
     # Create graph outputs dir
@@ -56,12 +56,12 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         ## Run queries stage
         echo "[INFO] - Running queries."
         QUERIES=$(realpath ../detection)
-        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY 2> "$EXPLODEJS_DIR/time_stats.txt"
+        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY 2> "$GRAPHJS_DIR/time_stats.txt"
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do
-        if [[ ($file == *.js || $file == *.cjs) && -f $file ]] || [[ -d $string && $string != *explodejs ]]; then
-            ./explodejs-local.sh -xf $file -c config.json -e "${file}_explodejs"
+        if [[ ($file == *.js || $file == *.cjs) && -f $file ]] || [[ -d $string && $string != *graphjs ]]; then
+            ./graph-local.sh -xf $file -c config.json -e "${file}_graphjs"
         fi
     done
 else

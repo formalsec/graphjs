@@ -9,13 +9,13 @@ source "$ROOT_DIR"/scripts/utils/parse_arguments.sh
 
 # Check argument to single javascript source file
 if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
-    echo "Running Explode.js for $FILEPATH..."
+    echo "Running Graph.js for $FILEPATH..."
 
-    # Clean Explode.js output if it exists
-    if [ -d "$EXPLODEJS_DIR" ] ; then
-        rm -rf "$EXPLODEJS_DIR"/!(*expected_output.json)
+    # Clean Graph.js output if it exists
+    if [ -d "$GRAPHJS_DIR" ] ; then
+        rm -rf "$GRAPHJS_DIR"/!(*expected_output.json)
     else
-        mkdir -p $EXPLODEJS_DIR 
+        mkdir -p $GRAPHJS_DIR
     fi
 
     # Create graph outputs dir
@@ -41,7 +41,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         NEO4J_DIR=$(realpath ./neo4j-custom)
 
         # import cpg to neo4j
-        NEO4J_EXPLODEJS_CONTAINER=neo4j-explodejs
+        NEO4J_GRAPHJS_DIR_CONTAINER=neo4j-graphjs
         cd $NEO4J_DIR
 
         ## Import CPG to Neo4j
@@ -55,13 +55,11 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY
 
         # stop Neo4J container
-        echo "[INFO] - Stopping and removing container $NEO4j_EXPLODEJS_CONTAINER"
-        docker stop $NEO4J_EXPLODEJS_CONTAINER
+        echo "[INFO] - Stopping and removing container $NEO4J_GRAPHJS_DIR_CONTAINER"
+        docker stop $NEO4J_GRAPHJS_DIR_CONTAINER
 
         # Create an exploit
         if $EXPLOIT; then
-            echo "[INFO] - Creating exploit"
-            
             # Create symbolic tests
             echo "[INFO] - Creating symbolic tests"
             node instrumentation/src/instrumenter.js -i $NORMALIZED -c $TAINT_SUMMARY -o $SYMBOLIC_TEST
@@ -70,8 +68,8 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do
-        if [[ ($file == *.js || $file == *.cjs) && -f $file ]] || [[ -d $string && $string != *explodejs ]]; then
-            ./explodejs-docker.sh -xf $file -c config.json -e "${file}_explodejs"
+        if [[ ($file == *.js || $file == *.cjs) && -f $file ]] || [[ -d $string && $string != *graphjs ]]; then
+            ./graphjs-docker.sh -xf $file -c config.json -e "${file}_graphjs"
         fi
     done
 else

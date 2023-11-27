@@ -20,8 +20,8 @@ def get_context_stack(session, obj):
 	"""
 	Check if object is lazy-object, e.g, {"*": {"*": "any"}}
 	"""
-	print(obj.id)
+	#print(obj.id)
 	paths = session.run(get_stack_single_pattern(obj.id))
-	for path in paths:
-		print(path)
+	#for path in paths:
+		#print(path)
 	return True
