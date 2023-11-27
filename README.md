@@ -1,15 +1,93 @@
-# Explode.js
+# Graph.js: A Static Vulnerability Scanner for _npm_ packages
 
-## Run
+Graph.js is a static vulnerability scanner specialized in analyzing _npm_
+packages and detecting taint-style and prototype pollution vulnerabilities.
 
-Explode.js generates a graph using [npm](https://www.npmjs.com/)/[node](https://nodejs.org/en) and uses [Neo4j](https://neo4j.com/) to query the graph. <br>
+- Currently, detects 4 types of vulnerabilities: 
+  - _Path Traversal_ (CWE-22);
+  - _Command Injection_ (CWE-94);
+  - _Code Execution_ (CWE-78);
+  - _Prototype Pollution_ (CWE-1321).
+- Our evaluation on two curated datasets (VulcaN [1]; SecBench) shows that it significantly
+  outperforms ODGen, the state-of-the-art tool, with lower false negatives and shorter analysis time.
+
+## Publications
+
+- <a href="https://ieeexplore.ieee.org/document/10168679">**VulcaN Dataset [1]</a>:** Tiago Brito, Mafalda Ferreira, Miguel Monteiro, Pedro Lopes, Miguel Barros, José Fragoso Santos, Nuno Santos: 
+*"Study of JavaScript Static Analysis Tools for Vulnerability Detection in Node.js Packages"*,
+in *IEEE Transactions on Reliability 2023 (ToR 2023)*.
+```
+@inproceedings{vulcan_tor,
+  author = {Brito, Tiago and Ferreira, Mafalda and Monteiro, Miguel and Lopes, Pedro and Barros, Miguel and Santos, José Fragoso and Santos, Nuno},
+  booktitle = {IEEE Transactions on Reliability},
+  title = {Study of JavaScript Static Analysis Tools for Vulnerability Detection in Node.js Packages},
+  year = {2023},
+  pages = {1-16},
+  doi = {10.1109/TR.2023.3286301},
+}
+```
+
+- **<a href="https://www.computer.org/csdl/proceedings-article/sp/2023/933600b014/1Js0DzhaXNm">RuleKeeper</a>:**
+Mafalda Ferreira, Tiago Brito, José Fragoso Santos, Nuno Santos: 
+*"RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks"*, 
+in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023.
+```
+@inproceedings{ferreira_sp23,
+  author = {Ferreira, Mafalda and Brito, Tiago and Santos, José Fragoso and Santos, Nuno},
+  title = {RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks},
+  booktitle = {Proceedings of 44th IEEE Symposium on Security and Privacy (S&P'23)},
+  year = {2023},
+  doi = {10.1109/SP46215.2023.00058},
+  pages = {1014-1031},
+  publisher = {IEEE Computer Society},
+  address = {Los Alamitos, CA, USA},
+}
+```
+
+## Repositories
+
+- [VulcaN](https://github.com/VulcaN-Study/Supplementary-Material)
+- [RuleKeeper](https://github.com/rulekeeper/rulekeeperhttps://github.com/rulekeeper/rulekeeper)
+
+## Installation
+
+Graph.js generates a graph using [npm](https://www.npmjs.com/)/[node](https://nodejs.org/en) and uses [Neo4j](https://neo4j.com/) to query the graph. <br>
 This last component can be executed in a docker container (easier setup) or locally.
 Both program versions are located in the [bin](./bin) folder.
 
-By default, all the results are stored in a *explodejs-results* folder, in the root of the project, with the following structure:
+### Requirements
+- [npm](https://www.npmjs.com/) (I've tested v8.5.1, v9.5.1 and v9.4.0)
+- [node](https://nodejs.org/en) (I've tested v18.16.1, v19.6.0)
+- (**if locally**) [neo4j](https://neo4j.com/) (I've tested v5.9.0). Instructions: https://neo4j.com/docs/operations-manual/current/installation/linux/
+
+
+## Usage
+
+Graph.js provides a command-line interface. Run it without arguments for a short description.
+
+```console
+Usage: ./graphjs-local.sh [options] -f vulnerable_file.js
+Description: Run Graph.js graph generator and vulnerability detection.
+
+Required:
+-f     Path to JavaScript file (.js) or directory containing JavaScript files for analysis.
+
+Options:
+-c     Path to JSON file (.json) containing the unsafe sinks.
+-e     Path to store Graph.js output files.
+-o     Path to Graph.js taint summary file (.json).
+-t     Path to Graph.js symbolic test (.js).
+-n     Path to normalization output file.
+-x     Create an exploit.
+-g     Generate only the CPG.
+-s     Silent mode - no console output.
+-h     Print this Help.
+```
+
+By default, all the results are stored in a *graphjs-results* folder, in the root of the project, with the following structure:
 
 ```
-explodejs-results
+graphjs-results
 ├── graph
 │   ├── graph_stats.json (stores some metrics)
 │   ├── nodes.csv (csv file of the graph nodes)
@@ -18,21 +96,16 @@ explodejs-results
 └── taint_summary.json (detection results)
 ```
 
-### Requirements
-- [npm](https://www.npmjs.com/) (I've tested v8.5.1, v9.5.1 and v9.4.0)
-- [node](https://nodejs.org/en) (I've tested v18.16.1, v19.6.0)
-- (**if locally**) [neo4j](https://neo4j.com/) (I've tested v5.9.0). Instructions: https://neo4j.com/docs/operations-manual/current/installation/linux/
-
 
 ### Run using docker
 - Execute inside the *bin* folder
 - If first time, execute the setup (`./setup.sh`)
 - Have docker service running
-- Create a config file (*/neo4j-custom/.config* ) with your password 
+- Create a config file (*/neo4j-custom/.config* ) with your password
   - e.g. `password=<your-password>`
 
 ```bash
-./explodejs-docker.sh -f <file_to_analyze> -s
+./graphjs-docker.sh -f <file_to_analyze> -s
 ```
 
 
@@ -44,14 +117,14 @@ explodejs-results
   - If it is your first time setting up neo4j, you might need to update the password (`neo4j-admin dbms set-initial-password <password>`)
 
 ```bash
-./explodejs-local.sh -f <file_to_analyze> -s
+./graphjs-local.sh -f <file_to_analyze> -s
 ```
 
 Example:
-`./explodejs-local.sh -f ../../explodejs-datasets/example-dataset/vulnerable/injection/example-0/example-0.js -s`
+`./graphjs-local.sh -f ../../explodejs-datasets/example-dataset/vulnerable/injection/example-0/example-0.js -s`
 
 
-### Explode.js phases
+### Graph.js phases
 
 #### 1. Build the code property graph (representation of source code)
 
@@ -72,11 +145,8 @@ The code for the queries is in the [detection](./detection) folder.
 
 This step uses the graph csv output and produces a summary file (*taint_summary.json*) with the detection results.
 
-#### 3. Generate the exploit
 
-This stage automatically generates an exploit for the vulnerability.
-
-### Generate only the graph 
+### Generate only the graph
 
 - Execute inside the *parser* folder
 
@@ -98,3 +168,4 @@ npm start -- -f <file_to_be_analyzed> [options]
 | Set array of functions to ignore in graph figure           	 | --if=[...]        	 | _[]_               	 | No       	 | _graph_  	 |
 | Show the code in each statement in graph figure            	 | --sc              	 | _false_            	 | No       	 | _graph_  	 |
 | Silent mode (not verbose)                                  	 | --silent          	 | _false_            	 | No       	 | -        	 |
+
