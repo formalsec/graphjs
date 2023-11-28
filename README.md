@@ -3,7 +3,7 @@
 Graph.js is a static vulnerability scanner specialized in analyzing _npm_
 packages and detecting taint-style and prototype pollution vulnerabilities.
 
-- Currently, detects 4 types of vulnerabilities: 
+- Currently, detects 4 types of vulnerabilities:
     - _Path Traversal_ (CWE-22);
     - _Command Injection_ (CWE-94);
     - _Code Execution_ (CWE-78);
@@ -11,16 +11,20 @@ packages and detecting taint-style and prototype pollution vulnerabilities.
 - Our evaluation on two curated datasets (VulcaN [1]; SecBench) shows that it significantly
   outperforms ODGen, the state-of-the-art tool, with lower false negatives and shorter analysis time.
 
+---
+
 ### Publications and Open-Source Repositories
 
 The development of Graph.js relates to additional research performed by this group.
 
-#### Study of JavaScript Static Analysis Tools for Vulnerability Detection in Node.js Packages
+#### 1. Study of JavaScript Static Analysis Tools for Vulnerability Detection in Node.js Packages
 This work comprises an empirical study of static code analysis tools for detecting vulnerabilities in Node.js code.
 We created a curated dataset of 957 Node.js code vulnerabilities, characterized and annotated by analyzing the information contained in _npm_ advisory reports.
+
 The dataset is available [here](https://github.com/VulcaN-Study/Supplementary-Material).
-The publication associated with this work is: 
-- <a href="https://ieeexplore.ieee.org/document/10168679">**VulcaN Dataset [1]**</a>: Tiago Brito, Mafalda Ferreira, Miguel Monteiro, Pedro Lopes, Miguel Barros, José Fragoso Santos, Nuno Santos: 
+
+The publication associated with this work is:
+- <a href="https://ieeexplore.ieee.org/document/10168679">**VulcaN Dataset [1]**</a>: Tiago Brito, Mafalda Ferreira, Miguel Monteiro, Pedro Lopes, Miguel Barros, José Fragoso Santos, Nuno Santos:
 *"Study of JavaScript Static Analysis Tools for Vulnerability Detection in Node.js Packages"*,
 in *IEEE Transactions on Reliability 2023 (ToR 2023)*.
 ```
@@ -35,14 +39,16 @@ in *IEEE Transactions on Reliability 2023 (ToR 2023)*.
 ```
 
 
-#### RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks
+#### 2. RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks
 In this work we developed a prototype of RuleKeeper, a GDPR-aware policy compliance system for web frameworks.
 RuleKeeper uses Graph.js to automatically check for the presence of GDPR compliance bugs in Node.js servers.
+
 The prototype is available [here](https://github.com/rulekeeper/rulekeeper).
+
 The publication associated with this work is:
 - <a href="https://www.computer.org/csdl/proceedings-article/sp/2023/933600b014/1Js0DzhaXNm">**RuleKeeper**</a>:
-Mafalda Ferreira, Tiago Brito, José Fragoso Santos, Nuno Santos: 
-*"RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks"*, 
+Mafalda Ferreira, Tiago Brito, José Fragoso Santos, Nuno Santos:
+*"RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks"*,
 in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023.
 ```
 @inproceedings{ferreira_sp23,
@@ -57,8 +63,34 @@ in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023
 }
 ```
 
+---
+## Team
 
-### Installation
+### Main Contributors
+<table style="width: 80%; margin-left: auto; margin-right: auto;">
+  <tr>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/jose_fragoso_santos.png" width="80%"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/mafalda_ferreira.png" width="80%"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/nuno_santos.jpeg" width="75%"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/filipe_marques.png" width="70%"/></td>
+  </tr>
+  <tr>
+    <td style="text-align: center"><a href="https://web.tecnico.ulisboa.pt/jose.fragoso/#projects">José Fragoso Santos</a></td>
+    <td style="text-align: center"><a href="https://www.dpss.inesc-id.pt/~mferreira/">Mafalda Ferreira</a></td>
+    <td style="text-align: center"><a href="https://syssec.dpss.inesc-id.pt/people/Nuno_Santos.html">Nuno Santos</a></td>
+    <td style="text-align: center"><a href="https://www.filipeom.dev/">Filipe Marques</a></td>
+  </tr>
+</table>
+
+#### Collaborators
+  - [Limin Jia](https://www.andrew.cmu.edu/user/liminjia/)
+  - [Miguel Coimbra](https://www.dpss.inesc-id.pt/~mcoimbra/)
+  - [Miguel Monteiro](https://www.linkedin.com/in/miguel-monteiro-229b86195/)
+  - [Tiago Brito](https://www.dpss.inesc-id.pt/blog/tiago-brito/)
+
+---
+
+## Tool Installation
 
 Graph.js generates a graph using [npm](https://www.npmjs.com/)/[node](https://nodejs.org/en) and uses [Neo4j](https://neo4j.com/) to query the graph. <br>
 This last component can be executed in a docker container (easier setup) or locally.
@@ -69,8 +101,9 @@ Both program versions are located in the [bin](./bin) folder.
 - [node](https://nodejs.org/en) (I've tested v18.16.1, v19.6.0)
 - (**if locally**) [neo4j](https://neo4j.com/) (I've tested v5.9.0). Instructions: https://neo4j.com/docs/operations-manual/current/installation/linux/
 
+---
 
-### Usage
+## Usage
 
 Graph.js provides a command-line interface. Run it without arguments for a short description.
 
@@ -132,6 +165,7 @@ graphjs-results
 Example:
 `./graphjs-local.sh -f ../../explodejs-datasets/example-dataset/vulnerable/injection/example-0/example-0.js -s`
 
+---
 
 ### Graph.js phases
 
@@ -177,4 +211,3 @@ npm start -- -f <file_to_be_analyzed> [options]
 | Set array of functions to ignore in graph figure           	 | --if=[...]        	 | _[]_               	 | No       	 | _graph_  	 |
 | Show the code in each statement in graph figure            	 | --sc              	 | _false_            	 | No       	 | _graph_  	 |
 | Silent mode (not verbose)                                  	 | --silent          	 | _false_            	 | No       	 | -        	 |
-
