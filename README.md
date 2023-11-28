@@ -11,8 +11,15 @@ packages and detecting taint-style and prototype pollution vulnerabilities.
 - Our evaluation on two curated datasets (VulcaN [1]; SecBench) shows that it significantly
   outperforms ODGen, the state-of-the-art tool, with lower false negatives and shorter analysis time.
 
-### Publications
+### Publications and Open-Source Repositories
 
+The development of Graph.js relates to additional research performed by this group.
+
+#### Study of JavaScript Static Analysis Tools for Vulnerability Detection in Node.js Packages
+This work comprises an empirical study of static code analysis tools for detecting vulnerabilities in Node.js code.
+We created a curated dataset of 957 Node.js code vulnerabilities, characterized and annotated by analyzing the information contained in _npm_ advisory reports.
+The dataset is available [here](https://github.com/VulcaN-Study/Supplementary-Material).
+The publication associated with this work is: 
 - <a href="https://ieeexplore.ieee.org/document/10168679">**VulcaN Dataset [1]**</a>: Tiago Brito, Mafalda Ferreira, Miguel Monteiro, Pedro Lopes, Miguel Barros, José Fragoso Santos, Nuno Santos: 
 *"Study of JavaScript Static Analysis Tools for Vulnerability Detection in Node.js Packages"*,
 in *IEEE Transactions on Reliability 2023 (ToR 2023)*.
@@ -27,6 +34,12 @@ in *IEEE Transactions on Reliability 2023 (ToR 2023)*.
 }
 ```
 
+
+#### RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks
+In this work we developed a prototype of RuleKeeper, a GDPR-aware policy compliance system for web frameworks.
+RuleKeeper uses Graph.js to automatically check for the presence of GDPR compliance bugs in Node.js servers.
+The prototype is available [here](https://github.com/rulekeeper/rulekeeper).
+The publication associated with this work is:
 - <a href="https://www.computer.org/csdl/proceedings-article/sp/2023/933600b014/1Js0DzhaXNm">**RuleKeeper**</a>:
 Mafalda Ferreira, Tiago Brito, José Fragoso Santos, Nuno Santos: 
 *"RuleKeeper: GDPR-Aware Personal Data Compliance for Web Frameworks"*, 
@@ -44,10 +57,6 @@ in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023
 }
 ```
 
-### Repositories
-
-- [VulcaN](https://github.com/VulcaN-Study/Supplementary-Material)
-- [RuleKeeper](https://github.com/rulekeeper/rulekeeperhttps://github.com/rulekeeper/rulekeeper)
 
 ### Installation
 
