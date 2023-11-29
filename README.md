@@ -69,24 +69,24 @@ in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023
 ### Main Contributors
 <table style="width: 80%; margin-left: auto; margin-right: auto;">
   <tr>
-    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/jose_fragoso_santos.png" width="80%"/></td>
     <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/mafalda_ferreira.png" width="80%"/></td>
-    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/nuno_santos.jpeg" width="75%"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/jose_fragoso_santos.png" width="80%"/></td>
     <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/filipe_marques.png" width="70%"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/nuno_santos.jpeg" width="75%"/></td>
   </tr>
   <tr>
-    <td style="text-align: center"><a href="https://web.tecnico.ulisboa.pt/jose.fragoso/#projects">José Fragoso Santos</a></td>
     <td style="text-align: center"><a href="https://www.dpss.inesc-id.pt/~mferreira/">Mafalda Ferreira</a></td>
-    <td style="text-align: center"><a href="https://syssec.dpss.inesc-id.pt/people/Nuno_Santos.html">Nuno Santos</a></td>
+    <td style="text-align: center"><a href="https://web.tecnico.ulisboa.pt/jose.fragoso/#projects">José Fragoso Santos</a></td>
     <td style="text-align: center"><a href="https://www.filipeom.dev/">Filipe Marques</a></td>
+    <td style="text-align: center"><a href="https://syssec.dpss.inesc-id.pt/people/Nuno_Santos.html">Nuno Santos</a></td>
   </tr>
 </table>
 
 #### Collaborators
-  - [Limin Jia](https://www.andrew.cmu.edu/user/liminjia/)
-  - [Miguel Coimbra](https://www.dpss.inesc-id.pt/~mcoimbra/)
-  - [Miguel Monteiro](https://www.linkedin.com/in/miguel-monteiro-229b86195/)
   - [Tiago Brito](https://www.dpss.inesc-id.pt/blog/tiago-brito/)
+  - [Miguel Coimbra](https://www.dpss.inesc-id.pt/~mcoimbra/)
+  - [Limin Jia](https://www.andrew.cmu.edu/user/liminjia/)
+  - [Miguel Monteiro](https://www.linkedin.com/in/miguel-monteiro-229b86195/)
 
 ---
 
