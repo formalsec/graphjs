@@ -1,7 +1,7 @@
 #!/bin/bash
 shopt -s extglob
 
-SCRIPT_DIR=$(dirname $0)
+SCRIPT_DIR=$(dirname $(realpath $0))
 ROOT_DIR=$(dirname $SCRIPT_DIR)
 THIS_DIR=$PWD
 
@@ -29,30 +29,34 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     ### CPG construction Stage
     echo "[INFO] - Generating graph"
     if [ $SILENT_OP = true ]; then
-        npm start -s --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --silent --graph --i=AST --sc
+        npm start -s --prefix $ROOT_DIR/parser -- \
+          -f $FILEPATH \
+          -c $CONFIGPATH \
+          -o $NORMALIZED \
+          -g $GRAPH_DIR --csv --silent --graph --i=AST --sc
     else
-        npm start --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --graph --i=AST --sc 2>&1 | tee $NORM
+        npm start --prefix $ROOT_DIR/parser -- \
+          -f $FILEPATH \
+          -c $CONFIGPATH \
+          -o $NORMALIZED \
+          -g $GRAPH_DIR --csv --graph --i=AST --sc 2>&1 | tee $NORM
     fi
 
     ### Query phase
     if [ $GRAPH_ONLY = false ]; then
-        cd ${ROOT_DIR}
-
         # get csv output to import dir in neo4j-custom dir
-        NEO4J_DIR=$(realpath ./neo4j-custom)
+        NEO4J_DIR="$ROOT_DIR"/neo4j-custom
 
         # import cpg to neo4j
         NEO4J_GRAPHJS_DIR_CONTAINER=neo4j-graphjs
         cd $NEO4J_DIR
 
         ## Import CPG to Neo4j
-        $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR
-
-        cd $(dirname $THIS_DIR)
+        $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_GRAPHJS_DIR_CONTAINER
 
         # run all queries
         echo "[INFO] - Running queries"
-        QUERIES=$(realpath ./detection)
+        QUERIES="$ROOT_DIR"/detection
         python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY
 
         # stop Neo4J container
@@ -63,14 +67,19 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         if $EXPLOIT; then
             # Create symbolic tests
             echo "[INFO] - Creating symbolic tests"
-            node instrumentation/src/instrumenter.js -i $NORMALIZED -c $TAINT_SUMMARY -o $SYMBOLIC_TEST
+            INST=$ROOT_DIR/instrumentation/src/instrumenter.js
+            node $INST -i $NORMALIZED -c $TAINT_SUMMARY -o $SYMBOLIC_TEST
         fi
 
+        cd $(dirname $THIS_DIR)
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do
         if [[ ($file == *.js || $file == *.cjs) && -f $file ]] || [[ -d $string && $string != *graphjs ]]; then
-            ./graphjs-docker.sh -xf $file -c config.json -e "${file}_graphjs"
+            "$SCRIPT_DIR"/graphjs-docker.sh \
+              -xf $file \
+              -c config.json \
+              -e "${file}_graphjs"
         fi
     done
 else

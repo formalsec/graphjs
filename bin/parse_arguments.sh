@@ -42,7 +42,7 @@ do
         f) FILEPATH=$OPTARG;;
         c) CONFIGPATH=$OPTARG;;
         e) GRAPHJS_DIR=$OPTARG
-            GRAPHJS_DIR=$(realpath "$THIS_DIR/$GRAPHJS_DIR")
+            GRAPHJS_DIR=$(realpath "$GRAPHJS_DIR")
             GRAPH_DIR="$GRAPHJS_DIR/graph"
             NORM="$GRAPH_DIR/normalization.norm"
             NORMALIZED="$GRAPHJS_DIR/normalized.js"
