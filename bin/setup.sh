@@ -1,5 +1,5 @@
 #!/bin/bash
 
-cd ../parser
-npm install
-pip3 install ../requirements.txt
+pip3 install ../detection/requirements.txt
+cd ../parser && npm install
+cd ../instrumentation && npm install
