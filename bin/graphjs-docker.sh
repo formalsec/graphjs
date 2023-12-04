@@ -49,7 +49,6 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
         # import cpg to neo4j
         NEO4J_GRAPHJS_DIR_CONTAINER=neo4j-graphjs
-        cd $NEO4J_DIR
 
         ## Import CPG to Neo4j
         $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_GRAPHJS_DIR_CONTAINER
@@ -70,8 +69,6 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
             INST=$ROOT_DIR/instrumentation/src/instrumenter.js
             node $INST -i $NORMALIZED -c $TAINT_SUMMARY -o $SYMBOLIC_TEST
         fi
-
-        cd $(dirname $THIS_DIR)
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do
