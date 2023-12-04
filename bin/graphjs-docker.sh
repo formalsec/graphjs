@@ -33,13 +33,13 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
           -f $FILEPATH \
           -c $CONFIGPATH \
           -o $NORMALIZED \
-          -g $GRAPH_DIR --csv --silent --graph --i=AST --sc
+          -g $GRAPH_DIR --csv --silent --graph --i=AST
     else
         npm start --prefix $ROOT_DIR/parser -- \
           -f $FILEPATH \
           -c $CONFIGPATH \
           -o $NORMALIZED \
-          -g $GRAPH_DIR --csv --graph --i=AST --sc 2>&1 | tee $NORM
+          -g $GRAPH_DIR --csv --graph --i=AST 2>&1 | tee $NORM
     fi
 
     ### Query phase
