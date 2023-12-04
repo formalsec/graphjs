@@ -1,11 +1,11 @@
 #!/bin/bash
 shopt -s extglob
 
-ROOT_DIR=$(dirname $PWD)
-THIS_DIR=$PWD
+SCRIPT_DIR=$(dirname $0)
+ROOT_DIR=$(dirname $SCRIPT_DIR)
 
 # Import argument parsing functions
-source "$THIS_DIR"/parse_arguments.sh
+source "$SCRIPT_DIR"/parse_arguments.sh
 
 # Check argument to single javascript source file
 if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
