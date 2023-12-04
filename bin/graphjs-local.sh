@@ -1,7 +1,7 @@
 #!/bin/bash
 shopt -s extglob
 
-SCRIPT_DIR=$(dirname $0)
+SCRIPT_DIR=$(dirname $(realpath $0))
 ROOT_DIR=$(dirname $SCRIPT_DIR)
 
 # Import argument parsing functions
@@ -28,40 +28,59 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
     ### CPG construction Stage
     echo "[INFO] - Generating graph"
     if [ $SILENT_OP = true ]; then
-        npm start -s --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --silent
+        npm start -s --prefix $ROOT_DIR/parser -- \
+          -f $FILEPATH \
+          -c $CONFIGPATH \
+          -o $NORMALIZED \
+          -g $GRAPH_DIR --csv --silent
     else
-        npm start --prefix ../parser -- -f $FILEPATH -c $CONFIGPATH -o $NORMALIZED -g $GRAPH_DIR --csv --graph --i=AST --sc  2>&1 | tee $NORM
+        npm start --prefix $ROOT_DIR/parser -- \
+          -f $FILEPATH \
+          -c $CONFIGPATH \
+          -o $NORMALIZED \
+          -g $GRAPH_DIR --csv --graph --i=AST  2>&1 | tee $NORM
     fi
 
     ### Query phase
     if [ $GRAPH_ONLY = false ]; then
-        cd ${ROOT_DIR}
-
         ## Stop running neo4j local instance
         # To use neo4j-admin import, it is required to stop, import and then start neo4j again
-        NEO4J_DIR=$(realpath ./neo4j-custom)
-        cd $NEO4J_DIR
+        NEO4J_DIR=$ROOT_DIR/neo4j-custom
         echo "[INFO] - Stopping Neo4j"
-        neo4j stop &> neo4j_stop.txt
+        NEO4J_STOP=$GRAPHJS_DIR/neo4j_stop.txt
+        neo4j stop &> $NEO4J_STOP
 
         ## Import CPG to Neo4j
         echo "[INFO] - Importing Neo4j"
-        neo4j-admin database import full --overwrite-destination --nodes="$GRAPH_DIR/nodes.csv" --relationships="$GRAPH_DIR/rels.csv" --delimiter='¿' --skip-bad-relationships=true --skip-duplicate-nodes=true --high-parallel-io=on &> neo4j_import.txt
+        NEO4J_IMPORT=$GRAPHJS_DIR/neo4j_import.txt
+        neo4j-admin database import full --overwrite-destination \
+          --nodes="$GRAPH_DIR/nodes.csv" \
+          --relationships="$GRAPH_DIR/rels.csv" \
+          --delimiter='¿' \
+          --skip-bad-relationships=true \
+          --skip-duplicate-nodes=true \
+          --high-parallel-io=on &> $NEO4J_IMPORT
 
         ## Start neo4j instance
         echo "[INFO] - Starting Neo4j"
-        neo4j console &> neo4j_start.txt &
-        until (cat neo4j_start.txt | grep "Started"); do sleep 0.5; done; # Waits until instance has started
+        NEO4J_START=$GRAPHJS_DIR/neo4j_start.txt
+        neo4j console &> $NEO4J_START &
+        until (cat $NEO4J_START | grep "Started"); do sleep 0.5; done; # Waits until instance has started
 
         ## Run queries stage
         echo "[INFO] - Running queries."
-        QUERIES=$(realpath ../detection)
-        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY 2> "$GRAPHJS_DIR/time_stats.txt"
+        QUERIES=$ROOT_DIR/detection
+        python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY \
+          2> "$GRAPHJS_DIR/time_stats.txt"
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do
-        if [[ ($file == *.js || $file == *.cjs) && -f $file ]] || [[ -d $string && $string != *graphjs ]]; then
-            ./graph-local.sh -xf $file -c config.json -e "${file}_graphjs"
+        if [[ ($file == *.js || $file == *.cjs) && -f $file ]] \
+          || [[ -d $string && $string != *graphjs ]]; then
+            $SCRIPT_DIR/graph-local.sh \
+              -xf $file \
+              -c config.json \
+              -e "${file}_graphjs"
         fi
     done
 else
