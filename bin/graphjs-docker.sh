@@ -52,6 +52,7 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
 
         ## Import CPG to Neo4j
         $NEO4J_DIR/run_neo4j.sh $GRAPH_DIR $NEO4J_GRAPHJS_DIR_CONTAINER
+        [ $? -ne 0 ] && exit 1
 
         # run all queries
         echo "[INFO] - Running queries"
