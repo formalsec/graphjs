@@ -26,15 +26,16 @@ class Injection(QueryType):
 			(sink_cfg)
 				-[:SINK]
 					->(sink)
-		WHERE 
+		WHERE
 			param_edge.RelationType = "TAINT" AND
-			param_ref.RelationType = "param" 
+			param_ref.RelationType = "param"
 		RETURN *
 	"""
 
-	def __init__(self):
+	def __init__(self, reconstruct_types = True):
 		QueryType.__init__(self, "Injection")
 		self.start_time = None
+		self.reconstruct_types = reconstruct_types
 
 	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, config):
 		"""
@@ -53,7 +54,6 @@ class Injection(QueryType):
 			param_name = my_utils.format_name(record["param"]["IdentifierName"])
 			source_location = json.loads(source_cfg["Location"])
 			sink_location = json.loads(record["sink_cfg"]["Location"])  # ,
-			# tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, record, attacker_controlled_data, config)
 			structure = structure_queries.get_context_stack(session, record["sink"])
 			vuln_path = {
 				"vuln_type": my_utils.get_injection_type(sink_name, config),
@@ -61,10 +61,15 @@ class Injection(QueryType):
 					"Type"] == "ArrowFunctionExpression" else param_name,
 				"source_lineno": source_location["start"]["line"],
 				"sink": sink_name,
-				"sink_lineno": sink_location["start"]["line"]  # ,
-				# "tainted_params": tainted_params,
-				# "params_types": params_types,
+				"sink_lineno": sink_location["start"]["line"],
 			}
+			if self.reconstruct_types:
+				tainted_params, params_types = \
+					self.reconstruct_attacker_controlled_data(session, record,
+											   attacker_controlled_data, config)
+				vuln_path["tainted_params"] = tainted_params
+				vuln_path["params_types"] = params_types
+
 			if vuln_path not in vuln_paths:
 				vuln_paths.append(vuln_path)
 

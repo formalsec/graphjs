@@ -32,13 +32,13 @@ class PrototypePollution(QueryType):
 			nv.RelationType = "NV" AND
 			nv.IdentifierName = "*" AND
 			second_lookup.RelationType = "SO" AND
-			second_lookup.IdentifierName = "*" 
+			second_lookup.IdentifierName = "*"
 		RETURN distinct sub_obj, nv_sub_obj, property
-		
+
 		UNION
 		MATCH
 			(obj:PDG_OBJECT)
-				-[first_lookup:PDG]	
+				-[first_lookup:PDG]
 					->(sub_obj:PDG_OBJECT)
 						-[arg:PDG*]
 							->(arg_sub_obj:PDG_OBJECT)
@@ -53,14 +53,14 @@ class PrototypePollution(QueryType):
 			nv.RelationType = "NV" AND
 			nv.IdentifierName = "*" AND
 			second_lookup.RelationType = "SO" AND
-			second_lookup.IdentifierName = "*" 
+			second_lookup.IdentifierName = "*"
 		RETURN distinct sub_obj, nv_sub_obj, property
-		
+
 	"""
 
 	def check_taint_key(self, first_lookup_obj):
 		return f"""
-			MATCH 
+			MATCH
 				(source:TAINT_SOURCE)
 					-[key_taint:PDG]
 						->(key:PDG_OBJECT)
@@ -70,7 +70,7 @@ class PrototypePollution(QueryType):
 				sub_obj.Id = \"{first_lookup_obj}\" AND
 				key_taint.RelationType = "TAINT" AND
 				ALL(edge IN tainted_key_path WHERE
-					edge.RelationType = "SO" OR 
+					edge.RelationType = "SO" OR
 					edge.RelationType = "ARG" OR
 					edge.RelationType = "DEP")
 			RETURN DISTINCT source
@@ -88,7 +88,7 @@ class PrototypePollution(QueryType):
 				nv_sub_obj.Id = \"{assignment_obj}\" AND
 				subKey_taint.RelationType = "TAINT" AND
 				ALL(edge IN tainted_subKey_path WHERE
-					edge.RelationType = "SO" OR 
+					edge.RelationType = "SO" OR
 					edge.RelationType = "ARG" OR
 					edge.RelationType = "DEP")
 			RETURN distinct source
@@ -106,7 +106,7 @@ class PrototypePollution(QueryType):
 			property.Id = \"{second_lookup_obj}\" AND
 			value_taint.RelationType = "TAINT" AND
 			ALL(edge IN tainted_value_path WHERE
-				edge.RelationType = "SO" OR 
+				edge.RelationType = "SO" OR
 				edge.RelationType = "ARG" OR
 				edge.RelationType = "DEP")
 		RETURN distinct value
@@ -136,12 +136,12 @@ class PrototypePollution(QueryType):
 		MATCH
 			// First lookup sub-query
 			(obj:PDG_OBJECT)
-				-[first_lookup:PDG]	
+				-[first_lookup:PDG]
 					->(sub_obj:PDG_OBJECT)
 		MATCH
 			// Arg
 			(sub_obj)
-				-[arg:PDG]	
+				-[arg:PDG]
 					->(obj)
         MATCH
 			// Object assignment sub-query
@@ -157,7 +157,7 @@ class PrototypePollution(QueryType):
 						-[tainted_key_path:PDG*1..]
 							->(sub_obj)
         MATCH
-			// Object assignment property is tainted sub-query 
+			// Object assignment property is tainted sub-query
 			(source)
 				-[subKey_taint:PDG]
 					->(subKey:PDG_OBJECT)
@@ -189,17 +189,17 @@ class PrototypePollution(QueryType):
 			subKey_taint.RelationType = "TAINT" AND
 			value_taint.RelationType = "TAINT" AND
 			-ALL(edge IN tainted_key_path WHERE
-				edge.RelationType = "SO" OR 
+				edge.RelationType = "SO" OR
 				edge.RelationType = "ARG" OR
 				edge.RelationType = "DEP") AND
 			ALL(edge IN tainted_subKey_path WHERE
-				edge.RelationType = "SO" OR 
+				edge.RelationType = "SO" OR
 				edge.RelationType = "ARG" OR
 				edge.RelationType = "DEP") AND
 			ALL(edge IN tainted_value_path WHERE
-				edge.RelationType = "SO" OR 
+				edge.RelationType = "SO" OR
 				edge.RelationType = "ARG" OR
-				edge.RelationType = "DEP") 
+				edge.RelationType = "DEP")
 		RETURN *
 	"""
 	"""
@@ -209,7 +209,7 @@ class PrototypePollution(QueryType):
 		MATCH
 			// First lookup sub-query
 			(obj:PDG_)
-				-[first_lookup:PDG]	
+				-[first_lookup:PDG]
 					->(sub_obj:PDG_OBJECT),
 			// Object assignment sub-query
 			(sub_obj:PDG_OBJECT)
@@ -223,7 +223,7 @@ class PrototypePollution(QueryType):
 					->(key:PDG_OBJECT)
 						-[tainted_key_path:PDG*1..]
 							->(sub_obj),
-			// Object assignment property is tainted sub-query 
+			// Object assignment property is tainted sub-query
 			(source)
 				-[subKey_taint:PDG]
 					->(subKey:PDG_OBJECT)
@@ -252,22 +252,22 @@ class PrototypePollution(QueryType):
 			second_lookup.IdentifierName = "*" AND
 			subKey_taint.RelationType = "TAINT" AND
 			ALL(edge IN tainted_key_path WHERE
-				edge.RelationType = "SO" OR 
+				edge.RelationType = "SO" OR
 				edge.RelationType = "ARG" OR
 				edge.RelationType = "DEP") AND
 			ALL(edge IN tainted_subKey_path WHERE
-				edge.RelationType = "SO" OR 
+				edge.RelationType = "SO" OR
 				edge.RelationType = "ARG" OR
 				edge.RelationType = "DEP") AND
 			ALL(edge IN tainted_value_path WHERE
-				edge.RelationType = "SO" OR 
+				edge.RelationType = "SO" OR
 				edge.RelationType = "ARG" OR
-				edge.RelationType = "DEP") 
+				edge.RelationType = "DEP")
 		RETURN *
 	"""
 	"""
-	Find all prototype pollution. 
-	Will lead to a lot of false positives but if the graph 
+	Find all prototype pollution.
+	Will lead to a lot of false positives but if the graph
 	is well parsed the false negative rate will be close to 0.
 	"""
 
@@ -279,8 +279,9 @@ class PrototypePollution(QueryType):
 		("get_ast_source_and_assignment", get_ast_source_and_assignment),
 	]
 
-	def __init__(self):
+	def __init__(self, reconstruct_types = True):
 		QueryType.__init__(self, "Prototype Pollution")
+		self.reconstruct_types = reconstruct_types
 		self.start_time = None
 		self.detection_time = 0
 		self.reconstruction_time = 0
@@ -331,17 +332,24 @@ class PrototypePollution(QueryType):
 					source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
 					sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
 					sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
-					#tainted_params, params_types = self.reconstruct_attacker_controlled_data(session, ast_result, attacker_controlled_data, config)
 
 					vuln_path = {
 						"vuln_type": "prototype-pollution",
 						"source": source_cfg["IdentifierName"],
 						"source_lineno": source_lineno,
 						"sink": sink,
-						"sink_lineno": sink_lineno#,
-						#"tainted_params": tainted_params,
-						#"params_types": params_types,
+						"sink_lineno": sink_lineno,
 					}
+					if self.reconstruct_types:
+						tainted_params, params_types = \
+								self.reconstruct_attacker_controlled_data(
+										session,
+										ast_result,
+										attacker_controlled_data,
+										config
+								)
+						vuln_path["tainted_params"] = tainted_params
+						vuln_path["params_types"] = params_types
 
 					if vuln_path not in vuln_paths:
 						vuln_paths.append(vuln_path)
