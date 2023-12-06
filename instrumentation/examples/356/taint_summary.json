@@ -1,0 +1,110 @@
+[
+    {
+        "vuln_type": "path-traversal",
+        "source": "v83",
+        "source_lineno": 53,
+        "sink": "readFile",
+        "sink_lineno": 160,
+        "tainted_params": [
+            "pid",
+            "options",
+            "done"
+        ],
+        "params_types": {
+            "pid": "array | string",
+            "options": {
+                "childrens": "any"
+            },
+            "done": "function"
+        }
+    },
+    {
+        "vuln_type": "path-traversal",
+        "source": "v83",
+        "source_lineno": 53,
+        "sink": "readFile",
+        "sink_lineno": 37,
+        "tainted_params": [
+            "pid",
+            "options",
+            "done"
+        ],
+        "params_types": {
+            "pid": "array | string",
+            "options": {
+                "childrens": "any"
+            },
+            "done": "function"
+        }
+    },
+    {
+        "vuln_type": "command-injection",
+        "source": "v102",
+        "source_lineno": 163,
+        "sink": "exec",
+        "sink_lineno": 195,
+        "tainted_params": [
+            "pid",
+            "options",
+            "done"
+        ],
+        "params_types": {
+            "pid": "string",
+            "options": "any",
+            "done": "function"
+        }
+    },
+    {
+        "vuln_type": "command-injection",
+        "source": "v175",
+        "source_lineno": 198,
+        "sink": "spawn",
+        "sink_lineno": 214,
+        "tainted_params": [
+            "pid",
+            "options",
+            "done"
+        ],
+        "params_types": {
+            "pid": "string",
+            "options": "any",
+            "done": "function"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v175",
+        "source_lineno": 198,
+        "sink": "v164[pid] = stats;",
+        "sink_lineno": 322,
+        "tainted_params": [
+            "pid",
+            "options",
+            "done"
+        ],
+        "params_types": {
+            "pid": "string",
+            "options": "any",
+            "done": "function"
+        }
+    },
+    {
+        "vuln_type": "prototype-pollution",
+        "source": "v83",
+        "source_lineno": 53,
+        "sink": "v70[pid] = stat;",
+        "sink_lineno": 143,
+        "tainted_params": [
+            "pid",
+            "options",
+            "done"
+        ],
+        "params_types": {
+            "pid": "array | string",
+            "options": {
+                "childrens": "any"
+            },
+            "done": "function"
+        }
+    }
+]

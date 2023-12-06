@@ -1,0 +1,40 @@
+{
+    "arrays": [{
+        "function": "function",
+        "deps": [
+            { "obj": 0, "deps": [1]}
+        ]
+        },
+        { "function": "push", "deps": [] },
+        { "function": "pop", "deps": [] },
+        { "function": "join", "deps": [] },
+        { "function": "split", "deps": [] },
+        { "function": "slice", "deps": [] },
+        { "function": "reverse", "deps": [] },
+        { "function": "reduce", "deps": [] },
+        { "function": "reverse", "deps": [] },
+        { "function": "map", "deps": [] },
+        { "function": "match", "deps": [] },
+        { "function": "replace", "deps": [] },
+        { "function": "toString", "deps": [] },
+        { "function": "trim", "deps": [] },
+        { "function": "substring", "deps": [] },
+        { "function": "shift", "deps": [] },
+        { "function": "find", "deps": [] }
+    ],
+    "auxiliary_functions": ["forEach", "then"],
+    "packages": [
+        {
+            "name": "for-own",
+            "ops" : [
+                {"type": "sub_object", "objs": [0, 1]}
+            ]
+        },
+        {
+            "name": "for-in",
+            "ops" : [
+                {"type": "sub_object", "objs": [0, 1]}
+            ]
+        }
+    ]
+}

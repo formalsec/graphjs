@@ -1,0 +1,264 @@
+{
+    "sinks": {
+        "code-injection": [
+            {
+                "sink": "eval",
+                "type": "function",
+                "args": [ 1 ]
+            },
+            {
+                "sink": "Function",
+                "type": "function",
+                "args": [ 1, 2, 3, 4 ]
+            },
+            {
+                "sink": "require",
+                "type": "function",
+                "args": [ 1 ]
+            },
+            {
+                "sink": "Function",
+                "type": "new",
+                "args": [ 1, 2, 3, 4 ]
+            },
+            {
+                "sink": "runInContext",
+                "type": "package",
+                "packages": [
+                    {"package": "vm", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "runInNewContext",
+                "type": "package",
+                "packages": [
+                    {"package": "vm", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "default",
+                "type": "package",
+                "packages": [
+                    {"package": "gray-matter", "args": [ 1 ]}
+                ]
+            }
+        ],
+        "command-injection": [
+            {
+                "sink": "exec",
+                "type": "package",
+                "packages": [
+                    {"package": "child_process", "args": [ 1 ]},
+                    {"package": "mz/child_process", "args": [ 1 ]},
+                    {"package": "shelljs", "args": [ 1 ]},
+                    {"package": "platform-command", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "execSync",
+                "type": "package",
+                "packages": [
+                    {"package": "child_process", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "execAsync",
+                "type": "package",
+                "packages": [
+                    {"package": "async-execute", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "execFile",
+                "type": "package",
+                "packages": [
+                    {"package": "child_process", "args": [ 1, 2 ]}
+                ]
+            },
+            {
+                "sink": "shell",
+                "type": "package",
+                "packages": [
+                    {"package": "execa", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "spawn",
+                "type": "package",
+                "packages": [
+                    {"package": "child_process", "args": [ 1, 2 ]}
+                ]
+            },
+            {
+                "sink": "write",
+                "type": "package",
+                "packages": [
+                    {"package": "comandante", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "cross-spawn",
+                "type": "function",
+                "args": [ 1, 2 ]
+            },
+            {
+                "sink": "im-metadata",
+                "type": "function",
+                "args": [ 1 ]
+            },
+            {
+                "sink": "meta-exec",
+                "type": "function",
+                "args": [ 1 ]
+            }
+        ],
+        "path-traversal": [
+            {
+                "sink": "readFile",
+                "type": "package",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "readFileSync",
+                "type": "package",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "writeFile",
+                "type": "package",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "writeFileSync",
+                "type": "package",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            },
+            {
+                "sink": "createReadStream",
+                "type": "package",
+                "packages": [
+                    {"package": "fs", "args": [ 1 ]}
+                ]
+            }
+        ]
+    },
+    "sources": [
+        {
+            "source": "argv",
+            "type": "package",
+            "packages": [
+                {"package": "process", "args": [ 0 ]},
+                {"package": "yargs", "args": [ 0 ]}
+            ]
+        }
+    ],
+    "functions-signatures": {
+        "normalize": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "join": {
+            "package": "path",
+            "args_types": ["string"],
+            "rest?": true
+        },
+        "resolve": {
+            "package": "path",
+            "args_types": ["string"],
+            "rest?": true
+        },
+        "isAbsolute": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "relative": {
+            "package": "path",
+            "args_types": ["string", "string"]
+        },
+        "dirname": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "basename": {
+            "package": "path",
+            "args_types": ["string", "string"]
+        },
+        "extname": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "parse": {
+            "package": "path",
+            "args_types": ["string"]
+        },
+        "format": {
+            "package": "path",
+            "args_types": ["Object"]
+        }
+    },
+    "prototypes": {
+        "array": [
+            "concat",
+            "every",
+            "filter",
+            "find",
+            "findIndex",
+            "forEach",
+            "includes",
+            "indexOf",
+            "join",
+            "lastIndexOf",
+            "map",
+            "pop",
+            "push",
+            "reduce",
+            "reduceRight",
+            "reverse",
+            "shift",
+            "slice",
+            "some",
+            "sort",
+            "splice",
+            "unshift"
+        ],
+        "string": [
+            "charAt",
+            "charCodeAt",
+            "codePointAt",
+            "concat",
+            "endsWith",
+            "includes",
+            "indexOf",
+            "lastIndexOf",
+            "localeCompare",
+            "match",
+            "normalize",
+            "padEnd",
+            "padStart",
+            "repeat",
+            "replace",
+            "search",
+            "slice",
+            "split",
+            "startsWith",
+            "substring",
+            "toLocaleLowerCase",
+            "toLocaleUpperCase",
+            "toLowerCase",
+            "toString",
+            "toUpperCase",
+            "trim",
+            "trimEnd",
+            "trimStart",
+            "valueOf"
+        ]
+    }
+}

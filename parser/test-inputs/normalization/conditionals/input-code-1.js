@@ -1,0 +1,1 @@
+let status = true ? 'adult' : 'minor';

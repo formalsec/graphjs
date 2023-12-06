@@ -1,0 +1,25 @@
+{
+    "env": {
+        "es6": true,
+        "node": true
+    },
+    "extends": "standard-with-typescript",
+    "overrides": [
+    ],
+    "parserOptions": {
+        "ecmaVersion": 2018,
+        "sourceType": "module",
+        "project": ["tsconfig.json"]
+    },
+    "rules": {
+        "@typescript-eslint/semi": "off",
+        "@typescript-eslint/quotes": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/indent": ["error", 4],
+        "@typescript-eslint/space-before-function-paren": "off",
+        "@typescript-eslint/strict-boolean-expressions": "off",
+        "@typescript-eslint/prefer-readonly": "off",
+        "accessor-pairs": "off",
+        "import/first": "off"
+    }
+}
