@@ -224,7 +224,7 @@ class PrototypePollution(QueryType):
 		self.detection_time = 0
 		self.reconstruction_time = 0
 
-	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, config):
+	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, detection_output, config):
 		"""
 		Find prototype pollution vulnerabilities paths.
 		"""
@@ -278,6 +278,7 @@ class PrototypePollution(QueryType):
 						"sink": sink,
 						"sink_lineno": sink_lineno,
 					}
+					my_utils.save_intermediate_output(vuln_path, detection_output)
 					if self.reconstruct_types:
 						tainted_params, params_types = \
 								self.reconstruct_attacker_controlled_data(

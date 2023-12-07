@@ -18,6 +18,22 @@ def save_output(vuln_paths, output_file):
 	with open(output_file, "w", encoding='utf-8') as f:
 		f.write(json.dumps(vuln_paths, indent=4) + '\n')
 
+
+def save_intermediate_output(vuln_path, output_file):
+    if path.exists(output_file):
+        f = open(output_file)
+        vuln_paths = json.load(f)
+        f.close()
+    else:
+        vuln_paths = []
+
+    if vuln_path not in vuln_paths:
+        vuln_paths.append(vuln_path)
+
+    with open(output_file, "w", encoding='utf-8') as f:
+        f.write(json.dumps(vuln_paths, indent=4) + '\n')
+
+
 def save_output_multi_files(argv, results):
 	if len(argv) >= 2:
 		output = argv[1]

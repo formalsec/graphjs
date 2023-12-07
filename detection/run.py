@@ -20,6 +20,7 @@ NEO4J_CONN_STRING = "bolt://127.0.0.1:" + args.bolt_port
 
 config = my_utils.read_config()
 neo_driver = GraphDatabase.driver(NEO4J_CONN_STRING, auth=('', ''))
+detection_output = os.path.join(os.path.dirname(args.output), f"{os.path.splitext(os.path.basename(args.output))[0]}_detection{os.path.splitext(os.path.basename(args.output))[1]}")
 
 with neo_driver.session() as session:
 	vuln_paths = []
@@ -27,7 +28,7 @@ with neo_driver.session() as session:
 	# constructed once
 	attacker_controlled_data = {}
 	for query_type in Queries().get_query_types():
-		query_type.find_vulnerable_paths(session, vuln_paths, attacker_controlled_data, args.normalized_file, config)
+		query_type.find_vulnerable_paths(session, vuln_paths, attacker_controlled_data, args.normalized_file, detection_output, config)
 
 	if len(vuln_paths) > 0:
 		my_utils.console(vuln_paths)

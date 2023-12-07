@@ -37,7 +37,7 @@ class Injection(QueryType):
 		self.start_time = None
 		self.reconstruct_types = reconstruct_types
 
-	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, config):
+	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, detection_output, config):
 		"""
 		Find injection vulnerabilities paths.
 		"""
@@ -62,6 +62,7 @@ class Injection(QueryType):
 				"sink": sink_name,
 				"sink_lineno": sink_location["start"]["line"],
 			}
+			my_utils.save_intermediate_output(vuln_path, detection_output)
 			if self.reconstruct_types:
 				tainted_params, params_types = \
 					self.reconstruct_attacker_controlled_data(session, record,
