@@ -282,7 +282,7 @@ class PrototypePollution(QueryType):
 					}
 					my_utils.save_intermediate_output(vuln_path, detection_output)
 					self.increment_detection()  # time injection
-					detection_results.append({ ast_result: ast_result, source_cfg: source_cfg, source_lineno: source_lineno, sink_lineno: sink_lineno, sink: sink })
+					detection_results.append({ "ast_result": ast_result, "source_cfg": source_cfg, "source_lineno": source_lineno, "sink_lineno": sink_lineno, "sink": sink })
 
 		if self.reconstruct_types:
 			print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
