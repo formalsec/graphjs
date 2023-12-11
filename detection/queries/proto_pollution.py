@@ -144,7 +144,7 @@ class PrototypePollution(QueryType):
 			(sub_obj)
 				-[arg:PDG]
 					->(obj)
-        MATCH
+		MATCH
 			// Object assignment sub-query
 			(obj)
 				-[nv:PDG]
@@ -157,7 +157,7 @@ class PrototypePollution(QueryType):
 					->(key:PDG_OBJECT)
 						-[tainted_key_path:PDG*1..]
 							->(sub_obj)
-        MATCH
+		MATCH
 			// Object assignment property is tainted sub-query
 			(source)
 				-[subKey_taint:PDG]
@@ -265,7 +265,7 @@ class PrototypePollution(QueryType):
 				ast_results = session.run(self.get_ast_source_and_assignment(source, self.second_lookup_obj))
 				self.increment_detection()  # time injection
 
-                print(f'[INFO][{THIS_SCRIPT_NAME}] - Analyzing detected vulnerabilities.')
+				print(f'[INFO][{THIS_SCRIPT_NAME}] - Analyzing detected vulnerabilities.')
 				for ast_result in ast_results:
 					source_cfg = ast_result["source_cfg"]
 					source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
@@ -282,13 +282,13 @@ class PrototypePollution(QueryType):
 					my_utils.save_intermediate_output(vuln_path, detection_output)
 					self.increment_detection()  # time injection
 
-			    if self.reconstruct_types:
-			    	print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
-			        for ast_result in ast_results:
-                        source_cfg = ast_result["source_cfg"]
-                        source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
-                        sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
-                        sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
+				if self.reconstruct_types:
+					print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
+					for ast_result in ast_results:
+						source_cfg = ast_result["source_cfg"]
+						source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
+						sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
+						sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
 						tainted_params, params_types = \
 								self.reconstruct_attacker_controlled_data(
 										session,
@@ -298,18 +298,18 @@ class PrototypePollution(QueryType):
 								)
 						structure = structure_queries.get_context_stack(session, ast_result["assignment_cfg"])
 						vuln_path = {
-                            "vuln_type": "prototype-pollution",
-                            "source": source_cfg["IdentifierName"],
-                            "source_lineno": source_lineno,
-                            "sink": sink,
-                            "sink_lineno": sink_lineno,
-                            "tainted_params": tainted_params,
-                            "params_types": params_types,
-                            "exploit_type": structure
-                        }
+							"vuln_type": "prototype-pollution",
+							"source": source_cfg["IdentifierName"],
+							"source_lineno": source_lineno,
+							"sink": sink,
+							"sink_lineno": sink_lineno,
+							"tainted_params": tainted_params,
+							"params_types": params_types,
+							"exploit_type": structure
+						}
 
-                        if vuln_path not in vuln_paths:
-                            vuln_paths.append(vuln_path)
+						if vuln_path not in vuln_paths:
+							vuln_paths.append(vuln_path)
 
 					self.increment_reconstruction()  # time injection
 
