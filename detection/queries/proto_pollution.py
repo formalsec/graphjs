@@ -287,18 +287,18 @@ class PrototypePollution(QueryType):
 		if self.reconstruct_types:
 			print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
 			for detection_result in detection_results:
-				source_cfg = detection_result["source_cfg"]
-				source_lineno = detection_result["source_lineno"]
-				sink_lineno = detection_result["sink_lineno"]
-				sink =  detection_result["sink"]
+				source_cfg = detection_result.source_cfg
+				source_lineno = detection_result.source_lineno
+				sink_lineno = detection_result.sink_lineno
+				sink =  detection_result.sink
 				tainted_params, params_types = \
 						self.reconstruct_attacker_controlled_data(
 								session,
-								detection_result["ast_result"],
+								detection_result.ast_result,
 								attacker_controlled_data,
 								config
 						)
-				structure = structure_queries.get_context_stack(session,  detection_result["ast_result"]["assignment_cfg"])
+				structure = structure_queries.get_context_stack(session,  detection_result.ast_result["assignment_cfg"])
 				vuln_path = {
 					"vuln_type": "prototype-pollution",
 					"source": source_cfg["IdentifierName"],
