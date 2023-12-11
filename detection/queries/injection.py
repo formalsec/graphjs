@@ -44,6 +44,7 @@ class Injection(QueryType):
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - Running injection query.')
 		self.start_timer()  # start timer
 		results = session.run(self.injection_query)
+		detection_results = []
 
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - Analyzing detected vulnerabilities.')
 		for record in results:
@@ -51,7 +52,8 @@ class Injection(QueryType):
 			source_cfg = record["source_cfg"]
 			source_ast = record["source_ast"]
 			source_location = json.loads(source_cfg["Location"])
-			sink_location = json.loads(record["sink_cfg"]["Location"])  # ,
+			sink_location = json.loads(record["sink_cfg"]["Location"])
+			param_name = my_utils.format_name(record["param"]["IdentifierName"])
 			vuln_path = {
 				"vuln_type": my_utils.get_injection_type(sink_name, config),
 				"source": source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" or source_ast[
@@ -61,21 +63,24 @@ class Injection(QueryType):
 				"sink_lineno": sink_location["start"]["line"],
 			}
 			my_utils.save_intermediate_output(vuln_path, detection_output)
+			detection_results.append({ "sink": record["sink"], "source_cfg": source_cfg,
+			                           "source_ast": source_ast, "source_location": source_location,
+			                           "param_name": param_name, "sink_location": sink_location, "result": record })
 		self.time_detection()  # time injection
 
 		if self.reconstruct_types:
 			print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
-			for record in results:
-				sink_name = record["sink"]["IdentifierName"]
-				source_cfg = record["source_cfg"]
-				source_ast = record["source_ast"]
-				param_name = my_utils.format_name(record["param"]["IdentifierName"])
-				source_location = json.loads(source_cfg["Location"])
-				sink_location = json.loads(record["sink_cfg"]["Location"])  # ,
+			for detection_result in detection_results:
+				sink_name = detection_result["sink"]["IdentifierName"]
+				source_cfg = detection_result["source_cfg"]
+				source_ast = detection_result["source_ast"]
+				param_name = detection_result["param_name"]
+				source_location = detection_result["source_location"]
+				sink_location = detection_result["sink_location"]
 				tainted_params, params_types = \
-					self.reconstruct_attacker_controlled_data(session, record,
+					self.reconstruct_attacker_controlled_data(session, detection_result["result"],
 											   attacker_controlled_data, config)
-				exploit_type = structure_queries.get_context_stack(session, record["sink"])
+				exploit_type = structure_queries.get_context_stack(session, detection_result["sink"])
 				vuln_path = {
 					"vuln_type": my_utils.get_injection_type(sink_name, config),
 					"source": source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" or source_ast[
