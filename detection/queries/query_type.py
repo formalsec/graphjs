@@ -15,7 +15,7 @@ class QueryType:
         return self.type
 
     @abstractmethod
-    def find_vulnerable_paths(self, session, vuln_paths, vuln_file, config):
+    def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, detection_output, config):
         pass
 
     def get_obj_recon_queries(self, source):

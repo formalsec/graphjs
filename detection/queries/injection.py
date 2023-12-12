@@ -32,7 +32,7 @@ class Injection(QueryType):
 		RETURN *
 	"""
 
-	def __init__(self, reconstruct_types = True):
+	def __init__(self, reconstruct_types=True):
 		QueryType.__init__(self, "Injection")
 		self.start_time = None
 		self.reconstruct_types = reconstruct_types
@@ -63,9 +63,15 @@ class Injection(QueryType):
 				"sink_lineno": sink_location["start"]["line"],
 			}
 			my_utils.save_intermediate_output(vuln_path, detection_output)
-			detection_results.append({ "sink": record["sink"], "source_cfg": source_cfg,
-			                           "source_ast": source_ast, "source_location": source_location,
-			                           "param_name": param_name, "sink_location": sink_location, "result": record })
+			detection_results.append(
+					{
+						"sink": record["sink"],
+						"source_cfg": source_cfg,
+						"source_ast": source_ast,
+						"source_location": source_location,
+						"param_name": param_name,
+						"sink_location": sink_location,
+						"result": record})
 		self.time_detection()  # time injection
 
 		if self.reconstruct_types:
@@ -78,8 +84,7 @@ class Injection(QueryType):
 				source_location = detection_result["source_location"]
 				sink_location = detection_result["sink_location"]
 				tainted_params, params_types = \
-					self.reconstruct_attacker_controlled_data(session, detection_result["result"],
-											   attacker_controlled_data, config)
+					self.reconstruct_attacker_controlled_data(session, detection_result["result"], attacker_controlled_data, config)
 				exploit_type = structure_queries.get_context_stack(session, detection_result["sink"])
 				vuln_path = {
 					"vuln_type": my_utils.get_injection_type(sink_name, config),

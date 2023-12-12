@@ -1,5 +1,4 @@
 from queries.injection import Injection
-from queries.ipt import InternalPrototypeTampering
 from queries.proto_pollution import PrototypePollution
 
 

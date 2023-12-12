@@ -9,6 +9,80 @@ from sys import stderr
 THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 
 
+def check_taint_key(first_lookup_obj):
+	return f"""
+		MATCH
+			(source:TAINT_SOURCE)
+				-[key_taint:PDG]
+					->(key:PDG_OBJECT)
+						-[tainted_key_path:PDG*1..]
+							->(sub_obj)
+		WHERE
+			sub_obj.Id = \"{first_lookup_obj}\" AND
+			key_taint.RelationType = "TAINT" AND
+			ALL(edge IN tainted_key_path WHERE
+				edge.RelationType = "SO" OR
+				edge.RelationType = "ARG" OR
+				edge.RelationType = "DEP")
+		RETURN DISTINCT source
+	"""
+
+
+def check_tainted_assignment(assignment_obj):
+	return f"""
+		MATCH
+			(source)
+				-[subKey_taint:PDG]
+					->(subKey:PDG_OBJECT)
+						-[tainted_subKey_path:PDG*1..]
+							->(nv_sub_obj)
+		WHERE
+			nv_sub_obj.Id = \"{assignment_obj}\" AND
+			subKey_taint.RelationType = "TAINT" AND
+			ALL(edge IN tainted_subKey_path WHERE
+				edge.RelationType = "SO" OR
+				edge.RelationType = "ARG" OR
+				edge.RelationType = "DEP")
+		RETURN distinct source
+	"""
+
+
+def check_taint_sub_key(second_lookup_obj):
+	return f"""
+	MATCH
+		(source)
+			-[value_taint:PDG]
+				->(value:PDG_OBJECT)
+					-[tainted_value_path:PDG*1..]
+						->(property)
+	WHERE
+		property.Id = \"{second_lookup_obj}\" AND
+		value_taint.RelationType = "TAINT" AND
+		ALL(edge IN tainted_value_path WHERE
+			edge.RelationType = "SO" OR
+			edge.RelationType = "ARG" OR
+			edge.RelationType = "DEP")
+	RETURN distinct value
+	"""
+
+
+def get_ast_source_and_assignment(assignment_obj, second_lookup_obj):
+	return f"""
+	MATCH
+		(source_cfg)
+			-[source_ref:REF]
+				->(value),
+		(assignment_cfg)
+			-[assignment_ref:REF]
+				->(property)
+	WHERE
+		value.Id = \"{assignment_obj}\" AND
+		property.Id = \"{second_lookup_obj}\"
+	RETURN
+		source_cfg, assignment_cfg
+	"""
+
+
 class PrototypePollution(QueryType):
 
 	first_lookup_obj = ""
@@ -58,77 +132,6 @@ class PrototypePollution(QueryType):
 		RETURN distinct sub_obj, nv_sub_obj, property
 
 	"""
-
-	def check_taint_key(self, first_lookup_obj):
-		return f"""
-			MATCH
-				(source:TAINT_SOURCE)
-					-[key_taint:PDG]
-						->(key:PDG_OBJECT)
-							-[tainted_key_path:PDG*1..]
-								->(sub_obj)
-			WHERE
-				sub_obj.Id = \"{first_lookup_obj}\" AND
-				key_taint.RelationType = "TAINT" AND
-				ALL(edge IN tainted_key_path WHERE
-					edge.RelationType = "SO" OR
-					edge.RelationType = "ARG" OR
-					edge.RelationType = "DEP")
-			RETURN DISTINCT source
-		"""
-
-	def check_tainted_assignment(self, assignment_obj):
-		return f"""
-			MATCH
-				(source)
-					-[subKey_taint:PDG]
-						->(subKey:PDG_OBJECT)
-							-[tainted_subKey_path:PDG*1..]
-								->(nv_sub_obj)
-			WHERE
-				nv_sub_obj.Id = \"{assignment_obj}\" AND
-				subKey_taint.RelationType = "TAINT" AND
-				ALL(edge IN tainted_subKey_path WHERE
-					edge.RelationType = "SO" OR
-					edge.RelationType = "ARG" OR
-					edge.RelationType = "DEP")
-			RETURN distinct source
-		"""
-
-	def check_taint_sub_key(self, second_lookup_obj):
-		return f"""
-		MATCH
-			(source)
-				-[value_taint:PDG]
-					->(value:PDG_OBJECT)
-						-[tainted_value_path:PDG*1..]
-							->(property)
-		WHERE
-			property.Id = \"{second_lookup_obj}\" AND
-			value_taint.RelationType = "TAINT" AND
-			ALL(edge IN tainted_value_path WHERE
-				edge.RelationType = "SO" OR
-				edge.RelationType = "ARG" OR
-				edge.RelationType = "DEP")
-		RETURN distinct value
-		"""
-
-	def get_ast_source_and_assignment(self, assignment_obj, second_lookup_obj):
-		return f"""
-		MATCH
-			(source_cfg)
-				-[source_ref:REF]
-					->(value),
-			(assignment_cfg)
-				-[assignment_ref:REF]
-					->(property)
-		WHERE
-			value.Id = \"{assignment_obj}\" AND
-			property.Id = \"{second_lookup_obj}\"
-		RETURN
-			source_cfg, assignment_cfg
-		"""
-
 
 	"""
 	Prototype Pollution Recursive Query
@@ -217,7 +220,7 @@ class PrototypePollution(QueryType):
 		("get_ast_source_and_assignment", get_ast_source_and_assignment),
 	]
 
-	def __init__(self, reconstruct_types = True):
+	def __init__(self, reconstruct_types=True):
 		QueryType.__init__(self, "Prototype Pollution")
 		self.reconstruct_types = reconstruct_types
 		self.start_time = None
@@ -240,21 +243,21 @@ class PrototypePollution(QueryType):
 			self.second_lookup_obj = pattern.get('property')._properties.get("Id")
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[1][0]}")
-			taint_key_results = session.run(self.check_taint_key(self.first_lookup_obj))
+			taint_key_results = session.run(check_taint_key(self.first_lookup_obj))
 			# If query is unable to find a taint key path, go to next pattern
 			if taint_key_results.peek() is None:
 				self.increment_detection()  # time injection
 				continue
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[2][0]}")
-			taint_assignment_results = session.run(self.check_tainted_assignment(self.assignment_obj))
+			taint_assignment_results = session.run(check_tainted_assignment(self.assignment_obj))
 			# If query is unable to find a taint assignment path, go to next pattern
 			if taint_assignment_results.peek() is None:
 				self.increment_detection()  # time injection
 				continue
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[3][0]}")
-			taint_sub_key_results = session.run(self.check_taint_sub_key(self.second_lookup_obj))
+			taint_sub_key_results = session.run(check_taint_sub_key(self.second_lookup_obj))
 			# If query is unable to find a taint sub key path, go to next pattern
 			if taint_sub_key_results.peek() is None:
 				self.increment_detection()  # time injection
@@ -264,7 +267,7 @@ class PrototypePollution(QueryType):
 			for tainted_source in taint_sub_key_results:
 				source = tainted_source.get('value')._properties.get("Id")
 				print(f"[INFO] - Running prototype pollution query: {self.queries[4][0]}")
-				ast_results = session.run(self.get_ast_source_and_assignment(source, self.second_lookup_obj))
+				ast_results = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj))
 				self.increment_detection()  # time injection
 
 				for ast_result in ast_results:
@@ -278,11 +281,19 @@ class PrototypePollution(QueryType):
 						"source": source_cfg["IdentifierName"],
 						"source_lineno": source_lineno,
 						"sink": sink,
-						"sink_lineno": sink_lineno,
+						"sink_lineno": sink_lineno
 					}
 					my_utils.save_intermediate_output(vuln_path, detection_output)
 					self.increment_detection()  # time injection
-					detection_results.append({ "ast_result": ast_result, "source_cfg": source_cfg, "source_lineno": source_lineno, "sink_lineno": sink_lineno, "sink": sink })
+					detection_results.append(
+							{
+								"ast_result": ast_result,
+								"source_cfg": source_cfg,
+								"source_lineno": source_lineno,
+								"sink_lineno": sink_lineno,
+								"sink": sink
+							}
+					)
 
 		if self.reconstruct_types:
 			print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
@@ -290,14 +301,14 @@ class PrototypePollution(QueryType):
 				source_cfg = detection_result["source_cfg"]
 				source_lineno = detection_result["source_lineno"]
 				sink_lineno = detection_result["sink_lineno"]
-				sink =  detection_result["sink"]
+				sink = detection_result["sink"]
 				tainted_params, params_types = \
-						self.reconstruct_attacker_controlled_data(
-								session,
-								detection_result["ast_result"],
-								attacker_controlled_data,
-								config
-						)
+					self.reconstruct_attacker_controlled_data(
+						session,
+						detection_result["ast_result"],
+						attacker_controlled_data,
+						config
+					)
 				structure = structure_queries.get_context_stack(session,  detection_result["ast_result"]["assignment_cfg"])
 				vuln_path = {
 					"vuln_type": "prototype-pollution",
