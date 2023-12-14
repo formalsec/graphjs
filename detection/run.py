@@ -55,6 +55,6 @@ with neo_driver.session() as session:
 	else:
 		print(f'[INFO][{THIS_SCRIPT_NAME}] - No vulnerabilities detected.')
 		my_utils.save_output(vuln_paths, args.output)
-		my_utils.init_intermediate_output(detection_file_name)
+		my_utils.init_intermediate_output(detection_output)
 
 neo_driver.close()
