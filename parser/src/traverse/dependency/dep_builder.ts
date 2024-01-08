@@ -174,10 +174,6 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
         trackers.addVariableMap(`${stmt.functionContext}.${variable.name}`, functionMap);
     }
 
-    propertyLocations.forEach((location: number) => {
-        trackers.graphCreateMemberExpressionDependencies(stmtId, location, deps);
-    });
-
     return trackers;
 }
 

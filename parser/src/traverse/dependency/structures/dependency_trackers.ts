@@ -490,10 +490,9 @@ export class DependencyTracker {
         // 3. Add property (locations and store)
         const propertyLocations: number[] = this.addProp(newLocations, objName, propName, context, stmtId)
 
-
         // Process dependencies of the left and right side of the assignment
         deps.forEach(dep => {
-            if (dep.isProp) {
+            if (!dep.isProp) {
                 propertyLocations.forEach((id: number) => {
                     this.graphCreateDependencyEdge(dep.source, id, dep); });
             }
@@ -798,15 +797,11 @@ export function evalDep(trackers: DependencyTracker, stmtId: number, node: Graph
             const prop = getASTNode(node, "property");
             const objName = obj.obj.name;
 
-            const locations = trackers.getObjectVersions(objName, obj.functionContext)
-            const locationNodes: (GraphNode | undefined)[] = locations
-                .map((location: number) => trackers.graphGetNode(location))
-
             let deps: Dependency[] = [];
             // if the member expression is computed and is not a Literal then we have to evaluate the dependencies
             // of the property as it is a variable, because it influences the object otherwise treat it is a Literal
             if (node.obj.computed && prop.type !== "Literal") {
-                const objDeps: Dependency[] = evalDep(trackers, stmtId, prop);
+                const objDeps: Dependency[] = evalDep(trackers, stmtId, prop, undefined, true);
                 deps = deps.concat(objDeps.filter((item) => !DependencyFactory.includes(deps, item)));
                 return deps;
             }
