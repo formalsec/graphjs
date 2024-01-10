@@ -11,7 +11,6 @@ def function_is_object_prop(obj_id):
 					<-[so:PDG]-(obj:PDG_OBJECT)
 		WHERE dep.RelationType = "DEP" 
 		AND so.RelationType = "SO"
-		AND NOT so.IdentifierName = "exports" 
 		RETURN distinct obj.IdentifierName, so.IdentifierName
 	"""
 
@@ -22,7 +21,7 @@ def get_outer_context(obj_id):
 			(source)-[def:FD]->(fn_def)
 				-[path:CFG*1..]->({{Id: "{obj_id}"}})
 		WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
-		RETURN distinct source
+		RETURN distinct source as node
 		"""
 
 
@@ -33,7 +32,7 @@ def get_stack_single_pattern(obj_id):
 				-[path:CFG*1..]->(sink_cfg)
 		WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
 		AND exists ((sink_cfg)-[:SINK]->({{Id: "{obj_id}"}}))
-		RETURN distinct source
+		RETURN distinct source as node
 		"""
 
 
@@ -45,23 +44,26 @@ def get_context_stack(session, obj):
 		return "-"
 
 	# Try to find outer contexts
-	fn_node_id = fn_node["source"]["Id"]
+	print(fn_node)
+	fn_node_id = fn_node["node"]["Id"]
 	contexts = [fn_node_id]
 	while True:
 		fn_node = session.run(get_outer_context(fn_node_id)).single()
 		if fn_node is not None:
-			fn_node_id = fn_node["source"]["Id"]
+			print(fn_node)
+			fn_node_id = fn_node["node"]["Id"]
 			contexts.append(fn_node_id)
 		break
 
 	# Check if function is a property of an object
 	object_prop = session.run(function_is_object_prop(contexts[-1])).single()
 	if object_prop:
-		obj_name = object_prop["obj.IdentifierName"]
+		obj_name = object_prop["obj.IdentifierName"].split(".")[1].split("-")[0]
 		obj_prop = object_prop["so.IdentifierName"]
 		return f"VFunPropOfExportedObj {obj_name}.{obj_prop}"
 	else:
+		context_list = ';'.join(str(c) for c in contexts)
 		if len(contexts) > 1:
-			return f"VFunRetByExport: {', '.join(contexts)}"
+			return f"VFunRetByExport: {', '.join(context_list)}"
 		else:
-			return "VFunExported"
+			return f"VFunExported: {', '.join(context_list)}"
