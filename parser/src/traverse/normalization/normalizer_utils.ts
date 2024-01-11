@@ -1269,14 +1269,14 @@ export function normObjectExpression(obj: ObjectExpression, children: Normalizat
     if (parent &&
         (parent.type === "VariableDeclarator" ||
             parent.type === "ExpressionStatement" ||
-            parent.type === "AssignmentExpression")) {
+            (parent.type === "AssignmentExpression" && parent.left.type !== "MemberExpression"))) {
         return {
             stmts: [...flatStmts(children)],
             expr: newObj
         };
     }
 
-    if (parent?.type === "Property") {
+    if (parent?.type === "Property" || (parent?.type === "AssignmentExpression" && parent.left.type === "MemberExpression")) {
         const { id, decl } = createVariableDeclaration(createEmptyObject());
         const newAssignments: ExpressionStatement[] = [];
         // push declarations for each property using accesses to new variable
