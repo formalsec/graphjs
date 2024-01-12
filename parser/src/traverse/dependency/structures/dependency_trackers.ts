@@ -399,7 +399,7 @@ export class DependencyTracker {
     // ------------------------------------------------------------------------------------------------------------ //
 
     /* Adds the new property to the object locations */
-    addProp(locations: number[], objectName: string, property: string, context: number, stmtId: number): number[] {
+    addProp(locations: number[], objectName: string, property: string, context: number, stmtId: number, deps: Dependency[] = []): number[] {
         let propertyLocations: number[] = []
         // For each location
         locations.forEach((location: number) => {
@@ -424,6 +424,13 @@ export class DependencyTracker {
 
                 // 2.2 Add property location to store
                 // this.storeAddLocation(objectName, location, context)
+
+                // Add dependencies of property
+                if (propertyLocation) {
+                    deps.forEach(dep => {
+                        this.graphCreateDependencyEdge(dep.source, propertyLocation.id, dep);
+                    });
+                }
             }
             // Add property location to array
             propertyLocations.push(propertyLocation.id)

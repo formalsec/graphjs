@@ -44,13 +44,11 @@ def get_context_stack(session, obj):
 		return "-"
 
 	# Try to find outer contexts
-	print(fn_node)
 	fn_node_id = fn_node["node"]["Id"]
 	contexts = [fn_node_id]
 	while True:
 		fn_node = session.run(get_outer_context(fn_node_id)).single()
 		if fn_node is not None:
-			print(fn_node)
 			fn_node_id = fn_node["node"]["Id"]
 			contexts.append(fn_node_id)
 		break

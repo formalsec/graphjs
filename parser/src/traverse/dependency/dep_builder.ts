@@ -127,7 +127,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     const deps: Dependency[] = evalDep(trackers, stmtId, memExpNode);
 
     // Add Prop
-    const propertyLocations: number[] = trackers.addProp(objectLocations, objName, propName, stmt.functionContext, stmtId)
+    const propertyLocations: number[] = trackers.addProp(objectLocations, objName, propName, stmt.functionContext, stmtId, deps)
     checkIfSource(propertyLocations, config, trackers, stmtId, prop)
 
     objectLocations.forEach((location: number) => {
