@@ -172,59 +172,57 @@ class PrototypePollution(QueryType):
 			self.second_lookup_obj = pattern.get('property')._properties.get("Id")
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[1][0]}")
-			taint_key = session.run(check_taint_key(self.first_lookup_obj)).single()
+			taint_key_results = session.run(check_taint_key(self.first_lookup_obj))
 			# If query is unable to find a taint key path, go to next pattern
-
-			if taint_key is None:
+			if taint_key_results.peek() is None:
 				self.increment_detection()  # time injection
 				continue
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[2][0]}")
-			taint_assignment = session.run(check_tainted_assignment(self.assignment_obj)).single()
+			taint_assignment_results = session.run(check_tainted_assignment(self.assignment_obj))
 			# If query is unable to find a taint assignment path, go to next pattern
-			if taint_assignment is None:
+			if taint_assignment_results.peek() is None:
 				self.increment_detection()  # time injection
 				continue
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[3][0]}")
-			taint_sub_key = session.run(check_taint_sub_key(self.second_lookup_obj)).single()
+			taint_sub_key_results = session.run(check_taint_sub_key(self.second_lookup_obj))
 			# If query is unable to find a taint sub key path, go to next pattern
-			if taint_sub_key is None:
+			if taint_sub_key_results.peek() is None:
 				self.increment_detection()  # time injection
 				continue
 
 			print(f'[INFO][{THIS_SCRIPT_NAME}] - Analyzing detected vulnerabilities.')
-			source = taint_sub_key.get('value')._properties.get("Id")
-			print(f"[INFO] - Running prototype pollution query: {self.queries[4][0]}")
-			ast_result = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj)).single()
-			self.increment_detection()  # time injection
+			for tainted_source in taint_sub_key_results:
+				source = tainted_source.get('value')._properties.get("Id")
+				print(f"[INFO] - Running prototype pollution query: {self.queries[4][0]}")
+				ast_results = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj))
+				self.increment_detection()  # time injection
 
-			if ast_result is None:
-				continue
+				for ast_result in ast_results:
+					source_cfg = ast_result["source_cfg"]
+					source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
+					sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
+					sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
 
-			source_cfg = ast_result["source_cfg"]
-			source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
-			sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
-			sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
-
-			vuln_path = {
-				"vuln_type": "prototype-pollution",
-				"source": source_cfg["IdentifierName"],
-				"source_lineno": source_lineno,
-				"sink": sink,
-				"sink_lineno": sink_lineno
-			}
-			my_utils.save_intermediate_output(vuln_path, detection_output)
-			self.increment_detection()  # time injection
-			detection_results.append(
-					{
-						"ast_result": ast_result,
-						"source_cfg": source_cfg,
+					vuln_path = {
+						"vuln_type": "prototype-pollution",
+						"source": source_cfg["IdentifierName"],
 						"source_lineno": source_lineno,
-						"sink_lineno": sink_lineno,
-						"sink": sink
+						"sink": sink,
+						"sink_lineno": sink_lineno
 					}
-			)
+					my_utils.save_intermediate_output(vuln_path, detection_output)
+					self.increment_detection()  # time injection
+					detection_results.append(
+						{
+							"ast_result": ast_result,
+							"source_cfg": source_cfg,
+							"source_lineno": source_lineno,
+							"sink_lineno": sink_lineno,
+							"sink": sink
+						}
+					)
 
 		if self.reconstruct_types:
 			print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
