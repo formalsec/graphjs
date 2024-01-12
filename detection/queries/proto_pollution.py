@@ -53,11 +53,14 @@ def check_taint_sub_key(second_lookup_obj):
 		(source)
 			-[value_taint:PDG]
 				->(value:PDG_OBJECT)
-					-[tainted_value_path:PDG*1..]
-						->(property)
+					-[tainted_value_path:PDG*0..]
+						->(dep)
+							-[dep_edge:PDG]
+								->(property)
 	WHERE
 		property.Id = \"{second_lookup_obj}\" AND
 		value_taint.RelationType = "TAINT" AND
+		dep_edge.RelationType = "DEP" AND 
 		ALL(edge IN tainted_value_path WHERE
 			edge.RelationType = "SO" OR
 			edge.RelationType = "ARG" OR
@@ -78,8 +81,7 @@ def get_ast_source_and_assignment(assignment_obj, second_lookup_obj):
 	WHERE
 		value.Id = \"{assignment_obj}\" AND
 		property.Id = \"{second_lookup_obj}\"
-	RETURN
-		source_cfg, assignment_cfg
+	RETURN distinct source_cfg, assignment_cfg
 	"""
 
 
@@ -134,79 +136,6 @@ class PrototypePollution(QueryType):
 	"""
 
 	"""
-	Prototype Pollution Recursive Query
-	"""
-	proto_pollution_recursive_query = """
-		MATCH
-			// First lookup sub-query
-			(obj:PDG_OBJECT)
-				-[first_lookup:PDG]
-					->(sub_obj:PDG_OBJECT)
-		MATCH
-			// Arg
-			(sub_obj)
-				-[arg:PDG]
-					->(obj)
-		MATCH
-			// Object assignment sub-query
-			(obj)
-				-[nv:PDG]
-					->(nv_sub_obj:PDG_OBJECT)
-						-[second_lookup:PDG]
-							->(property:PDG_OBJECT),
-			// First lookup property is tainted sub-query
-			(source:TAINT_SOURCE)
-				-[key_taint:PDG]
-					->(key:PDG_OBJECT)
-						-[tainted_key_path:PDG*1..]
-							->(sub_obj)
-		MATCH
-			// Object assignment property is tainted sub-query
-			(source)
-				-[subKey_taint:PDG]
-					->(subKey:PDG_OBJECT)
-						-[tainted_subKey_path:PDG*1..]
-							->(nv_sub_obj)
-		MATCH
-			// Object assignment assigned value is tainted sub-query
-			(source)
-				-[value_taint:PDG]
-					->(value:PDG_OBJECT)
-						-[tainted_value_path:PDG*1..]
-							->(property),
-			// AST source sub-query
-			(source_cfg)
-				-[source_ref:REF]
-					->(value),
-			// AST object assignment sub-query
-			(assignment_cfg)
-				-[assignment_ref:REF]
-					->(property)
-		WHERE
-			first_lookup.RelationType = "SO" AND
-			first_lookup.IdentifierName = "*" AND
-			nv.RelationType = "NV" AND
-			nv.IdentifierName = "*" AND
-			second_lookup.RelationType = "SO" AND
-			second_lookup.IdentifierName = "*" AND
-			-key_taint.RelationType = "TAINT" AND
-			subKey_taint.RelationType = "TAINT" AND
-			value_taint.RelationType = "TAINT" AND
-			-ALL(edge IN tainted_key_path WHERE
-				edge.RelationType = "SO" OR
-				edge.RelationType = "ARG" OR
-				edge.RelationType = "DEP") AND
-			ALL(edge IN tainted_subKey_path WHERE
-				edge.RelationType = "SO" OR
-				edge.RelationType = "ARG" OR
-				edge.RelationType = "DEP") AND
-			ALL(edge IN tainted_value_path WHERE
-				edge.RelationType = "SO" OR
-				edge.RelationType = "ARG" OR
-				edge.RelationType = "DEP")
-		RETURN *
-	"""
-	"""
 	Find all prototype pollution.
 	Will lead to a lot of false positives but if the graph
 	is well parsed the false negative rate will be close to 0.
@@ -243,57 +172,59 @@ class PrototypePollution(QueryType):
 			self.second_lookup_obj = pattern.get('property')._properties.get("Id")
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[1][0]}")
-			taint_key_results = session.run(check_taint_key(self.first_lookup_obj))
+			taint_key = session.run(check_taint_key(self.first_lookup_obj)).single()
 			# If query is unable to find a taint key path, go to next pattern
-			if taint_key_results.peek() is None:
+
+			if taint_key is None:
 				self.increment_detection()  # time injection
 				continue
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[2][0]}")
-			taint_assignment_results = session.run(check_tainted_assignment(self.assignment_obj))
+			taint_assignment = session.run(check_tainted_assignment(self.assignment_obj)).single()
 			# If query is unable to find a taint assignment path, go to next pattern
-			if taint_assignment_results.peek() is None:
+			if taint_assignment is None:
 				self.increment_detection()  # time injection
 				continue
 
 			print(f"[INFO] - Running prototype pollution query: {self.queries[3][0]}")
-			taint_sub_key_results = session.run(check_taint_sub_key(self.second_lookup_obj))
+			taint_sub_key = session.run(check_taint_sub_key(self.second_lookup_obj)).single()
 			# If query is unable to find a taint sub key path, go to next pattern
-			if taint_sub_key_results.peek() is None:
+			if taint_sub_key is None:
 				self.increment_detection()  # time injection
 				continue
 
 			print(f'[INFO][{THIS_SCRIPT_NAME}] - Analyzing detected vulnerabilities.')
-			for tainted_source in taint_sub_key_results:
-				source = tainted_source.get('value')._properties.get("Id")
-				print(f"[INFO] - Running prototype pollution query: {self.queries[4][0]}")
-				ast_results = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj))
-				self.increment_detection()  # time injection
+			source = taint_sub_key.get('value')._properties.get("Id")
+			print(f"[INFO] - Running prototype pollution query: {self.queries[4][0]}")
+			ast_result = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj)).single()
+			self.increment_detection()  # time injection
 
-				for ast_result in ast_results:
-					source_cfg = ast_result["source_cfg"]
-					source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
-					sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
-					sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
+			if ast_result is None:
+				continue
 
-					vuln_path = {
-						"vuln_type": "prototype-pollution",
-						"source": source_cfg["IdentifierName"],
+			source_cfg = ast_result["source_cfg"]
+			source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
+			sink_lineno = json.loads(ast_result["assignment_cfg"]["Location"])["start"]["line"]
+			sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
+
+			vuln_path = {
+				"vuln_type": "prototype-pollution",
+				"source": source_cfg["IdentifierName"],
+				"source_lineno": source_lineno,
+				"sink": sink,
+				"sink_lineno": sink_lineno
+			}
+			my_utils.save_intermediate_output(vuln_path, detection_output)
+			self.increment_detection()  # time injection
+			detection_results.append(
+					{
+						"ast_result": ast_result,
+						"source_cfg": source_cfg,
 						"source_lineno": source_lineno,
-						"sink": sink,
-						"sink_lineno": sink_lineno
+						"sink_lineno": sink_lineno,
+						"sink": sink
 					}
-					my_utils.save_intermediate_output(vuln_path, detection_output)
-					self.increment_detection()  # time injection
-					detection_results.append(
-							{
-								"ast_result": ast_result,
-								"source_cfg": source_cfg,
-								"source_lineno": source_lineno,
-								"sink_lineno": sink_lineno,
-								"sink": sink
-							}
-					)
+			)
 
 		if self.reconstruct_types:
 			print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
