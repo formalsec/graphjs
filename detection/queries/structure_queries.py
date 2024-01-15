@@ -42,7 +42,6 @@ def get_context_stack(session, obj):
     if not fn_node:
         print("Unable to detect source function")
         return "-"
-    print(fn_node)
     # Try to find outer contexts
     fn_node_id = fn_node["node"]["Id"]
     contexts = [fn_node_id]
@@ -56,14 +55,13 @@ def get_context_stack(session, obj):
     # Check if function is a property of an object
     object_prop = session.run(function_is_object_prop(contexts[-1])).single()
     if object_prop:
-        print(object_prop)
         obj_name = object_prop["obj.IdentifierName"].split(".")[1].split("-")[0]
         obj_prop = object_prop["so.IdentifierName"]
         if obj_name == "module" and obj_prop == "exports":
             fn_name = object_prop["dep.IdentifierName"]
             return f"VFunExported: {fn_name}"
         else:
-            return f"VFunPropOfExportedObj: {obj_name}.{obj_prop}"
+            return f"VFunPropOfExportedObj: module.exports.{obj_prop}"
     else:
         return "Module not exported as expected."
         #context_list = ';'.join(str(c) for c in contexts)
