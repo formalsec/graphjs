@@ -11,6 +11,7 @@ def function_is_object_prop(obj_id):
                     <-[so:PDG]-(obj:PDG_OBJECT)
         WHERE dep.RelationType = "DEP" 
         AND so.RelationType = "SO"
+        AND ref.RelationType = "obj"
         RETURN distinct obj.IdentifierName, so.IdentifierName, dep.IdentifierName
     """
 

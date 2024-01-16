@@ -133,8 +133,9 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     objectLocations.forEach((location: number) => {
         const objectLocation: GraphNode | undefined = trackers.graphGetNode(location);
         const propertyLocation: GraphNode | undefined = trackers.graphGetObjectPropertyLocation(location, propName);
-        if (propertyLocation && objectLocation && objectLocation.propertyDependencies?.length > 0)
+        if (propertyLocation && objectLocation && objectLocation.propertyDependencies?.length > 0) {
             deps.push(...objectLocation.propertyDependencies)
+        }
     })
 
     // If variable is an object being redefined
@@ -151,7 +152,7 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
 
     // If right side of the assignment (memExpNode) is the argument keyword referring to the function arguments, we need to create the object corresponding to the left side
     if (!propertyLocations.length && obj.obj.name === "arguments") {
-        let newObjectAssigned: number | undefined = trackers.checkAssignment(stmtId, `obj_${variable.name}`)
+        const newObjectAssigned: number | undefined = trackers.checkAssignment(stmtId, `obj_${variable.name}`)
         if (!newObjectAssigned) {
             const subObjId = trackers.createNewObject(stmtId, stmt.functionContext, variable)
             propertyLocations.push(subObjId)
@@ -218,8 +219,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         } else {
             trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, deps);
         }
-    }
-    else if (callNode.obj.callee.type === "MemberExpression") {
+    } else if (callNode.obj.callee.type === "MemberExpression") {
         // Get callee object (e.g. path in path.call(args))
         let latestCalleeObj = trackers.graphGetNode(trackers.storeGetObjectLocations(calleeName, callNode.functionContext).slice(-1)[0])
         // Get summary for the function
@@ -238,17 +238,13 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
                     });
                 })
             })
-        }
-        // If function summary does not exist
-        else {
+        } else { // If function summary does not exist
             // Check if this call is a call of package with a summary or a package that was lazy required
             const lazyFunctionName: string | undefined = trackers.checkIfLazyCall(calleeName, functionName);
-            const lazyPackageSummary: PackageOperation[] | undefined = lazyFunctionName? config.summaries.packages.get(lazyFunctionName) : undefined;
+            const lazyPackageSummary: PackageOperation[] | undefined = lazyFunctionName ? config.summaries.packages.get(lazyFunctionName) : undefined;
             if (lazyPackageSummary) {
                 trackers.translateOperations(lazyPackageSummary, callNode, functionContext, stmtId)
-            }
-            // If the callee is not a package with a summary, process all dependencies
-            else {
+            } else { // If the callee is not a package with a summary, process all dependencies
                 if (latestCalleeObj && latestCalleeObj.id === returnLocation) {
                     latestCalleeObj = trackers.graphGetNode(trackers.getObjectVersions(calleeName, callNode.functionContext).slice(-2)[0]);
                 }
@@ -284,7 +280,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     return trackers;
 }
 
-function handleObjectExpression(stmtId: number, functionContext: number, variable: Identifier, objExp: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleObjectExpression(stmtId: number, functionContext: number, variable: Identifier, _objExp: GraphNode, trackers: DependencyTracker): DependencyTracker {
     trackers.createNewObject(stmtId, functionContext, variable)
     return trackers;
 }
@@ -342,8 +338,8 @@ function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Ident
         const returnObjectVersions: number[] = trackers.getObjectVersions(variable.name, stmt.functionContext)
         // If object exists, update store
         if (returnObjectVersions.length) {
-            returnObjectVersions.forEach((return_obj: number) => {
-                trackers.storeUpdateLocation(variable.name, return_obj, binExpNodeVersions, stmt.functionContext)
+            returnObjectVersions.forEach((returnObj: number) => {
+                trackers.storeUpdateLocation(variable.name, returnObj, binExpNodeVersions, stmt.functionContext)
             })
         } else { // If object does not exist, create object with store
             binExpNodeVersions.forEach((location: number) => {
@@ -360,7 +356,7 @@ function handleBinaryExpression(stmtId: number, stmt: GraphNode, variable: Ident
     return trackers;
 }
 
-function handleSimpleAssignment(stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleSimpleAssignment(_stmtId: number, stmt: GraphNode, variable: Identifier, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // Update store
     const locations: number[] = evalSto(trackers, expNode);
     locations.forEach((location: number) => {
@@ -502,7 +498,7 @@ function handleArrayExpressionElement(stmtId: number, functionContext: number, v
     return trackers;
 }
 
-function createArrayElement(stmtId: number, objName: string, context: number, elementIndex: number, propValue: number, deps: Dependency[], trackers: DependencyTracker): void {
+function createArrayElement(stmtId: number, objName: string, context: number, elementIndex: number, _propValue: number, deps: Dependency[], trackers: DependencyTracker): void {
     const locations = trackers.storeGetObjectLocations(objName, context)
     const propName = elementIndex.toString();
 
@@ -555,7 +551,7 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
  * }
  * This function maps f1.aux to f2.b
  */
-function mapCallArguments(callNode: GraphNode, functionContext: number, callName: string, calleeName: string, stmtId: number, config: Config, trackers: DependencyTracker): DependencyTracker {
+function mapCallArguments(callNode: GraphNode, _functionContext: number, callName: string, calleeName: string, stmtId: number, config: Config, trackers: DependencyTracker): DependencyTracker {
     const callArgs: GraphNode[] = getAllASTNodes(callNode, "arg");
     const callASTNode: GraphNode = getASTNode(callNode, "callee");
 
@@ -587,7 +583,7 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
         const auxiliaryFunctionSummary: boolean = config.summaries.auxiliary_functions.includes(callName);
         if (auxiliaryFunctionSummary) {
             // Get arguments that are functions
-            // @ts-ignore this is because of the filter but raises an error anyway
+            // @ts-expect-error this is because of the filter but raises an error anyway
             const innerFunctions: GraphNode[] = callArgs.filter(arg => arg.identifier != null)
                 .map(arg => trackers.getFunctionNodeFromName(arg.identifier ?? "?"))
                 .filter((fn: GraphNode | undefined) => fn !== undefined)
@@ -634,9 +630,9 @@ function mapCallArguments(callNode: GraphNode, functionContext: number, callName
     return trackers;
 }
 
-function handleReturnArgument(stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+function handleReturnArgument(_stmtId: number, _expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
     // evaluate dependency of expression
-    const deps = evalDep(trackers, stmtId, expNode);
+    // const deps = evalDep(trackers, stmtId, expNode);
 
     // Create edge to the start of the function
     // const functionNode = expNode.functionContext;
@@ -715,7 +711,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                 // in this case we use the id of the test (identifier) node because
                 // the CFG "extracts" this node from the AST and inlines it in the
                 // control flow
-                const deps = evalDep(curTrackers, ifTest.id, ifTest);
+                // const deps = evalDep(curTrackers, ifTest.id, ifTest);
                 // deps.forEach(dep => { curTrackers.graphCreateReferenceEdge(ifTest.id, dep.source); });
 
                 const origStore = curTrackers.storeSnapshot();
@@ -764,8 +760,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                 const initNode = getASTNode(node, "init");
                 if (initNode) {
                     curTrackers = handleVariableAssignment(node.id, node, node, initNode, config, curTrackers);
-                }
-                else {
+                } else {
                     curTrackers.createNewObject(node.id, node.functionContext, node.obj.id);
                 }
                 break;
@@ -808,7 +803,6 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
                         curTrackers = traverse(n, currentNamespace, curTrackers, true);
                     });
                 break;
-                isLoop = false
             }
 
             default:

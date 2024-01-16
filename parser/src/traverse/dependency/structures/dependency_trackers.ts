@@ -1,15 +1,10 @@
 import { type Graph } from "../../graph/graph";
 import { type GraphNode } from "../../graph/node";
-import {
-    getASTNode,
-    getAllASTNodes,
-    getNextLocationName,
-    deepCopyStore,
-} from "../../../utils/utils";
+import { deepCopyStore, getAllASTNodes, getASTNode, getNextLocationName } from "../../../utils/utils";
 import * as DependencyFactory from "../dep_factory";
 import { type Dependency } from "../dep_factory";
 import { type Identifier } from "estree";
-import { GraphEdge } from "../../graph/edge";
+import type { GraphEdge } from "../../graph/edge";
 import { type PackageOperation } from "../../../utils/summary_reader";
 import { getObjectNameFromIdentifier } from "../utils/nodes";
 
@@ -18,12 +13,12 @@ type FContexts = Map<number, number[]>;
 type RequireChain = Map<string, string[]>;
 
 // Each lazy require contains the name of the package and an alias, if it exists
-type LazyRequire = { name: string, alias: string | undefined }
+interface LazyRequire { name: string, alias: string | undefined }
 type LazyRequires = Map<string, LazyRequire[]>;
 type VPMap = Map<string, string>;
 // Each operation contains the type of operation and the nodes. E.g. { operation: "nv_*", nodes { left: 1, right: 2 } }
-type Operation = { operation: string, node: number}
-type AssignmentMap = Map<number, Array<Operation>>
+interface Operation { operation: string, node: number }
+type AssignmentMap = Map<number, Operation[]>
 
 export class DependencyTracker {
     // This value represents the current state of the graph
@@ -108,14 +103,10 @@ export class DependencyTracker {
             const packageName = getAllASTNodes(callNode, "arg")[0];
             const variableName: string = `${callNode.functionContext}.${variable.name}`
             this.addRequireChainEntry(variableName, packageName.obj.value);
-        }
-        // If function call is a lazy require, add to LazyRequires
-        else if (this.checkIfFunctionIsLazyRequire(functionName, callNode)) {
+        } else if (this.checkIfFunctionIsLazyRequire(functionName, callNode)) { // If function call is a lazy require, add to LazyRequires
             const packageVariableName: string = variable.name;
             this.addLazyRequire(packageVariableName)
-        }
-        // If function call is a definition of a lazy require, update LazyRequire structure
-        else this.checkIfLazyDefinition(callNode);
+        } else this.checkIfLazyDefinition(callNode); // If function call is a definition of a lazy require, update LazyRequire structure
     }
 
     // Adds lazy require to map (lazy -> methods[])
@@ -123,10 +114,8 @@ export class DependencyTracker {
         const lazyRequires: LazyRequire[] | undefined = this.lazyRequireChain.get(packageName);
         // If adding a new method to an existing package
         if (lazyRequires && methodName) {
-            this.lazyRequireChain.set(packageName, [...lazyRequires, { name: methodName, alias: aliasName}])
-        }
-        //If adding a new package, without method yet (init)
-        else if (!lazyRequires) {
+            this.lazyRequireChain.set(packageName, [...lazyRequires, { name: methodName, alias: aliasName }])
+        } else if (!lazyRequires) { // If adding a new package, without method yet (init)
             this.lazyRequireChain.set(packageName, [])
         }
     }
@@ -134,15 +123,13 @@ export class DependencyTracker {
     // Checks if a function call is a lazy require (e.g. lazy = v(require))
     checkIfFunctionIsLazyRequire(functionName: string, callNode: GraphNode): boolean {
         const variableName: string = `${callNode.functionContext}.${functionName}`;
-        const packageName: string | undefined = this.checkVariableMap(variableName);
         if (!this.checkVariableMap(variableName)) return false
 
-        if (callNode.obj.callee.type === "Identifier"
-            && callNode.obj.arguments.length) {
-            const require: boolean = callNode.obj.arguments
+        if (callNode.obj.callee.type === "Identifier" &&
+            callNode.obj.arguments.length) {
+            return callNode.obj.arguments
                 .filter((element: any) => element.type === "Identifier")
                 .some((element: any) => element.name === "require")
-            return require
         }
         return false
     }
@@ -154,7 +141,7 @@ export class DependencyTracker {
             // If function call is a lazy require package
             if (requires && callNode.obj.arguments.length > 1) {
                 const packageName: string | undefined = callNode.obj.arguments[0].type === "Literal" ? callNode.obj.arguments[0].value : undefined;
-                const packageAlias: string | undefined= callNode.obj.arguments[1].type === "Literal" ? callNode.obj.arguments[1].value : undefined;
+                const packageAlias: string | undefined = callNode.obj.arguments[1].type === "Literal" ? callNode.obj.arguments[1].value : undefined;
                 this.addLazyRequire(callNode.obj.callee.name, packageName, packageAlias)
             }
         }
@@ -162,20 +149,14 @@ export class DependencyTracker {
 
     checkIfLazyCall(calleeName: string, functionName: string): string | undefined {
         const lazyRequires: LazyRequire[] | undefined = this.lazyRequireChain.get(calleeName)
-        if (lazyRequires && lazyRequires.length) {
+        if (lazyRequires?.length) {
             return lazyRequires.find((require: LazyRequire) => require.name === functionName || require.alias === functionName)?.name
         }
     }
 
-    checkLazyRequire(functionName: string): LazyRequire[] {
-        return this.lazyRequireChain.get(functionName) ?? [];
-    }
-
     checkRequireChain(variableName: string | null): string[] {
-        return variableName? this.requireChain.get(variableName) ?? [] : [];
+        return variableName ? this.requireChain.get(variableName) ?? [] : [];
     }
-
-
 
     addVariableMap(variableName: string, functionMap: string): void {
         this.variableMap.set(variableName, functionMap);
@@ -189,19 +170,17 @@ export class DependencyTracker {
         const ops: Operation[] | undefined = this.assignments.get(assignmentNumber)
         if (ops) {
             this.assignments.set(assignmentNumber, [...ops, op]);
-        }
-        else this.assignments.set(assignmentNumber, [op]);
+        } else this.assignments.set(assignmentNumber, [op]);
     }
 
     checkAssignment(assignmentNumber: number, operation: string): number | undefined {
         const ops: Operation[] | undefined = this.assignments.get(assignmentNumber)
         if (ops) {
             const sameOperations: Operation[] = ops.filter((op: Operation) => op.operation === operation)
-            return sameOperations.length? sameOperations[0].node : undefined;
+            return sameOperations.length ? sameOperations[0].node : undefined;
         }
         return undefined
     }
-
 
     // ------------------------------------------------------------------------------------------------------------ //
     // ------------------------------------------- STORE OPERATIONS ----------------------------------------------- //
@@ -212,7 +191,7 @@ export class DependencyTracker {
     * Used in dep_builder: handleMemberExpression and handleSimpleAssignment
     * Used here in: addProp, addParamNode and createNewObject
     */
-    storeAddLocation(objName: string, location: number, context: number) {
+    storeAddLocation(objName: string, location: number, context: number): void {
         // Check if object exists
         const objContextName: string = `${context}.${objName}`
         const objectExists: boolean = this.store.has(objContextName)
@@ -224,9 +203,7 @@ export class DependencyTracker {
                 objectLocations.push(location)
                 this.store.set(objContextName, objectLocations)
             }
-        }
-        // If object does not exist, create new object in store with new location
-        else {
+        } else { // If object does not exist, create new object in store with new location
             this.store.set(objContextName, [location])
         }
     }
@@ -235,7 +212,7 @@ export class DependencyTracker {
     * Updates an object's old location to a new location
     * Used when adding a new version
     */
-    storeUpdateLocation(objName: string, oldLocation: number, newLocations: number[], context: number) {
+    storeUpdateLocation(objName: string, oldLocation: number, newLocations: number[], context: number): void {
         // Check if object exists
         const objContextName: string = `${context}.${objName}`
         const objectExists: boolean = this.store.has(objContextName)
@@ -248,15 +225,13 @@ export class DependencyTracker {
             // Search for old location and replace with new location
             objectLocations.forEach((location: number) => {
                 if (location === oldLocation) {
-                    newObjectLocations.length? newObjectLocations.push(...newLocations) : newObjectLocations = newLocations
+                    newObjectLocations.length ? newObjectLocations.push(...newLocations) : newObjectLocations = newLocations
                 } else {
                     newObjectLocations.push(location)
                 }
             })
             this.store.set(objContextName, [...new Set(newObjectLocations)])
-        }
-        // If object does not exist, create new object in store with new location
-        else {
+        } else { // If object does not exist, create new object in store with new location
             this.store.set(objContextName, newLocations)
         }
     }
@@ -313,7 +288,7 @@ export class DependencyTracker {
                 mergedStore.set(key, value);
             } else {
                 // include all storage values in storeB that were not in storeA for this key
-                let mergedLocs: number[] = mergedStore.get(key) ?? [];
+                const mergedLocs: number[] = mergedStore.get(key) ?? [];
                 value.forEach((s: number) => {
                     if (!mergedLocs.includes(s)) {
                         mergedLocs.push(s)
@@ -329,17 +304,15 @@ export class DependencyTracker {
         return deepCopyStore(this.store);
     }
 
-
     // ------------------------------------------------------------------------------------------------------------ //
     // ---------------------------------------- GRAPH OPERATIONS -------------------------------------------------- //
     // ------------------------------------------------------------------------------------------------------------ //
-
 
     /*
     * Adds a new location to the graph -> new node with name objName
     * Used in: addProp, addVersion, createNewObject
      */
-    graphAddLocation(objName: string, context: number, stmtId: number): GraphNode {
+    graphAddLocation(objName: string, context: number, _stmtId: number): GraphNode {
         // Create location
         const locationName: string = getNextLocationName(objName, context)
         const nodeLocation: GraphNode = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
@@ -361,12 +334,9 @@ export class DependencyTracker {
         const propertyEdges: GraphEdge[] | undefined = graphObjectNode?.edges
             .filter((edge: GraphEdge) => edge.type === "PDG" && edge.label === "SO" && edge.objName === property)
 
-        if (propertyEdges && propertyEdges.length > 1)  { /* TODO: Output error */ }
-
-        else if (propertyEdges) {
+        if (propertyEdges && propertyEdges.length > 1) { /* TODO: Output error */ } else if (propertyEdges) {
             return propertyEdges.pop()?.nodes[1]
-        }
-        else {
+        } else {
             return undefined
         }
     }
@@ -376,7 +346,7 @@ export class DependencyTracker {
     * Used in evalDep (MemberExpression)
      */
     graphGetObjectVersionsPropertyLocations(objName: string, context: number, propName: string): number[] {
-        const locations: number[] = this.getObjectVersions(objName,context)
+        const locations: number[] = this.getObjectVersions(objName, context)
 
         const propertyLocations: number[] = []
         locations.forEach((location: number) => {
@@ -400,7 +370,7 @@ export class DependencyTracker {
 
     /* Adds the new property to the object locations */
     addProp(locations: number[], objectName: string, property: string, context: number, stmtId: number, deps: Dependency[] = []): number[] {
-        let propertyLocations: number[] = []
+        const propertyLocations: number[] = []
         // For each location
         locations.forEach((location: number) => {
             // 1. Check if property exists
@@ -412,7 +382,6 @@ export class DependencyTracker {
                 // 2.1. If property edge does not exist, create it
                 this.graphCreatePropertyEdge(location, propertyAssigned, property);
                 propertyLocation = this.graphGetNode(propertyAssigned)
-
             }
 
             // 3. If property does not exist, need to create the object property
@@ -420,17 +389,15 @@ export class DependencyTracker {
                 // 2.1 Add property location to graph
                 propertyLocation = this.graphAddLocation(`${objectName}.${property}`, context, stmtId)
                 this.graphCreatePropertyEdge(location, propertyLocation.id, property);
-                this.addAssignment(stmtId, { operation: `p_${property}`, node: propertyLocation.id})
+                this.addAssignment(stmtId, { operation: `p_${property}`, node: propertyLocation.id })
 
                 // 2.2 Add property location to store
                 // this.storeAddLocation(objectName, location, context)
 
                 // Add dependencies of property
-                if (propertyLocation) {
-                    deps.forEach(dep => {
-                        this.graphCreateDependencyEdge(dep.source, propertyLocation.id, dep);
-                    });
-                }
+                deps.forEach(dep => {
+                    propertyLocation?.id && this.graphCreateDependencyEdge(dep.source, propertyLocation.id, dep);
+                });
             }
             // Add property location to array
             propertyLocations.push(propertyLocation.id)
@@ -451,8 +418,8 @@ export class DependencyTracker {
             // Add to store
             this.storeAddLocation(variable.name, location.id, functionContext)
             // Create reference edge
-            this.graphCreateReferenceEdge(stmtId, location.id)
-            this.addAssignment(stmtId, { operation: `obj_${variable.name}`, node: newObjectAssigned})
+            this.graphCreateReferenceEdge(stmtId, location.id, variable.name)
+            this.addAssignment(stmtId, { operation: `obj_${variable.name}`, node: newObjectAssigned })
         }
         return newObjectAssigned;
     }
@@ -479,7 +446,7 @@ export class DependencyTracker {
             } else {
                 const newLocation: GraphNode = this.graphAddLocation(objName, context, stmtId);
                 this.graphCreateNewVersionEdge(location, newLocation.id, propName);
-                this.addAssignment(stmtId, { operation: `nv_${propName}`, node: newLocation.id})
+                this.addAssignment(stmtId, { operation: `nv_${propName}`, node: newLocation.id })
                 newLocations.push(newLocation.id)
                 if (propName === "*") {
                     newLocation.addPropertyDependencies(deps)
@@ -501,11 +468,12 @@ export class DependencyTracker {
         deps.forEach(dep => {
             if (!dep.isProp) {
                 propertyLocations.forEach((id: number) => {
-                    this.graphCreateDependencyEdge(dep.source, id, dep); });
-            }
-            else {
+                    this.graphCreateDependencyEdge(dep.source, id, dep);
+                });
+            } else {
                 newLocations.forEach((id: number) => {
-                    this.graphCreateDependencyEdge(dep.source, id, dep); });
+                    this.graphCreateDependencyEdge(dep.source, id, dep);
+                });
             }
         })
 
@@ -520,14 +488,14 @@ export class DependencyTracker {
     * Note: does not return the chain of new versions
     */
     getObjectVersions(objName: string, context: number): number[] {
-        const locations: number[] = this.storeGetObjectLocations(objName,context)
+        const locations: number[] = this.storeGetObjectLocations(objName, context)
 
         const objectVersions: number[] = [...locations]
         locations.forEach((location: number) => {
             const locationNode: GraphNode | undefined = this.graph.nodes.get(location)
             if (locationNode) {
                 const newVersionLocations: number[] = locationNode.edges
-                    .filter((edge : GraphEdge) => edge.type === "PDG" && edge.label === "NV")
+                    .filter((edge: GraphEdge) => edge.type === "PDG" && edge.label === "NV")
                     .map((edge: GraphEdge) => edge.nodes[1].id)
                 objectVersions.push(...newVersionLocations)
             }
@@ -539,28 +507,29 @@ export class DependencyTracker {
     // ------------------------------------------------------------------------------------------------------------ //
     // ------------------------------------------------------------------------------------------------------------ //
 
-
-
     /** Methods for adding edges in the graph **/
-    graphCreateReferenceEdge(source: number, destination: number): void {
+    graphCreateReferenceEdge(source: number, destination: number, label: string = ""): void {
         const refEdges: number[] = this.graphGetNode(source)?.edges
-            .filter((edge: GraphEdge) => edge.type === "REF" )
-                .map((edge: GraphEdge) => edge.nodes[1].id) ?? []
-        if(!refEdges.includes(destination))
-            this.graph.addEdge(source, destination, { type: "REF" });
+            .filter((edge: GraphEdge) => edge.type === "REF")
+            .map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+        if (!refEdges.includes(destination)) {
+            if (label === "this") {
+                this.graph.addEdge(source, destination, { type: "REF", label: "param", paramIndex: "this" })
+            } else {
+                this.graph.addEdge(source, destination, { type: "REF", label: "obj" });
+            }
+        }
     }
 
     graphCreateDependencyEdge(source: number, destination: number, dep: Dependency): void {
         if (source !== destination) {
             const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
-            if (!sourceEdges.includes(destination))
-                this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name, isPropertyDependency: dep.isProp });
+            if (!sourceEdges.includes(destination)) { this.graph.addEdge(source, destination, { type: "PDG", label: DependencyFactory.translate(dep.type), objName: dep.name, isPropertyDependency: dep.isProp }); }
         }
     }
 
-    graphCreateCallStatementDependencyEdges(stmtId: number, newObjId: number, deps: Dependency[]): void {
+    graphCreateCallStatementDependencyEdges(_stmtId: number, newObjId: number, deps: Dependency[]): void {
         const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
-        const calleeDeps = deps.filter(dep => DependencyFactory.isDCallee(dep));
 
         // calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
         varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
@@ -569,8 +538,7 @@ export class DependencyTracker {
     graphCreateCallDependencyEdge(source: number, destination: number, objName: string): void {
         if (source !== destination) {
             const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
-            if (!sourceEdges.includes(destination))
-                this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName });
+            if (!sourceEdges.includes(destination)) { this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName }); }
         }
     }
 
@@ -578,12 +546,13 @@ export class DependencyTracker {
         if (source !== functionArg) {
             const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
             if (!sourceEdges.includes(functionArg)) {
-                if (!sourceName) this.graph.addEdge(source, functionArg, {
-                    type: "PDG",
-                    label: "ARG",
-                    objName: sourceName
-                });
-                else this.graph.addEdge(source, functionArg, {type: "PDG", label: "ARG", objName: sourceName});
+                if (!sourceName) {
+                    this.graph.addEdge(source, functionArg, {
+                        type: "PDG",
+                        label: "ARG",
+                        objName: sourceName
+                    });
+                } else this.graph.addEdge(source, functionArg, { type: "PDG", label: "ARG", objName: sourceName });
             }
         }
     }
@@ -598,20 +567,12 @@ export class DependencyTracker {
 
     graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string): void {
         const sourceEdges: number[] = this.graphGetNode(oldObjId)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
-        if (!sourceEdges.includes(newObjId) && oldObjId !== newObjId)
-            this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName });
+        if (!sourceEdges.includes(newObjId) && oldObjId !== newObjId) { this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName }); }
     }
 
-    graphCreatePropertyEdge(location: number, propertyLocation: number, property: string, deps: Dependency[] = []): void {
+    graphCreatePropertyEdge(location: number, propertyLocation: number, property: string, _deps: Dependency[] = []): void {
         this.graph.addEdge(location, propertyLocation, { type: "PDG", label: "SO", objName: property });
     }
-
-    graphCreateMemberExpressionDependencies(stmtId: number, newObjId: number, deps: Dependency[]): void {
-        deps
-            .filter(dep => DependencyFactory.isDVar(dep))
-            .forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
-    }
-
 
     translateOperations(operations: PackageOperation[], callNode: GraphNode, functionContext: number, stmtId: number): void {
         const callArgs: GraphNode[] = getAllASTNodes(callNode, "arg");
@@ -634,15 +595,12 @@ export class DependencyTracker {
                         this.graphCreateArgumentEdge(location, calledArgNodes[op.objs[0]].id)
                         // Create dependency edge between new property and function argument
                         const keyDependency: string | undefined = getObjectNameFromIdentifier(calledArgNodes[op.objs[1]].identifier)
-                        if (keyDependency)
-                            this.graphCreateCallDependencyEdge(calledArgNodes[op.objs[1]].id, location, keyDependency)
-
+                        if (keyDependency) { this.graphCreateCallDependencyEdge(calledArgNodes[op.objs[1]].id, location, keyDependency) }
                     })
                 }
             }
         })
     }
-
 
     /** Methods for adding nodes **/
     addParamNode(stmtId: number, paramObj: GraphNode, index: number, funcExpNode: GraphNode, context: number): void {
@@ -895,8 +853,8 @@ export function evalSto(trackers: DependencyTracker, node: GraphNode): number[] 
             const objectName = obj.obj.name;
             const locations = trackers.storeGetObjectLocations(objectName, node.functionContext)
 
-            const propertyName = (node.obj.computed && prop.type !== "Literal")? '*' : prop.obj.name;
-            let propertyLocations: number[] = []
+            const propertyName = (node.obj.computed && prop.type !== "Literal") ? '*' : prop.obj.name;
+            const propertyLocations: number[] = []
             locations.forEach((location: number) => {
                 const propertyLocation: GraphNode | undefined = trackers.graphGetObjectPropertyLocation(location, propertyName)
                 if (propertyLocation) {
