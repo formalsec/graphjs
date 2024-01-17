@@ -33,14 +33,13 @@ def get_stack_single_pattern(obj_id):
     return f"""
         MATCH
             (source)-[def:FD]->(fn_def)
-                -[path:CFG*1..]->(sink_cfg)
+                -[path:CFG*1..]->({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
-        AND exists ((sink_cfg)-[:SINK]->({{Id: "{obj_id}"}}))
         RETURN distinct source as node
     """
 
 
-def get_source(session, sink_obj, sink_location, vuln_type, config):
+def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
     # Find first level
     fn_node = session.run(get_stack_single_pattern(sink_obj.id)).single()
     if not fn_node:
@@ -55,7 +54,6 @@ def get_source(session, sink_obj, sink_location, vuln_type, config):
         else:
             break
 
-    print("\n\n",contexts)
     # Check if function is a property of an object
     object_prop = session.run(function_is_object_prop(contexts[-1]["Id"])).single()
     if object_prop:
@@ -67,6 +65,7 @@ def get_source(session, sink_obj, sink_location, vuln_type, config):
                 session,
                 sink_obj,
                 sink_location,
+                sink_line,
                 contexts[-1],
                 fn_name,
                 vuln_type,
@@ -76,6 +75,7 @@ def get_source(session, sink_obj, sink_location, vuln_type, config):
                 session,
                 sink_obj,
                 sink_location,
+                sink_line,
                 contexts[-1],
                 obj_prop,
                 vuln_type,
@@ -88,8 +88,7 @@ def get_source(session, sink_obj, sink_location, vuln_type, config):
 
 
 # VFunExported
-def create_reconstructed_exported_fn(session, sink_obj, sink_location, fn_node, fn_name, vuln_type, config):
-    sink_name = sink_obj["IdentifierName"]
+def create_reconstructed_exported_fn(session, sink_obj, sink_location, sink_line_content, fn_node, fn_name, vuln_type, config):
     source_line = json.loads(fn_node["Location"])["start"]["line"]
     sink_line = sink_location["start"]["line"]
     tainted_params, params_types = reconstruct_param_types(session, fn_node["Id"], config)
@@ -97,7 +96,7 @@ def create_reconstructed_exported_fn(session, sink_obj, sink_location, fn_node, 
         "vuln_type": vuln_type,
         "source": fn_name,
         "source_lineno": source_line,
-        "sink": sink_name,
+        "sink": sink_line_content,
         "sink_lineno": sink_line,
         "type": "VFunExported",
         "tainted_params": tainted_params,
@@ -106,8 +105,7 @@ def create_reconstructed_exported_fn(session, sink_obj, sink_location, fn_node, 
 
 
 # VFunPropOfExportedObj
-def create_reconstructed_object_exported_prop(session, sink_obj, sink_location, fn_node, prop_name, vuln_type, config):
-    sink_name = sink_obj["IdentifierName"]
+def create_reconstructed_object_exported_prop(session, sink_obj, sink_location, sink_line_content, fn_node, prop_name, vuln_type, config):
     source_line = json.loads(fn_node["Location"])["start"]["line"]
     sink_line = sink_location["start"]["line"]
     tainted_params, params_types = reconstruct_param_types(session, fn_node["Id"], config)
@@ -115,7 +113,7 @@ def create_reconstructed_object_exported_prop(session, sink_obj, sink_location, 
         "vuln_type": vuln_type,
         "source": f"module.exports.{prop_name}",
         "source_lineno": source_line,
-        "sink": sink_name,
+        "sink": sink_line_content,
         "sink_lineno": sink_line,
         "type": "VFunPropOfExportedObj",
         "tainted_params": tainted_params,

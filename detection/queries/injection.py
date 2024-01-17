@@ -66,43 +66,24 @@ class Injection(QueryType):
             detection_results.append(
                 {
                     "vuln_type": my_utils.get_injection_type(sink_name, config),
-                    "sink_obj": record["sink"],
+                    "sink_obj": record["sink_cfg"],
                     "sink_location": sink_location,
                     "source_cfg": source_cfg,
                     "source_ast": source_ast,
                     "source_location": source_location,
                     "param_name": param_name,
-                    "result": record})
+                    "sink_line": record["sink"]["IdentifierName"]})
         self.time_detection()  # time injection
 
         if self.reconstruct_types:
             print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
                 detection_obj = structure_queries.get_source(
-                    session, detection_result["sink_obj"], detection_result["sink_location"], detection_result["vuln_type"], config)
-                print(detection_obj)
+                    session, detection_result["sink_obj"], detection_result["sink_location"],
+                    detection_result["sink_line"], detection_result["vuln_type"], config)
 
-                #sink_name = detection_result["sink"]["IdentifierName"]
-                #source_cfg = detection_result["source_cfg"]
-                #source_ast = detection_result["source_ast"]
-                #param_name = detection_result["param_name"]
-                #source_location = detection_result["source_location"]
-                #sink_location = detection_result["sink_location"]
-                #tainted_params, params_types = \
-                   # self.reconstruct_attacker_controlled_data(session, detection_result["result"],
-                                                              #attacker_controlled_data, config)
-                # vuln_path = {
-                #     "vuln_type": my_utils.get_injection_type(sink_name, config),
-                #     "source": source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" or source_ast[
-                #         "Type"] == "ArrowFunctionExpression" else param_name,
-                #     "source_lineno": source_location["start"]["line"],
-                #     "sink": sink_name,
-                #     "sink_lineno": sink_location["start"]["line"],
-                #     "tainted_params": tainted_params,
-                #     "params_types": params_types
-                # }
                 if detection_obj not in vuln_paths:
-                     vuln_paths.append(detection_obj)
+                    vuln_paths.append(detection_obj)
 
         self.time_reconstruction()
         return vuln_paths
