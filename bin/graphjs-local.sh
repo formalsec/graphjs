@@ -72,6 +72,14 @@ if [ -f "$CONFIGPATH" ] && [ -f "$FILEPATH" ]; then
         QUERIES=$ROOT_DIR/detection
         python3 $QUERIES/run.py -f $NORMALIZED -o $TAINT_SUMMARY \
           2> "$GRAPHJS_DIR/time_stats.txt"
+
+        # Create an exploit
+        if $EXPLOIT; then
+            # Create symbolic tests
+            echo "[INFO] - Creating symbolic tests"
+            cd "$GRAPHJS_DIR" || exit
+            instrumentation2 $FILEPATH $TAINT_SUMMARY
+        fi
     fi
 elif [ -f "$CONFIGPATH" ] && [ -d "$FILEPATH" ]; then
     for file in "$FILEPATH"/*; do
