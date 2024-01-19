@@ -94,7 +94,7 @@ def create_reconstructed_exported_fn(session, sink_obj, sink_location, sink_line
     tainted_params, params_types = reconstruct_param_types(session, fn_node["Id"], config)
     return {
         "vuln_type": vuln_type,
-        "source": fn_name,
+        "source": "module.exports",
         "source_lineno": source_line,
         "sink": sink_line_content,
         "sink_lineno": sink_line,
