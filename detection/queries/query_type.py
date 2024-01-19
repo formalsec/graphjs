@@ -377,7 +377,7 @@ def assign_type(session, param_name, obj_ids, config):
 
     types = list(types)
     types.sort()
-    return { "_union": types} if len(types) else "any"
+    return {"_union": types} if len(types) > 1 else types[0] if len(types) == 1 else "any"
 
 
 def find_variable_declarators(session, param_name, obj_ids):
