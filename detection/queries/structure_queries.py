@@ -23,7 +23,8 @@ def get_outer_context(obj_id):
     return f"""
         MATCH
             (source)-[def:FD]->(fn_def)
-                -[path:CFG*1..]->({{Id: "{obj_id}"}})
+                 -[path:CFG*1..]->()
+                    -[:CG*0..1]->({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
     """
@@ -48,11 +49,13 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
     # Try to find outer contexts
     contexts = [fn_node["node"]]
     while True:
-        fn_node = session.run(get_outer_context(fn_node["node"]["Id"])).single()
-        if fn_node is not None:
-            contexts.append(fn_node["node"])
-        else:
+        # May be various nodes due to multiple call edges
+        fn_nodes = session.run(get_outer_context(fn_node["node"]["Id"]))
+        if fn_nodes.peek() is None:
             break
+        for fn_node in fn_nodes:
+            if fn_node is not None:
+                contexts.append(fn_node["node"])
 
     # Check if function is a property of an object
     object_prop = session.run(function_is_object_prop(contexts[-1]["Id"])).single()
