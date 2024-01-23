@@ -6,7 +6,7 @@ from queries.query_type import get_obj_recon_queries, assign_types
 THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 
 
-def function_is_object_prop(obj_id):
+def function_is_exported(obj_id):
     return f"""
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
@@ -19,22 +19,12 @@ def function_is_object_prop(obj_id):
     """
 
 
-def get_outer_context(obj_id):
+def get_parent_function(obj_id):
     return f"""
         MATCH
             (source)-[def:FD]->(fn_def)
                  -[path:CFG*1..]->()
-                    -[:CG*0..1]->({{Id: "{obj_id}"}})
-        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
-        RETURN distinct source as node
-    """
-
-
-def get_stack_single_pattern(obj_id):
-    return f"""
-        MATCH
-            (source)-[def:FD]->(fn_def)
-                -[path:CFG*1..]->({{Id: "{obj_id}"}})
+                    -[:CG*1..1]->({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
     """
@@ -42,7 +32,7 @@ def get_stack_single_pattern(obj_id):
 
 def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
     # Find first level
-    fn_node = session.run(get_stack_single_pattern(sink_obj.id)).single()
+    fn_node = session.run(get_parent_function(sink_obj.id)).single()
     if not fn_node:
         print("Unable to detect source function")
         return "-"
@@ -50,7 +40,7 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
     contexts = [fn_node["node"]]
     while True:
         # May be various nodes due to multiple call edges
-        fn_nodes = session.run(get_outer_context(fn_node["node"]["Id"]))
+        fn_nodes = session.run(get_parent_function(fn_node["node"]["Id"]))
         if fn_nodes.peek() is None:
             break
         for fn_node in fn_nodes:
@@ -58,25 +48,21 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
                 contexts.append(fn_node["node"])
 
     # Check if function is a property of an object
-    object_prop = session.run(function_is_object_prop(contexts[-1]["Id"])).single()
+    object_prop = session.run(function_is_exported(contexts[-1]["Id"])).single()
     if object_prop:
         obj_name = object_prop["obj.IdentifierName"].split(".")[1].split("-")[0]
         obj_prop = object_prop["so.IdentifierName"]
         if obj_name == "module" and obj_prop == "exports":
-            fn_name = object_prop["dep.IdentifierName"]
             return create_reconstructed_exported_fn(
                 session,
-                sink_obj,
                 sink_location,
                 sink_line,
                 contexts[-1],
-                fn_name,
                 vuln_type,
                 config)
         else:
             return create_reconstructed_object_exported_prop(
                 session,
-                sink_obj,
                 sink_location,
                 sink_line,
                 contexts[-1],
@@ -91,7 +77,7 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
 
 
 # VFunExported
-def create_reconstructed_exported_fn(session, sink_obj, sink_location, sink_line_content, fn_node, fn_name, vuln_type, config):
+def create_reconstructed_exported_fn(session, sink_location, sink_line_content, fn_node, vuln_type, config):
     source_line = json.loads(fn_node["Location"])["start"]["line"]
     sink_line = sink_location["start"]["line"]
     tainted_params, params_types = reconstruct_param_types(session, fn_node["Id"], config)
@@ -108,7 +94,7 @@ def create_reconstructed_exported_fn(session, sink_obj, sink_location, sink_line
 
 
 # VFunPropOfExportedObj
-def create_reconstructed_object_exported_prop(session, sink_obj, sink_location, sink_line_content, fn_node, prop_name, vuln_type, config):
+def create_reconstructed_object_exported_prop(session, sink_location, sink_line_content, fn_node, prop_name, vuln_type, config):
     source_line = json.loads(fn_node["Location"])["start"]["line"]
     sink_line = sink_location["start"]["line"]
     tainted_params, params_types = reconstruct_param_types(session, fn_node["Id"], config)
