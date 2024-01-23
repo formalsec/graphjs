@@ -19,12 +19,12 @@ def function_is_exported(obj_id):
     """
 
 
-def get_parent_function(obj_id):
+def get_parent_function(obj_id, nr_calls=0):
     return f"""
         MATCH
             (source)-[def:FD]->(fn_def)
                  -[path:CFG*1..]->()
-                    -[:CG*1..1]->({{Id: "{obj_id}"}})
+                    -[:CG*{nr_calls}..1]->({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
     """
@@ -40,7 +40,7 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
     contexts = [fn_node["node"]]
     while True:
         # May be various nodes due to multiple call edges
-        fn_nodes = session.run(get_parent_function(fn_node["node"]["Id"]))
+        fn_nodes = session.run(get_parent_function(fn_node["node"]["Id"], 1))
         if fn_nodes.peek() is None:
             break
         for fn_node in fn_nodes:
