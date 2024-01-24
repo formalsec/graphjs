@@ -228,13 +228,15 @@ class PrototypePollution(QueryType):
         if self.reconstruct_types:
             print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
-                detection_obj = structure_queries.get_source(
+                detection_objs = structure_queries.get_source(
                     session, detection_result["sink_obj"], detection_result["sink_location"],
                     detection_result["sink"],
                     "prototype-pollution", config)
 
-                if detection_obj not in vuln_paths:
-                    vuln_paths.append(detection_obj)
+                for detection_obj in detection_objs:
+                    if detection_obj not in vuln_paths:
+                        vuln_paths.append(detection_obj)
+
 
                 '''    
                 source_cfg = detection_result["source_cfg"]

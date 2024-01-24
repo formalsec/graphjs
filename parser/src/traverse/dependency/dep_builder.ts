@@ -630,13 +630,17 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
     return trackers;
 }
 
-function handleReturnArgument(_stmtId: number, _expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // evaluate dependency of expression
-    // const deps = evalDep(trackers, stmtId, expNode);
-
-    // Create edge to the start of the function
-    // const functionNode = expNode.functionContext;
-    // trackers.graphCreateReturnEdge(deps[0].source, functionNode)
+function handleReturnArgument(_stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
+    // Get function node
+    const functionContextNode: number = expNode.functionContext;
+    const functionNode: number | undefined = trackers.getFunctionNode(functionContextNode)?.id
+    if (functionNode) {
+        // Get function object
+        const returnObjects: number[] = trackers.getObjectVersions(expNode.obj.name, functionContextNode)
+        if (returnObjects.length > 0) {
+            trackers.graphCreateReturnEdge(functionNode, returnObjects[0])
+        }
+    }
 
     return trackers;
 }

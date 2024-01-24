@@ -6,6 +6,7 @@ from queries.query_type import get_obj_recon_queries, assign_types
 THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 
 
+# This query checks if the function identified with node <obj_id> is exported (directly or via a property)
 def function_is_exported(obj_id):
     return f"""
         MATCH
@@ -19,64 +20,133 @@ def function_is_exported(obj_id):
     """
 
 
-def get_parent_function(obj_id, nr_calls=0):
+# This query checks if the function identified with node <obj_id> is returned by another function
+def function_is_returned(obj_id):
+    print(obj_id)
+    return f"""
+        MATCH
+            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]
+                ->(obj:PDG_OBJECT)
+                    <-[ret:REF]-(fn_node)
+        RETURN distinct fn_node
+    """
+
+
+# This query checks if the function identified with node <obj_id> is called by another function
+# Due to JavaScript allowing functions to be used as arguments of another functions (which will call them internally),
+# this query also checks if the function is used as an argument of a function call
+# Detected cases: then() in promises
+def function_is_called(obj_id):
     return f"""
         MATCH
             (source)-[def:FD]->(fn_def)
                  -[path:CFG*1..]->()
-                    -[:CG*{nr_calls}..1]->({{Id: "{obj_id}"}})
+                    -[:CG*1]->({{Id: "{obj_id}"}})
+        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
+        RETURN distinct source as node
+        UNION
+        MATCH
+            (source)-[def:FD]->(fn_def)
+                 -[path:CFG*1..]->()
+                    -[ref:REF*0..1]->(fn_obj:PDG_OBJECT)
+                        <-[dep:PDG {{RelationType: "DEP"}}]-()
+                            <-[obj:REF {{RelationType: "obj"}}]-({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
     """
 
 
+# This query returns the parent function of the function/node identified with <obj_id>
+def get_parent_function(obj_id):
+    return f"""
+        MATCH
+            (source)-[def:FD]->(fn_def)
+                 -[path:CFG*1..]->({{Id: "{obj_id}"}})
+        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
+        RETURN distinct source as node
+    """
+
+
+def add_to_exported_fns(exported_fn, fn_id, session, sink_location, sink_line, vuln_type, config):
+    obj_name = exported_fn["obj.IdentifierName"].split(".")[1].split("-")[0]
+    obj_prop = exported_fn["so.IdentifierName"]
+    # Check if function is directly exported
+    if obj_name == "module" and obj_prop == "exports":
+        return create_reconstructed_exported_fn(
+            session,
+            sink_location,
+            sink_line,
+            fn_id,
+            vuln_type,
+            config)
+    # Otherwise, it is a property of an exported object
+    else:
+        return create_reconstructed_object_exported_prop(
+            session,
+            sink_location,
+            sink_line,
+            fn_id,
+            obj_prop,
+            vuln_type,
+            config)
+
+
+# This function gets the source function of the node sink_obj.
 def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
     # Find first level
     fn_node = session.run(get_parent_function(sink_obj.id)).single()
     if not fn_node:
         print("Unable to detect source function")
         return "-"
-    # Try to find outer contexts
-    contexts = [fn_node["node"]]
-    while True:
-        # May be various nodes due to multiple call edges
-        fn_nodes = session.run(get_parent_function(fn_node["node"]["Id"], 1))
-        if fn_nodes.peek() is None:
-            break
-        for fn_node in fn_nodes:
-            if fn_node is not None:
-                contexts.append(fn_node["node"])
 
-    # Check if function is a property of an object
-    object_prop = session.run(function_is_exported(contexts[-1]["Id"])).single()
-    if object_prop:
-        obj_name = object_prop["obj.IdentifierName"].split(".")[1].split("-")[0]
-        obj_prop = object_prop["so.IdentifierName"]
-        if obj_name == "module" and obj_prop == "exports":
-            return create_reconstructed_exported_fn(
-                session,
-                sink_location,
-                sink_line,
-                contexts[-1],
-                vuln_type,
-                config)
+    # contexts is an array of contexts (possible chains of functions)
+    contexts = [[fn_node["node"]]]
+    exported_fns = []
+    # Try to find outer contexts
+    # Process different lists of contexts
+    while len(contexts) > 0:
+        context = contexts.pop()
+        # Check if function is exported (directly or via an object property)
+        exported_fn = session.run(function_is_exported(context[-1]["Id"])).single()
+        if exported_fn:
+            print(f"Function {context[-1]['IdentifierName']} is exported.")
+            exported_fn = add_to_exported_fns(exported_fn, context[-1], session, sink_location, sink_line, vuln_type,
+                                              config)
+            exported_fns.append(exported_fn)
+        # If the function is not exported, it is a method of an exported function (instead of object) or it is a return
+        # of function. This may have different levels,
+        # e.g., a function returns a function that returns a function (2 levels)
         else:
-            return create_reconstructed_object_exported_prop(
-                session,
-                sink_location,
-                sink_line,
-                contexts[-1],
-                obj_prop,
-                vuln_type,
-                config)
-    else:
-        return "Module not exported as expected."
+            print(f"Function {context[-1]['IdentifierName']} is not exported.")
+            callee_nodes = session.run(function_is_called(context[-1]["Id"])).peek()
+            return_nodes = session.run(function_is_returned(context[-1]["Id"])).peek()
+
+            if callee_nodes is None and return_nodes is None:
+                print("Error", context)
+                exported_fns.append("Module not exported as expected.")
+                break
+
+            # Check if function is called by another function
+            if callee_nodes is not None:
+                # add to context and add to back of worklist
+                for callee_node in callee_nodes:
+                    print("Is called by: ", callee_node["IdentifierName"])
+                    context.append(callee_node)
+                    contexts.append(context)
+
+            # Check if function is returned by another function
+            if return_nodes is not None:
+                # add to context and add to back of worklist
+                for return_node in return_nodes:
+                    print("Is returned by: ", return_node["Id"])
+                    context.append(return_node)
+                    contexts.append(context)
+    return exported_fns
 
 
 # Methods responsible for reconstructing each type of sink
 
-
-# VFunExported
+# 1. VFunExported
 def create_reconstructed_exported_fn(session, sink_location, sink_line_content, fn_node, vuln_type, config):
     source_line = json.loads(fn_node["Location"])["start"]["line"]
     sink_line = sink_location["start"]["line"]
@@ -93,8 +163,9 @@ def create_reconstructed_exported_fn(session, sink_location, sink_line_content, 
     }
 
 
-# VFunPropOfExportedObj
-def create_reconstructed_object_exported_prop(session, sink_location, sink_line_content, fn_node, prop_name, vuln_type, config):
+# 2. VFunPropOfExportedObj
+def create_reconstructed_object_exported_prop(session, sink_location, sink_line_content, fn_node, prop_name, vuln_type,
+                                              config):
     source_line = json.loads(fn_node["Location"])["start"]["line"]
     sink_line = sink_location["start"]["line"]
     tainted_params, params_types = reconstruct_param_types(session, fn_node["Id"], config)

@@ -565,6 +565,10 @@ export class DependencyTracker {
         this.graph.addEdge(source, destination, { type: "SINK", label: "SINK", objName: type })
     }
 
+    graphCreateReturnEdge(source: number, destination: number): void {
+        this.graph.addEdge(source, destination, { type: "REF", label: "return" })
+    }
+
     graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string): void {
         const sourceEdges: number[] = this.graphGetNode(oldObjId)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
         if (!sourceEdges.includes(newObjId) && oldObjId !== newObjId) { this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName }); }
@@ -683,6 +687,14 @@ export class DependencyTracker {
     getFunctionNode(context: number): GraphNode | undefined {
         const functionCFGNode = this.graph.nodes.get(context);
         if (functionCFGNode) return this.graph.nodes.get(functionCFGNode.functionNodeId)
+    }
+
+    getFunctionObject(functionId: number): GraphNode | undefined {
+        const functionNode = this.graph.nodes.get(functionId);
+        if (functionNode) {
+            const edges: GraphEdge[] = functionNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "obj")
+            if (edges.length > 0) return edges[0].nodes[1]
+        }
     }
 
     getFunctionNodeFromName(name: string): GraphNode | undefined {
