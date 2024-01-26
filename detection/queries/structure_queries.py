@@ -1,5 +1,4 @@
 import os
-import json
 
 from queries.query_type import get_obj_recon_queries, assign_types
 
@@ -67,15 +66,17 @@ def get_parent_function(obj_id):
     """
 
 
-def add_to_exported_fns(exported_fn, fn_id, session, sink_location, sink_line, vuln_type, config):
+def add_to_exported_fns(session, exported_fn, fn_id, sink_lineno, source_lineno, sink_name, vuln_type, config):
     obj_name = exported_fn["obj.IdentifierName"].split(".")[1].split("-")[0]
     obj_prop = exported_fn["so.IdentifierName"]
+
     # Check if function is directly exported
     if obj_name == "module" and obj_prop == "exports":
         return create_reconstructed_exported_fn(
             session,
-            sink_location,
-            sink_line,
+            sink_lineno,
+            source_lineno,
+            sink_name,
             fn_id,
             vuln_type,
             config)
@@ -83,8 +84,9 @@ def add_to_exported_fns(exported_fn, fn_id, session, sink_location, sink_line, v
     else:
         return create_reconstructed_object_exported_prop(
             session,
-            sink_location,
-            sink_line,
+            sink_lineno,
+            source_lineno,
+            sink_name,
             fn_id,
             obj_prop,
             vuln_type,
@@ -92,7 +94,7 @@ def add_to_exported_fns(exported_fn, fn_id, session, sink_location, sink_line, v
 
 
 # This function gets the source function of the node sink_obj.
-def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
+def get_source(session, sink_obj, sink_lineno, source_lineno, sink_name, vuln_type, config):
     # Find first level
     fn_node = session.run(get_parent_function(sink_obj.id)).single()
     if not fn_node:
@@ -107,19 +109,19 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
     while len(contexts) > 0:
         context = contexts.pop()
         # Check if function is exported (directly or via an object property)
-        exported_fn = session.run(function_is_exported(context[-1]["Id"])).single()
+        exported_fn = session.run(function_is_exported(context[-1].id)).single()
         if exported_fn:
             print(f"Function {context[-1]['IdentifierName']} is exported.")
-            exported_fn = add_to_exported_fns(exported_fn, context[-1], session, sink_location, sink_line, vuln_type,
-                                              config)
+            exported_fn = add_to_exported_fns(session, exported_fn, context[-1].id, sink_lineno, source_lineno,
+                                              sink_name, vuln_type, config)
             exported_fns.append(exported_fn)
         # If the function is not exported, it is a method of an exported function (instead of object) or it is a return
         # of function. This may have different levels,
         # e.g., a function returns a function that returns a function (2 levels)
         else:
             print(f"Function {context[-1]['IdentifierName']} is not exported.")
-            callee_nodes = session.run(function_is_called(context[-1]["Id"])).peek()
-            return_nodes = session.run(function_is_returned(context[-1]["Id"])).peek()
+            callee_nodes = session.run(function_is_called(context[-1].id)).peek()
+            return_nodes = session.run(function_is_returned(context[-1].id)).peek()
 
             if callee_nodes is None and return_nodes is None:
                 print("Error", context)
@@ -128,7 +130,7 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
 
             # Check if function is called by another function
             if callee_nodes is not None:
-                # add to context and add to back of worklist
+                # add to context and add to back of queue
                 for callee_node in callee_nodes:
                     print("Is called by: ", callee_node["IdentifierName"])
                     context.append(callee_node)
@@ -136,7 +138,7 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
 
             # Check if function is returned by another function
             if return_nodes is not None:
-                # add to context and add to back of worklist
+                # add to context and add to back of queue
                 for return_node in return_nodes:
                     print("Is returned by: ", return_node["Id"])
                     context.append(return_node)
@@ -144,13 +146,20 @@ def get_source(session, sink_obj, sink_location, sink_line, vuln_type, config):
     return exported_fns
 
 
+def create_context_obj(obj_id, sink_line, source_line, _type):
+    return {
+        id: obj_id,
+        sink_line: sink_line,
+        source_line: source_line,
+        _type: _type
+    }
+
+
 # Methods responsible for reconstructing each type of sink
 
 # 1. VFunExported
-def create_reconstructed_exported_fn(session, sink_location, sink_line_content, fn_node, vuln_type, config):
-    source_line = json.loads(fn_node["Location"])["start"]["line"]
-    sink_line = sink_location["start"]["line"]
-    tainted_params, params_types = reconstruct_param_types(session, fn_node["Id"], config)
+def create_reconstructed_exported_fn(session, sink_line, source_line, sink_line_content, fn_id, vuln_type, config):
+    tainted_params, params_types = reconstruct_param_types(session, fn_id, config)
     return {
         "vuln_type": vuln_type,
         "source": "module.exports",
@@ -164,11 +173,9 @@ def create_reconstructed_exported_fn(session, sink_location, sink_line_content, 
 
 
 # 2. VFunPropOfExportedObj
-def create_reconstructed_object_exported_prop(session, sink_location, sink_line_content, fn_node, prop_name, vuln_type,
-                                              config):
-    source_line = json.loads(fn_node["Location"])["start"]["line"]
-    sink_line = sink_location["start"]["line"]
-    tainted_params, params_types = reconstruct_param_types(session, fn_node["Id"], config)
+def create_reconstructed_object_exported_prop(session, sink_line, source_line, sink_line_content, fn_id, prop_name,
+                                              vuln_type, config):
+    tainted_params, params_types = reconstruct_param_types(session, fn_id, config)
     return {
         "vuln_type": vuln_type,
         "source": f"module.exports.{prop_name}",

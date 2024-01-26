@@ -210,18 +210,14 @@ class PrototypePollution(QueryType):
                         "source": source_cfg["IdentifierName"],
                         "source_lineno": source_lineno,
                         "sink": sink,
-                        "sink_lineno": sink_lineno
                     }
                     my_utils.save_intermediate_output(vuln_path, detection_output)
                     self.increment_detection()  # time injection
-                    detection_results.append(
-                        {
-                            "ast_result": ast_result,
-                            "source_cfg": source_cfg,
-                            "source_lineno": source_lineno,
-                            "sink_location": sink_location,
-                            "sink": sink,
-                            "sink_obj": ast_result["assignment_cfg"]
+                    detection_results.append({
+                        "sink_obj": ast_result["assignment_cfg"],
+                        "sink_lineno": sink_lineno,
+                        "source_lineno": source_lineno,
+                        "sink_name": sink
                         }
                     )
 
@@ -229,8 +225,8 @@ class PrototypePollution(QueryType):
             print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
                 detection_objs = structure_queries.get_source(
-                    session, detection_result["sink_obj"], detection_result["sink_location"],
-                    detection_result["sink"],
+                    session, detection_result["sink_obj"], detection_result["sink_lineno"],
+                    detection_result["source_lineno"], detection_result["sink"],
                     "prototype-pollution", config)
 
                 for detection_obj in detection_objs:

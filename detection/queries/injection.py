@@ -51,36 +51,34 @@ class Injection(QueryType):
             sink_name = record["sink"]["IdentifierName"]
             source_cfg = record["source_cfg"]
             source_ast = record["source_ast"]
-            source_location = json.loads(source_cfg["Location"])
-            sink_location = json.loads(record["sink_cfg"]["Location"])
+            source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
+            sink_lineno = json.loads(record["sink_cfg"]["Location"])["start"]["line"]
             param_name = my_utils.format_name(record["param"]["IdentifierName"])
             vuln_path = {
                 "vuln_type": my_utils.get_injection_type(sink_name, config),
                 "source": source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" or source_ast[
                     "Type"] == "ArrowFunctionExpression" else param_name,
-                "source_lineno": source_location["start"]["line"],
+                "source_lineno": source_lineno,
                 "sink": sink_name,
-                "sink_lineno": sink_location["start"]["line"],
+                "sink_lineno": sink_lineno,
             }
             my_utils.save_intermediate_output(vuln_path, detection_output)
             detection_results.append(
                 {
                     "vuln_type": my_utils.get_injection_type(sink_name, config),
                     "sink_obj": record["sink_cfg"],
-                    "sink_location": sink_location,
-                    "source_cfg": source_cfg,
-                    "source_ast": source_ast,
-                    "source_location": source_location,
-                    "param_name": param_name,
-                    "sink_line": record["sink"]["IdentifierName"]})
+                    "sink_lineno": sink_lineno,
+                    "source_lineno": source_lineno,
+                    "sink_name": sink_name})
         self.time_detection()  # time injection
 
         if self.reconstruct_types:
             print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
                 detection_objs = structure_queries.get_source(
-                    session, detection_result["sink_obj"], detection_result["sink_location"],
-                    detection_result["sink_line"], detection_result["vuln_type"], config)
+                    session, detection_result["sink_obj"], detection_result["sink_lineno"],
+                    detection_result["source_lineno"], detection_result["sink_name"],
+                    detection_result["vuln_type"], config)
 
                 for detection_obj in detection_objs:
                     if detection_obj not in vuln_paths:
