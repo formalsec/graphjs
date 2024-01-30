@@ -66,92 +66,90 @@ def get_parent_function(obj_id):
     """
 
 
-def add_to_exported_fns(session, exported_fn, fn_id, sink_lineno, source_lineno, sink_name, vuln_type, config):
+# This function reconstructs the exported function (takes into consideration returns and calls)
+def add_to_exported_fns(session, exported_fn, contexts, sink_lineno, source_lineno, sink_name, vuln_type, config):
     obj_name = exported_fn["obj.IdentifierName"].split(".")[1].split("-")[0]
     obj_prop = exported_fn["so.IdentifierName"]
 
-    # Check if function is directly exported
+    # First, the entrypoint is the exported function/property of an exported object (last context)
+    last_context = contexts[0]
     if obj_name == "module" and obj_prop == "exports":
-        return create_reconstructed_exported_fn(
-            session,
-            sink_lineno,
-            source_lineno,
-            sink_name,
-            fn_id,
-            vuln_type,
-            config)
-    # Otherwise, it is a property of an exported object
+        entrypoint = create_reconstructed_exported_fn(session, sink_lineno, source_lineno, sink_name,
+                                                      last_context["id"], vuln_type, config)
     else:
-        return create_reconstructed_object_exported_prop(
-            session,
-            sink_lineno,
-            source_lineno,
-            sink_name,
-            fn_id,
-            obj_prop,
-            vuln_type,
-            config)
+        entrypoint = create_reconstructed_object_exported_prop(session, sink_lineno, source_lineno, sink_name,
+                                                               last_context["id"], obj_prop, vuln_type, config)
+
+    if len(contexts) == 1:
+        return entrypoint
+
+    # If the context type is "returns", the last context object gains a new property "returns" with the next element
+    # Currently, it only supports one return level but is easily expandable
+    if contexts[0]["_type"] == "returns":
+        entrypoint["returns"] = create_reconstructed_base(session, contexts[1]["id"], contexts[1]["name"], config)
+        entrypoint["type"] = "VFunRetByExport"
+    return entrypoint
 
 
-# This function gets the source function of the node sink_obj.
+# This function gets the source object of the node sink_obj
 def get_source(session, sink_obj, sink_lineno, source_lineno, sink_name, vuln_type, config):
     # Find first level
     fn_node = session.run(get_parent_function(sink_obj.id)).single()
     if not fn_node:
         print("Unable to detect source function")
-        return "-"
+        return
 
-    # contexts is an array of contexts (possible chains of functions)
-    contexts = [[fn_node["node"]]]
-    exported_fns = []
-    # Try to find outer contexts
-    # Process different lists of contexts
+    # Contexts is an array of contexts (possible chains of functions)
+    # The first context is the base context (parent function of the sink)
+    contexts = [[create_context_obj(fn_node["node"], "base")]]
+    exported_fns = []  # This variable stores the exported functions
+
+    # Try to find outer contexts (go outwards until is exported)
     while len(contexts) > 0:
+        # Get next possible context list
         context = contexts.pop()
         # Check if function is exported (directly or via an object property)
-        exported_fn = session.run(function_is_exported(context[-1].id)).single()
+        exported_fn = session.run(function_is_exported(context[0]['id'])).single()
         if exported_fn:
-            print(f"Function {context[-1]['IdentifierName']} is exported.")
-            exported_fn = add_to_exported_fns(session, exported_fn, context[-1].id, sink_lineno, source_lineno,
+            print(f"Function {context[0]['name']} is exported.")
+            exported_fn = add_to_exported_fns(session, exported_fn, context, sink_lineno, source_lineno,
                                               sink_name, vuln_type, config)
             exported_fns.append(exported_fn)
         # If the function is not exported, it is a method of an exported function (instead of object) or it is a return
         # of function. This may have different levels,
         # e.g., a function returns a function that returns a function (2 levels)
         else:
-            print(f"Function {context[-1]['IdentifierName']} is not exported.")
-            callee_nodes = session.run(function_is_called(context[-1].id)).peek()
-            return_nodes = session.run(function_is_returned(context[-1].id)).peek()
+            print(f"Function {context[0]['name']} is not exported.")
+            callee_nodes = session.run(function_is_called(context[0]['id'])).peek()
+            return_nodes = session.run(function_is_returned(context[0]['id'])).peek()
 
             if callee_nodes is None and return_nodes is None:
                 print("Error", context)
                 exported_fns.append("Module not exported as expected.")
                 break
 
-            # Check if function is called by another function
+            # If function is called by another function, replace last context with callee
             if callee_nodes is not None:
-                # add to context and add to back of queue
                 for callee_node in callee_nodes:
                     print("Is called by: ", callee_node["IdentifierName"])
-                    context.append(callee_node)
+                    context[0] = create_context_obj(callee_node, "calls")
                     contexts.append(context)
 
-            # Check if function is returned by another function
+            # If function is returned by another function, add parent function to the context stack
             if return_nodes is not None:
                 # add to context and add to back of queue
                 for return_node in return_nodes:
                     print("Is returned by: ", return_node["Id"])
-                    context.append(return_node)
+                    context.insert(0, create_context_obj(return_node, "returns"))
                     contexts.append(context)
     return exported_fns
 
 
-def create_context_obj(obj_id, sink_line, source_line, _type):
+def create_context_obj(fn_node, _type):
     return {
-        id: obj_id,
-        sink_line: sink_line,
-        source_line: source_line,
-        _type: _type
+        "id": fn_node["Id"],
+        "name": fn_node["IdentifierName"],
+        "_type": _type
     }
 
 
@@ -183,6 +181,17 @@ def create_reconstructed_object_exported_prop(session, sink_line, source_line, s
         "sink": sink_line_content,
         "sink_lineno": sink_line,
         "type": "VFunPropOfExportedObj",
+        "tainted_params": tainted_params,
+        "params_types": params_types
+    }
+
+
+# Base
+def create_reconstructed_base(session, fn_id, fn_name, config):
+    tainted_params, params_types = reconstruct_param_types(session, fn_id, config)
+    return {
+        "source": fn_name,
+        "type": "VBase",
         "tainted_params": tainted_params,
         "params_types": params_types
     }
