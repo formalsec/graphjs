@@ -13,12 +13,17 @@ def function_is_exported(obj_id):
             ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
                 -[dep:PDG]->(sub_obj:PDG_OBJECT)
                     <-[so:PDG]-(obj:PDG_OBJECT)
-        MATCH
-            (sub_obj:PDG_OBJECT)<-[origin:REF]-(origin_ast)
         WHERE dep.RelationType = "DEP" 
         AND so.RelationType = "SO"
         AND ref.RelationType = "obj"
-        RETURN distinct obj.IdentifierName, so.IdentifierName, dep.IdentifierName, origin_ast.Location as source
+        OPTIONAL MATCH
+            (sub_obj:PDG_OBJECT)<-[origin:REF]-(origin_ast)
+        WHERE origin.RelationType = "obj"
+        OPTIONAL MATCH
+            (obj:PDG_OBJECT)<-[origin_obj:REF]-(origin_obj_ast)
+        WHERE origin_obj.RelationType = "obj"
+        RETURN distinct obj.IdentifierName, so.IdentifierName, dep.IdentifierName, origin_ast.Location as source, 
+        origin_obj_ast.Location as source_obj
     """
 
 
@@ -113,7 +118,7 @@ def get_source(session, sink_obj, sink_lineno, source_lineno, sink_name, vuln_ty
         # Check if function is exported (directly or via an object property)
         exported_fn = session.run(function_is_exported(context[0]['id'])).single()
         if exported_fn:
-            source_lineno = json.loads(exported_fn["source"])["start"]["line"]
+            source_lineno = json.loads(exported_fn["source"] or exported_fn["source_obj"])["start"]["line"]
             exported_fn = add_to_exported_fns(session, exported_fn, context, sink_lineno, source_lineno,
                                               sink_name, vuln_type, config)
             exported_fns.append(exported_fn)
