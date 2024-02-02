@@ -1,4 +1,5 @@
 import os
+import json
 
 from queries.query_type import get_obj_recon_queries, assign_types
 
@@ -12,16 +13,17 @@ def function_is_exported(obj_id):
             ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
                 -[dep:PDG]->(sub_obj:PDG_OBJECT)
                     <-[so:PDG]-(obj:PDG_OBJECT)
+        MATCH
+            (sub_obj:PDG_OBJECT)<-[origin:REF]-(origin_ast)
         WHERE dep.RelationType = "DEP" 
         AND so.RelationType = "SO"
         AND ref.RelationType = "obj"
-        RETURN distinct obj.IdentifierName, so.IdentifierName, dep.IdentifierName
+        RETURN distinct obj.IdentifierName, so.IdentifierName, dep.IdentifierName, origin_ast.Location as source
     """
 
 
 # This query checks if the function identified with node <obj_id> is returned by another function
 def function_is_returned(obj_id):
-    print(obj_id)
     return f"""
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]
@@ -111,7 +113,7 @@ def get_source(session, sink_obj, sink_lineno, source_lineno, sink_name, vuln_ty
         # Check if function is exported (directly or via an object property)
         exported_fn = session.run(function_is_exported(context[0]['id'])).single()
         if exported_fn:
-            print(f"Function {context[0]['name']} is exported.")
+            source_lineno = json.loads(exported_fn["source"])["start"]["line"]
             exported_fn = add_to_exported_fns(session, exported_fn, context, sink_lineno, source_lineno,
                                               sink_name, vuln_type, config)
             exported_fns.append(exported_fn)
@@ -119,7 +121,6 @@ def get_source(session, sink_obj, sink_lineno, source_lineno, sink_name, vuln_ty
         # of function. This may have different levels,
         # e.g., a function returns a function that returns a function (2 levels)
         else:
-            print(f"Function {context[0]['name']} is not exported.")
             callee_nodes = session.run(function_is_called(context[0]['id'])).peek()
             return_nodes = session.run(function_is_returned(context[0]['id'])).peek()
 
@@ -131,7 +132,6 @@ def get_source(session, sink_obj, sink_lineno, source_lineno, sink_name, vuln_ty
             # If function is called by another function, replace last context with callee
             if callee_nodes is not None:
                 for callee_node in callee_nodes:
-                    print("Is called by: ", callee_node["IdentifierName"])
                     context[0] = create_context_obj(callee_node, "calls")
                     contexts.append(context)
 
@@ -139,7 +139,6 @@ def get_source(session, sink_obj, sink_lineno, source_lineno, sink_name, vuln_ty
             if return_nodes is not None:
                 # add to context and add to back of queue
                 for return_node in return_nodes:
-                    print("Is returned by: ", return_node["Id"])
                     context.insert(0, create_context_obj(return_node, "returns"))
                     contexts.append(context)
     return exported_fns
