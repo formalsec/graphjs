@@ -11,7 +11,6 @@ const { buildPDG } = require("./traverse/dependency/dep_builder");
 const { OutputManager } = require("./output/output_strategy");
 const { DotOutput } = require("./output/dot_output");
 const { CSVOutput } = require("./output/csv_output");
-const { performance } = require('perf_hooks');
 
 import { type CFGraphReturn } from "./traverse/cfg_builder";
 
@@ -28,7 +27,7 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.slice(fileContent.indexOf('\n') + ('\n').length);
 
         // Parse AST
-        const ast = esprima.parseModule(fileContent, { tolerant: true });
+        const ast = esprima.parseModule(fileContent, { loc: true, tolerant: true });
         !silentMode && printStatus("AST Parsing");
 
         // Normalize AST
@@ -80,22 +79,20 @@ const { argv } = yargs(process.argv.slice(2))
     .option('f', { alias: 'file', nargs: 1, desc: 'Load a JavaScript file', type: 'string', demandOption: true })
     // Location of the config file
     .option('c', { alias: 'config', nargs: 1, desc: 'Load a config file', type: 'string', default: '../config.json' })
-    // Location of the normalized file
-    .option('o', { alias: 'output', nargs: 1, desc: 'Specify the normalized filepath', type: 'string' })
     // Location of the graph output directory (csv and svg files)
-    .option('g', { alias: 'graph_dir', nargs: 1, desc: 'Specify the graph output directory', type: 'string', default: 'src/graphs/' })
+    .option('o', { alias: 'output', nargs: 1, desc: 'Specify the output directory', type: 'string', demandOption: true })
     // Select if graph figure should be generated (use arg --graph to generate)
     .option('graph', { desc: 'Output the graph figure', type: 'boolean' })
     // Select if csv files should be generated (use arg --csv to generate)
     .option('csv', { desc: 'Output the graph csv files', type: 'boolean' })
     // Select graph structures to not show in the final graph figure (use -i AST to ignore AST)
-    .option('i', { alias: 'ignore', desc: 'Set array of structures to ignore in graph figure', type: 'array', implies: 'graph'})
+    .option('i', { alias: 'ignore', desc: 'Set array of structures to ignore in graph figure', type: 'array', implies: 'graph' })
     // Select functions to not show in the final graph figure
-    .option('if', { alias: 'ignore_func', desc: 'Set array of functions to ignore in graph figure', type: 'array', implies: 'graph'})
+    .option('if', { alias: 'ignore_func', desc: 'Set array of functions to ignore in graph figure', type: 'array', implies: 'graph' })
     // Select if code should be displayed in each graph statement (otherwise AST values are shown)
-    .option('sc', { alias: 'show_code', desc: 'Show the code in each statement in graph figure', type: 'boolean', implies: 'graph'})
+    .option('sc', { alias: 'show_code', desc: 'Show the code in each statement in graph figure', type: 'boolean', implies: 'graph' })
     // Select to run in silent mode
-    .option('silent', { desc: 'Silent mode (not verbose)', type: 'boolean'})
+    .option('silent', { desc: 'Silent mode (not verbose)', type: 'boolean' })
     // Examples
     .example('$0 -f ./foo.js -c ../config.json', 'process the foo.js file using the config.json options')
     .example('$0 -f ./foo.js -c ../config.json -i="AST"', 'process the foo.js file using the config.json options')
@@ -105,10 +102,11 @@ const { argv } = yargs(process.argv.slice(2))
 const filename: string = argv.file as string;
 const configFile: string = argv.config as string;
 const silentMode: boolean = argv.silent ?? false;
-const normalizedPath: string = argv.o as string;
+const normalizedPath: string = `${path.join(argv.o, path.parse(path.basename(argv.file as string)).name)}_normalized.js`;
+console.log(normalizedPath)
 
 // If silent mode is selected, do not show error traces
-if (silentMode) console.trace = function (){};
+if (silentMode) console.trace = function () {};
 
 // Verify arguments
 if (!fs.existsSync(filename)) console.error(`${filename} is not a valid file.`);
@@ -124,13 +122,13 @@ const graphOptions = { ignore: argv.i ?? [], ignore_func: argv.if ?? [], show_co
 
 if (argv.csv) {
     graph.outputManager = new OutputManager(graphOptions, new CSVOutput());
-    graph.output(argv.g);
+    graph.output(argv.o);
 }
 
 if (argv.graph) {
     graph.outputManager = new OutputManager(graphOptions, new DotOutput());
-    graph.output(argv.g);
+    graph.output(argv.o);
 }
 
-const statsFileName = path.join(argv.g, 'graph_stats.json')
+const statsFileName = path.join(argv.o, 'graph_stats.json')
 fs.writeFileSync(statsFileName, `{ "edges": ${graph.edges.size}, "nodes": ${graph.nodes.size}}`)
