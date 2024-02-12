@@ -1,7 +1,7 @@
 import os
 import json
 
-from queries.query_type import get_obj_recon_queries, assign_types
+from .query_type import get_obj_recon_queries, assign_types
 
 THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 

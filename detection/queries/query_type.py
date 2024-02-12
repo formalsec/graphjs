@@ -1,6 +1,6 @@
 from abc import abstractmethod
 import os
-import my_utils.utils as my_utils
+from .my_utils import utils as my_utils
 
 THIS_SCRIPT_NAME: str = os.path.basename(__file__)
 
@@ -472,5 +472,5 @@ class QueryType:
         return self.type
 
     @abstractmethod
-    def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, detection_output, config):
+    def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, detection_output, time_output, config):
         pass

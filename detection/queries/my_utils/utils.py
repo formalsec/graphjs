@@ -48,7 +48,7 @@ def save_output_multi_files(argv, results):
 
 def read_config():
 	file_path = path.realpath(path.dirname(__file__))
-	config_path = path.join(file_path, "../../config.json")
+	config_path = path.join(file_path, "../../../config.json")
 	with open(config_path, "r") as configFile:
 		return json.load(configFile)
 

@@ -1,8 +1,4 @@
 from neo4j import GraphDatabase
-from queries.queries import Queries
-import my_utils.utils as my_utils
-import argparse
-from sys import argv
 
 NEO4J_CONN_STRING="bolt://127.0.0.1:7687"
 

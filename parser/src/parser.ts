@@ -102,7 +102,7 @@ const { argv } = yargs(process.argv.slice(2))
 const filename: string = argv.file as string;
 const configFile: string = argv.config as string;
 const silentMode: boolean = argv.silent ?? false;
-const normalizedPath: string = `${path.join(argv.o, path.parse(path.basename(argv.file as string)).name)}_normalized.js`;
+const normalizedPath: string = `${path.join(argv.o, 'normalized.js')}`;
 console.log(normalizedPath)
 
 // If silent mode is selected, do not show error traces
