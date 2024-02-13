@@ -1,10 +1,10 @@
 import argparse
 import os.path
 import shutil
-import time
 import sys
 
-from detection.neo4j_import.neo4j_management import import_csv
+from detection.neo4j_import.neo4j_management import import_csv_docker, import_csv_local
+from detection.neo4j_import.utils import timers
 from detection.run import traverse_graph
 
 # MDG generator location
@@ -49,7 +49,7 @@ def check_arguments():
 
 
 def build_graphjs_cmd():
-    abs_input_file = os.path.abspath(args.file) # Get absolute input file
+    abs_input_file = os.path.abspath(args.file)  # Get absolute input file
     if args.silent:
         return f"npm start --prefix {mdg_generator_path} -- -f {abs_input_file} -o {args.graph_output} --csv --silent"
     else:
@@ -57,20 +57,18 @@ def build_graphjs_cmd():
 
 
 def run_queries():
+    # Import MDG to Neo4j
     if args.local:
-        # TODO
-        # Stop running neo4j local instance
-        # To use neo4j-admin import, it is required to stop, import and then start neo4j again
-        print("[INFO] - Stopping Neo4j")
+        import_csv_local(args.graph_output, args.run_output)
     else:
-        # Import MDG to Neo4j
-        import_csv(args.graph_output, args.run_output)
-        # Perform graph traversals
-        print("[INFO] Queries: Traversing Graph...")
-        traverse_graph(f"{args.graph_output}/normalized.js",
-                       f"{args.output}/taint_summary.json",
-                       f"{args.run_output}/time_stats.txt",
-                       args.exploit)
+        import_csv_docker(args.graph_output, args.run_output)
+
+    # Perform graph traversals
+    print("[INFO] Queries: Traversing Graph...")
+    traverse_graph(f"{args.graph_output}/normalized.js",
+                   f"{args.output}/taint_summary.json",
+                   f"{args.run_output}/time_stats.txt",
+                   args.exploit)
 
 
 if __name__ == "__main__":
@@ -81,7 +79,10 @@ if __name__ == "__main__":
     # Build MDG
     graphjs_cmd = build_graphjs_cmd()
     print("[INFO] MDG: Generating...")
+    time_output = os.path.join(args.run_output, "time_stats.txt")
+    start_time = timers.start_timer()
     os.system(graphjs_cmd)
+    timers.stop_timer(start_time, "graph", time_output)
     print("[INFO] MDG: Completed.")
 
     # Execute Graph Traversals (Queries)
