@@ -6,15 +6,14 @@ import sys
 from detection.neo4j_import.neo4j_management import import_csv_docker, import_csv_local
 from detection.neo4j_import.utils import timers
 from detection.run import traverse_graph
+import constants
 
-from dotenv import load_dotenv
-load_dotenv()
 # MDG generator location
-mdg_generator_path = os.getenv('MDG_PATH')
+mdg_generator_path = constants.MDG_PATH
 # Default results location
-graphjs_results = os.getenv('DEFAULT_RESULTS_PATH')
+graphjs_results = constants.DEFAULT_RESULTS_PATH
 # MDG parser main location (parent folder)
-parser_main_path = os.getenv('PARSER_PATH')
+parser_main_path = constants.PARSER_PATH
 
 
 def parse_arguments():
@@ -69,12 +68,13 @@ def build_graphjs_cmd():
 
 def run_queries():
     # Import MDG to Neo4j
-    if args.local:
-        import_csv_local(args.graph_output, args.run_output)
-    else:
+    if args.docker:
         import_csv_docker(args.graph_output, args.run_output)
+    else:
+        import_csv_local(args.graph_output, args.run_output)
 
-    # Perform graph traversals
+
+# Perform graph traversals
     print("[INFO] Queries: Traversing Graph...")
     traverse_graph(f"{args.graph_output}/normalized.js",
                    f"{args.output}/taint_summary.json",
