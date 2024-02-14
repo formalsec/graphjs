@@ -3,10 +3,10 @@ import os.path
 import shutil
 import sys
 
-from detection.neo4j_import.neo4j_management import import_csv_docker, import_csv_local
-from detection.neo4j_import.utils import timers
-from detection.run import traverse_graph
-import constants
+from .detection.neo4j_import.neo4j_management import import_csv_docker, import_csv_local
+from .detection.neo4j_import.utils import timers
+from .detection.run import traverse_graph
+from . import constants
 
 # MDG generator location
 mdg_generator_path = constants.MDG_PATH
@@ -36,7 +36,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output):
+def check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output, generate_exploit):
     # Check if input file exists
     if not os.path.exists(file_path):
         sys.exit(f"Input file doesn't exist: ${file_path}")
@@ -47,7 +47,7 @@ def check_arguments(file_path, output_path, graph_output, run_output, symb_tests
     os.mkdir(output_path)  # Create output folder
     os.mkdir(graph_output)  # Create graph output folder
     os.mkdir(run_output)  # Create run output folder (neo4j stats)
-    if args.exploit:
+    if generate_exploit:
         os.mkdir(symb_tests_output)  # Create symbolic tests output folder
 
 
@@ -75,7 +75,7 @@ def run_queries(graph_path, run_path, summary_path, time_path):
                    args.exploit)
 
 
-def run_graph_js(file_path, output_path):
+def run_graph_js(file_path, output_path, generate_exploit=False):
     # Get absolute paths
     file_path = os.path.abspath(file_path)
     output_path = os.path.abspath(output_path)
@@ -84,7 +84,7 @@ def run_graph_js(file_path, output_path):
     time_output = os.path.join(run_output, "time_stats.txt")
     summary_path = os.path.join(output_path, "taint_summary.json")
     symb_tests_output = os.path.join(output_path, "symbolic_tests")
-    check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output)
+    check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output, generate_exploit)
 
     # Build MDG
     graphjs_cmd = build_graphjs_cmd(file_path, graph_output)
@@ -111,4 +111,4 @@ def run_graph_js(file_path, output_path):
 if __name__ == "__main__":
     # Parse arguments
     args = parse_arguments()
-    run_graph_js(args.file, args.output)
+    run_graph_js(args.file, args.output, args.exploit)
