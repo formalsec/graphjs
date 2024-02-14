@@ -2,8 +2,6 @@ from abc import abstractmethod
 import os
 from .my_utils import utils as my_utils
 
-THIS_SCRIPT_NAME: str = os.path.basename(__file__)
-
 
 def get_obj_recon_queries(source):
     recon_query = f"""

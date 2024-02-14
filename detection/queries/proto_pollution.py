@@ -3,7 +3,6 @@ from . import structure_queries
 from .my_utils import utils as my_utils
 import json
 import time
-from sys import stderr
 
 
 def check_taint_key(first_lookup_obj):

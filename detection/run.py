@@ -3,9 +3,7 @@ import os
 import sys
 from .queries.queries import Queries
 from .queries.my_utils import utils
-
-from dotenv import load_dotenv
-load_dotenv()
+from .neo4j_import.utils import neo4j_constants as constants
 
 
 def traverse_graph(normalized_file, taint_summary_output, time_output_file, reconstruct_types=False, bolt_port=7687):
@@ -16,7 +14,7 @@ def traverse_graph(normalized_file, taint_summary_output, time_output_file, reco
     detection_output = os.path.join(os.path.dirname(taint_summary_output), detection_file_name)
     utils.init_intermediate_output(detection_output)
 
-    with GraphDatabase.driver(neo4j_connection_string, auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))) as driver:
+    with GraphDatabase.driver(neo4j_connection_string, auth=(constants.NEO4J_USER, constants.NEO4J_PASSWORD)) as driver:
         try:
             driver.verify_connectivity()
             session = driver.session()

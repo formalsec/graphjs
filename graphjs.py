@@ -36,61 +36,59 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def check_arguments():
+def check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output):
     # Check if input file exists
-    if not os.path.exists(args.file):
-        sys.exit(f"Input file doesn't exist: ${args.file}")
-    args.file = os.path.abspath(args.file)
+    if not os.path.exists(file_path):
+        sys.exit(f"Input file doesn't exist: ${file_path}")
     # Clean previous output files
-    if os.path.exists(args.output):
-        shutil.rmtree(args.output)
-    # Create output folder
-    os.mkdir(args.output)
-    # Create graph output folder
-    args.graph_output = os.path.abspath(os.path.join(args.output, "graph"))
-    os.mkdir(args.graph_output)
-    # Create run output folder (neo4j stats)
-    args.run_output = os.path.abspath(os.path.join(args.output, "run"))
-    os.mkdir(args.run_output)
+    if os.path.exists(output_path):
+        shutil.rmtree(output_path)
+
+    os.mkdir(output_path)  # Create output folder
+    os.mkdir(graph_output)  # Create graph output folder
+    os.mkdir(run_output)  # Create run output folder (neo4j stats)
     if args.exploit:
-        args.symb_tests_output = os.path.abspath(os.path.join(args.output, "symbolic_tests"))
-        os.mkdir(args.symb_tests_output)
+        os.mkdir(symb_tests_output)  # Create symbolic tests output folder
 
 
-def build_graphjs_cmd():
+def build_graphjs_cmd(file_path, graph_output):
     os.system(f"tsc --project {parser_main_path}")  # Make sure graphjs is in the latest compiled version
-    abs_input_file = os.path.abspath(args.file)  # Get absolute input file
+    abs_input_file = os.path.abspath(file_path)  # Get absolute input file
     if args.silent:
-        return f"node {mdg_generator_path} -f {abs_input_file} -o {args.graph_output} --csv --silent"
+        return f"node {mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent"
     else:
-        return f"node {mdg_generator_path} -f {abs_input_file} -o {args.graph_output} --csv --graph --i=AST"
+        return f"node {mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --graph --i=AST"
 
 
-def run_queries():
+def run_queries(graph_path, run_path, summary_path, time_path):
     # Import MDG to Neo4j
     if args.docker:
-        import_csv_docker(args.graph_output, args.run_output)
+        import_csv_docker(graph_path, run_path)
     else:
-        import_csv_local(args.graph_output, args.run_output)
+        import_csv_local(graph_path, run_path)
 
-
-# Perform graph traversals
+    # Perform graph traversals
     print("[INFO] Queries: Traversing Graph...")
-    traverse_graph(f"{args.graph_output}/normalized.js",
-                   f"{args.output}/taint_summary.json",
-                   f"{args.run_output}/time_stats.txt",
+    traverse_graph(f"{graph_path}/normalized.js",
+                   summary_path,
+                   time_path,
                    args.exploit)
 
 
-if __name__ == "__main__":
-    # Parse arguments
-    args = parse_arguments()
-    check_arguments()
+def run_graph_js(file_path, output_path):
+    # Get absolute paths
+    file_path = os.path.abspath(file_path)
+    output_path = os.path.abspath(output_path)
+    graph_output = os.path.join(output_path, "graph")
+    run_output = os.path.join(output_path, "run")
+    time_output = os.path.join(run_output, "time_stats.txt")
+    summary_path = os.path.join(output_path, "taint_summary.json")
+    symb_tests_output = os.path.join(output_path, "symbolic_tests")
+    check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output)
 
     # Build MDG
-    graphjs_cmd = build_graphjs_cmd()
+    graphjs_cmd = build_graphjs_cmd(file_path, graph_output)
     print("[INFO] MDG: Generating...")
-    time_output = os.path.join(args.run_output, "time_stats.txt")
     start_time = timers.start_timer()
     os.system(graphjs_cmd)
     timers.stop_timer(start_time, "graph", time_output)
@@ -98,12 +96,19 @@ if __name__ == "__main__":
 
     # Execute Graph Traversals (Queries)
     print("[INFO] Queries: Starting...")
-    run_queries()
+    run_queries(graph_output, run_output, summary_path, time_output)
     print("[INFO] Queries: Completed.")
 
     # Generate symbolic tests
     if args.exploit:
         print("[INFO] Symbolic test generation: Generating...")
-        os.chdir(args.symb_tests_output)
-        os.system(f"instrumentation2 {args.file} {args.output}/taint_summary.json")
+
+        os.chdir(symb_tests_output)
+        os.system(f"instrumentation2 {file_path} {summary_path}")
         print("[INFO] Symbolic test generation: Completed.")
+
+
+if __name__ == "__main__":
+    # Parse arguments
+    args = parse_arguments()
+    run_graph_js(args.file, args.output)

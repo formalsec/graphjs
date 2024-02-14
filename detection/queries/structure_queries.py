@@ -3,8 +3,6 @@ import json
 
 from .query_type import get_obj_recon_queries, assign_types
 
-THIS_SCRIPT_NAME: str = os.path.basename(__file__)
-
 
 # This query checks if the function identified with node <obj_id> is exported (directly or via a property)
 def function_is_exported(obj_id):
@@ -242,7 +240,7 @@ def reconstruct_param_types(session, source_cfg_id, config):
                         params_types["pdg_node_id"].add(node_id)
                 params_types = param_types_pointer
 
-    print(f'[INFO][{THIS_SCRIPT_NAME}] - Assigning types to attacker-controlled data.')
+    print(f'[INFO] Assigning types to attacker-controlled data.')
     assign_types(session, params_types, config)
 
     return list(params_types.keys()), params_types

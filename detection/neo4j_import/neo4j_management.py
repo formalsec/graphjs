@@ -3,11 +3,7 @@ import docker
 import os
 import platform
 import time
-from .utils import timers
-
-
-from dotenv import load_dotenv
-load_dotenv()
+from .utils import timers, neo4j_constants as constants
 
 
 def remove_neo4j_container(docker_client, container_name):
@@ -39,8 +35,8 @@ def create_neo4j_container(docker_client, container_name, graph_path, http_port,
                                              volumes={f"{graph_path}": {'bind': '/var/lib/neo4j/import', 'mode': 'rw'},
                                                       f"{docker_logs_path}": {'bind': '/var/lib/neo4j/logs',
                                                                               'mode': 'rw'}},
-                                             environment={'PYTHONUNBUFFERED': 1, 'NEO4J_AUTH': f'{os.getenv("NEO4J_USER")}/{os.getenv("NEO4J_PASSWORD")}'},
-                                             user=f'{os.getenv("NEO4J_USER")}:neo4j',
+                                             environment={'PYTHONUNBUFFERED': 1, 'NEO4J_AUTH': f'{constants.NEO4J_USER}/{constants.NEO4J_PASSWORD}'},
+                                             user=f'{constants.NEO4J_USER}:neo4j',
                                              detach=True)
 
     # Wait for container to start (timeout of 60sec)
@@ -74,7 +70,7 @@ def import_csv_docker(graph_dir, output_dir, container_name="graphjs_neo4j", htt
     import_result = container.exec_run('''neo4j-admin database import full --overwrite-destination
                        --nodes=/var/lib/neo4j/import/nodes.csv --relationships=/var/lib/neo4j/import/rels.csv 
                       --delimiter=U+00BF --skip-bad-relationships=true --skip-duplicate-nodes=true''',
-                                       user=f'{constants.NEO4J_USER}')
+                                       user=constants.NEO4J_USER)
     if import_result.exit_code != 0:
         print(import_result)
         sys.exit("[ERROR] Unable to import data to Neo4j container.")
