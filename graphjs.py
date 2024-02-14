@@ -7,9 +7,11 @@ from detection.neo4j_import.neo4j_management import import_csv_docker, import_cs
 from detection.neo4j_import.utils import timers
 from detection.run import traverse_graph
 
-# MDG generator location
-mdg_generator_path = os.path.join(os.getcwd(), "parser")
+from dotenv import load_dotenv
+load_dotenv()
 
+# MDG generator location
+mdg_generator_path = os.getenv('PARSER_PATH')
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -51,9 +53,9 @@ def check_arguments():
 def build_graphjs_cmd():
     abs_input_file = os.path.abspath(args.file)  # Get absolute input file
     if args.silent:
-        return f"npm start --prefix {mdg_generator_path} -- -f {abs_input_file} -o {args.graph_output} --csv --silent"
+        return f"node {mdg_generator_path} -f {abs_input_file} -o {args.graph_output} --csv --silent"
     else:
-        return f"npm start --prefix {mdg_generator_path} -- -f {abs_input_file} -o {args.graph_output} --csv --graph --i=AST"
+        return f"node {mdg_generator_path} -f {abs_input_file} -o {args.graph_output} --csv --graph --i=AST"
 
 
 def run_queries():

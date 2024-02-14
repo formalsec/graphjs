@@ -18,6 +18,9 @@ import { printStatus } from "./utils/utils";
 import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
+import * as process from "process";
+
+require('dotenv').config();
 
 // Generate the program graph (AST + CFG + CG + PDG)
 function parse(filename: string, config: Config, fileOutput: string, silentMode: boolean): Graph {
@@ -78,7 +81,7 @@ const { argv } = yargs(process.argv.slice(2))
     // JavaScript file to be analyzed
     .option('f', { alias: 'file', nargs: 1, desc: 'Load a JavaScript file', type: 'string', demandOption: true })
     // Location of the config file
-    .option('c', { alias: 'config', nargs: 1, desc: 'Load a config file', type: 'string', default: '../config.json' })
+    .option('c', { alias: 'config', nargs: 1, desc: 'Load a config file', type: 'string', default: process.env.CONFIG_FILE })
     // Location of the graph output directory (csv and svg files)
     .option('o', { alias: 'output', nargs: 1, desc: 'Specify the output directory', type: 'string', demandOption: true })
     // Select if graph figure should be generated (use arg --graph to generate)
@@ -103,7 +106,6 @@ const filename: string = argv.file as string;
 const configFile: string = argv.config as string;
 const silentMode: boolean = argv.silent ?? false;
 const normalizedPath: string = `${path.join(argv.o, 'normalized.js')}`;
-console.log(normalizedPath)
 
 // If silent mode is selected, do not show error traces
 if (silentMode) console.trace = function () {};

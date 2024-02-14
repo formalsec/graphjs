@@ -17,6 +17,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^16.4.4",
     "escodegen": "^2.0.0",
     "eslint-plugin-prettier": "^4.2.1",
     "esprima": "^4.0.1",

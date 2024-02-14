@@ -3,7 +3,11 @@ import docker
 import os
 import platform
 import time
-from .utils import constants, timers
+from .utils import timers
+
+
+from dotenv import load_dotenv
+load_dotenv()
 
 
 def remove_neo4j_container(docker_client, container_name):
@@ -35,8 +39,8 @@ def create_neo4j_container(docker_client, container_name, graph_path, http_port,
                                              volumes={f"{graph_path}": {'bind': '/var/lib/neo4j/import', 'mode': 'rw'},
                                                       f"{docker_logs_path}": {'bind': '/var/lib/neo4j/logs',
                                                                               'mode': 'rw'}},
-                                             environment={'PYTHONUNBUFFERED': 1, 'NEO4J_AUTH': f'{constants.NEO4J_USER}/{constants.NEO4J_PASSWORD}'},
-                                             user="neo4j:neo4j",
+                                             environment={'PYTHONUNBUFFERED': 1, 'NEO4J_AUTH': f'{os.getenv("NEO4J_USER")}/{os.getenv("NEO4J_PASSWORD")}'},
+                                             user=f'{os.getenv("NEO4J_USER")}:neo4j',
                                              detach=True)
 
     # Wait for container to start (timeout of 60sec)
