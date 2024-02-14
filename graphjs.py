@@ -9,9 +9,13 @@ from detection.run import traverse_graph
 
 from dotenv import load_dotenv
 load_dotenv()
-
 # MDG generator location
-mdg_generator_path = os.getenv('PARSER_PATH')
+mdg_generator_path = os.getenv('MDG_PATH')
+# Default results location
+graphjs_results = os.getenv('DEFAULT_RESULTS_PATH')
+# MDG parser main location (parent folder)
+parser_main_path = os.getenv('PARSER_PATH')
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -19,7 +23,7 @@ def parse_arguments():
     parser.add_argument("-f", "--file", type=str, required=True,
                         help="Path to JavaScript file (.js) or directory containing JavaScript files for analysis.")
     # Output path
-    parser.add_argument("-o", "--output", type=str, default="graphjs-results",
+    parser.add_argument("-o", "--output", type=str, default=graphjs_results,
                         help="Path to store all output files.")
     # Silent mode
     parser.add_argument("-s", "--silent", action="store_true",
@@ -37,6 +41,7 @@ def check_arguments():
     # Check if input file exists
     if not os.path.exists(args.file):
         sys.exit(f"Input file doesn't exist: ${args.file}")
+    args.file = os.path.abspath(args.file)
     # Clean previous output files
     if os.path.exists(args.output):
         shutil.rmtree(args.output)
@@ -48,9 +53,13 @@ def check_arguments():
     # Create run output folder (neo4j stats)
     args.run_output = os.path.abspath(os.path.join(args.output, "run"))
     os.mkdir(args.run_output)
+    if args.exploit:
+        args.symb_tests_output = os.path.abspath(os.path.join(args.output, "symbolic_tests"))
+        os.mkdir(args.symb_tests_output)
 
 
 def build_graphjs_cmd():
+    os.system(f"tsc --project {parser_main_path}")  # Make sure graphjs is in the latest compiled version
     abs_input_file = os.path.abspath(args.file)  # Get absolute input file
     if args.silent:
         return f"node {mdg_generator_path} -f {abs_input_file} -o {args.graph_output} --csv --silent"
@@ -92,5 +101,9 @@ if __name__ == "__main__":
     run_queries()
     print("[INFO] Queries: Completed.")
 
-    # Exploit Generation
-    ## Generate symbolic tests
+    # Generate symbolic tests
+    if args.exploit:
+        print("[INFO] Symbolic test generation: Generating...")
+        os.chdir(args.symb_tests_output)
+        os.system(f"instrumentation2 {args.file} {args.output}/taint_summary.json")
+        print("[INFO] Symbolic test generation: Completed.")
