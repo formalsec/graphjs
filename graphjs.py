@@ -29,8 +29,8 @@ def parse_arguments():
     parser.add_argument("-s", "--silent", action="store_true",
                         help="Silent mode - no console output.")
     # Local or containerized mode (neo4j queries)
-    parser.add_argument("-l", "--local", action="store_true",
-                        help="Local query mode - executes neo4j locally instead of in a docker container.")
+    parser.add_argument("-d", "--docker", action="store_true",
+                        help="Query mode - executes neo4j in a docker container instead of running locally.")
     # Generate exploits
     parser.add_argument("-e", "--exploit", action="store_true",
                         help="Generates symbolic tests.")
