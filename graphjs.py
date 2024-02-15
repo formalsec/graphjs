@@ -3,10 +3,10 @@ import os.path
 import shutil
 import sys
 
-from .detection.neo4j_import.neo4j_management import import_csv_docker, import_csv_local
-from .detection.neo4j_import.utils import timers
-from .detection.run import traverse_graph
-from . import constants
+import detection.neo4j_import.neo4j_management as neo4j_management
+import detection.neo4j_import.utils.timers as timers
+import detection.run as detection
+import constants
 
 # MDG generator location
 mdg_generator_path = constants.MDG_PATH
@@ -63,13 +63,13 @@ def build_graphjs_cmd(file_path, graph_output, silent=True):
 def run_queries(graph_path, run_path, summary_path, time_path, docker_mode, generate_exploit):
     # Import MDG to Neo4j
     if docker_mode:
-        import_csv_docker(graph_path, run_path)
+        neo4j_management.import_csv_docker(graph_path, run_path)
     else:
-        import_csv_local(graph_path, run_path)
+        neo4j_management.import_csv_local(graph_path, run_path)
 
     # Perform graph traversals
     print("[INFO] Queries: Traversing Graph...")
-    traverse_graph(f"{graph_path}/normalized.js",
+    detection.traverse_graph(f"{graph_path}/normalized.js",
                    summary_path,
                    time_path,
                    generate_exploit)
