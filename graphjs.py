@@ -51,18 +51,18 @@ def check_arguments(file_path, output_path, graph_output, run_output, symb_tests
         os.mkdir(symb_tests_output)  # Create symbolic tests output folder
 
 
-def build_graphjs_cmd(file_path, graph_output):
+def build_graphjs_cmd(file_path, graph_output, silent=True):
     os.system(f"tsc --project {parser_main_path}")  # Make sure graphjs is in the latest compiled version
     abs_input_file = os.path.abspath(file_path)  # Get absolute input file
-    if args.silent:
+    if silent:
         return f"node {mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent"
     else:
         return f"node {mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --graph --i=AST"
 
 
-def run_queries(graph_path, run_path, summary_path, time_path):
+def run_queries(graph_path, run_path, summary_path, time_path, docker_mode, generate_exploit):
     # Import MDG to Neo4j
-    if args.docker:
+    if docker_mode:
         import_csv_docker(graph_path, run_path)
     else:
         import_csv_local(graph_path, run_path)
@@ -72,10 +72,10 @@ def run_queries(graph_path, run_path, summary_path, time_path):
     traverse_graph(f"{graph_path}/normalized.js",
                    summary_path,
                    time_path,
-                   args.exploit)
+                   generate_exploit)
 
 
-def run_graph_js(file_path, output_path, generate_exploit=False):
+def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=False):
     # Get absolute paths
     file_path = os.path.abspath(file_path)
     output_path = os.path.abspath(output_path)
@@ -96,11 +96,11 @@ def run_graph_js(file_path, output_path, generate_exploit=False):
 
     # Execute Graph Traversals (Queries)
     print("[INFO] Queries: Starting...")
-    run_queries(graph_output, run_output, summary_path, time_output)
+    run_queries(graph_output, run_output, summary_path, time_output, docker_mode, generate_exploit)
     print("[INFO] Queries: Completed.")
 
     # Generate symbolic tests
-    if args.exploit:
+    if generate_exploit:
         print("[INFO] Symbolic test generation: Generating...")
 
         os.chdir(symb_tests_output)
@@ -111,4 +111,4 @@ def run_graph_js(file_path, output_path, generate_exploit=False):
 if __name__ == "__main__":
     # Parse arguments
     args = parse_arguments()
-    run_graph_js(args.file, args.output, args.exploit)
+    run_graph_js(args.file, args.output, args.exploit, args.docker)
