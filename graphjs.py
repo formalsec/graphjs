@@ -6,6 +6,7 @@ import sys
 import detection.neo4j_import.neo4j_management as neo4j_management
 import detection.neo4j_import.utils.timers as timers
 import detection.run as detection
+import detection.utils as utils
 import constants
 
 # MDG generator location
@@ -55,9 +56,9 @@ def build_graphjs_cmd(file_path, graph_output, silent=True):
     os.system(f"tsc --project {parser_main_path}")  # Make sure graphjs is in the latest compiled version
     abs_input_file = os.path.abspath(file_path)  # Get absolute input file
     if silent:
-        return f"node {mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent"
+        return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent"]
     else:
-        return f"node {mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --graph --i=AST"
+        return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --graph --i=AST"]
 
 
 def run_queries(graph_path, run_path, summary_path, time_path, docker_mode, generate_exploit):
@@ -90,7 +91,7 @@ def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=Fal
     graphjs_cmd = build_graphjs_cmd(file_path, graph_output)
     print("[INFO] MDG: Generating...")
     start_time = timers.start_timer()
-    os.system(graphjs_cmd)
+    utils.launch_process(graphjs_cmd[0], graphjs_cmd[1])
     timers.stop_timer(start_time, "graph", time_output)
     print("[INFO] MDG: Completed.")
 

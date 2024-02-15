@@ -4,6 +4,7 @@ import os
 import platform
 import time
 from .utils import timers, neo4j_constants as constants
+from .. import utils
 
 
 def remove_neo4j_container(docker_client, container_name):
@@ -85,44 +86,19 @@ def import_csv_local(graph_dir, output_dir):
     # To use neo4j-admin import, it is required to stop, import and then start neo4j again
     print("[INFO] Stop running Neo4j local instance.")
     neo4j_stop_path = os.path.join(output_dir, "neo4j_stop.txt")  # Write stop output to file
-    os.system(f"neo4j stop &> {neo4j_stop_path}")
+    utils.launch_process("neo4j", "stop", neo4j_stop_path)
 
     time_output = os.path.join(output_dir, "time_stats.txt")
 
     print("[INFO] Import MDG to Neo4j.")
     neo4j_import_path = os.path.join(output_dir, "neo4j_import.txt")
-    start_time = timers.start_timer()  # Start timer to measure import stage
-    os.system(f'''neo4j-admin database import full --overwrite-destination \
-          --nodes="{graph_dir}/nodes.csv" \
-          --relationships="{graph_dir}/rels.csv" \
-          --delimiter='¿' \
-          --skip-bad-relationships=true \
-          --skip-duplicate-nodes=true \
-          --high-parallel-io=on &> {neo4j_import_path}''')
-
-    timers.stop_timer(start_time, "import", time_output)  # Stop timer to measure neo4j import stage
+    utils.launch_process("neo4j-admin", f"database import full --overwrite-destination --nodes='{graph_dir}/nodes.csv"
+                                        f"' --relationships='{graph_dir}/rels.csv' --delimiter=U+00BF "
+                                        f"--skip-bad-relationships=true --skip-duplicate-nodes=true "
+                                        f"--high-parallel-io=on",
+                         neo4j_import_path)
+    utils.measure_import_time(neo4j_import_path, time_output)
 
     print("[INFO] Starting Neo4j")
-    start_time = timers.start_timer()  # Start timer for neo4j start stage
     neo4j_start_path = os.path.join(output_dir, "neo4j_start.txt")  # Write start output to file
-    os.system(f"neo4j console &> {neo4j_start_path} &")
-
-    # Wait for container to start (timeout of 60sec)
-    timer = 0
-    time_increment = 1
-    while True:
-        if timer > 60:
-            sys.exit("[ERROR] Neo4j container was not successfully created (Timeout).")
-        if not os.path.exists(neo4j_start_path):
-            time.sleep(time_increment)
-            timer = timer + time_increment
-        else:
-            file = open(neo4j_start_path)
-            if 'Started' not in file.read():
-                time.sleep(time_increment)
-                timer = timer + time_increment
-                file.close()
-            else:
-                file.close()
-                break
-    timers.stop_timer(start_time, "start", time_output)  # Stop timer to measure neo4j start stage
+    utils.launch_process_bg("neo4j", "console", 60, "Started", neo4j_start_path)
