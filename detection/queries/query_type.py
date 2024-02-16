@@ -458,17 +458,3 @@ def simplify_objects(self, params_types, config, polluted_object=False, pollutin
             params_types[i] = f"lazy-object | array"
         elif isinstance(v, dict):
             self.simplify_objects(params_types[i], config)
-
-
-class QueryType:
-    debug = False  # TODO: Delete
-
-    def __init__(self, str_type):
-        self.type = str_type
-
-    def get_type(self):
-        return self.type
-
-    @abstractmethod
-    def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, detection_output, time_output, config):
-        pass
