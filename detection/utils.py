@@ -23,7 +23,6 @@ def launch_process(command: str, args: str, output_file=None):
 # Launch process in background (with timeout)
 def launch_process_bg(command: str, args: str, timeout, wait_for_output=None, output_file=None):
 	command_args = [command] + args.split(" ")
-	start_time = timers.start_timer()
 	process = subprocess.Popen(command_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
 	stdout = ""
 
@@ -50,7 +49,12 @@ def measure_import_time(import_output_file, time_output):
 	with open(import_output_file, 'r') as file:
 		for line in file:
 			if "IMPORT DONE in" in line:
-				elapsed_time = re.search('IMPORT DONE in (.*)ms.', line).group(1)
-				elapsed_time_ms = int(elapsed_time.split("s ")[0]) * 1000 + int(elapsed_time.split("s ")[1])
+				elapsed_time = [int(num) for num in re.findall(r'\d+', line)]
+				if len(elapsed_time) == 2:  # If it took seconds and milliseconds
+					elapsed_time_ms = elapsed_time[0] * 1000 + elapsed_time[1]
+				elif len(elapsed_time) == 1:  # If it took milliseconds only
+					elapsed_time_ms = elapsed_time[0]
+				else: # Error
+					sys.exit("[ERROR] Neo4j was not correctly imported.")
 
 	print(f'import: {elapsed_time_ms}', file=open(time_output, 'a'))  # output to file
