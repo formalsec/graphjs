@@ -189,8 +189,6 @@ class PrototypePollution:
                     sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
                     vuln_path = {
                         "vuln_type": "prototype-pollution",
-                        "source": source_cfg["IdentifierName"],
-                        "source_lineno": source_lineno,
                         "sink": sink,
                         "sink_lineno": sink_lineno
                     }

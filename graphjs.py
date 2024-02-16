@@ -61,7 +61,7 @@ def build_graphjs_cmd(file_path, graph_output, silent=True):
         return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --graph --i=AST"]
 
 
-def run_queries(graph_path, run_path, summary_path, time_path, docker_mode, generate_exploit):
+def run_queries(file_path, graph_path, run_path, summary_path, time_path, docker_mode, generate_exploit):
     # Import MDG to Neo4j
     if docker_mode:
         neo4j_management.import_csv_docker(graph_path, run_path)
@@ -70,10 +70,10 @@ def run_queries(graph_path, run_path, summary_path, time_path, docker_mode, gene
 
     # Perform graph traversals
     print("[INFO] Queries: Traversing Graph...")
-    detection.traverse_graph(f"{graph_path}/normalized.js",
-                   summary_path,
-                   time_path,
-                   generate_exploit)
+    detection.traverse_graph(file_path,
+                             summary_path,
+                             time_path,
+                             generate_exploit)
 
 
 def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=False):
@@ -97,7 +97,7 @@ def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=Fal
 
     # Execute Graph Traversals (Queries)
     print("[INFO] Queries: Starting...")
-    run_queries(graph_output, run_output, summary_path, time_output, docker_mode, generate_exploit)
+    run_queries(file_path, graph_output, run_output, summary_path, time_output, docker_mode, generate_exploit)
     print("[INFO] Queries: Completed.")
 
     # Generate symbolic tests
