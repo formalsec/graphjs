@@ -32,16 +32,13 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         !silentMode && printStatus("AST Parsing");
 
         // Normalize AST
-        let normalizedAst = normalizeScript(ast);
+        const normalizedAst = normalizeScript(ast);
         !silentMode && printStatus("AST Normalization");
 
         // Generate the normalized code, to store it
         const code = escodegen.generate(normalizedAst);
         !silentMode && console.log(`\nNormalized code:\n${code}\n`);
         if (fileOutput) fs.writeFileSync(fileOutput, code);
-
-        // Parse normalized AST, to get the lines of code of the normalized version
-        normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true });
 
         // Build AST graph
         const astGraph = buildAST(normalizedAst);
