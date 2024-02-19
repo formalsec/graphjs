@@ -31,6 +31,14 @@ class Injection:
         RETURN *
     """
 
+    template_query = f"""
+        MATCH
+           ...
+        WHERE
+            ...
+        RETURN *
+    """
+
     def __init__(self, query: Query):
         self.query = query
 
@@ -65,6 +73,12 @@ class Injection:
                         "sink_name": sink_name})
         self.query.time_detection("injection")
 
+        # Run template query
+        '''
+        results = session.run(self.template_query)
+        for record in results:
+            print(record)
+        '''
         if self.query.reconstruct_types:
             print(f'[INFO] Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
