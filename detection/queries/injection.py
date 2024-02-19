@@ -43,8 +43,6 @@ class Injection:
         print(f'[INFO] Injection - Analyzing detected vulnerabilities.')
         for record in results:
             sink_name = record["sink"]["IdentifierName"]
-            source_ast = record["source_ast"]
-            source_lineno = json.loads(source_ast["Location"])["start"]["line"]
             sink_lineno = json.loads(record["sink_ast"]["Location"])["start"]["line"]
             sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
             vuln_path = {
@@ -56,6 +54,8 @@ class Injection:
             if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                 vuln_paths.append(vuln_path)
             else:
+                source_ast = record["source_ast"]
+                source_lineno = json.loads(source_ast["Location"])["start"]["line"]
                 detection_results.append(
                     {
                         "vuln_type": my_utils.get_injection_type(sink_name, config),

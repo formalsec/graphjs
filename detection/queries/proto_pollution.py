@@ -182,8 +182,6 @@ class PrototypePollution:
                 ast_results = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj))
 
                 for ast_result in ast_results:
-                    source_cfg = ast_result["source_cfg"]
-                    source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
                     sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
                     sink_lineno = sink_location["start"]["line"]
                     sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
@@ -196,6 +194,8 @@ class PrototypePollution:
                     if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                         vuln_paths.append(vuln_path)
                     else:
+                        source_cfg = ast_result["source_cfg"]
+                        source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
                         detection_results.append({
                             "sink_obj": ast_result["assignment_cfg"],
                             "sink_lineno": sink_lineno,
