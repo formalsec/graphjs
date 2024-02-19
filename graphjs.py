@@ -27,7 +27,7 @@ def parse_arguments():
                         help="Path to store all output files.")
     # Silent mode
     parser.add_argument("-s", "--silent", action="store_true",
-                        help="Silent mode - no console output.")
+                        help="Silent mode - does not save graph .svg.")
     # Local or containerized mode (neo4j queries)
     parser.add_argument("-d", "--docker", action="store_true",
                         help="Query mode - executes neo4j in a docker container instead of running locally.")
@@ -58,25 +58,27 @@ def build_graphjs_cmd(file_path, graph_output, silent=True):
     if silent:
         return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent"]
     else:
-        return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --graph --i=AST"]
+        return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent --graph --i=AST"]
 
 
-def run_queries(file_path, graph_path, run_path, summary_path, time_path, docker_mode, generate_exploit):
+def run_queries(graph_path, run_path, summary_path, time_path, docker_mode, generate_exploit):
     # Import MDG to Neo4j
     if docker_mode:
         neo4j_management.import_csv_docker(graph_path, run_path)
     else:
         neo4j_management.import_csv_local(graph_path, run_path)
 
+    print("[STEP 2] Queries: Imported")
+
     # Perform graph traversals
-    print("[INFO] Queries: Traversing Graph...")
-    detection.traverse_graph(file_path,
+    print("[STEP 3] Queries: Traversing Graph...")
+    detection.traverse_graph(f"{graph_path}/normalized.js",
                              summary_path,
                              time_path,
                              generate_exploit)
 
 
-def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=False):
+def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=False, silent=True):
     # Get absolute paths
     file_path = os.path.abspath(file_path)
     output_path = os.path.abspath(output_path)
@@ -88,28 +90,28 @@ def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=Fal
     check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output, generate_exploit)
 
     # Build MDG
-    graphjs_cmd = build_graphjs_cmd(file_path, graph_output)
-    print("[INFO] MDG: Generating...")
+    graphjs_cmd = build_graphjs_cmd(file_path, graph_output, silent)
+    print("[STEP 1] MDG: Generating...")
     start_time = timers.start_timer()
     utils.launch_process(graphjs_cmd[0], graphjs_cmd[1])
     timers.stop_timer(start_time, "graph", time_output)
-    print("[INFO] MDG: Completed.")
+    print("[STEP 1] MDG: Completed.")
 
     # Execute Graph Traversals (Queries)
-    print("[INFO] Queries: Starting...")
-    run_queries(file_path, graph_output, run_output, summary_path, time_output, docker_mode, generate_exploit)
-    print("[INFO] Queries: Completed.")
+    print("[STEP 2] Queries: Importing the graph...")
+    run_queries(graph_output, run_output, summary_path, time_output, docker_mode, generate_exploit)
+    print("[STEP 3] Queries: Completed.")
 
     # Generate symbolic tests
     if generate_exploit:
-        print("[INFO] Symbolic test generation: Generating...")
+        print("[STEP 3] Symbolic test generation: Generating...")
 
         os.chdir(symb_tests_output)
         os.system(f"instrumentation2 {file_path} {summary_path}")
-        print("[INFO] Symbolic test generation: Completed.")
+        print("[STEP 3] Symbolic test generation: Completed.")
 
 
 if __name__ == "__main__":
     # Parse arguments
     args = parse_arguments()
-    run_graph_js(args.file, args.output, args.exploit, args.docker)
+    run_graph_js(args.file, args.output, args.exploit, args.docker, args.silent)
