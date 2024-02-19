@@ -61,7 +61,7 @@ class Injection:
             my_utils.save_intermediate_output(vuln_path, detection_output)
             if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                 vuln_paths.append(vuln_path)
-            else:
+            elif self.query.reconstruct_types:
                 source_ast = record["source_ast"]
                 source_lineno = json.loads(source_ast["Location"])["start"]["line"]
                 detection_results.append(
