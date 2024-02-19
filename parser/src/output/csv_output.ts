@@ -50,6 +50,7 @@ export class CSVOutput extends OutputWriter {
             // Raw
             if (node.type === "Literal") {
                 const lit = node.obj as Literal;
+                if (lit.raw) lit.raw = lit.raw.replace(/"/g, "'")
                 n.push(lit.raw);
             } else n.push("");
 
