@@ -25,7 +25,7 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
     try {
         let fileContent = fs.readFileSync(filename, "utf8");
         // Remove shebang line
-        if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.slice(fileContent.indexOf('\n') + ('\n').length);
+        if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.slice(fileContent.indexOf('\n'));
 
         // Parse AST
         const ast = esprima.parseModule(fileContent, { loc: true, tolerant: true });
