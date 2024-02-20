@@ -3,8 +3,8 @@ import { copyObj } from "../utils/utils";
 import { Graph } from "./graph/graph";
 import { type GraphNode } from "./graph/node";
 
-export default function buildAST(originalObj: estree.Program): Graph {
-    const graph = new Graph(null);
+export default function buildAST(originalObj: estree.Program,nodeCounter:number,edgeCounter:number): Graph {
+    const graph = new Graph(null,nodeCounter,edgeCounter);
 
     function traverse(obj: estree.Node, parentNode: GraphNode | null): GraphNode {
         function mapReduce(arr: estree.Node[], anotherParentNode: GraphNode | null): GraphNode[] {
@@ -367,6 +367,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
             case "ReturnStatement":
             case "ThrowStatement": {
                 const objNode = graph.addNode(obj.type, obj);
+                objNode.functionName = graph.currentFuncName.slice(-1)[0];
 
                 const argument = obj.argument ? traverse(obj.argument, objNode) : null;
 
@@ -402,7 +403,9 @@ export default function buildAST(originalObj: estree.Program): Graph {
             case "VariableDeclarator": {
                 const objNode = graph.addNode(obj.type, obj);
                 objNode.identifier = obj.id.type === "Identifier" ? obj.id.name : "";
+                graph.addFuncName(objNode.identifier);
                 const initNode = obj.init ? traverse(obj.init, objNode) : null;
+                graph.popFuncName();
 
                 // graph.addEdge(objNode.id, id_node.id, { type: "AST", label: 'id'});
 

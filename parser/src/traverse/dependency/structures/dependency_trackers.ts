@@ -1,5 +1,5 @@
 import { type Graph } from "../../graph/graph";
-import { type GraphNode } from "../../graph/node";
+import { GraphNode } from "../../graph/node";
 import { deepCopyStore, getAllASTNodes, getASTNode, getNextLocationName } from "../../../utils/utils";
 import * as DependencyFactory from "../dep_factory";
 import { type Dependency } from "../dep_factory";
@@ -38,6 +38,30 @@ export class DependencyTracker {
     // This value represents a map of the operations corresponding to each program assignment
     private assignments: AssignmentMap;
 
+     // This value represents a list of nodes that are function calls
+     private callNodes: GraphNode[];
+    
+     // This value represents the module.exports identifier (if it is assinged in the code)
+     private moduleExports: string;
+ 
+     // This value represents the module.exports aliases (i.e, variables that point to module.exports)
+     private moduleExportsAliases: Set<string>;
+ 
+     // This value represents assignments to module.exports or its aliases
+     private moduleExportsAssignments: Map<string, GraphNode>;
+ 
+     // This value represents assignments to exports or its aliases
+     private exportsAssignments: Map<string, GraphNode>;
+ 
+     // This value represents the exports aliases (i.e, variables that point to exports)
+     private exportsAlias: Set<string>;
+ 
+     // This value represents if exports points to module.exports (in case module.exports is assigned to a different object)
+     private exportsPointsToModuleExports: boolean;
+ 
+     // This value represents the declared functions in the code
+     private declaredFuncs: Map<string,GraphNode>;
+
     constructor(graph: Graph, functionContexts: FContexts) {
         this.graph = graph;
         this.store = new Map();
@@ -47,6 +71,14 @@ export class DependencyTracker {
         this.lazyRequireChain = new Map();
         this.variableMap = new Map();
         this.assignments = new Map();
+        this.callNodes = [];
+        this.exportsAlias = new Set();
+        this.moduleExportsAliases = new Set();
+        this.exportsAssignments = new Map();
+        this.moduleExportsAssignments = new Map();
+        this.moduleExports = "";
+        this.exportsPointsToModuleExports = true;
+        this.declaredFuncs = new Map();
     }
 
     private setContext(newContext: number[]): void {
@@ -63,12 +95,100 @@ export class DependencyTracker {
         this.lazyRequireChain = new Map(newLazyRequireChain);
     }
 
+    private setCallNodes(newCallNodes: GraphNode[]): void {
+        this.callNodes = [...newCallNodes];
+    }
+
+    private setExportsAssignments(newExportsAssignments: Map<string,GraphNode>): void {
+        this.exportsAssignments = new Map(newExportsAssignments);
+    }
+
+    private setExportsAlias(newExportsAlias: Set<string>): void {
+        this.exportsAlias = new Set(newExportsAlias);
+    }
+
+    private setModuleExportsAliases(newModuleExportsAliases: Set<string>): void {
+        this.moduleExportsAliases = new Set(newModuleExportsAliases);
+    }
+
+    setModuleExportsIdentifier(value: string) {
+        this.moduleExports = value; 
+        this.exportsPointsToModuleExports = false;
+        this.moduleExportsAssignments.clear();
+        this.exportsAssignments.clear();
+        this.moduleExportsAliases.clear();
+        this.exportsAlias.clear();
+
+    }
+
+    private setModuleExportsAssignments(newModuleExportsAssignments: Map<string,GraphNode>): void {
+        this.moduleExportsAssignments = new Map(newModuleExportsAssignments);
+    }
+    
     private setVariableMap(newVariableMap: VPMap): void {
         this.variableMap = new Map(newVariableMap);
     }
 
     private setAssignmentMap(assignmentMap: AssignmentMap): void {
         this.assignments = new Map(assignmentMap);
+    }
+
+    private setDeclaredFuncs(declaredFuncs: Map<string,GraphNode>): void {
+        this.declaredFuncs = new Map(declaredFuncs);
+    }
+    
+
+    get assignmentsMap(): AssignmentMap {
+        return this.assignments;
+    }
+
+    get requireChainMap(): RequireChain {
+        return this.requireChain;
+    }
+
+    get lazyRequireChainMap(): LazyRequires {
+        return this.lazyRequireChain;
+    }
+
+    get storeMap(): Store {
+        return this.store;
+    }
+
+    get funcContextsMap(): FContexts {
+        return this.funcContexts;
+    }
+
+    get variablesMap(): VPMap {
+        return this.variableMap;
+    }
+
+    get callNodesList(): GraphNode[] {
+        return this.callNodes;
+    }
+
+    get moduleExportsIdentifier(): string {
+        return this.moduleExports;
+    }
+    
+    get moduleExportsAliasesSet(): Set<string> {
+        return this.moduleExportsAliases;
+    }
+
+    get moduleExportsAssignmentsMap(): Map<string,GraphNode> {
+        return this.moduleExportsAssignments;
+    }
+
+    get exportsAssignmentsMap(): Map<string,GraphNode> {
+        return this.exportsAssignments;
+    }
+
+
+    get exportsAliasSet(): Set<string> {
+        return this.exportsAlias;
+    }
+
+    get declaredFuncsMap(): Map<string,GraphNode> {
+        return this.declaredFuncs;
     }
 
     pushIntraContext(context: number): void {
@@ -134,6 +254,13 @@ export class DependencyTracker {
         return false
     }
 
+    // keeps track of the called nodes
+    addCallNode(callNode: GraphNode): void {
+        if(callNode.type == "CallExpression"){
+            this.callNodes.push(callNode);
+        }
+    }
+
     // Checks if function call is defining a new lazy require (e.g. const v2 = lazy(<name>, <alias>);
     checkIfLazyDefinition(callNode: GraphNode): void {
         if (callNode.obj.callee.type === "Identifier") {
@@ -171,6 +298,34 @@ export class DependencyTracker {
         if (ops) {
             this.assignments.set(assignmentNumber, [...ops, op]);
         } else this.assignments.set(assignmentNumber, [op]);
+    }
+
+    addExportsAssignment(prop:string,value:GraphNode): void {
+        this.exportsPointsToModuleExports && this.exportsAssignments.set(prop,value);
+    }
+
+    addModuleExportsAssignment(prop:string,value:GraphNode): void {
+        this.moduleExportsAssignments.set(prop,value);
+    }
+
+    addExportsAlias(alias: string): void {
+        this.exportsAlias.add(alias);
+    }
+
+    addModuleExportsAlias(alias: string): void {
+        this.moduleExportsAliases.add(alias);
+    }
+
+    addDeclaredFunc(funcName: string, node: GraphNode): void {
+
+        // copy the node to avoid changing the original
+        const func = new GraphNode(node.id,node.type,node.obj);
+        func.identifier = node.identifier;
+        func.functionContext = node.functionContext;
+        node.edges.forEach(edge => { // remove the control flow edges (not needed if the function is exported)
+            edge.type != "CFG" && func.addEdge(edge);
+        });
+        this.declaredFuncs.set(funcName, func);
     }
 
     checkAssignment(assignmentNumber: number, operation: string): number | undefined {
@@ -529,10 +684,10 @@ export class DependencyTracker {
     }
 
     graphCreateCallStatementDependencyEdges(_stmtId: number, newObjId: number, deps: Dependency[]): void {
-        const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
+        // const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
 
-        // calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
-        varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
+        // // calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
+        // varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
     }
 
     graphCreateCallDependencyEdge(source: number, destination: number, objName: string): void {
@@ -713,6 +868,14 @@ export class DependencyTracker {
         clone.setLazyRequireChain(this.lazyRequireChain);
         clone.setVariableMap(this.variableMap);
         clone.setAssignmentMap(this.assignments);
+        clone.setCallNodes(this.callNodes);
+        clone.setModuleExportsIdentifier(this.moduleExportsIdentifier);
+        clone.setModuleExportsAssignments(this.moduleExportsAssignmentsMap);
+        clone.setExportsAssignments(this.exportsAssignmentsMap);
+        clone.setExportsAlias(this.exportsAlias);
+        clone.setModuleExportsAliases(this.moduleExportsAliases);
+        clone.setDeclaredFuncs(this.declaredFuncs);
+        clone.exportsPointsToModuleExports = this.exportsPointsToModuleExports;
         return clone;
     }
 

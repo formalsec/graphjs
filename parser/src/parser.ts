@@ -3,6 +3,7 @@ import fs = require("fs");
 import path = require("path");
 import esprima = require("esprima");
 import escodegen from "escodegen";
+import dependencyTree = require("dependency-tree");
 import { normalizeScript } from "./traverse/normalization/normalizer";
 import buildAST from "./traverse/ast_builder";
 const { buildCFG } = require("./traverse/cfg_builder");
@@ -14,25 +15,31 @@ const { CSVOutput } = require("./output/csv_output");
 
 import { type CFGraphReturn } from "./traverse/cfg_builder";
 
-import { printStatus } from "./utils/utils";
+import { printStatus,constructExportedObject,findCorrespodingFile } from "./utils/utils";
+import { getFunctionName } from "./traverse/dependency/utils/nodes";
 import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
-import * as process from "process";
+import { GraphNode } from "./traverse/graph/node";
+import { DependencyTracker } from "./traverse/dependency/structures/dependency_trackers";
+import { getNextVariableName } from "./utils/utils";
+import { GraphEdge } from "./traverse/graph/edge";
+
 
 // Generate the program graph (AST + CFG + CG + PDG)
-function parse(filename: string, config: Config, fileOutput: string, silentMode: boolean): Graph {
+function parse(filename: string, config: Config, fileOutput: string, silentMode: boolean,nodeCounter:number,
+    edgeCounter:number): [Graph,any] {
     try {
         let fileContent = fs.readFileSync(filename, "utf8");
         // Remove shebang line
-        if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.slice(fileContent.indexOf('\n'));
+        if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.slice(fileContent.indexOf('\n') + ('\n').length);
 
         // Parse AST
-        const ast = esprima.parseModule(fileContent, { loc: true, tolerant: true });
+        const ast = esprima.parseModule(fileContent, { tolerant: true });
         !silentMode && printStatus("AST Parsing");
 
         // Normalize AST
-        const normalizedAst = normalizeScript(ast);
+        let normalizedAst = normalizeScript(ast);
         !silentMode && printStatus("AST Normalization");
 
         // Generate the normalized code, to store it
@@ -40,8 +47,11 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         !silentMode && console.log(`\nNormalized code:\n${code}\n`);
         if (fileOutput) fs.writeFileSync(fileOutput, code);
 
+        // Parse normalized AST, to get the lines of code of the normalized version
+        normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true });
+
         // Build AST graph
-        const astGraph = buildAST(normalizedAst);
+        const astGraph = buildAST(normalizedAst,nodeCounter,edgeCounter);
         !silentMode && printStatus("Build AST");
 
         // Build Control Flow Graph (CFG)
@@ -62,13 +72,129 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
 
         // Print trackers
         !silentMode && trackers.print();
-        return pdgGraph;
+        
+        // return the pdg graph and trackers
+        return [pdgGraph,trackers];
     } catch (e: any) {
         console.log("Error:", e.stack);
     }
 
+    return [new Graph(null),null];
+}
+
+// Traverse the dependency tree of the given file and generate the code property graph that accounts for all the dependencies
+function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,silentMode:boolean):Graph {
+
+    // stores the exported objects of each module
+    let exportedObjects = new Map<string, Object>();
+
+    // DFS stack
+    const stack: Array<string> = []; 
+    const nodeInfo = new Map<string,{node:any,colour:string}>();
+    nodeInfo.set(Object.keys(depTree)[0],{node:depTree[Object.keys(depTree)[0]],colour:"white"});
+    stack.push(Object.keys(depTree)[0]);
+    let nodeCounter = 0, edgeCounter = 0;
+   
+
+    // DFS traversal of the dependency tree
+    while(stack.length > 0) {
+        let key = stack.slice(-1)[0];
+        let current = nodeInfo.get(key) ?? {node:{},colour:"black"};
+        let hasAdj = false;
+
+        if(current.colour == "white"){
+
+            for(let child of Object.keys(current.node)) {
+                let childInfo = nodeInfo.get(child);
+    
+                if(childInfo == undefined) {
+                    nodeInfo.set(child,{node:current.node[child],colour:"white"});
+                    stack.push(child);
+                    hasAdj = true;
+                }
+   
+            }
+        }
+
+        // Still has neighbours to visit, don't pop yet
+        if(hasAdj){
+            current.colour = "grey";
+            continue;
+        }
+        // All neighbours visited, pop and process the module
+        else {
+
+            current.colour = "black";
+
+            // parse the node and generate the exported Object
+            const [cpg,trackers] = parse(key,config,path.join(normalizedOutputDir,path.basename(key)),silentMode,
+                nodeCounter,edgeCounter);
+            nodeCounter = cpg.number_nodes;
+            edgeCounter = cpg.number_edges;
+            let exported = constructExportedObject(cpg,trackers);
+
+            // add the exported objects to the map
+            exportedObjects.set(path.basename(key),exported);
+
+            // main file that contains the entry point
+            if(key == Object.keys(depTree)[0]) {
+                // add the exported functions to cpg to generate the final graph
+                trackers.callNodesList.forEach((callNode:GraphNode)=> {
+
+                    const { calleeName, functionName } = getFunctionName(callNode);
+
+                    const module = findCorrespodingFile(calleeName,callNode.functionContext,trackers);
+
+
+                    if(module){
+                        let funcGraph = exportedObjects.get(module)[functionName];
+
+                        if(funcGraph != undefined){
+                            // add the exported function to the start nodes of the graph
+                            cpg.addStartNodes("function",funcGraph); 
+                            let params = funcGraph.edges.filter(e => e.label == "param").map(e => e.nodes[1]);
+
+                            // connect object arguments to the parameters of the external function
+                            callNode.argsObjIDs.forEach((arg:number,index:number) => {
+                                if(arg != -1) // if the argument is a constant its value is -1 (thus literals aren't considred here)
+                                    cpg.nodes.get(arg)?.edges.push(new 
+                                        GraphEdge(edgeCounter++,cpg.nodes.get(arg),params[index],
+                                        {type:"PDG",label:"ARG"}))
+                            });
+
+                            // connect the return object of the function to the return location of the call
+                            if(funcGraph.returnNode != undefined)
+                                cpg.nodes.get(callNode.returnLocation)?.edges.push(new
+                                    GraphEdge(edgeCounter++,funcGraph.returnNode,cpg.nodes.get(callNode.returnLocation),
+                                    {type:"PDG",label:"RET"}));
+                            }
+
+                        
+                    }
+
+                    
+                    
+                });
+                return cpg;
+            }
+            else{
+                // simply add edges that connect the calls to the exported functions
+            }
+
+            stack.pop();
+
+
+
+        }
+    
+
+        
+        
+    }
+
     return new Graph(null);
 }
+
 
 // Parse program arguments
 const { argv } = yargs(process.argv.slice(2))
@@ -111,7 +237,16 @@ if (!fs.existsSync(configFile)) console.error(`${configFile} is not a valid conf
 
 // Generate code property graph
 const config = readConfig(configFile);
-const graph = parse(filename, config, normalizedPath, silentMode);
+
+
+const depTree = dependencyTree({
+    filename,
+    directory: path.dirname(filename),
+});
+
+
+const graph = traverseDepTree(depTree,config,path.dirname(normalizedPath),silentMode);
+
 if (!graph) console.error(`Unable to generate code property graph`);
 
 // Generate output files

@@ -73,9 +73,19 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         }
 
         // x = f() or x = new f()
-        case "NewExpression":
-        case "CallExpression": {
+        case "NewExpression": {
             return handleCallStatement(stmtId, stmt.functionContext, leftIdentifier, right, config, trackers);
+        }
+
+        case "CallExpression": {
+            
+            let result =  handleCallStatement(stmtId, stmt.functionContext, leftIdentifier, right, config, trackers);
+            let callee = trackers.declaredFuncsMap.get(right.obj.callee.name);
+            if(callee){
+                let leftObjId = trackers.storeGetObjectLocations(left.identifier,left.functionContext)[0];
+                trackers.graphCreateReturnEdge(callee.returnNode.id,leftObjId);
+            }
+            return result;
         }
 
         // x = {}
@@ -122,6 +132,10 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     const objName = obj.obj.name;
     const propName = (memExpNode.obj.computed && prop.type !== "Literal") ? '*' : prop.obj.name; // dynamic property
     const objectLocations: number[] = trackers.storeGetObjectLocations(objName, memExpNode.functionContext)
+
+    if(objName == "module" && propName == "exports") {
+        trackers.addModuleExportsAlias(variable.name);
+    }
 
     // evaluate dependency of expression
     const deps: Dependency[] = evalDep(trackers, stmtId, memExpNode);
@@ -200,12 +214,24 @@ function handleArrayExpression(stmtId: number, functionContext: number, variable
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // Get function name (depends on the type of callee --> MemberExpression or Identifier)
     const { calleeName, functionName } = getFunctionName(callNode)
+    trackers.addCallNode(callNode);
+    callNode.argsObjIDs = [];
 
+    callNode.obj.arguments.forEach((arg: GraphNode, index: number) => {
+        if (arg.type === "Identifier") {
+            const argLocation: number = trackers.storeGetObjectLocations(arg.name, callNode.functionContext).slice(-1)[0];
+            callNode.argsObjIDs.push(argLocation);
+        }
+        else
+            callNode.argsObjIDs.push(-1);
+    });
     // Map call arguments (variables passed to the call map to the arguments of the called function definition)
     trackers = mapCallArguments(callNode, functionContext, functionName, calleeName, stmtId, config, trackers);
 
     // Create new object for the new variable (return of the call)
     const returnLocation = trackers.createNewObject(stmtId, functionContext, variable);
+    callNode.returnLocation = returnLocation;
+
 
     // Process dependencies of the call
     const deps = evalDep(trackers, stmtId, callNode); // Dependencies of the arguments
@@ -318,9 +344,7 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     // create param node and connect to taint source
     params.forEach((p, i) => { trackers.addParamNode(stmtId, p, i, funcExpNode, funcNode.id); });
 
-    // Create node for return object
-    trackers.createNewObject(stmtId, stmt.functionContext, funcIdentifier);
-
+    trackers.addDeclaredFunc(funcIdentifier.name,stmt);
     trackers = popContext(trackers);
     return trackers;
 }
@@ -362,6 +386,9 @@ function handleSimpleAssignment(_stmtId: number, stmt: GraphNode, variable: Iden
     locations.forEach((location: number) => {
         trackers.storeAddLocation(variable.name, location, stmt.functionContext)
     })
+    if(expNode.identifier == "exports"){
+        trackers.addExportsAlias(variable.name);
+    }
 
     // create map entry
     trackers.addVariableMap(variable.name, expNode.obj.name);
@@ -399,6 +426,17 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     // get context names
     const objName = obj.obj.name;
     let propName = prop.obj.name;
+
+    // exports.a  = function() {}
+    if(objName == "exports" || trackers.exportsAliasSet.has(objName)) {
+        trackers.addExportsAssignment(propName,right);
+    }
+    else if(objName == "module" && propName == "exports") {
+        trackers.setModuleExportsIdentifier(right.obj.name);
+    }
+    else if(trackers.moduleExportsAliasesSet.has(objName)){
+        trackers.addModuleExportsAssignment(propName,right);
+    }
 
     const objectLocations: number[] = evalSto(trackers, obj);
 
@@ -630,17 +668,26 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
     return trackers;
 }
 
-function handleReturnArgument(_stmtId: number, expNode: GraphNode, trackers: DependencyTracker): DependencyTracker {
-    // Get function node
-    const functionContextNode: number = expNode.functionContext;
-    const functionNode: number | undefined = trackers.getFunctionNode(functionContextNode)?.id
-    if (functionNode) {
-        // Get function object
-        const returnObjects: number[] = trackers.getObjectVersions(expNode.obj.name, functionContextNode)
-        if (returnObjects.length > 0) {
-            trackers.graphCreateReturnEdge(functionNode, returnObjects[0])
-        }
-    }
+function handleReturnArgument(_stmtId: number, expNode: GraphNode, trackers: DependencyTracker,funcName:string|null): DependencyTracker {
+    // evaluate dependency of expression
+    const deps = evalDep(trackers, _stmtId, expNode);
+
+    // Create edge to the start of the function
+    // const functionNode = expNode.functionContext;
+    // trackers.graphCreateReturnEdge(deps[0].source, functionNode)
+    let newObjId = trackers.createNewObject(_stmtId, expNode.functionContext, {type: "Identifier",name: "ret_" 
+    + expNode.functionContext});
+
+    let newObj = trackers.graphGetNode(newObjId);
+
+    if(newObj && funcName && expNode.type != "Literal")
+        trackers.declaredFuncsMap.get(funcName).returnNode = newObj;
+
+    deps.forEach(dep => {
+       let depNode = trackers.storeGetObjectLocations(dep.name, expNode.functionContext).slice(-1)[0];
+       trackers.graphCreateDependencyEdge(depNode,newObjId,dep);
+
+    });
 
     return trackers;
 }
@@ -773,7 +820,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
             case "ReturnStatement": {
                 const argument = getASTNode(node, "argument");
                 if (argument) {
-                    curTrackers = handleReturnArgument(node.id, argument, curTrackers);
+                    curTrackers = handleReturnArgument(node.id, argument, curTrackers,node.functionName);
                 }
                 break;
             }
