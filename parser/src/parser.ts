@@ -47,9 +47,6 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         !silentMode && console.log(`\nNormalized code:\n${code}\n`);
         if (fileOutput) fs.writeFileSync(fileOutput, code);
 
-        // Parse normalized AST, to get the lines of code of the normalized version
-        normalizedAst = esprima.parseModule(code, { loc: true, tolerant: true });
-
         // Build AST graph
         const astGraph = buildAST(normalizedAst,nodeCounter,edgeCounter);
         !silentMode && printStatus("Build AST");
@@ -152,14 +149,16 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                         if(funcGraph != undefined){
                             // add the exported function to the start nodes of the graph
                             cpg.addStartNodes("function",funcGraph); 
-                            let params = funcGraph.edges.filter(e => e.label == "param").map(e => e.nodes[1]);
+                            let params = funcGraph.edges.filter(e => e.label == "param" ).map(e => e.nodes[1]);
 
                             // connect object arguments to the parameters of the external function
                             callNode.argsObjIDs.forEach((arg:number,index:number) => {
+                                
                                 if(arg != -1) // if the argument is a constant its value is -1 (thus literals aren't considred here)
                                     cpg.nodes.get(arg)?.edges.push(new 
-                                        GraphEdge(edgeCounter++,cpg.nodes.get(arg),params[index],
-                                        {type:"PDG",label:"ARG"}))
+                                        GraphEdge(edgeCounter++,cpg.nodes.get(arg),params[index+1],
+                                        {type:"PDG",label:"ARG"})) // we use index +1 because the first parameter is the function itself
+                                        
                             });
 
                             // connect the return object of the function to the return location of the call
