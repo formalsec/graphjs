@@ -83,7 +83,7 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
             let callee = trackers.declaredFuncsMap.get(right.obj.callee.name);
             if(callee){
                 let leftObjId = trackers.storeGetObjectLocations(left.identifier,left.functionContext)[0];
-                trackers.graphCreateReturnEdge(callee.returnNode.id,leftObjId);
+                trackers.graphCreatePDGReturnEdge(callee.returnNode.id,leftObjId);
             }
             return result;
         }
