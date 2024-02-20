@@ -68,18 +68,18 @@ def import_csv_docker(graph_dir, output_dir, container_name="graphjs_neo4j", htt
     container = create_neo4j_container(docker_client, container_name, graph_dir, http_port, bolt_port)
     # Import csv to Neo4j
     print("[INFO] - Import MDG to Neo4j.")
-    import_result = container.exec_run('''neo4j-admin database import full --overwrite-destination
-                       --nodes=/var/lib/neo4j/import/nodes.csv --relationships=/var/lib/neo4j/import/rels.csv 
-                      --delimiter=U+00BF --skip-bad-relationships=true --skip-duplicate-nodes=true''',
-                                       user=constants.NEO4J_USER)
-    if import_result.exit_code != 0:
-        print(import_result)
-        sys.exit("[ERROR] Unable to import data to Neo4j container.")
+    # import_result = container.exec_run('''neo4j-admin database import full --overwrite-destination
+    #                    --nodes=/var/lib/neo4j/import/nodes.csv --relationships=/var/lib/neo4j/import/rels.csv 
+    #                   --delimiter=U+00BF --skip-bad-relationships=true --skip-duplicate-nodes=true''',
+    #                                    user=constants.NEO4J_USER)
+    # if import_result.exit_code != 0:
+    #     print(import_result)
+    #     sys.exit("[ERROR] Unable to import data to Neo4j container.")
 
-    # Write import output to file
-    neo4j_import_path = os.path.join(output_dir, "neo4j_import.txt")
-    with open(neo4j_import_path, "w") as f:
-        f.write(import_result.output.decode("utf-8"))
+    # # Write import output to file
+    # neo4j_import_path = os.path.join(output_dir, "neo4j_import.txt")
+    # with open(neo4j_import_path, "w") as f:
+    #     f.write(import_result.output.decode("utf-8"))
 
 
 def import_csv_local(graph_dir, output_dir):
