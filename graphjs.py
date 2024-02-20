@@ -53,7 +53,7 @@ def check_arguments(file_path, output_path, graph_output, run_output, symb_tests
 
 
 def build_graphjs_cmd(file_path, graph_output, silent=True):
-    os.system(f"tsc --project {parser_main_path}")  # Make sure graphjs is in the latest compiled version
+    os.system(f"cd {parser_main_path}; npx tsc")  # Make sure graphjs is in the latest compiled version
     abs_input_file = os.path.abspath(file_path)  # Get absolute input file
     if silent:
         return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent"]
