@@ -91,6 +91,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
     nodeInfo.set(Object.keys(depTree)[0],{node:depTree[Object.keys(depTree)[0]],colour:"white"});
     stack.push(Object.keys(depTree)[0]);
     let nodeCounter = 0, edgeCounter = 0;
+    let cpg = new Graph(null);
    
 
     // DFS traversal of the dependency tree
@@ -124,7 +125,8 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
             current.colour = "black";
 
             // parse the node and generate the exported Object
-            const [cpg,trackers] = parse(key,config,path.join(normalizedOutputDir,path.basename(key)),silentMode,
+            let trackers:any;
+            [cpg,trackers] = parse(key,config,path.join(normalizedOutputDir,path.basename(key)),silentMode,
                 nodeCounter,edgeCounter);
             nodeCounter = cpg.number_nodes;
             edgeCounter = cpg.number_edges;
@@ -133,53 +135,49 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
             // add the exported objects to the map
             exportedObjects.set(path.basename(key),exported);
 
-            // main file that contains the entry point
-            if(key == Object.keys(depTree)[0]) {
-                // add the exported functions to cpg to generate the final graph
-                trackers.callNodesList.forEach((callNode:GraphNode)=> {
+            
+            // add the exported functions to cpg to generate the final graph
+            trackers.callNodesList.forEach((callNode:GraphNode)=> {
 
-                    const { calleeName, functionName } = getFunctionName(callNode);
+                const { calleeName, functionName } = getFunctionName(callNode);
 
-                    const module = findCorrespodingFile(calleeName,callNode.functionContext,trackers);
+                const module = findCorrespodingFile(calleeName,callNode.functionContext,trackers);
 
 
-                    if(module){
-                        let funcGraph = exportedObjects.get(module)[functionName];
+                if(module){
+                    let exportedObj = exportedObjects.get(module);
 
-                        if(funcGraph != undefined){
-                            // add the exported function to the start nodes of the graph
-                            cpg.addStartNodes("function",funcGraph); 
-                            let params = funcGraph.edges.filter(e => e.label == "param" ).map(e => e.nodes[1]);
+                    let funcGraph = exportedObj[functionName] == undefined ? exportedObj : exportedObj[functionName];
 
-                            // connect object arguments to the parameters of the external function
-                            callNode.argsObjIDs.forEach((arg:number,index:number) => {
-                                
-                                if(arg != -1) // if the argument is a constant its value is -1 (thus literals aren't considred here)
-                                    cpg.nodes.get(arg)?.edges.push(new 
-                                        GraphEdge(edgeCounter++,cpg.nodes.get(arg),params[index+1],
-                                        {type:"PDG",label:"ARG"})) // we use index +1 because the first parameter is the function itself
-                                        
-                            });
+                    if(funcGraph != undefined){
+                        // add the exported function to the start nodes of the graph
+                        cpg.addStartNodes("function",funcGraph); 
+                        let params = funcGraph.edges.filter(e => e.label == "param").map(e => e.nodes[1]);
 
-                            // connect the return object of the function to the return location of the call
-                            if(funcGraph.returnNode != undefined)
-                                cpg.nodes.get(callNode.returnLocation)?.edges.push(new
-                                    GraphEdge(edgeCounter++,funcGraph.returnNode,cpg.nodes.get(callNode.returnLocation),
-                                    {type:"PDG",label:"RET"}));
-                            }
+                        // connect object arguments to the parameters of the external function
+                        callNode.argsObjIDs.forEach((arg:number,index:number) => {
+                            
+                            if(arg != -1) // if the argument is a constant its value is -1 (thus literals aren't considred here)
+                                cpg.nodes.get(arg)?.edges.push(new 
+                                    GraphEdge(edgeCounter++,cpg.nodes.get(arg),params[index+1],
+                                    {type:"PDG",label:"ARG"})) // we use index +1 because the first parameter is the function itself
+                                    
+                        });
 
-                        
-                    }
+                        // connect the return object of the function to the return location of the call
+                        if(funcGraph.returnNode != undefined)
+                            cpg.nodes.get(callNode.returnLocation)?.edges.push(new
+                                GraphEdge(edgeCounter++,funcGraph.returnNode,cpg.nodes.get(callNode.returnLocation),
+                                {type:"PDG",label:"RET"}));
+                        }
 
                     
-                    
-                });
-                return cpg;
-            }
-            else{
-                // simply add edges that connect the calls to the exported functions
-            }
+                }
 
+                
+                
+            });
+            
             stack.pop();
 
 
@@ -191,7 +189,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
         
     }
 
-    return new Graph(null);
+    return cpg;
 }
 
 

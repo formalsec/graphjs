@@ -73,19 +73,9 @@ function handleVariableAssignment(stmtId: number, stmt: GraphNode, left: GraphNo
         }
 
         // x = f() or x = new f()
-        case "NewExpression": {
-            return handleCallStatement(stmtId, stmt.functionContext, leftIdentifier, right, config, trackers);
-        }
-
+        case "NewExpression": 
         case "CallExpression": {
-            
-            let result =  handleCallStatement(stmtId, stmt.functionContext, leftIdentifier, right, config, trackers);
-            let callee = trackers.declaredFuncsMap.get(right.obj.callee.name);
-            if(callee){
-                let leftObjId = trackers.storeGetObjectLocations(left.identifier,left.functionContext)[0];
-                trackers.graphCreatePDGReturnEdge(callee.returnNode.id,leftObjId);
-            }
-            return result;
+            return handleCallStatement(stmtId, stmt.functionContext, leftIdentifier, right, config, trackers);
         }
 
         // x = {}
@@ -687,6 +677,10 @@ function handleReturnArgument(_stmtId: number, expNode: GraphNode, trackers: Dep
        let depNode = trackers.storeGetObjectLocations(dep.name, expNode.functionContext).slice(-1)[0];
        trackers.graphCreateDependencyEdge(depNode,newObjId,dep);
 
+    });
+
+    trackers.callNodesList.filter(callNode => callNode.obj.callee.name == funcName).forEach(callNode => {
+        trackers.graphCreatePDGReturnEdge(newObjId,callNode.returnLocation);
     });
 
     return trackers;
