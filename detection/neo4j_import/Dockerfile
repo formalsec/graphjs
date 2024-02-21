@@ -40,6 +40,7 @@ WORKDIR "${NEO4J_HOME}"
 
 COPY ./utils/docker-entrypoint.sh /docker-entrypoint.sh
 COPY ./utils/import.sh "${NEO4J_HOME}"/import.sh
+RUN mkdir "${NEO4J_HOME}"/runs
 
-ENTRYPOINT ["tini", "-g", "--", "/startup/docker-entrypoint.sh"]
+ENTRYPOINT ["tini", "-g", "--", "/docker-entrypoint.sh"]
 CMD ["neo4j"]

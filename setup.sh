@@ -19,6 +19,7 @@ fi
 
 # Install npm dependencies
 (cd parser && npm install)
+npm install -g typescript
 
 # Python dependencies
 pip3 install -r ./requirements.txt

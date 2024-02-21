@@ -10,6 +10,10 @@ def launch_process(command: str, args: str, output_file=None):
 	command_args = [command] + args.split(" ")
 	process = subprocess.Popen(command_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 	result, _ = process.communicate()  # Wait for the process to finish and capture stdout and stderr
+	if process.returncode != 0:
+		print(result)
+		sys.exit(1)
+
 	result_decoded = result.decode("utf-8")
 
 	# Save stdout and stderr to the output file
@@ -46,6 +50,7 @@ def launch_process_bg(command: str, args: str, timeout, wait_for_output=None, ou
 
 
 def measure_import_time(import_output_file, time_output):
+	elapsed_time = 0.0
 	with open(import_output_file, 'r') as file:
 		for line in file:
 			if "IMPORT DONE in" in line:

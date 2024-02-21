@@ -20,10 +20,10 @@ def traverse_graph(normalized_file, taint_summary_output, time_output_file, reco
     with GraphDatabase.driver(neo4j_connection_string, auth=(constants.NEO4J_USER, constants.NEO4J_PASSWORD)) as driver:
         try:
             driver.verify_connectivity()
-            session = driver.session()
-        except neo4j.exceptions.Neo4jError:
-            sys.exit("Unable to connect to Neo4j instance.")
+        except neo4j.exceptions.Neo4jError as e:
+            sys.exit(f"Unable to connect to Neo4j instance: {e.code}")
 
+        session = driver.session()
         vulnerable_paths = []
 
         query = Query(reconstruct_types, time_output_file)

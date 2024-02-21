@@ -4,6 +4,7 @@
   "description": "",
   "scripts": {
     "start-custom-cache": "ts-node-dev --cache-directory=$npm_config_cache --cache-directoryyyyy=$npm_package_config_cache --transpile-only  ./src/parser.ts",
+    "preinstall": "npm i -g typescript",
     "start": "ts-node-dev --transpile-only ./src/parser.ts",
     "explode": "start-custom-cache",
     "docs": "typedoc --tsconfig tsconfig.json",
@@ -24,6 +25,7 @@
     "graphviz": "0.0.9",
     "object-hash": "^2.1.1",
     "typedoc": "^0.22.10",
+    "typescript": "^4.5.5",
     "yargs": "^17.2.1"
   },
   "devDependencies": {
