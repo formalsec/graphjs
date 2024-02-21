@@ -84,6 +84,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
     // stores the exported objects of each module
     let exportedObjects = new Map<string, Object>();
+    let addedStartNodes = new Map<string,GraphNode[]>();
 
     // DFS stack
     const stack: Array<string> = []; 
@@ -135,6 +136,8 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
             // add the exported objects to the map
             exportedObjects.set(path.basename(key),exported);
 
+            addedStartNodes.set(path.basename(key),[]);
+
             
             // add the exported functions to cpg to generate the final graph
             trackers.callNodesList.forEach((callNode:GraphNode)=> {
@@ -151,7 +154,8 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
                     if(funcGraph != undefined){
                         // add the exported function to the start nodes of the graph
-                        cpg.addStartNodes("function",funcGraph); 
+                        cpg.addStartNodes("function" + module + '.' + funcGraph.identifier,funcGraph); 
+                        addedStartNodes.get(path.basename(key))?.push(funcGraph);
                         let params = funcGraph.edges.filter(e => e.label == "param").map(e => e.nodes[1]);
 
                         // connect object arguments to the parameters of the external function
@@ -169,7 +173,12 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                             cpg.nodes.get(callNode.returnLocation)?.edges.push(new
                                 GraphEdge(edgeCounter++,funcGraph.returnNode,cpg.nodes.get(callNode.returnLocation),
                                 {type:"PDG",label:"RET"}));
-                        }
+
+
+                        addedStartNodes.get(module)?.forEach((startNode:GraphNode) => {
+                            cpg.addStartNodes("function" + module + '.' + startNode.identifier,startNode);
+                        });
+                    }
 
                     
                 }
