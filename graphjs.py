@@ -43,9 +43,14 @@ def check_arguments(file_path, output_path, graph_output, run_output, symb_tests
         sys.exit(f"Input file doesn't exist: ${file_path}")
     # Clean previous output files
     if os.path.exists(output_path):
-        shutil.rmtree(output_path)
-
-    os.mkdir(output_path)  # Create output folder
+        for item in os.listdir(output_path):
+            item_path = os.path.join(output_path, item)
+            if os.path.isfile(item_path):
+                os.remove(item_path)
+            elif os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+    else:
+        os.mkdir(output_path)  # Create output folder
     os.mkdir(graph_output)  # Create graph output folder
     os.mkdir(run_output)  # Create run output folder (neo4j stats)
     if generate_exploit:
@@ -53,7 +58,7 @@ def check_arguments(file_path, output_path, graph_output, run_output, symb_tests
 
 
 def build_graphjs_cmd(file_path, graph_output, silent=True):
-    os.system(f"tsc --project {parser_main_path}")  # Make sure graphjs is in the latest compiled version
+    # os.system(f"tsc --project {parser_main_path}")  # Make sure graphjs is in the latest compiled version
     abs_input_file = os.path.abspath(file_path)  # Get absolute input file
     if silent:
         return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent"]

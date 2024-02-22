@@ -91,4 +91,5 @@ def import_csv_local(graph_dir, output_dir):
 
     print("[INFO] Starting Neo4j")
     neo4j_start_path = os.path.join(output_dir, "neo4j_start.txt")  # Write start output to file
-    utils.launch_process_bg("neo4j", "console", 60, "Started", neo4j_start_path)
+    utils.launch_process_bg("neo4j", "console", 120, "Started", neo4j_start_path)
+    time.sleep(30)  # To ensure server is launched - should be replaced with some verification of the ports
