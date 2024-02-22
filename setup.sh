@@ -17,8 +17,8 @@ else
 fi
 
 
-# Install npm dependencies
-(cd parser && npm install)
+# Install npm dependencies and compile typescript code
+(cd ./parser && npm install && tsc)
 npm install -g typescript
 
 # Python dependencies
