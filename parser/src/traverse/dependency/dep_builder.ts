@@ -204,7 +204,8 @@ function handleArrayExpression(stmtId: number, functionContext: number, variable
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // Get function name (depends on the type of callee --> MemberExpression or Identifier)
     const { calleeName, functionName } = getFunctionName(callNode);
-    let callNodeObjId = trackers.createNewObject(stmtId, functionContext, {type: "Identifier",name: calleeName != functionName ? calleeName + '.' + functionName : functionName});
+    let callNodeObjId = trackers.createNewObject(stmtId, functionContext, 
+        {type: "Identifier",name: calleeName != functionName ? calleeName + '.' + functionName : functionName},true);
     let callNodeObj = trackers.graphGetNode(callNodeObjId);
 
     // ensure that the object has the same information as the AST node

@@ -465,10 +465,11 @@ export class DependencyTracker {
     * Adds a new location to the graph -> new node with name objName
     * Used in: addProp, addVersion, createNewObject
      */
-    graphAddLocation(objName: string, context: number, _stmtId: number): GraphNode {
+    graphAddLocation(objName: string, context: number, _stmtId: number,is_callNode:boolean = false): GraphNode {
         // Create location
         const locationName: string = getNextLocationName(objName, context)
-        const nodeLocation: GraphNode = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
+        const nodeLocation: GraphNode = !is_callNode ? this.graph.addNode("PDG_OBJECT", { type: "PDG" }):
+        this.graph.addNode("PDG_CALL", { type: "PDG" });
         nodeLocation.identifier = locationName;
 
         return nodeLocation;
@@ -561,12 +562,12 @@ export class DependencyTracker {
     /*
     * Creates a new object: creates location in graph and adds to store
      */
-    createNewObject(stmtId: number, functionContext: number, variable: Identifier): number {
+    createNewObject(stmtId: number, functionContext: number, variable: Identifier,is_callNode:boolean = false): number {
         // Check if object was already created (because of loops)
         let newObjectAssigned: number | undefined = this.checkAssignment(stmtId, `obj_${variable.name}`)
         if (!newObjectAssigned) {
             // Create location
-            const location = this.graphAddLocation(variable.name, functionContext, stmtId)
+            const location = this.graphAddLocation(variable.name, functionContext, stmtId,is_callNode)
             newObjectAssigned = location.id
             // Add to store
             this.storeAddLocation(variable.name, location.id, functionContext)

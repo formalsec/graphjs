@@ -19,6 +19,7 @@ function getNodeLabel(n: GraphNode, showCode: any) {
                 break;
 
             case "PDG_OBJECT":
+            case "PDG_CALL":
                 // label = `#${n.id} ${n.type} ${n.identifier}`;
                 label = `#${n.id} ${n.identifier}`;
                 break;
