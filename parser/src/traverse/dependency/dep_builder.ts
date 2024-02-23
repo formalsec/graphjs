@@ -203,24 +203,30 @@ function handleArrayExpression(stmtId: number, functionContext: number, variable
 
 function handleCallStatement(stmtId: number, functionContext: number, variable: Identifier, callNode: GraphNode, config: Config, trackers: DependencyTracker): DependencyTracker {
     // Get function name (depends on the type of callee --> MemberExpression or Identifier)
-    const { calleeName, functionName } = getFunctionName(callNode)
-    trackers.addCallNode(callNode);
-    callNode.argsObjIDs = [];
+    const { calleeName, functionName } = getFunctionName(callNode);
+    let callNodeObjId = trackers.createNewObject(stmtId, functionContext, {type: "Identifier",name: calleeName != functionName ? calleeName + '.' + functionName : functionName});
+    let callNodeObj = trackers.graphGetNode(callNodeObjId);
+
+    // ensure that the object has the same information as the AST node
+    callNodeObj.functionContext = functionContext;
+    callNodeObj.edges = callNode.edges;
+    trackers.addCallNode(callNodeObj);
+    callNodeObj.argsObjIDs = [];
 
     callNode.obj.arguments.forEach((arg: GraphNode, index: number) => {
         if (arg.type === "Identifier") {
             const argLocation: number = trackers.storeGetObjectLocations(arg.name, callNode.functionContext).slice(-1)[0];
-            callNode.argsObjIDs.push(argLocation);
+            callNodeObj.argsObjIDs.push(argLocation);
         }
         else
-            callNode.argsObjIDs.push(-1);
+            callNodeObj.argsObjIDs.push(-1);
     });
     // Map call arguments (variables passed to the call map to the arguments of the called function definition)
     trackers = mapCallArguments(callNode, functionContext, functionName, calleeName, stmtId, config, trackers);
 
     // Create new object for the new variable (return of the call)
     const returnLocation = trackers.createNewObject(stmtId, functionContext, variable);
-    callNode.returnLocation = returnLocation;
+    trackers.graphCreatePDGReturnEdge(callNodeObjId,returnLocation);
 
 
     // Process dependencies of the call
@@ -668,19 +674,10 @@ function handleReturnArgument(_stmtId: number, expNode: GraphNode, trackers: Dep
     let newObjId = trackers.createNewObject(_stmtId, expNode.functionContext, {type: "Identifier",name: "ret_" 
     + expNode.functionContext});
 
-    let newObj = trackers.graphGetNode(newObjId);
-
-    if(newObj && funcName && expNode.type != "Literal")
-        trackers.declaredFuncsMap.get(funcName).returnNode = newObj;
-
     deps.forEach(dep => {
        let depNode = trackers.storeGetObjectLocations(dep.name, expNode.functionContext).slice(-1)[0];
        trackers.graphCreateDependencyEdge(depNode,newObjId,dep);
 
-    });
-
-    trackers.callNodesList.filter(callNode => callNode.obj.callee.name == funcName).forEach(callNode => {
-        trackers.graphCreatePDGReturnEdge(newObjId,callNode.returnLocation);
     });
 
     return trackers;

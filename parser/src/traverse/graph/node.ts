@@ -69,6 +69,10 @@ export class GraphNode {
         return this._edges;
     }
 
+    set edges(edges:GraphEdge[]) {
+        this._edges = edges;
+    }
+
     get identifier(): string | null {
         return this._identifier;
     }

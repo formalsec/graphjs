@@ -16,7 +16,7 @@ const { CSVOutput } = require("./output/csv_output");
 import { type CFGraphReturn } from "./traverse/cfg_builder";
 
 import { printStatus,constructExportedObject,findCorrespodingFile } from "./utils/utils";
-import { getFunctionName } from "./traverse/dependency/utils/nodes";
+import { getFunctionName, getObjectNameFromIdentifier } from "./traverse/dependency/utils/nodes";
 import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
@@ -147,7 +147,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                 const module = findCorrespodingFile(calleeName,callNode.functionContext,trackers);
 
 
-                if(module){
+                if(module){ // external call
                     let exportedObj = exportedObjects.get(module);
 
                     let funcGraph = exportedObj[functionName] == undefined ? exportedObj : exportedObj[functionName];
@@ -161,18 +161,18 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                         // connect object arguments to the parameters of the external function
                         callNode.argsObjIDs.forEach((arg:number,index:number) => {
                             
-                            if(arg != -1) // if the argument is a constant its value is -1 (thus literals aren't considred here)
+                            if(arg != -1){ // if the argument is a constant its value is -1 (thus literals aren't considred here)
+                                
+                                let label = calleeName != functionName ? "ARG(" + calleeName + '.' + functionName + '.' + getObjectNameFromIdentifier(params[index+1].identifier) + ')' : 
+                                "ARG(" + functionName + '.' + getObjectNameFromIdentifier(params[index+1].identifier) + ')';
+                                
+                                
+                                
                                 cpg.nodes.get(arg)?.edges.push(new 
-                                    GraphEdge(edgeCounter++,cpg.nodes.get(arg),params[index+1],
-                                    {type:"PDG",label:"ARG"})) // we use index +1 because the first parameter is the function itself
-                                    
+                                    GraphEdge(edgeCounter++,cpg.nodes.get(arg),callNode,
+                                    {type:"PDG",label:label})) // we use index +1 because the first parameter is the function itself
+                            }   
                         });
-
-                        // connect the return object of the function to the return location of the call
-                        if(funcGraph.returnNode != undefined)
-                            cpg.nodes.get(callNode.returnLocation)?.edges.push(new
-                                GraphEdge(edgeCounter++,funcGraph.returnNode,cpg.nodes.get(callNode.returnLocation),
-                                {type:"PDG",label:"RET"}));
 
 
                         addedStartNodes.get(module)?.forEach((startNode:GraphNode) => {
@@ -182,6 +182,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
                     
                 }
+                
 
                 
                 
@@ -200,6 +201,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
     return cpg;
 }
+
 
 
 // Parse program arguments

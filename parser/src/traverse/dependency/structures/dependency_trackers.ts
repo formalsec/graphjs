@@ -256,9 +256,7 @@ export class DependencyTracker {
 
     // keeps track of the called nodes
     addCallNode(callNode: GraphNode): void {
-        if(callNode.type == "CallExpression"){
-            this.callNodes.push(callNode);
-        }
+        this.callNodes.push(callNode);
     }
 
     // Checks if function call is defining a new lazy require (e.g. const v2 = lazy(<name>, <alias>);
