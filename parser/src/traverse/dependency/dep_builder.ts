@@ -222,7 +222,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
             callNodeObj.argsObjIDs.push(-1);
     });
     // Map call arguments (variables passed to the call map to the arguments of the called function definition)
-    trackers = mapCallArguments(callNode, functionContext, functionName, calleeName, stmtId, config, trackers);
+    trackers = mapCallArguments(callNode, functionContext, functionName, calleeName, stmtId, config, trackers,callNodeObj);
 
     // Create new object for the new variable (return of the call)
     const returnLocation = trackers.createNewObject(stmtId, functionContext, variable);
@@ -585,7 +585,8 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
  * }
  * This function maps f1.aux to f2.b
  */
-function mapCallArguments(callNode: GraphNode, _functionContext: number, callName: string, calleeName: string, stmtId: number, config: Config, trackers: DependencyTracker): DependencyTracker {
+function mapCallArguments(callNode: GraphNode, _functionContext: number, callName: string, calleeName: string, stmtId: number, config: Config, trackers: DependencyTracker,
+    callNodeObj: GraphNode): DependencyTracker {
     const callArgs: GraphNode[] = getAllASTNodes(callNode, "arg");
     const callASTNode: GraphNode = getASTNode(callNode, "callee");
 
@@ -605,7 +606,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                         callArgumentLocations.forEach((location: number) => {
                             const callArgumentNode = trackers.graphGetNode(location);
                             if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                                trackers.graphCreateArgumentEdge(callArgumentNode.id, calledArgNodes[i].id);
+                                trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id);
                             }
                         });
                     }
@@ -653,7 +654,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                             callArgumentNode = trackers.graphGetNode(callArgumentLocation)
                         }
                         if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                            trackers.graphCreateArgumentEdge(callArgumentNode.id, calledArgNodes[i].id);
+                            trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id);
                         }
                     });
                 }
