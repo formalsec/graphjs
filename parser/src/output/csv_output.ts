@@ -37,6 +37,7 @@ export class CSVOutput extends OutputWriter {
                 case "FunctionExpression":
                 case "PDG_OBJECT":
                 case "PDG_CALL":
+                case "PDG_RETURN":
                 case "CFG_F_START":
                 case "CFG_F_END":
                 case "CFG_IF_END":

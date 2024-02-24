@@ -206,7 +206,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     const { calleeName, functionName } = getFunctionName(callNode);
     let name = calleeName != functionName ? calleeName + '.' + functionName : functionName
     let callNodeObjId = trackers.createNewObject(stmtId, functionContext, 
-        {type: "Identifier",name: name},true);
+        {type: "Identifier",name: "CALL->" + name},"PDG_CALL");
     let callNodeObj = trackers.graphGetNode(callNodeObjId);
 
     // ensure that the object has the same information as the AST node
@@ -675,8 +675,8 @@ function handleReturnArgument(_stmtId: number, expNode: GraphNode, trackers: Dep
     // Create edge to the start of the function
     // const functionNode = expNode.functionContext;
     // trackers.graphCreateReturnEdge(deps[0].source, functionNode)
-    let newObjId = trackers.createNewObject(_stmtId, expNode.functionContext, {type: "Identifier",name: "ret_" 
-    + expNode.functionContext});
+    let newObjId = trackers.createNewObject(_stmtId, expNode.functionContext, 
+        {type: "Identifier",name: "RET_OBJ"},"PDG_RETURN");
 
     deps.forEach(dep => {
        let depNode = trackers.storeGetObjectLocations(dep.name, expNode.functionContext).slice(-1)[0];
