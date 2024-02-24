@@ -131,6 +131,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
             nodeCounter = cpg.number_nodes;
             edgeCounter = cpg.number_edges;
             let exported = constructExportedObject(cpg,trackers);
+            let addedFuncs = new Set<number>();
 
             // add the exported objects to the map
             exportedObjects.set(path.basename(key),exported);
@@ -153,7 +154,11 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
                     if(funcGraph != undefined){
                         // add the exported function to the start nodes of the graph
-                        cpg.addStartNodes("function" + module + '.' + funcGraph.identifier,funcGraph); 
+                        if(!addedFuncs.has(funcGraph.identifier)){
+                            cpg.addStartNodes("function" + module + '.' + funcGraph.identifier,funcGraph); 
+                            addedFuncs.add(funcGraph.identifier);
+                        }
+                        
                         addedStartNodes.get(path.basename(key))?.push(funcGraph);
                         let params = funcGraph.edges.filter(e => e.label == "param").map(e => e.nodes[1]);
 
@@ -175,7 +180,10 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
 
                         addedStartNodes.get(module)?.forEach((startNode:GraphNode) => {
-                            cpg.addStartNodes("function" + module + '.' + startNode.identifier,startNode);
+                            if(!addedFuncs.has(startNode.id)){
+                                cpg.addStartNodes("function" + module + '.' + startNode.identifier,startNode);
+                                addedFuncs.add(startNode.id);
+                            }
                         });
                     }
 

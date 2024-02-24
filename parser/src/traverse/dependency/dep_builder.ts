@@ -9,7 +9,7 @@ import { type Dependency } from "./dep_factory";
 import { type Config } from "../../utils/config_reader";
 import { type PackageOperation, type SummaryDependency } from "../../utils/summary_reader";
 import { type FContexts } from "../cfg_builder";
-import { getFunctionName } from "./utils/nodes";
+import { getFunctionName,getObjectNameFromIdentifier } from "./utils/nodes";
 import { checkIfSink, checkIfSource } from "./utils/taint_nodes";
 
 export interface PDGReturn {
@@ -609,7 +609,8 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                         callArgumentLocations.forEach((location: number) => {
                             const callArgumentNode = trackers.graphGetNode(location);
                             if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                                trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id);
+                                let label = "ARG(" + calleeName + '.' + getObjectNameFromIdentifier(calledArgNodes[i].identifier) + ')';
+                                trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
                             }
                         });
                     }
@@ -657,7 +658,8 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                             callArgumentNode = trackers.graphGetNode(callArgumentLocation)
                         }
                         if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                            trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id);
+                            let label = "ARG(" + calleeName + '.' + getObjectNameFromIdentifier(calledArgNodes[i].identifier) + ')';
+                            trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
                         }
                     });
                 }
