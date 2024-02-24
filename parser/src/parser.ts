@@ -15,14 +15,13 @@ const { CSVOutput } = require("./output/csv_output");
 
 import { type CFGraphReturn } from "./traverse/cfg_builder";
 
-import { printStatus,constructExportedObject,findCorrespodingFile } from "./utils/utils";
+import { printStatus} from "./utils/utils";
+import {constructExportedObject,findCorrespodingFile} from "./utils/multifile";
 import { getFunctionName, getObjectNameFromIdentifier } from "./traverse/dependency/utils/nodes";
 import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
 import { GraphNode } from "./traverse/graph/node";
-import { DependencyTracker } from "./traverse/dependency/structures/dependency_trackers";
-import { getNextVariableName } from "./utils/utils";
 import { GraphEdge } from "./traverse/graph/edge";
 
 

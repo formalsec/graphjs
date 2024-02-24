@@ -367,7 +367,6 @@ export default function buildAST(originalObj: estree.Program,nodeCounter:number,
             case "ReturnStatement":
             case "ThrowStatement": {
                 const objNode = graph.addNode(obj.type, obj);
-                objNode.functionName = graph.currentFuncName.slice(-1)[0];
 
                 const argument = obj.argument ? traverse(obj.argument, objNode) : null;
 
@@ -403,10 +402,7 @@ export default function buildAST(originalObj: estree.Program,nodeCounter:number,
             case "VariableDeclarator": {
                 const objNode = graph.addNode(obj.type, obj);
                 objNode.identifier = obj.id.type === "Identifier" ? obj.id.name : "";
-                graph.addFuncName(objNode.identifier);
                 const initNode = obj.init ? traverse(obj.init, objNode) : null;
-                graph.popFuncName();
-
                 // graph.addEdge(objNode.id, id_node.id, { type: "AST", label: 'id'});
 
                 if (initNode) {

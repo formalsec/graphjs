@@ -11,7 +11,6 @@ export class Graph {
     private _startNodes: Map<string, GraphNode[]>; // Change this to a custom type
     private _taintNode: number;
     private _sinkNodes: Map<string, number>;
-    private _currentFuncName: string[];
 
     constructor(outputManager: OutputManager | null,nodeCounter:number = 0,edgeCounter:number =0) {
         this.nodeCounter = nodeCounter;
@@ -25,7 +24,6 @@ export class Graph {
 
         this._taintNode = -1;
         this._sinkNodes = new Map();
-        this._currentFuncName = [];
     }
 
     get nodes(): Map<number, GraphNode> {
@@ -59,9 +57,7 @@ export class Graph {
     set outputManager(outputManager: OutputManager) {
         this._outputManager = outputManager;
     }
-    get currentFuncName(): string[] {
-        return this._currentFuncName;
-    }
+    
 
     addTaintNode(): GraphNode {
         const id = this.nodeCounter++;
@@ -108,13 +104,6 @@ export class Graph {
         } else {
             this._startNodes.set(nodeType, [startNode]);
         }
-    }
-    addFuncName(funcName: string): void {
-        this._currentFuncName.push(funcName);
-    }
-
-    popFuncName(): void {
-        this._currentFuncName.pop();
     }
 
     output(filename: string): void {
