@@ -414,7 +414,7 @@ export class DependencyTracker {
     getPossibleObjectContexts(name: string, context: number | undefined = undefined): string[] {
         if (context) {
             const functionContexts: number[] = this.funcContexts.get(context) ?? []
-            return [context, ...functionContexts].map((ctx: number) => `${ctx}.${name}`) ?? []
+            return [...functionContexts,context].map((ctx: number) => `${ctx}.${name}`) ?? []
         } else {
             return this.intraContextStack.map((ctx: number) => `${ctx}.${name}`)
         }
