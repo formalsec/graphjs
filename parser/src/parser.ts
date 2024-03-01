@@ -166,8 +166,8 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                             
                             if(arg != -1){ // if the argument is a constant its value is -1 (thus literals aren't considred here)
                                 
-                                let label = calleeName != functionName ? "ARG(" + calleeName + '.' + functionName + '.' + getObjectNameFromIdentifier(params[index+1].identifier) + ')' : 
-                                "ARG(" + functionName + '.' + getObjectNameFromIdentifier(params[index+1].identifier) + ')';
+                                let label = calleeName != functionName ? "ARG(" + calleeName + '.' + functionName + '.' + params[index+1].identifier + ')' : 
+                                "ARG(" + functionName + '.' + params[index+1].identifier + ')';
                                 
                                 cpg.addEdge(arg,callNode.id,{type:"PDG",label:label})
                             
