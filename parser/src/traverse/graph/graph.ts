@@ -110,4 +110,30 @@ export class Graph {
         if (this._outputManager) this._outputManager.output(this, filename);
         else console.log("Output Manager is null");
     }
+
+
+    addExternalFuncNode(label:string,node: GraphNode): void {
+        this.addStartNodes(label, node);
+
+        let funcNode = this.nodes.get(node.id);
+
+        if(!funcNode){
+
+            let stack = [node];
+            this.nodes.set(node.id, node);
+
+            while(stack.length > 0){
+                let current = stack.pop();
+                if(current){
+                    current.edges.forEach((edge: GraphEdge) => {
+                        if(!this.nodes.has(edge.nodes[1].id)){
+                            stack.push(edge.nodes[1]);
+                            this.nodes.set(edge.nodes[1].id, edge.nodes[1]);
+                        }
+                        this.edges.set(edge.id, edge);
+                    });
+                }
+            }
+        }
+    }
 }

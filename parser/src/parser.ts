@@ -34,7 +34,7 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.slice(fileContent.indexOf('\n') + ('\n').length);
 
         // Parse AST
-        const ast = esprima.parseModule(fileContent, { tolerant: true });
+        const ast = esprima.parseModule(fileContent, { loc:true,tolerant: true });
         !silentMode && printStatus("AST Parsing");
 
         // Normalize AST
@@ -129,7 +129,6 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
             [cpg,trackers] = parse(key,config,path.join(normalizedOutputDir,path.basename(key)),silentMode,
                 nodeCounter,edgeCounter);
             nodeCounter = cpg.number_nodes;
-            edgeCounter = cpg.number_edges;
             let exported = constructExportedObject(cpg,trackers);
             let addedFuncs = new Set<number>();
 
@@ -155,7 +154,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                     if(funcGraph != undefined){
                         // add the exported function to the start nodes of the graph
                         if(!addedFuncs.has(funcGraph.identifier)){
-                            cpg.addStartNodes("function" + module + '.' + funcGraph.identifier,funcGraph); 
+                            cpg.addExternalFuncNode("function" + module + '.' + funcGraph.identifier,funcGraph); 
                             addedFuncs.add(funcGraph.identifier);
                         }
                         
@@ -170,18 +169,15 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                                 let label = calleeName != functionName ? "ARG(" + calleeName + '.' + functionName + '.' + getObjectNameFromIdentifier(params[index+1].identifier) + ')' : 
                                 "ARG(" + functionName + '.' + getObjectNameFromIdentifier(params[index+1].identifier) + ')';
                                 
-                                
-                                
-                                cpg.nodes.get(arg)?.edges.push(new 
-                                    GraphEdge(edgeCounter++,cpg.nodes.get(arg),callNode,
-                                    {type:"PDG",label:label})) // we use index +1 because the first parameter is the function itself
+                                cpg.addEdge(cpg.nodes.get(arg),callNode,{type:"PDG",label:label})
+                            
                             }   
                         });
 
 
                         addedStartNodes.get(module)?.forEach((startNode:GraphNode) => {
                             if(!addedFuncs.has(startNode.id)){
-                                cpg.addStartNodes("function" + module + '.' + startNode.identifier,startNode);
+                                cpg.addExternalFuncNode("function" + module + '.' + startNode.identifier,startNode);
                                 addedFuncs.add(startNode.id);
                             }
                         });
@@ -194,6 +190,9 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                 
                 
             });
+
+            edgeCounter = cpg.number_edges;
+
             
             stack.pop();
 
