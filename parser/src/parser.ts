@@ -169,7 +169,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                                 let label = calleeName != functionName ? "ARG(" + calleeName + '.' + functionName + '.' + getObjectNameFromIdentifier(params[index+1].identifier) + ')' : 
                                 "ARG(" + functionName + '.' + getObjectNameFromIdentifier(params[index+1].identifier) + ')';
                                 
-                                cpg.addEdge(cpg.nodes.get(arg),callNode,{type:"PDG",label:label})
+                                cpg.addEdge(arg,callNode.id,{type:"PDG",label:label})
                             
                             }   
                         });
