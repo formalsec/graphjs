@@ -2,6 +2,7 @@ import argparse
 import os.path
 import shutil
 import sys
+from typing import List
 
 import detection.neo4j_import.neo4j_management as neo4j_management
 import detection.neo4j_import.utils.timers as timers
@@ -17,8 +18,8 @@ graphjs_results = constants.DEFAULT_RESULTS_PATH
 parser_main_path = constants.PARSER_PATH
 
 
-def parse_arguments():
-    parser = argparse.ArgumentParser()
+def add_arguments(parser: argparse.ArgumentParser) -> None:
+    
     # File path
     parser.add_argument("-f", "--file", type=str, required=True,
                         help="Path to JavaScript file (.js) or directory containing JavaScript files for analysis.")
@@ -34,6 +35,14 @@ def parse_arguments():
     # Generate exploits
     parser.add_argument("-e", "--exploit", action="store_true",
                         help="Generates symbolic tests.")
+    
+
+
+def parse_arguments() -> List:
+    parser: argparse.ArgumentParser = argparse.ArgumentParser()
+   
+    add_arguments(parser)
+
     return parser.parse_args()
 
 
