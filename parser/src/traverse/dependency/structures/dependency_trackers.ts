@@ -726,6 +726,10 @@ export class DependencyTracker {
         this.graph.addEdge(source, destination, { type: "PDG", label: "RET" })
     }
 
+    graphCreateCallEdge(source: number, destination: number): void {
+        this.graph.addEdge(source, destination, { type: "CG", label: "CG"})
+    }
+
     graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string): void {
         const sourceEdges: number[] = this.graphGetNode(oldObjId)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
         if (!sourceEdges.includes(newObjId) && oldObjId !== newObjId) { this.graph.addEdge(oldObjId, newObjId, { type: "PDG", label: "NV", objName: propName }); }

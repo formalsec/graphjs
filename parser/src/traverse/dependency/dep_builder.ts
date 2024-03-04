@@ -210,9 +210,12 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     let callNodeObj = trackers.graphGetNode(callNodeObjId);
 
     // ensure that the object has the same information as the AST node
+    let calledFunc= callNode.edges.find(e => e.type === "CG")?.nodes[1].id ?? -1;
+    
     callNodeObj.functionContext = functionContext;
     callNodeObj.functionName = name;
     callNodeObj.edges = callNode.edges;
+    trackers.graphCreateCallEdge(callNodeObjId,calledFunc);
     trackers.addCallNode(callNodeObj);
     callNodeObj.argsObjIDs = [];
 
@@ -609,7 +612,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                         callArgumentLocations.forEach((location: number) => {
                             const callArgumentNode = trackers.graphGetNode(location);
                             if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                                let label = "ARG(" + calleeName + '.' + getObjectNameFromIdentifier(calledArgNodes[i].identifier) + ')';
+                                let label = "ARG(" + calledArgNodes[i].identifier + ')';
                                 trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
                             }
                         });

@@ -166,13 +166,13 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                             
                             if(arg != -1){ // if the argument is a constant its value is -1 (thus literals aren't considred here)
                                 
-                                let label = calleeName != functionName ? "ARG(" + calleeName + '.' + functionName + '.' + params[index+1].identifier + ')' : 
-                                "ARG(" + functionName + '.' + params[index+1].identifier + ')';
-                                
-                                cpg.addEdge(arg,callNode.id,{type:"PDG",label:label})
+                                let label = "ARG(" + params[index+1].identifier + ')';
+                                cpg.addEdge(arg,callNode.id,{type:"PDG",label:label});
                             
                             }   
                         });
+
+                        cpg.addEdge(callNode.id, funcGraph.id, { type: "CG", label: "CG" })
 
 
                         addedStartNodes.get(module)?.forEach((startNode:GraphNode) => {
