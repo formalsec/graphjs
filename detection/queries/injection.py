@@ -7,12 +7,12 @@ from .query import Query
 
 class Injection:
     main_query = f"""
-        MATCH path = 
+        MATCH path =
             (source:TAINT_SOURCE)
                 -[param_edge:PDG]
                     ->(param:PDG_PARAM)
                         -[pdg_edges:PDG*1..]
-                            ->(sink:TAINT_SINK),
+                            ->(sink:TAINT_SINK|PDG_CALL),
             (source_cfg)
                 -[param_ref:REF]
                     ->(param),
@@ -28,8 +28,65 @@ class Injection:
         WHERE
             param_edge.RelationType = "TAINT" AND
             param_ref.RelationType = "param"
-        RETURN path,sink,sink_ast,source_ast,sink_cfg,source_cfg;
+        WITH [node IN nodes(path) WHERE node.Type = "PDG_CALL"] AS calls,
+        source, source_cfg,source_ast, sink, sink_ast,path,sink_cfg
+        RETURN *;
     """
+
+    def find_called_func(self,session,callNodeId):
+        query = f"""
+             MATCH
+                (callNode:PDG_CALL)
+                    -[:CG]
+                        ->(func:VariableDeclarator)
+            WHERE
+                callNode.Id = \"{callNodeId}\"
+            RETURN *;
+        """
+        results = session.run(query)
+        for record in results:
+            return record["func"]["Id"]
+        
+
+    def check_taint_propagation(self,session,funcId,paramName):
+        taint_propagation_query = f"""
+            MATCH path = 
+                (func:VariableDeclarator)
+                    -[:REF]
+                        ->(param:PDG_PARAM)
+                            -[pdg_edges:PDG*1..]
+                                ->(sink:TAINT_SINK|PDG_RETURN|PDG_CALL)
+            WHERE
+                func.Id = \"{funcId}\" AND
+                param.IdentifierName = \"{paramName}\"
+
+            OPTIONAL MATCH (sink_cfg)
+                    -[:SINK]
+                        ->(sink)
+
+            OPTIONAL MATCH (sink_cfg)
+                    -[:AST]
+                        ->(sink_ast)
+            WITH [node IN nodes(path) WHERE node.Type = "PDG_CALL"] AS calls,
+                path,sink,sink_ast,sink_cfg,func
+            RETURN *;
+        """
+
+        results = session.run(taint_propagation_query)
+        propagates  = False
+        returnPath = None
+        vulnRecords = []
+        for record in results:
+
+            if(record["sink"]["Type"] == "PDG_RETURN"):
+                # we only consider that the taint propagates if there are no calls in the path (else the path needs to be checked)
+                propagates = True if record["calls"] == [] else None
+                returnPath = record
+            else: # store any sinks found in the call
+                vulnRecords.append(record)
+
+        return returnPath,propagates,vulnRecords
+
 
     template_query = f"""
         MATCH
@@ -45,72 +102,45 @@ class Injection:
     def __init__(self, query: Query):
         self.query = query
 
-    def validate_result(self,path,session):
+    def validate_path(self,session,targetRecord):
+        stack = [(targetRecord,True,None,None)]
+        vulnRecords = []
+        while stack != []:
+            record,valid,currId,currArg = stack[-1]
+            calls,path = record["calls"],record["path"]
+            done = True
+            for call in calls: # for a path to be vulnerable all the calls must propagate taint
 
-        propagates = True
-        vuln_records_list = []
-        for index,node in enumerate(path.nodes):
-            if node['Type'] == 'PDG_CALL':  
-                paramName = path.relationships[index-1]['RelationType']
-                callName = paramName[paramName.find('(')+1:paramName.find(')')]
+                # get both the function being called and the argument in question
+                id = self.find_called_func(session,call["Id"])
+                argEdge = next(filter(lambda r: r.end_node == call, path.relationships))["RelationType"]
+                arg = argEdge[argEdge.find("(")+1:argEdge.find(")")]
 
-                if callName in self.callInfo:
-                    propagates = self.callInfo[callName] and propagates
+                if id in self.callInfo and arg in self.callInfo[id]: # if the information is cached just use it
+                    valid = valid and self.callInfo[id][arg]
+                else: # else we need to check the taint propagation
+                    if not id in self.callInfo:
+                        self.callInfo[id] = {}
 
+                    returnRecord,propagates,newVulnRecords = self.check_taint_propagation(session,id,arg)
+                    vulnRecords += newVulnRecords
+                    if returnRecord and returnRecord["calls"] != []: # if the function calls other functions we need to check it
+                        stack.append((returnRecord,True,id,arg))
+                        done = False
+                        break # we need to check the new call before we can continue (in the next iteration the information will be cached)
+                    else:
+                        valid = valid and propagates
+                        self.callInfo[id][arg] = propagates
+
+            if done:
+                stack.pop()
+
+                if record == targetRecord:
+                    return valid,vulnRecords
                 else:
-
-                    
-                    split = callName.split('.')
-                    paramName = split[-2] + '.' + split[-1]
-                    funcName = split[-3]
-                    result,vuln_records = self.check_taint_propagation(funcName,paramName,session)
-                    propagates = result and propagates
-                    self.callInfo[callName] = result
-                    vuln_records_list += vuln_records
-            
-            if not propagates:
-                break
+                    self.callInfo[currId][currArg] = valid
 
 
-        return propagates, vuln_records_list
-            
-    def check_taint_propagation(self, funcName,paramName,session):
-        taint_propagation_query = f"""
-            MATCH path = 
-                (func:VariableDeclarator)
-                    -[:REF]
-                        ->(param:PDG_PARAM)
-                            -[pdg_edges:PDG*1..]
-                                ->(sink:TAINT_SINK|PDG_RETURN|PDG_CALL)
-            WHERE
-                func.IdentifierName = \"{funcName}\" AND
-                param.IdentifierName = \"{paramName}\"
-
-            OPTIONAL MATCH (sink_cfg)
-                    -[:SINK]
-                        ->(sink)
-
-            OPTIONAL MATCH (sink_cfg)
-                    -[:AST]
-                        ->(sink_ast)
-            RETURN path,sink,sink_ast,sink_cfg,func;
-        """
-
-        results = session.run(taint_propagation_query)
-        propagates = False
-        vuln_records_list = []
-        
-        for record in results:
-            result, vuln_records = self.validate_result(record['path'],session)
-
-            if(record['sink']['Type'] == 'PDG_RETURN'):
-                propagates = result
-            elif record['sink']['Type'] == 'TAINT_SINK':
-                vuln_records_list.append(record)
-
-            vuln_records_list += vuln_records
-
-        return propagates, vuln_records_list
         
         
 
@@ -122,10 +152,18 @@ class Injection:
 
         print(f'[INFO] Injection - Analyzing detected vulnerabilities.')
         for record in results:
-            valid_vuln,vuln_records = self.validate_result(record['path'],session) 
+            vuln_records = []
 
-            if(valid_vuln):
-                vuln_records.append(record)
+            # the query returns a path for each sink, we need to check if the taint propagates through all the calls
+            records_to_verify= [record]
+            while records_to_verify != []:
+                record = records_to_verify.pop()
+
+                valid,moreRecords = self.validate_path(session,record)
+                if valid and record["sink"]["Type"] == "TAINT_SINK": # calls are being treated as sinks, we need to ignore them
+                    vuln_records.append(record)
+                # some new paths can be found while checking the taint propagation
+                records_to_verify += moreRecords
 
             for vuln_record in vuln_records:
                 sink_name = vuln_record["sink"]["IdentifierName"]
