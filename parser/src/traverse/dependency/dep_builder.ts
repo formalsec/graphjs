@@ -212,21 +212,23 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     // ensure that the object has the same information as the AST node
     let calledFunc= callNode.edges.find(e => e.type === "CG")?.nodes[1].id ?? -1;
     
-    callNodeObj.functionContext = functionContext;
-    callNodeObj.functionName = name;
-    callNodeObj.edges = callNode.edges;
-    trackers.graphCreateCallEdge(callNodeObjId,calledFunc);
-    trackers.addCallNode(callNodeObj);
-    callNodeObj.argsObjIDs = [];
+    if(callNodeObj){
+        callNodeObj.functionContext = functionContext;
+        callNodeObj.functionName = name;
+        callNodeObj.edges = callNode.edges;
+        trackers.graphCreateCallEdge(callNodeObjId,calledFunc);
+        trackers.addCallNode(callNodeObj);
+        callNodeObj.argsObjIDs = [];
 
-    callNode.obj.arguments.forEach((arg: GraphNode, index: number) => {
-        if (arg.type === "Identifier") {
-            const argLocation: number = trackers.storeGetObjectLocations(arg.name, callNode.functionContext).slice(-1)[0];
-            callNodeObj.argsObjIDs.push(argLocation);
-        }
-        else
-            callNodeObj.argsObjIDs.push(-1);
-    });
+        callNode.obj.arguments.forEach((arg: GraphNode, index: number) => {
+            if (arg.type === "Identifier") {
+                const argLocation: number = trackers.storeGetObjectLocations(arg.name, callNode.functionContext).slice(-1)[0];
+                callNodeObj.argsObjIDs.push(argLocation);
+            }
+            else
+                callNodeObj.argsObjIDs.push(-1);
+        });
+    }
     // Map call arguments (variables passed to the call map to the arguments of the called function definition)
     trackers = mapCallArguments(callNode, functionContext, functionName, calleeName, stmtId, config, trackers,callNodeObj);
 

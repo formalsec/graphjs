@@ -147,9 +147,11 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
 
                 if(module){ // external call
-                    let exportedObj = exportedObjects.get(module);
+                    let exportedObj:any = exportedObjects.get(module);
 
-                    let funcGraph = exportedObj[functionName] == undefined ? exportedObj : exportedObj[functionName];
+                    if(exportedObj == undefined) return;
+
+                    let funcGraph:any = (exportedObj[functionName] == undefined )? exportedObj : exportedObj[functionName];
 
                     if(funcGraph != undefined){
                         // add the exported function to the start nodes of the graph
@@ -159,7 +161,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                         }
                         
                         addedStartNodes.get(path.basename(key))?.push(funcGraph);
-                        let params = funcGraph.edges.filter(e => e.label == "param").map(e => e.nodes[1]);
+                        let params = funcGraph.edges.filter((e:GraphEdge) => e.label == "param").map(e => e.nodes[1]);
 
                         // connect object arguments to the parameters of the external function
                         callNode.argsObjIDs.forEach((arg:number,index:number) => {
@@ -174,7 +176,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
                         cpg.addEdge(callNode.id, funcGraph.id, { type: "CG", label: "CG" })
 
-
+                        // add the graph of the dependencies of the external functions
                         addedStartNodes.get(module)?.forEach((startNode:GraphNode) => {
                             if(!addedFuncs.has(startNode.id)){
                                 cpg.addExternalFuncNode("function" + module + '.' + startNode.identifier,startNode);

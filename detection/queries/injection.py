@@ -18,16 +18,20 @@ class Injection:
                     ->(param),
             (source_cfg)
                 -[:AST]
-                    ->(source_ast),
-            (sink_cfg)
-                -[:SINK]
-                    ->(sink),
-            (sink_cfg)
-                -[:AST]
-                    ->(sink_ast)
+                    ->(source_ast)
         WHERE
             param_edge.RelationType = "TAINT" AND
             param_ref.RelationType = "param"
+
+        OPTIONAL MATCH  
+            (sink_cfg)
+                -[:SINK]
+                    ->(sink)
+
+        OPTIONAL MATCH 
+               (sink_cfg)
+                -[:AST]
+                    ->(sink_ast)
         WITH [node IN nodes(path) WHERE node.Type = "PDG_CALL"] AS calls,
         source, source_cfg,source_ast, sink, sink_ast,path,sink_cfg
         RETURN *;
