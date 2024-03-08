@@ -24,7 +24,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-f", "--file", type=str, required=True,
                         help="Path to JavaScript file (.js) or directory containing JavaScript files for analysis.")
     # Output path
-    parser.add_argument("-o", "--output", type=str, default=graphjs_results,
+    parser.add_argument("-o", "--output", type=str,
                         help="Path to store all output files.")
     # Silent mode
     parser.add_argument("-s", "--silent", action="store_true",
@@ -35,14 +35,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     # Generate exploits
     parser.add_argument("-e", "--exploit", action="store_true",
                         help="Generates symbolic tests.")
-    
 
 
-def parse_arguments() -> List:
+def parse_arguments():
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
-   
     add_arguments(parser)
-
     return parser.parse_args()
 
 
@@ -59,7 +56,7 @@ def check_arguments(file_path, output_path, graph_output, run_output, symb_tests
             elif os.path.isdir(item_path):
                 shutil.rmtree(item_path)
     else:
-        os.mkdir(output_path)  # Create output folder
+        os.makedirs(output_path)  # Create output folder
     os.mkdir(graph_output)  # Create graph output folder
     os.mkdir(run_output)  # Create run output folder (neo4j stats)
     if generate_exploit:
@@ -95,7 +92,11 @@ def run_queries(file_path, graph_path, run_path, summary_path, time_path, docker
 def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=False, silent=True):
     # Get absolute paths
     file_path = os.path.abspath(file_path)
-    output_path = os.path.abspath(output_path)
+    # Generate default output path
+    if output_path is None:
+        output_path = os.path.join(os.path.basename(file_path), "tool_outputs/graphjs")
+    else:
+        output_path = os.path.abspath(output_path)
     graph_output = os.path.join(output_path, "graph")
     run_output = os.path.join(output_path, "run")
     time_output = os.path.join(run_output, "time_stats.txt")
