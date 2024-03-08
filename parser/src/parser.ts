@@ -47,7 +47,7 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         if (fileOutput) fs.writeFileSync(fileOutput, code);
 
         // Build AST graph
-        const astGraph = buildAST(normalizedAst,nodeCounter,edgeCounter);
+        const astGraph = buildAST(normalizedAst,nodeCounter,edgeCounter,filename);
         !silentMode && printStatus("Build AST");
 
         // Build Control Flow Graph (CFG)

@@ -167,10 +167,13 @@ class Injection:
 
             for vuln_record in vuln_records:
                 sink_name = vuln_record["sink"]["IdentifierName"]
-                sink_lineno = json.loads(vuln_record["sink_ast"]["Location"])["start"]["line"]
-                sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
+                json_info = json.loads(vuln_record["sink_ast"]["Location"])
+                sink_lineno = json_info["start"]["line"]
+                file = json_info["fname"]
+                sink = my_utils.get_code_line_from_file(file, sink_lineno)
                 vuln_path = {
                     "vuln_type": my_utils.get_injection_type(sink_name, config),
+                    "file": file,
                     "sink": sink,
                     "sink_lineno": sink_lineno,
                 }

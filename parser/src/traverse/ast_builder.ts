@@ -3,14 +3,17 @@ import { copyObj } from "../utils/utils";
 import { Graph } from "./graph/graph";
 import { type GraphNode } from "./graph/node";
 
-export default function buildAST(originalObj: estree.Program,nodeCounter:number,edgeCounter:number): Graph {
+export default function buildAST(originalObj: estree.Program,nodeCounter:number,edgeCounter:number,filename:string): Graph {
     const graph = new Graph(null,nodeCounter,edgeCounter);
 
     function traverse(obj: estree.Node, parentNode: GraphNode | null): GraphNode {
         function mapReduce(arr: estree.Node[], anotherParentNode: GraphNode | null): GraphNode[] {
             return arr.map((item) => traverse(item, anotherParentNode));
         }
-
+        if(obj.loc){
+            obj.loc["fname"] = filename;
+        }
+        
         switch (obj.type) {
         //
         // Scripts
