@@ -33,7 +33,7 @@ class Injection:
                 -[:AST]
                     ->(sink_ast)
         WITH [node IN nodes(path) WHERE node.Type = "PDG_CALL"] AS calls,
-        source, source_cfg,source_ast, sink, sink_ast,path,sink_cfg
+        source, source_cfg,source_ast, sink, sink_ast,path,sink_cfg,param
         RETURN *;
     """
 
@@ -55,13 +55,13 @@ class Injection:
     def check_taint_propagation(self,session,funcId,paramName):
         taint_propagation_query = f"""
             MATCH path = 
-                (func:VariableDeclarator)
+                (source_cfg:VariableDeclarator)
                     -[:REF]
                         ->(param:PDG_PARAM)
                             -[pdg_edges:PDG*1..]
                                 ->(sink:TAINT_SINK|PDG_RETURN|PDG_CALL)
             WHERE
-                func.Id = \"{funcId}\" AND
+                source_cfg.Id = \"{funcId}\" AND
                 param.IdentifierName = \"{paramName}\"
 
             OPTIONAL MATCH (sink_cfg)
@@ -72,7 +72,7 @@ class Injection:
                     -[:AST]
                         ->(sink_ast)
             WITH [node IN nodes(path) WHERE node.Type = "PDG_CALL"] AS calls,
-                path,sink,sink_ast,sink_cfg,func
+                path,sink,sink_ast,sink_cfg,param, source_cfg
             RETURN *;
         """
 
@@ -107,8 +107,9 @@ class Injection:
         self.query = query
 
     def validate_path(self,session,targetRecord):
-        stack = [(targetRecord,True,None,None)]
+        stack = [(targetRecord,True,targetRecord["source_cfg"]["Id"],targetRecord["param"]["IdentifierName"])]
         vulnRecords = []
+        checked = set() # represents the calls that have already been checked (the recursive calls can be checked)
         while stack != []:
             record,valid,currId,currArg = stack[-1]
             calls,path = record["calls"],record["path"]
@@ -122,6 +123,10 @@ class Injection:
 
                 if id in self.callInfo and arg in self.callInfo[id]: # if the information is cached just use it
                     valid = valid and self.callInfo[id][arg]
+
+                elif (id,arg) in checked:
+                    continue
+
                 else: # else we need to check the taint propagation
                     if not id in self.callInfo:
                         self.callInfo[id] = {}
@@ -131,10 +136,10 @@ class Injection:
                     if returnRecord and returnRecord["calls"] != []: # if the function calls other functions we need to check it
                         stack.append((returnRecord,True,id,arg))
                         done = False
-                        break # we need to check the new call before we can continue (in the next iteration the information will be cached)
                     else:
                         valid = valid and propagates
                         self.callInfo[id][arg] = propagates
+                    checked.add((id,arg))
 
             if done:
                 stack.pop()
