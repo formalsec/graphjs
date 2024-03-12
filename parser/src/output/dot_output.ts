@@ -205,6 +205,9 @@ function getEdgeStyle(e: GraphEdge) {
 
 function getNodeColor(n: GraphNode) {
     let color;
+    if(n.exported)
+        return "darkviolet";
+
     if (n.obj) {
         switch (n.obj.type) {
             case "AST":
