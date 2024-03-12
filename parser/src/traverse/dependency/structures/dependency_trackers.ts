@@ -787,14 +787,14 @@ export class DependencyTracker {
             ? matchTemporaryFunction.length > 0
             : false;
         const isTainted = !(isAnonymous && this.isInnerFunction(context));
-        this.addTaintedNodeEdge(nodeObj.id, stmtId, index, isTainted);
+        this.addTaintedNodeEdge(nodeObj.id, stmtId, index,false);
     }
 
-    addTaintedNodeEdge(nodeId: number, stmtId: number, index: number, isTainted: boolean = true): void {
+    addTaintedNodeEdge(nodeId: number, stmtId: number, index: number, isTainted: boolean = true,createSourceEdge:boolean = true): void {
         const sourceEdges: number[] = this.graphGetNode(this.graph.taintNode)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
         if (!sourceEdges.includes(nodeId)) {
             if (isTainted) this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" }); // this.create source edge
-            this.graphCreateSourceEdge(stmtId, nodeId, index !== undefined ? index : -1); // sources from argv e.g. do not connect as param edge?
+            createSourceEdge && this.graphCreateSourceEdge(stmtId, nodeId, index !== undefined ? index : -1); // sources from argv e.g. do not connect as param edge?
         }
     }
 
@@ -827,7 +827,7 @@ export class DependencyTracker {
                 .map(edge => edge.nodes[1]);
             functionParamNodes.forEach((paramNode: GraphNode, i: number) => {
                 // If a param does not have an origin, connect to taint source
-                this.addTaintedNodeEdge(paramNode.id, paramNode.functionNodeId, i)
+                this.addTaintedNodeEdge(paramNode.id, paramNode.functionNodeId, i,fnExpNode.exported,false);
             });
         })
     }

@@ -881,7 +881,7 @@ export function buildPDG(cfgGraph: Graph, functionContexts: FContexts, config: C
     });
 
     // Taint parameters without origin
-    trackers = addTaintedNodes(trackers);
+    // trackers = addTaintedNodes(trackers);
     // trackers.print();
     return {
         graph,

@@ -113,11 +113,11 @@ export class Graph {
 
 
     addExternalFuncNode(label:string,node: GraphNode): void {
-        this.addStartNodes(label, node);
-
+        
         let funcNode = this.nodes.get(node.id);
-
+        
         if(!funcNode){
+            this.addStartNodes(label, node);
 
             let stack = [node];
             this.nodes.set(node.id, node);

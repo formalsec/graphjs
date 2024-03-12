@@ -3,9 +3,13 @@ import { type GraphNode } from "../traverse/graph/node";
 import { Graph } from "../traverse/graph/graph";
 
 // looks in the function contexts for a function with the given name
-function findFuncNode(targetName:any,trackers:DependencyTracker,cpg:Graph):GraphNode|undefined{
+// Only used to find the exported functions
+function findFuncNode(targetName:any,trackers:DependencyTracker):GraphNode|undefined{
 
-    return trackers.declaredFuncsMap.get(targetName);
+    let result = trackers.declaredFuncsMap.get(targetName);
+    if(result)
+        trackers.graphGetNode(result.id)?.setExported();
+    return result;
 }
 
 // given a node, construct the object encapsulated by it, so that it can be used to construct the exported object

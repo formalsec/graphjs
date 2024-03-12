@@ -31,6 +31,8 @@ export class GraphNode {
     // This value represents additional information for AST nodes: object type for Literal, operator type for BinaryExpression and computation type for MemberExpression
     private _subtype: string;
 
+    private _exported:boolean;
+
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
         this._type = type;
@@ -47,6 +49,7 @@ export class GraphNode {
         this._propertyDependencies = [];
         this._arguments = false;
         this._subtype = ""
+        this._exported = false;
     }
 
     get id(): number {
@@ -117,6 +120,10 @@ export class GraphNode {
         return this._internalStructure;
     }
 
+    get exported(): boolean {
+        return this._exported;
+    }
+
     set internalStructure(struct) {
         this._internalStructure = struct;
     }
@@ -151,6 +158,10 @@ export class GraphNode {
 
     setUsed(): void {
         this._used = true;
+    }
+
+    setExported(): void {
+        this._exported = true;
     }
 
     addEdge(edge: GraphEdge): void {

@@ -17,7 +17,7 @@ import { type CFGraphReturn } from "./traverse/cfg_builder";
 
 import { printStatus} from "./utils/utils";
 import {constructExportedObject,findCorrespodingFile} from "./utils/multifile";
-import { getFunctionName, getObjectNameFromIdentifier } from "./traverse/dependency/utils/nodes";
+import { getFunctionName } from "./traverse/dependency/utils/nodes";
 import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
@@ -83,21 +83,21 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
     // stores the exported objects of each module
     let exportedObjects = new Map<string, Object>();
-    let addedStartNodes = new Map<string,GraphNode[]>();
 
     // DFS stack
     const stack: Array<string> = []; 
     const nodeInfo = new Map<string,{node:any,colour:string}>();
-    nodeInfo.set(Object.keys(depTree)[0],{node:depTree[Object.keys(depTree)[0]],colour:"white"});
-    stack.push(Object.keys(depTree)[0]);
+    let mainFile = Object.keys(depTree)[0];
+    nodeInfo.set(mainFile,{node:depTree[mainFile],colour:"white"});
+    stack.push(mainFile);
     let nodeCounter = 0, edgeCounter = 0;
     let cpg = new Graph(null);
    
 
     // DFS traversal of the dependency tree
     while(stack.length > 0) {
-        let key = stack.slice(-1)[0];
-        let current = nodeInfo.get(key) ?? {node:{},colour:"black"};
+        let currFile = stack.slice(-1)[0];
+        let current = nodeInfo.get(currFile) ?? {node:{},colour:"black"};
         let hasAdj = false;
 
         if(current.colour == "white"){
@@ -126,16 +126,15 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
             // parse the node and generate the exported Object
             let trackers:any;
-            [cpg,trackers] = parse(key,config,path.join(normalizedOutputDir,path.basename(key)),silentMode,
+            [cpg,trackers] = parse(currFile,config,path.join(normalizedOutputDir,path.basename(currFile)),silentMode,
                 nodeCounter,edgeCounter);
             nodeCounter = cpg.number_nodes;
             let exported = constructExportedObject(cpg,trackers);
-            let addedFuncs = new Set<number>();
 
             // add the exported objects to the map
-            exportedObjects.set(path.basename(key),exported);
-
-            addedStartNodes.set(path.basename(key),[]);
+            let dir = path.dirname(currFile);
+            exportedObjects.set(currFile,exported);
+            exportedObjects.set(currFile.slice(0,-3),exported); // remove the .js extension (it might be referenced by it)
 
             
             // add the exported functions to cpg to generate the final graph
@@ -143,24 +142,22 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
                 const { calleeName, functionName } = getFunctionName(callNode);
 
-                const module = findCorrespodingFile(calleeName,callNode.functionContext,trackers);
-
+                let module = findCorrespodingFile(calleeName,callNode.functionContext,trackers);
 
                 if(module){ // external call
+                    module = path.join(dir,module);
                     let exportedObj:any = exportedObjects.get(module);
 
-                    if(exportedObj == undefined) return;
+                    if(exportedObj == undefined || Object.keys(exportedObj).length == 0) return;
 
                     let funcGraph:any = (exportedObj[functionName] == undefined )? exportedObj : exportedObj[functionName];
 
                     if(funcGraph != undefined){
+
                         // add the exported function to the start nodes of the graph
-                        if(!addedFuncs.has(funcGraph.identifier)){
-                            cpg.addExternalFuncNode("function" + module + '.' + funcGraph.identifier,funcGraph); 
-                            addedFuncs.add(funcGraph.identifier);
-                        }
+                        cpg.addExternalFuncNode("function" + module + '.' + funcGraph.identifier,funcGraph); 
                         
-                        addedStartNodes.get(path.basename(key))?.push(funcGraph);
+                        
                         let params = funcGraph.edges.filter((e:GraphEdge) => e.label == "param").map(e => e.nodes[1]);
 
                         // connect object arguments to the parameters of the external function
@@ -176,13 +173,6 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
                         cpg.addEdge(callNode.id, funcGraph.id, { type: "CG", label: "CG" })
 
-                        // add the graph of the dependencies of the external functions
-                        addedStartNodes.get(module)?.forEach((startNode:GraphNode) => {
-                            if(!addedFuncs.has(startNode.id)){
-                                cpg.addExternalFuncNode("function" + module + '.' + startNode.identifier,startNode);
-                                addedFuncs.add(startNode.id);
-                            }
-                        });
                     }
 
                     
@@ -194,7 +184,8 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
             });
 
             edgeCounter = cpg.number_edges;
-
+            if(currFile == mainFile) 
+                trackers.addTaintedNodes();
             
             stack.pop();
 
