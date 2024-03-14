@@ -69,10 +69,10 @@ in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023
 ### Main Contributors
 <table style="width: 80%; margin-left: auto; margin-right: auto;">
   <tr>
-    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/mafalda_ferreira.png" width="80%"/></td>
-    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/jose_fragoso_santos.png" width="80%"/></td>
-    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/filipe_marques.png" width="70%"/></td>
-    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/nuno_santos.jpeg" width="75%"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/mafalda_ferreira.png" height="100px"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/jose_fragoso_santos.png" height="100px"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/filipe_marques.png" height="100px"/></td>
+    <td style="text-align: center; width: 25%"><img src="https://raw.githubusercontent.com/formalsec/graphjs/main/assets/img/nuno_santos.jpeg" height="100px"/></td>
   </tr>
   <tr>
     <td style="text-align: center"><a href="https://www.dpss.inesc-id.pt/~mferreira/">Mafalda Ferreira</a></td>
@@ -94,36 +94,29 @@ in *Proceedings of 44th IEEE Symposium on Security and Privacy (S&P’23)*, 2023
 
 Graph.js generates a graph using [npm](https://www.npmjs.com/)/[node](https://nodejs.org/en) and uses [Neo4j](https://neo4j.com/) to query the graph. <br>
 This last component can be executed in a docker container (easier setup) or locally.
-Both program versions are located in the [bin](./bin) folder.
 
 #### Requirements
-- [npm](https://www.npmjs.com/) (I've tested v8.5.1, v9.5.1 and v9.4.0)
-- [node](https://nodejs.org/en) (I've tested v18.16.1, v19.6.0)
-- (**if locally**) [neo4j](https://neo4j.com/) (I've tested v5.9.0). Instructions: https://neo4j.com/docs/operations-manual/current/installation/linux/
-
+- [Node](https://nodejs.org/en) (I've tested v18+).
+- [Python3](https://www.python.org/downloads/).
+- **Option 1 (Local queries)**: [Neo4j v5](https://neo4j.com/). Instructions: https://neo4j.com/docs/operations-manual/current/installation/linux/
+- **Option 2 (Docker)**: [Docker](https://www.docker.com/). 
 ---
 
 ## Usage
 
-Graph.js provides a command-line interface. Run it without arguments for a short description.
+Graph.js provides a command-line interface. Run it with **-h** for a short description.
 
 ```console
-Usage: ./graphjs-local.sh [options] -f vulnerable_file.js
-Description: Run Graph.js graph generator and vulnerability detection.
-
-Required:
--f     Path to JavaScript file (.js) or directory containing JavaScript files for analysis.
+Usage: graphjs.py [-h] -f FILE [-o OUTPUT] [-s] [-d] [-e]
 
 Options:
--c     Path to JSON file (.json) containing the unsafe sinks.
--e     Path to store Graph.js output files.
--o     Path to Graph.js taint summary file (.json).
--t     Path to Graph.js symbolic test (.js).
--n     Path to normalization output file.
--x     Create an exploit.
--g     Generate only the CPG.
--s     Silent mode - no console output.
--h     Print this Help.
+  -h, --help            show this help message and exit
+  -f FILE, --file FILE  Path to JavaScript file (.js) or directory containing JavaScript files for analysis.
+  -o OUTPUT, --output OUTPUT
+                        Path to store all output files.
+  -s, --silent          Silent mode - no console and graph output.
+  -d, --docker          Query mode - executes neo4j in a docker container instead of running locally.
+  -e, --exploit         Generates symbolic tests.
 ```
 
 By default, all the results are stored in a *graphjs-results* folder, in the root of the project, with the following structure:
@@ -133,37 +126,22 @@ graphjs-results
 ├── graph
 │   ├── graph_stats.json (stores some metrics)
 │   ├── nodes.csv (csv file of the graph nodes)
-│   └── rels.csv (csv file of the graph relationships)
-├── normalized.js (normalized code)
-└── taint_summary.json (detection results)
+│   ├── rels.csv (csv file of the graph relationships)
+│   └── normalized.js (normalized code)
+└── taint_summary_detection.json (detection results)
 ```
 
 
-#### Run using docker
-- Execute inside the *bin* folder
+#### Run 
+- Execute inside the root folder
 - If first time, execute the setup (`./setup.sh`)
-- Have docker service running
-- Create a config file (*/neo4j-custom/.config* ) with your password
-    - e.g. `password=<your-password>`
+- To run with docker:
+  - Have docker service running
+  - Use flag **-d**
 
 ```bash
-./graphjs-docker.sh -f <file_to_analyze> -s
+python3 graphjs.py -f <file_to_analyze> -s [-d]
 ```
-
-
-#### Run locally
-- Execute inside the *bin* folder
-- If first time, execute the setup (`./setup.sh`)
-- Edit file [detection/run.py](detection/run.py) (line 27) with your neo4j credentials.
-    - E.g. `auth=('neo4j', 'neo4jadmin')`
-    - If it is your first time setting up neo4j, you might need to update the password (`neo4j-admin dbms set-initial-password <password>`)
-
-```bash
-./graphjs-local.sh -f <file_to_analyze> -s
-```
-
-Example:
-`./graphjs-local.sh -f ../../explodejs-datasets/example-dataset/vulnerable/injection/example-0/example-0.js -s`
 
 ---
 

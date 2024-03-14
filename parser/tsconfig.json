@@ -12,7 +12,7 @@
         ],
         "module": "commonjs",
         "target": "es2018",
-        "baseUrl": ".",
+        "baseUrl": "./",
         "paths": {
             "*": [
                 "node_modules/*",
@@ -23,14 +23,14 @@
             "node_modules/@types",
             "src/types"
         ],
-        "outDir": "./built"
+        "outDir": "./built",
+        "rootDir": "./src"
     },
     "include": [
         "./src/**/**/*",
-        "./src/*.json",
-        "jest.config.js"
+        "./src/*.json"
     ],
     "exclude": [
-        "node_modules"
+        "./node_modules"
     ]
 }

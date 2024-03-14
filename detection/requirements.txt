@@ -1,3 +1,4 @@
 graphviz==0.17
 neo4j==4.3.6
 pytz==2021.3
+docker~=7.0.0

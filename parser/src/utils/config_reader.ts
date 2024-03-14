@@ -37,7 +37,6 @@ export interface Config {
     summaries: Summaries
 }
 
-
 export function readConfig(filePath: string): Config {
     const functionSinks: FunctionSink[] = [];
     const newSinks: NewSink[] = [];

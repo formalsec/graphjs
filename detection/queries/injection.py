@@ -1,91 +1,96 @@
-from queries.query_type import QueryType
-import queries.structure_queries as structure_queries
-import my_utils.utils as my_utils
+from . import structure_queries
+from .my_utils import utils as my_utils
 import json
-import os
-import time
-from sys import stderr
 
-THIS_SCRIPT_NAME: str = os.path.basename(__file__)
+from .query import Query
 
 
-class Injection(QueryType):
-	injection_query = f"""
-		MATCH
-			(source:TAINT_SOURCE)
-				-[param_edge:PDG]
-					->(param:PDG_OBJECT)
-						-[pdg_edges:PDG*1..]
-							->(sink:TAINT_SINK),
-			(source_cfg)
-				-[param_ref:REF]
-					->(param),
-			(source_cfg)
-				-[:AST]
-					->(source_ast),
-			(sink_cfg)
-				-[:SINK]
-					->(sink)
-		WHERE
-			param_edge.RelationType = "TAINT" AND
-			param_ref.RelationType = "param"
-		RETURN *
-	"""
+class Injection:
+    injection_query = f"""
+        MATCH
+            (source:TAINT_SOURCE)
+                -[param_edge:PDG]
+                    ->(param:PDG_OBJECT)
+                        -[pdg_edges:PDG*1..]
+                            ->(sink:TAINT_SINK),
+            (source_cfg)
+                -[param_ref:REF]
+                    ->(param),
+            (source_cfg)
+                -[:AST]
+                    ->(source_ast),
+            (sink_cfg)
+                -[:SINK]
+                    ->(sink),
+            (sink_cfg)
+                -[:AST]
+                    ->(sink_ast)
+        WHERE
+            param_edge.RelationType = "TAINT" AND
+            param_ref.RelationType = "param"
+        RETURN *
+    """
 
-	def __init__(self, reconstruct_types = True):
-		QueryType.__init__(self, "Injection")
-		self.start_time = None
-		self.reconstruct_types = reconstruct_types
+    template_query = f"""
+        MATCH
+           ...
+        WHERE
+            ...
+        RETURN *
+    """
 
-	def find_vulnerable_paths(self, session, vuln_paths, attacker_controlled_data, vuln_file, config):
-		"""
-		Find injection vulnerabilities paths.
-		"""
-		print(f'[INFO][{THIS_SCRIPT_NAME}] - Running injection query.')
-		self.start_timer()  # start timer
-		results = session.run(self.injection_query)
-		self.time_detection()  # time injection
+    def __init__(self, query: Query):
+        self.query = query
 
-		print(f'[INFO][{THIS_SCRIPT_NAME}] - Reconstructing attacker-controlled data.')
-		for record in results:
-			sink_name = record["sink"]["IdentifierName"]
-			source_cfg = record["source_cfg"]
-			source_ast = record["source_ast"]
-			param_name = my_utils.format_name(record["param"]["IdentifierName"])
-			source_location = json.loads(source_cfg["Location"])
-			sink_location = json.loads(record["sink_cfg"]["Location"])  # ,
-			vuln_path = {
-				"vuln_type": my_utils.get_injection_type(sink_name, config),
-				"source": source_cfg["IdentifierName"] if source_ast["Type"] == "FunctionExpression" or source_ast[
-					"Type"] == "ArrowFunctionExpression" else param_name,
-				"source_lineno": source_location["start"]["line"],
-				"sink": sink_name,
-				"sink_lineno": sink_location["start"]["line"],
-			}
-			if self.reconstruct_types:
-				tainted_params, params_types = \
-					self.reconstruct_attacker_controlled_data(session, record,
-											   attacker_controlled_data, config)
-				structure = structure_queries.get_context_stack(session, record["sink"])
-				vuln_path["tainted_params"] = tainted_params
-				vuln_path["params_types"] = params_types
-				vuln_path["exploit_type"] = structure
+    def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
+        print(f'[INFO] Running injection query.')
+        self.query.start_timer()
+        results = session.run(self.injection_query)
+        detection_results = []
 
-			if vuln_path not in vuln_paths:
-				vuln_paths.append(vuln_path)
+        print(f'[INFO] Injection - Analyzing detected vulnerabilities.')
+        for record in results:
+            sink_name = record["sink"]["IdentifierName"]
+            sink_lineno = json.loads(record["sink_ast"]["Location"])["start"]["line"]
+            sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
+            vuln_path = {
+                "vuln_type": my_utils.get_injection_type(sink_name, config),
+                "sink": sink,
+                "sink_lineno": sink_lineno,
+            }
+            my_utils.save_intermediate_output(vuln_path, detection_output)
+            if not self.query.reconstruct_types and vuln_path not in vuln_paths:
+                vuln_paths.append(vuln_path)
+            elif self.query.reconstruct_types:
+                source_ast = record["source_ast"]
+                source_lineno = json.loads(source_ast["Location"])["start"]["line"]
+                detection_results.append(
+                    {
+                        "vuln_type": my_utils.get_injection_type(sink_name, config),
+                        "sink_obj": record["sink_cfg"],
+                        "sink_lineno": sink_lineno,
+                        "source_lineno": source_lineno,
+                        "sink_name": sink_name})
+        self.query.time_detection("injection")
 
-		self.time_reconstruction()
-		return vuln_paths
+        # Run template query
+        '''
+        results = session.run(self.template_query)
+        for record in results:
+            print(record)
+        '''
+        if self.query.reconstruct_types:
+            print(f'[INFO] Reconstructing attacker-controlled data.')
+            for detection_result in detection_results:
+                detection_objs = structure_queries.get_source(
+                    session, detection_result["sink_obj"], detection_result["sink_lineno"],
+                    detection_result["source_lineno"], detection_result["sink_name"],
+                    detection_result["vuln_type"], config)
 
-	# Timer related functions
-	def start_timer(self):
-		self.start_time = time.time()
+                for detection_obj in detection_objs:
+                    if detection_obj not in vuln_paths:
+                        vuln_paths.append(detection_obj)
+            self.query.time_reconstruction("injection")
 
-	def time_detection(self):
-		injection_detection_time = (time.time() - self.start_time) * 1000  # to ms
-		print(f'injection_detection: {injection_detection_time}', file=stderr)  # output to file
-		self.start_timer()
+        return vuln_paths
 
-	def time_reconstruction(self):
-		reconstruction_detection_time = (time.time() - self.start_time) * 1000  # to ms
-		print(f'injection_reconstruction: {reconstruction_detection_time}', file=stderr)  # output to file
