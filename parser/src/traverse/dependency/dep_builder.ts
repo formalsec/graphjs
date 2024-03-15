@@ -218,15 +218,14 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         callNodeObj.edges = callNode.edges;
         trackers.graphCreateCallEdge(callNodeObjId,calledFunc);
         trackers.addCallNode(callNodeObj);
-        callNodeObj.argsObjIDs = [];
 
-        callNode.obj.arguments.forEach((arg: GraphNode, index: number) => {
+        callNode.obj.arguments.forEach((arg: any, index: number) => {
             if (arg.type === "Identifier") {
                 const argLocation: number = trackers.storeGetObjectLocations(arg.name, callNode.functionContext).slice(-1)[0];
-                callNodeObj.argsObjIDs.push(argLocation);
+                callNodeObj?.addArgsObjId(argLocation);
             }
             else
-                callNodeObj.argsObjIDs.push(-1);
+                callNodeObj?.addArgsObjId(-1);
         });
     }
     // Map call arguments (variables passed to the call map to the arguments of the called function definition)
@@ -289,6 +288,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
                         if (latestCalleeObj && d.source !== latestCalleeObj.id) trackers.graphCreateDependencyEdge(d.source, latestCalleeObj.id, d)
                     })
                 }
+                
                 // Dependency ret <-- arguments
                 trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, acycleDeps)
             }
@@ -594,7 +594,7 @@ function translateDependency(depNumber: number, deps: Dependency[], obj: GraphNo
  * This function maps f1.aux to f2.b
  */
 function mapCallArguments(callNode: GraphNode, _functionContext: number, callName: string, calleeName: string, stmtId: number, config: Config, trackers: DependencyTracker,
-    callNodeObj: GraphNode): DependencyTracker {
+    callNodeObj: GraphNode|undefined): DependencyTracker {
     const callArgs: GraphNode[] = getAllASTNodes(callNode, "arg");
     const callASTNode: GraphNode = getASTNode(callNode, "callee");
 
@@ -615,7 +615,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                             const callArgumentNode = trackers.graphGetNode(location);
                             if (callArgumentNode?.identifier && calledArgNodes.length > i) {
                                 let label = "ARG(" + calledArgNodes[i].identifier + ')';
-                                trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
+                                callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
                             }
                         });
                     }
@@ -664,7 +664,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                         }
                         if (callArgumentNode?.identifier && calledArgNodes.length > i) {
                             let label = "ARG(" + calleeName + '.' + getObjectNameFromIdentifier(calledArgNodes[i].identifier) + ')';
-                            trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
+                            callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
                         }
                     });
                 }

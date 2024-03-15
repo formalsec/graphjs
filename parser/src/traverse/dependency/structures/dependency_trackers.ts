@@ -689,10 +689,10 @@ export class DependencyTracker {
     }
 
     graphCreateCallDependencyEdge(source: number, destination: number, objName: string): void {
-        if (source !== destination) {
-            const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
-            if (!sourceEdges.includes(destination)) { this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName }); }
-        }
+        // if (source !== destination) {
+        //     const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
+        //     if (!sourceEdges.includes(destination)) { this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName }); }
+        // }
     }
 
     graphCreateArgumentEdge(source: number, functionArg: number, label:string,sourceName?: string): void {

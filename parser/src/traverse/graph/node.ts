@@ -33,6 +33,8 @@ export class GraphNode {
 
     private _exported:boolean;
 
+    private _argsObjsIds: number[];
+
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
         this._type = type;
@@ -50,6 +52,11 @@ export class GraphNode {
         this._arguments = false;
         this._subtype = ""
         this._exported = false;
+        this._argsObjsIds = [];
+    }
+
+    get argsObjIDs(): number[] {
+        return this._argsObjsIds;
     }
 
     get id(): number {
@@ -154,6 +161,10 @@ export class GraphNode {
 
     addPropertyDependencies(dep: Dependency[]): void {
         this._propertyDependencies.push(...dep);
+    }
+
+    addArgsObjId(id: number): void {
+        this._argsObjsIds.push(id);
     }
 
     setUsed(): void {
