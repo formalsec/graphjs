@@ -22,9 +22,9 @@ function constructObject(node:GraphNode,trackers:DependencyTracker,cpg:Graph,ide
             // the only nodes that interest us are the ones that are either functions or objects
             // functions -> we can call them (thus can export sinks)
             // objects -> we can access their properties (thus can export sinks)
-            let func = findFuncNode(property.value.name,trackers,cpg);
+            let func = findFuncNode(property.value.name,trackers);
             if(func != undefined)
-                exportedObject[property.key.name] = findFuncNode(property.value.name,trackers,cpg);
+                exportedObject[property.key.name] = findFuncNode(property.value.name,trackers);
             else{
                 // not a function (not in function context) so it might be an object, thus look for its declaration
                 // to check it
@@ -47,7 +47,7 @@ function constructObject(node:GraphNode,trackers:DependencyTracker,cpg:Graph,ide
     }
     else if(node.type == "FunctionExpression"){
         // is a function, just return its cpg (by returning the head of the graph)
-        return findFuncNode(identifier,trackers,cpg);
+        return findFuncNode(identifier,trackers);
     }
 }
 

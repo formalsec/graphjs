@@ -158,7 +158,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                         cpg.addExternalFuncNode("function" + module + '.' + funcGraph.identifier,funcGraph); 
                         
                         
-                        let params = funcGraph.edges.filter((e:GraphEdge) => e.label == "param").map(e => e.nodes[1]);
+                        let params = funcGraph.edges.filter((e:GraphEdge) => e.label == "param").map((e:GraphEdge) => e.nodes[1]);
 
                         // connect object arguments to the parameters of the external function
                         callNode.argsObjIDs.forEach((arg:number,index:number) => {
