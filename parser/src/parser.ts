@@ -16,7 +16,7 @@ const { CSVOutput } = require("./output/csv_output");
 import { type CFGraphReturn } from "./traverse/cfg_builder";
 
 import { printStatus} from "./utils/utils";
-import {constructExportedObject,findCorrespodingFile,printDependencyGraph} from "./utils/multifile";
+import {constructExportedObject,findCorrespodingFile,printDependencyGraph,retrieveFunctionGraph} from "./utils/multifile";
 import { getFunctionName } from "./traverse/dependency/utils/nodes";
 import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
@@ -142,7 +142,8 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
                 const { calleeName, functionName } = getFunctionName(callNode);
 
-                let module = findCorrespodingFile(calleeName,callNode.functionContext,trackers);
+                let [module,propertiesToTraverse] = findCorrespodingFile(calleeName,callNode.functionContext,trackers);
+                propertiesToTraverse.push(functionName);
 
                 if(module){ // external call
                     module = path.join(dir,module);
@@ -150,7 +151,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
 
                     if(exportedObj == undefined || Object.keys(exportedObj).length == 0) return;
 
-                    let funcGraph:any = (exportedObj[functionName] == undefined )? exportedObj : exportedObj[functionName];
+                    let funcGraph:GraphNode|undefined = retrieveFunctionGraph(exportedObj,propertiesToTraverse);
 
                     if(funcGraph != undefined){
 

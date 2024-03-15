@@ -1,5 +1,5 @@
 import { DependencyTracker } from "../traverse/dependency/structures/dependency_trackers";
-import { type GraphNode } from "../traverse/graph/node";
+import { GraphNode } from "../traverse/graph/node";
 import { Graph } from "../traverse/graph/graph";
 import fs from "fs";
 
@@ -130,15 +130,35 @@ export function constructExportedObject(cpg:Graph,trackers:DependencyTracker){
     return exportedObject;
 
 }
-    
 
-export function findCorrespodingFile(name:string,context:number,trackers:DependencyTracker){
-    let contexts = trackers.getPossibleObjectContexts(name,context);
+// find the corresponding file for the given targetName, even if we're calling a subobject of a module
+export function findCorrespodingFile(targetName:string,context:number,trackers:DependencyTracker):[string,Array<string>]{
+    let module = undefined;
+    let propertiesToTraverse =[]
 
-    for(let context of contexts){
-        let module = trackers.variablesMap.get(context);
-        if(module) return module.startsWith("./") ? module.substring(2) : module;
-    }
+    do {
+        let contexts = trackers.getPossibleObjectContexts(targetName,context);
+        for(let context of contexts){
+            module = trackers.variablesMap.get(context);
+            if(module){
+                module =  module.startsWith("./") ? module.substring(2) : module;
+                // if we're dealing with a subObject with need to find the parent object 
+                // holds the module (thus we iterate again)
+                let split = module.split("."); 
+                if(split.length > 2){
+                    targetName = split[0];
+                    propertiesToTraverse.push(...split.slice(1));
+                }
+                else
+                    targetName = "";
+                break;
+            }
+        }
+    } while (module != undefined && !module.endsWith(".js") && targetName != "");
+
+
+    return [module,propertiesToTraverse];
+
 }
 
 // Function to print dependency graph to file
@@ -173,5 +193,19 @@ export function printDependencyGraph(tree:any, filename:string) {
     }
 
     fs.writeFileSync(filename, output);
+
+}
+
+// retrieve the graph node that corresponds to the exported object (may need to traverse properties)
+export function retrieveFunctionGraph(exportedObject:any,propertiesToTraverse:string[]):GraphNode|undefined{
+    let result = exportedObject;
+    if(result instanceof GraphNode)
+        return result;
+
+    for(let property of propertiesToTraverse){
+        result = result[property];
+    }
+
+    return result instanceof GraphNode ? result : undefined;
 
 }
