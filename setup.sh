@@ -19,8 +19,6 @@ fi
 
 # Install npm dependencies and compile typescript code
 (cd ./parser && npm install && tsc)
-npm install -g typescript
 
 # Python dependencies
 pip3 install -r ./requirements.txt
-

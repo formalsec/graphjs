@@ -2,7 +2,6 @@ import argparse
 import os.path
 import shutil
 import sys
-from typing import List
 
 import detection.neo4j_import.neo4j_management as neo4j_management
 import detection.neo4j_import.utils.timers as timers
@@ -29,9 +28,6 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     # Silent mode
     parser.add_argument("-s", "--silent", action="store_true",
                         help="Silent mode - does not save graph .svg.")
-    # Local or containerized mode (neo4j queries)
-    parser.add_argument("-d", "--docker", action="store_true",
-                        help="Query mode - executes neo4j in a docker container instead of running locally.")
     # Generate exploits
     parser.add_argument("-e", "--exploit", action="store_true",
                         help="Generates symbolic tests.")
@@ -72,13 +68,8 @@ def build_graphjs_cmd(file_path, graph_output, silent=True):
         return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent --graph --i=AST"]
 
 
-def run_queries(file_path, graph_path, run_path, summary_path, time_path, docker_mode, generate_exploit):
-    # Import MDG to Neo4j
-    if docker_mode:
-        neo4j_management.import_csv_docker(graph_path, run_path)
-    else:
-        neo4j_management.import_csv_local(graph_path, run_path)
-
+def run_queries(file_path, graph_path, run_path, summary_path, time_path, generate_exploit):
+    neo4j_management.import_csv_local(graph_path, run_path)
     print("[STEP 2] Queries: Imported")
 
     # Perform graph traversals
@@ -89,7 +80,7 @@ def run_queries(file_path, graph_path, run_path, summary_path, time_path, docker
                              generate_exploit)
 
 
-def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=False, silent=True):
+def run_graph_js(file_path, output_path, generate_exploit=False, silent=True):
     # Get absolute paths
     file_path = os.path.abspath(file_path)
     # Generate default output path
@@ -114,7 +105,7 @@ def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=Fal
 
     # Execute Graph Traversals (Queries)
     print("[STEP 2] Queries: Importing the graph...")
-    run_queries(file_path, graph_output, run_output, summary_path, time_output, docker_mode, generate_exploit)
+    run_queries(file_path, graph_output, run_output, summary_path, time_output, generate_exploit)
     print("[STEP 3] Queries: Completed.")
 
     # Generate symbolic tests
@@ -129,4 +120,4 @@ def run_graph_js(file_path, output_path, generate_exploit=False, docker_mode=Fal
 if __name__ == "__main__":
     # Parse arguments
     args = parse_arguments()
-    run_graph_js(args.file, args.output, args.exploit, args.docker, args.silent)
+    run_graph_js(args.file, args.output, args.exploit, args.silent)
