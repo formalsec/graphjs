@@ -16,7 +16,7 @@ const { CSVOutput } = require("./output/csv_output");
 import { type CFGraphReturn } from "./traverse/cfg_builder";
 
 import { printStatus} from "./utils/utils";
-import {constructExportedObject,findCorrespodingFile} from "./utils/multifile";
+import {constructExportedObject,findCorrespodingFile,printDependencyGraph} from "./utils/multifile";
 import { getFunctionName } from "./traverse/dependency/utils/nodes";
 import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
@@ -252,6 +252,7 @@ const depTree = dependencyTree({
 });
 
 
+
 const graph = traverseDepTree(depTree,config,path.dirname(normalizedPath),silentMode);
 
 if (!graph) console.error(`Unable to generate code property graph`);
@@ -267,6 +268,7 @@ if (argv.csv) {
 if (argv.graph) {
     graph.outputManager = new OutputManager(graphOptions, new DotOutput());
     graph.output(argv.o);
+    printDependencyGraph(depTree, path.join(argv.o, 'dependency_graph.txt'));
 }
 
 const statsFileName = path.join(argv.o, 'graph_stats.json')

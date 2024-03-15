@@ -1,6 +1,7 @@
 import { DependencyTracker } from "../traverse/dependency/structures/dependency_trackers";
 import { type GraphNode } from "../traverse/graph/node";
 import { Graph } from "../traverse/graph/graph";
+import fs from "fs";
 
 // looks in the function contexts for a function with the given name
 // Only used to find the exported functions
@@ -138,4 +139,39 @@ export function findCorrespodingFile(name:string,context:number,trackers:Depende
         let module = trackers.variablesMap.get(context);
         if(module) return module.startsWith("./") ? module.substring(2) : module;
     }
+}
+
+// Function to print dependency graph to file
+export function printDependencyGraph(tree:any, filename:string) {
+
+    
+    // Helper function to recursively build adjacency list
+    const adjacencyList:any = {};
+    function buildAdjacencyList(node:any, parent:any) {
+        for (const file in node) {
+            if (!adjacencyList[file]) {
+                adjacencyList[file] = [];
+            }
+            if (parent) {
+                adjacencyList[parent].push(file);
+            }
+            buildAdjacencyList(node[file], file);
+        }
+    }
+
+   
+    buildAdjacencyList(tree,null);
+
+    let output = '';
+    for (const file in adjacencyList) {
+        const dependencies = adjacencyList[file];
+        if (dependencies.length > 0) {
+            output += `${file}:\n\n\t${dependencies.join('\n\t')}\n\n`;
+        } else {
+            output += `${file}:\n\n\tNo dependencies\n\n`;
+        }
+    }
+
+    fs.writeFileSync(filename, output);
+
 }
