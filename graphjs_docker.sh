@@ -27,8 +27,8 @@ Help()
 # Default values
 SILENT_MODE=false
 EXPLOIT=false
-DOCKER_LOGS=true
-while getopts f:o:l:es:h flag; do
+DOCKER_LOGS=false
+while getopts f:o:les:h flag; do
     case "${flag}" in
         f) filename=$OPTARG
             filename="$( realpath "$filename" )"
@@ -72,7 +72,6 @@ fi
 
 if [ "$DOCKER_LOGS" = true ]; then
     mkdir -p ${SCRIPT_DIR}/docker_logs
-    echo $SCRIPT_DIR
     docker run -it \
         -v "${filename}":/input-file.js \
         -v "${output_path}":/output_path \
@@ -87,6 +86,6 @@ else
         -v "${filename}":/input-file.js \
         -v "${output_path}":/output_path \
         graphjs \
-        python 3/graphjs/graphjs.py -f /input-file.js -o /output_path -s
+        python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s
 fi
 
