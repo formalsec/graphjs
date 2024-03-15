@@ -71,17 +71,16 @@ if [ -z "$(docker images -q graphjs)" ]; then
 fi
 
 if [ "$DOCKER_LOGS" = true ]; then
-    mkdir -p docker_logs
+    mkdir -p ${SCRIPT_DIR}/docker_logs
+    echo $SCRIPT_DIR
     docker run -it \
         -v "${filename}":/input-file.js \
         -v "${output_path}":/output_path \
-        -v docker_logs:/docker_logs \
+        -v "${SCRIPT_DIR}/docker_logs":/docker_logs \
         graphjs \
-        /bin/bash -c "python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s;
-                      cp /var/log/neo4j/debug.log /docker_logs/neo4j-debug.log;
-                      ls -la /docker_logs"
-                      #cp /graphjs-debug.log /docker_logs/"
-    #mv docker_logs output_path/
+        /bin/bash -c "python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s &> /docker_logs/graphjs-debug.log;
+                      cp /var/log/neo4j/debug.log /docker_logs/neo4j-debug.log"
+    mv docker_logs ${output_path}/
     docker system prune -f
 else
     docker run -it \
