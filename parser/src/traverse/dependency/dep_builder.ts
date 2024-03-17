@@ -290,7 +290,18 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
                 }
                 
                 // Dependency ret <-- arguments
-                trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, acycleDeps)
+                trackers.graphCreateCallStatementDependencyEdges(stmtId, returnLocation, acycleDeps);
+
+                if(latestCalleeObj){
+                    let subObj = trackers.graphGetObjectPropertyLocation(latestCalleeObj.id, functionName);
+                    let calledFunc = subObj?.edges.find(e => e.type === "CG")?.nodes[1];
+                    if(calledFunc){
+                        trackers.graphCreateCallEdge(stmtId,calledFunc.id);
+                        callNodeObj && trackers.graphCreateCallEdge(callNodeObj.id,calledFunc.id);
+                        trackers = mapCallArguments(callNode, functionContext, functionName, calleeName, stmtId, config, trackers,callNodeObj);
+
+                    }
+                }
             }
         }
     }
@@ -459,7 +470,7 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     // If the object exists, we create a new version, if the object does not exist, we create the object with the property
     // This may happen if the object variable is not yet perceived as an object but already existed in the program
     if (objectLocations.length > 0) {
-        trackers.addVersion(stmtId, objName, functionContext, propName, deps)
+        trackers.addVersion(stmtId, objName, functionContext, propName, deps);
     } else {
         const rightLocations: number[] = evalSto(trackers, right);
         // Only create new object if relevant (right side is also an object)
@@ -469,6 +480,16 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
             deps.forEach((dep: Dependency) => {
                 trackers.graphCreateDependencyEdge(dep.source, subObjId[0], dep)
             });
+        }
+    }
+
+    if(right.type == "Identifier"){
+        let func = trackers.getFunctionNodeFromName(right.obj.name);
+        if(func){
+            let subObjId = trackers.graphGetObjectPropertyLocation(
+                trackers.storeGetObjectLocations(objName, functionContext)[0], propName)?.id;
+                subObjId && 
+                trackers.graphCreateCallEdge(subObjId,func.id);
         }
     }
     return trackers;
@@ -653,7 +674,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
             if (calledFunctions.length) {
                 const calledNode: GraphNode = calledFunctions[0];
                 // Get graph nodes of the params of the called function
-                const calledArgNodes: GraphNode[] = calledNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param").map((edge: GraphEdge) => edge.nodes[1])
+                const calledArgNodes: GraphNode[] = calledNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "param" && edge.paramIndex >= 0).map((edge: GraphEdge) => edge.nodes[1])
                 if (calledArgNodes.length) {
                     // We iterate by the arguments of the statement with the call (variables) because some invocations don't have all the arguments
                     callArgs.forEach((callArg: GraphNode, i: number) => {
@@ -663,7 +684,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                             callArgumentNode = trackers.graphGetNode(callArgumentLocation)
                         }
                         if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                            let label = "ARG(" + calleeName + '.' + getObjectNameFromIdentifier(calledArgNodes[i].identifier) + ')';
+                            let label = "ARG(" + calledArgNodes[i].identifier + ')';
                             callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
                         }
                     });
