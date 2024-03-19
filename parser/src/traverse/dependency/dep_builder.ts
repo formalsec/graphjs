@@ -485,11 +485,23 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
 
     if(right.type == "Identifier"){
         let func = trackers.getFunctionNodeFromName(right.obj.name);
-        if(func){
-            let subObjId = trackers.graphGetObjectPropertyLocation(
-                trackers.storeGetObjectLocations(objName, functionContext)[0], propName)?.id;
-                subObjId && 
+        let subObjId = trackers.graphGetObjectPropertyLocation(
+            trackers.storeGetObjectLocations(objName, functionContext)[0], propName)?.id;
+        if(func && subObjId){ // if the property is assigned to a function, add the corresponding call edge
                 trackers.graphCreateCallEdge(subObjId,func.id);
+        }
+        else if(subObjId){ // if the property is being assigned to an object, add its properties as subobjects
+            const rightLocation: number = evalSto(trackers, right).slice(-1)[0];
+            let rightNode = trackers.graphGetNode(rightLocation);
+
+            
+            let subObjs  =rightNode?.edges.filter((edge:GraphEdge) => edge.type == "PDG" && 
+            edge.label == "SO");
+
+            subObjs?.forEach((edge:GraphEdge) => {
+                trackers.graphCreatePropertyEdge(subObjId || -1,edge.nodes[1].id,edge.objName);
+            });
+            
         }
     }
     return trackers;
