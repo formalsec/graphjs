@@ -1,0 +1,8 @@
+[
+    {
+        "vuln_type": "code-injection",
+        "file": "/Volumes/FS/tese/graphjs/tests/input/single_file/injection_caller_7.js",
+        "sink": "eval(h(x))",
+        "sink_lineno": 10
+    }
+]

@@ -91,16 +91,16 @@ class Injection:
         else:
             results = self.taint_query(session,identifier=start)
 
+        taintPropagation = False
         for result in results:
             valid = True
             for call in result["path_calls"]:
                 arg = call["RelationType"]
                 arg = arg[arg.find("(")+1:arg.find(")")]
                 if not arg in self.callInfo: # haven't checked this arg before
-                    new_paths = self.find(session,arg) if arg != start else [] # avoid infinite recursion
+                    new_paths,callTaintPropagation = self.find(session,arg) if arg != start else ([],False) # avoid infinite recursion
                     vulnerable_paths += new_paths
-                    _, ret_paths = self.filter_paths(new_paths)
-                    if len(ret_paths) == 0:
+                    if not callTaintPropagation:
                         valid = False
                         self.callInfo[arg] = False
                         break
@@ -110,27 +110,17 @@ class Injection:
                     valid = False
                     break
             
-            if valid:
+            if valid and result["sink"]["Type"] == "TAINT_SINK": # we have a valid path to a sink
                 vulnerable_paths.append(result)
+            elif valid and result["sink"]["Type"] == "PDG_RETURN":
+                taintPropagation = True
         
-        return vulnerable_paths
-
-
-        
-
-
-        
-    def filter_paths(self, paths):
-        sink_paths = list(filter(lambda path: path["sink"]["Type"] == "TAINT_SINK", paths))
-        ret_paths = list(filter(lambda path: path["sink"]["Type"] == "PDG_RETURN", paths))
-        return sink_paths, ret_paths
-
+        return vulnerable_paths,taintPropagation
 
     def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
         print(f'[INFO] Running injection query.')
         self.query.start_timer()
-        results = self.find(session,"TAINT_SOURCE")
-        sink_paths,_ = self.filter_paths(results)
+        sink_paths,_ = self.find(session,"TAINT_SOURCE")
         detection_results = []
 
         print(f'[INFO] Injection - Analyzing detected vulnerabilities.')
