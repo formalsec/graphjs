@@ -23,11 +23,12 @@ import { Graph } from "./traverse/graph/graph";
 import { type PDGReturn } from "./traverse/dependency/dep_builder";
 import { GraphNode } from "./traverse/graph/node";
 import { GraphEdge } from "./traverse/graph/edge";
+import { DependencyTracker } from "./traverse/dependency/structures/dependency_trackers";
 
 
 // Generate the program graph (AST + CFG + CG + PDG)
 function parse(filename: string, config: Config, fileOutput: string, silentMode: boolean,nodeCounter:number,
-    edgeCounter:number): [Graph,any] {
+    edgeCounter:number): [Graph,DependencyTracker] {
     try {
         let fileContent = fs.readFileSync(filename, "utf8");
         // Remove shebang line
@@ -75,57 +76,25 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         console.log("Error:", e.stack);
     }
 
-    return [new Graph(null),null];
+    return [new Graph(null),new DependencyTracker(new Graph(null),new Map<number, number[]>())];
 }
 
 // Traverse the dependency tree of the given file and generate the code property graph that accounts for all the dependencies
-function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,silentMode:boolean):Graph {
+function traverseDependecyGraph(depGraph: any,config:Config,normalizedOutputDir:string,silentMode:boolean):Graph{
 
-    // stores the exported objects of each module
-    let exportedObjects = new Map<string, Object>();
+        function traverse(currFile:string,depGraph: any,config:Config,normalizedOutputDir:string,silentMode:boolean,
+            exportedObjects:Map<string, Object>,nodeCounter:number, edgeCounter:number):[Graph,number,number,DependencyTracker] {
 
-    // DFS stack
-    const stack: Array<string> = []; 
-    const nodeInfo = new Map<string,{node:any,colour:string}>();
-    let mainFile = Object.keys(depTree)[0];
-    nodeInfo.set(mainFile,{node:depTree[mainFile],colour:"white"});
-    stack.push(mainFile);
-    let nodeCounter = 0, edgeCounter = 0;
-    let cpg = new Graph(null);
-   
+            let trackers:DependencyTracker;
+            let cpg = new Graph(null);
+            for(let [file,childDepGraph] of Object.entries(depGraph)){ // first parse its dependencies
 
-    // DFS traversal of the dependency tree
-    while(stack.length > 0) {
-        let currFile = stack.slice(-1)[0];
-        let current = nodeInfo.get(currFile) ?? {node:{},colour:"black"};
-        let hasAdj = false;
-
-        if(current.colour == "white"){
-
-            for(let child of Object.keys(current.node)) {
-                let childInfo = nodeInfo.get(child);
-    
-                if(childInfo == undefined) {
-                    nodeInfo.set(child,{node:current.node[child],colour:"white"});
-                    stack.push(child);
-                    hasAdj = true;
-                }
-   
+                // skip empty dependencies or already parsed files
+                if(exportedObjects.has(file)) continue;
+                [cpg,nodeCounter,edgeCounter,trackers] = traverse(file,childDepGraph,config,normalizedOutputDir,silentMode,exportedObjects,nodeCounter,edgeCounter);
             }
-        }
-
-        // Still has neighbours to visit, don't pop yet
-        if(hasAdj){
-            current.colour = "grey";
-            continue;
-        }
-        // All neighbours visited, pop and process the module
-        else {
-
-            current.colour = "black";
-
-            // parse the node and generate the exported Object
-            let trackers:any;
+                
+            // parse the file and generate the exported Object
             [cpg,trackers] = parse(currFile,config,path.join(normalizedOutputDir,path.basename(currFile)),silentMode,
                 nodeCounter,edgeCounter);
             nodeCounter = cpg.number_nodes;
@@ -134,7 +103,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
             // add the exported objects to the map
             let dir = path.dirname(currFile);
             exportedObjects.set(currFile,exported);
-            exportedObjects.set(currFile.slice(0,-3),exported); // remove the .js extension (it might be referenced by it)
+            exportedObjects.set(currFile.slice(0,-3),exported); // remove the .js extension (it might be referenced without it)
 
             
             // add the exported functions to cpg to generate the final graph
@@ -156,7 +125,7 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
                     if(funcGraph != undefined){
 
                         // add the exported function to the start nodes of the graph
-                        cpg.addExternalFuncNode("function" + module + '.' + funcGraph.identifier,funcGraph); 
+                        cpg.addExternalFuncNode("function " + module + '.' + funcGraph.identifier,funcGraph); 
                         
                         
                         let params = funcGraph.edges.filter((e:GraphEdge) => e.label == "param").map((e:GraphEdge) => e.nodes[1]);
@@ -185,24 +154,22 @@ function traverseDepTree(depTree: any,config:Config,normalizedOutputDir:string,s
             });
 
             edgeCounter = cpg.number_edges;
-            if(currFile == mainFile) 
-                trackers.addTaintedNodes();
-            
-            stack.pop();
 
-
+            return [cpg,nodeCounter,edgeCounter,trackers];
 
         }
+
+
+    let cpg:Graph;
+    let trackers:DependencyTracker;
+    let nodeCounter:number, edgeCounter:number;
+    [cpg,nodeCounter,edgeCounter,trackers] = traverse(Object.keys(depGraph)[0],depGraph,config,normalizedOutputDir,silentMode,new Map<string, Object>(),0,0);
+
+    trackers.addTaintedNodes();
     
-
-        
-        
-    }
-
     return cpg;
+
 }
-
-
 
 // Parse program arguments
 const { argv } = yargs(process.argv.slice(2))
@@ -254,7 +221,7 @@ const depTree = dependencyTree({
 
 
 
-const graph = traverseDepTree(depTree,config,path.dirname(normalizedPath),silentMode);
+const graph = traverseDependecyGraph(depTree,config,path.dirname(normalizedPath),silentMode);
 
 if (!graph) console.error(`Unable to generate code property graph`);
 
