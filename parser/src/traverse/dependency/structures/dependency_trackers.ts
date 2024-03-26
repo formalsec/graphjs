@@ -775,7 +775,7 @@ export class DependencyTracker {
 
         // Add location to graph
         const locationName: string = getNextLocationName(paramName, context)
-        const nodeObj: GraphNode = this.graph.addNode("PDG_PARAM", { type: "PDG" });
+        const nodeObj: GraphNode = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
         nodeObj.identifier = locationName;
 
         // Add object to store

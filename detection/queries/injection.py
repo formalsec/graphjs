@@ -33,19 +33,14 @@ class Injection:
                     (start.IdentifierName = \"{identifier}\" OR start.Type=\"{type}\")
 
             OPTIONAL MATCH  
-                (start:TAINT_SOURCE)
-                    -[param_edge:PDG]
-                        ->(param:PDG_PARAM),
-
                 (source_cfg)
                     -[param_ref:REF]
-                        ->(param),
+                        ->(param:PDG_OBJECT),
 
                 (source_cfg)
                     -[:AST]
                         ->(source_ast)
                 WHERE
-                    param_edge.RelationType = "TAINT" AND
                     param_ref.RelationType = "param" AND
                     param in nodes(path)
 
