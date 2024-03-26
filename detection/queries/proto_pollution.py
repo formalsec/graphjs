@@ -105,28 +105,6 @@ class PrototypePollution:
             second_lookup.RelationType = "SO" AND
             second_lookup.IdentifierName = "*"
         RETURN distinct sub_obj, nv_sub_obj, property
-
-        UNION
-        MATCH
-            (obj:PDG_OBJECT)
-                -[first_lookup:PDG]
-                    ->(sub_obj:PDG_OBJECT)
-                        -[arg:PDG*]
-                            ->(arg_sub_obj:PDG_OBJECT)
-                                -[nv:PDG]
-                                    ->(nv_sub_obj:PDG_OBJECT)
-                                        -[second_lookup:PDG]
-                                            ->(property:PDG_OBJECT)
-        WHERE
-            first_lookup.RelationType = "SO" AND
-            first_lookup.IdentifierName = "*" AND
-            ALL(edge IN arg WHERE edge.RelationType = "ARG") AND
-            nv.RelationType = "NV" AND
-            nv.IdentifierName = "*" AND
-            second_lookup.RelationType = "SO" AND
-            second_lookup.IdentifierName = "*"
-        RETURN distinct sub_obj, nv_sub_obj, property
-
     """
 
     """
@@ -150,60 +128,74 @@ class PrototypePollution:
         print(f"[INFO] Running prototype pollution query: {self.queries[0][0]}")
         self.query.start_timer()
         pattern_results = session.run(self.queries[0][1])
+        sinks = set()
 
         detection_results = []
         for pattern in pattern_results:
             self.first_lookup_obj = pattern['sub_obj']['Id']
             self.assignment_obj = pattern['nv_sub_obj']['Id']
             self.second_lookup_obj = pattern['property']['Id']
+            sinks.add(pattern['sub_obj']['Id'])
+            sinks.add(pattern['nv_sub_obj']['Id'])
+            sinks.add(pattern['property']['Id'])
 
-            print(f"[INFO] Running prototype pollution query: {self.queries[1][0]}")
-            taint_key_results = session.run(check_taint_key(self.first_lookup_obj))
-            # If query is unable to find a taint key path, go to next pattern
-            if taint_key_results.peek() is None:
-                continue
+            # print(f"[INFO] Running prototype pollution query: {self.queries[1][0]}")
+            # taint_key_results = session.run(check_taint_key(self.first_lookup_obj))
+            # # If query is unable to find a taint key path, go to next pattern
+            # if taint_key_results.peek() is None:
+            #     continue
 
-            print(f"[INFO] Running prototype pollution query: {self.queries[2][0]}")
-            taint_assignment_results = session.run(check_tainted_assignment(self.assignment_obj))
-            # If query is unable to find a taint assignment path, go to next pattern
-            if taint_assignment_results.peek() is None:
-                continue
+            # print(f"[INFO] Running prototype pollution query: {self.queries[2][0]}")
+            # taint_assignment_results = session.run(check_tainted_assignment(self.assignment_obj))
+            # # If query is unable to find a taint assignment path, go to next pattern
+            # if taint_assignment_results.peek() is None:
+            #     continue
 
-            print(f"[INFO] Running prototype pollution query: {self.queries[3][0]}")
-            taint_sub_key_results = session.run(check_taint_sub_key(self.second_lookup_obj))
-            # If query is unable to find a taint sub key path, go to next pattern
-            if taint_sub_key_results.peek() is None:
-                continue
+            # print(f"[INFO] Running prototype pollution query: {self.queries[3][0]}")
+            # taint_sub_key_results = session.run(check_taint_sub_key(self.second_lookup_obj))
+            # # If query is unable to find a taint sub key path, go to next pattern
+            # if taint_sub_key_results.peek() is None:
+            #     continue
 
-            print(f'[INFO] Prototype Pollution - Analyzing detected vulnerabilities.')
-            for tainted_source in taint_sub_key_results:
-                source = tainted_source['value']['Id']
-                print(f"[INFO] Running prototype pollution query: {self.queries[4][0]}")
-                ast_results = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj))
+            # print(f'[INFO] Prototype Pollution - Analyzing detected vulnerabilities.')
+            # for tainted_source in taint_sub_key_results:
+            #     source = tainted_source['value']['Id']
+            #     print(f"[INFO] Running prototype pollution query: {self.queries[4][0]}")
+            #     ast_results = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj))
 
-                for ast_result in ast_results:
-                    sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
-                    sink_lineno = sink_location["start"]["line"]
-                    sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
-                    vuln_path = {
-                        "vuln_type": "prototype-pollution",
-                        "sink": sink,
-                        "sink_lineno": sink_lineno
-                    }
-                    my_utils.save_intermediate_output(vuln_path, detection_output)
-                    if not self.query.reconstruct_types and vuln_path not in vuln_paths:
-                        vuln_paths.append(vuln_path)
-                    else:
-                        source_cfg = ast_result["source_cfg"]
-                        source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
-                        detection_results.append({
-                            "sink_obj": ast_result["assignment_cfg"],
-                            "sink_lineno": sink_lineno,
-                            "source_lineno": source_lineno,
-                            "sink_name": sink
-                            }
-                        )
+            #     for ast_result in ast_results:
+            #         sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
+            #         sink_lineno = sink_location["start"]["line"]
+            #         sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
+            #         vuln_path = {
+            #             "vuln_type": "prototype-pollution",
+            #             "sink": sink,
+            #             "sink_lineno": sink_lineno
+            #         }
+            #         my_utils.save_intermediate_output(vuln_path, detection_output)
+            #         if not self.query.reconstruct_types and vuln_path not in vuln_paths:
+            #             vuln_paths.append(vuln_path)
+            #         else:
+            #             source_cfg = ast_result["source_cfg"]
+            #             source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
+            #             detection_results.append({
+            #                 "sink_obj": ast_result["assignment_cfg"],
+            #                 "sink_lineno": sink_lineno,
+            #                 "source_lineno": source_lineno,
+            #                 "sink_name": sink
+            #                 }
+            #             )
+
+        sink_string = "[" + ",".join([f"\"{sink}\"" for sink in sinks]) + "]"
+        self.query.reset_call_info()
+        vuln_paths,_ = self.query.find_taint_paths(session,"TAINT_SOURCE",
+                                                 lambda x: x['Id'] in sinks,sink_string)
+        vuln_paths = list(filter(lambda x: all(rel["RelationType"] in ["SO","DEP"] \
+                                               for rel in x["path"].relationships), vuln_paths))
         self.query.time_detection("proto_pollution")
+        for record in vuln_paths:
+            sink = record["sink"]["Id"]
+            a = 1+1
 
         if self.query.reconstruct_types:
             print(f'[INFO] Prototype Pollution - Reconstructing attacker-controlled data.')
