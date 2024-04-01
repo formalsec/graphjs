@@ -6,59 +6,6 @@ from .query import Query
 
 
 class Injection:
-    def taint_query(self,session,identifier="",type=""):
-        taint_query = f"""
-            MATCH path = 
-                (start)
-                    -[path_edges:PDG*1..]
-                        ->(sink:TAINT_SINK|PDG_RETURN|PDG_CALL)
-                
-            WHERE
-                (start.IdentifierName = \"{identifier}\" OR start.Type=\"{type}\")
-            
-            OPTIONAL MATCH
-                (start)
-                    -[call_edges:PDG*1..]
-                        ->(path_call:PDG_CALL)
-                WHERE
-                    LAST(call_edges) IN path_edges AND
-                    (start.IdentifierName = \"{identifier}\" OR start.Type=\"{type}\")
-
-            OPTIONAL MATCH
-                (start)
-                    -[other_call_edges:PDG*1..]
-                        ->(other_call:PDG_CALL)
-                WHERE
-                    NOT other_call IN nodes(path) AND
-                    (start.IdentifierName = \"{identifier}\" OR start.Type=\"{type}\")
-
-            OPTIONAL MATCH  
-                (source_cfg)
-                    -[param_ref:REF]
-                        ->(param:PDG_OBJECT),
-
-                (source_cfg)
-                    -[:AST]
-                        ->(source_ast)
-                WHERE
-                    param_ref.RelationType = "param" AND
-                    param in nodes(path)
-
-            OPTIONAL MATCH  
-                (sink_cfg)
-                    -[:SINK]
-                        ->(sink),
-
-                (sink_cfg)
-                    -[:AST]
-                        ->(sink_ast)
-            
-            RETURN collect(LAST(call_edges)) as path_calls,source_cfg,source_ast,sink,sink_ast,path,sink_cfg,param;
-        """
-
-        return session.run(taint_query)
-    
-    
     
     template_query = f"""
         MATCH
@@ -75,47 +22,12 @@ class Injection:
     def __init__(self, query: Query):
         self.query = query
 
-    
-
-
-    def find(self,session,start):
-        results = []
-        vulnerable_paths = []
-        if(start == "TAINT_SOURCE"):
-            results = self.taint_query(session,type="TAINT_SOURCE")
-        else:
-            results = self.taint_query(session,identifier=start)
-
-        taintPropagation = False
-        for result in results:
-            valid = True
-            for call in result["path_calls"]:
-                arg = call["RelationType"]
-                arg = arg[arg.find("(")+1:arg.find(")")]
-                if not arg in self.callInfo: # haven't checked this arg before
-                    new_paths,callTaintPropagation = self.find(session,arg) if arg != start else ([],False) # avoid infinite recursion
-                    vulnerable_paths += new_paths
-                    if not callTaintPropagation:
-                        valid = False
-                        self.callInfo[arg] = False
-                        break
-                    else:
-                        self.callInfo[arg] = True
-                elif not self.callInfo[arg]: # cache tells that arg doens't propagate taint
-                    valid = False
-                    break
-            
-            if valid and result["sink"]["Type"] == "TAINT_SINK": # we have a valid path to a sink
-                vulnerable_paths.append(result)
-            elif valid and result["sink"]["Type"] == "PDG_RETURN":
-                taintPropagation = True
-        
-        return vulnerable_paths,taintPropagation
 
     def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
         print(f'[INFO] Running injection query.')
         self.query.start_timer()
-        sink_paths,_ = self.find(session,"TAINT_SOURCE")
+        self.query.reset_call_info()
+        sink_paths,_ = self.query.find_taint_paths(session,"TAINT_SOURCE")
         detection_results = []
 
         print(f'[INFO] Injection - Analyzing detected vulnerabilities.')
