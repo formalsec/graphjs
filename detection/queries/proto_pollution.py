@@ -105,8 +105,34 @@ class PrototypePollution:
             second_lookup.RelationType = "SO" AND
             second_lookup.IdentifierName = "*"
         RETURN distinct sub_obj, nv_sub_obj, property
-    """
 
+        UNION
+        MATCH
+            (obj:PDG_OBJECT)
+                -[first_lookup:PDG]
+                    ->(sub_obj:PDG_OBJECT)
+                        -[arg:PDG]
+                            ->(call:PDG_CALL)
+                                -[:CG]
+                                    ->(func:VariableDeclarator)
+                                        -[param_ref:REF]
+                                            ->(param:PDG_OBJECT)
+                                                -[nv:PDG]
+                                                    ->(nv_sub_obj:PDG_OBJECT)
+                                                        -[second_lookup:PDG]
+                                                            ->(property:PDG_OBJECT)
+        WHERE
+            first_lookup.RelationType = "SO" AND
+            first_lookup.IdentifierName = "*" AND
+            nv.RelationType = "NV" AND
+            nv.IdentifierName = "*" AND
+            second_lookup.RelationType = "SO" AND
+            second_lookup.IdentifierName = "*" AND
+            param.IdentifierName = substring(arg.RelationType,4,size(arg.RelationType)-5)
+        RETURN distinct sub_obj, nv_sub_obj, property
+
+    """
+    
     """
     Find all prototype pollution.
     Will lead to a lot of false positives but if the graph
