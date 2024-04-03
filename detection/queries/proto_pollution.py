@@ -90,47 +90,17 @@ class PrototypePollution:
     """
     check_lookup_pattern = """
         MATCH
-            (obj:PDG_OBJECT)
-                -[first_lookup:PDG]
-                    ->(sub_obj:PDG_OBJECT)
-                        -[nv:PDG]
-                            ->(nv_sub_obj:PDG_OBJECT)
-                                -[second_lookup:PDG]
-                                    ->(property:PDG_OBJECT)
+            (sub_obj:PDG_OBJECT)
+                -[nv:PDG]
+                    ->(nv_sub_obj:PDG_OBJECT)
+                        -[second_lookup:PDG]
+                            ->(property:PDG_OBJECT)
         WHERE
-            first_lookup.RelationType = "SO" AND
-            first_lookup.IdentifierName = "*" AND
             nv.RelationType = "NV" AND
             nv.IdentifierName = "*" AND
             second_lookup.RelationType = "SO" AND
             second_lookup.IdentifierName = "*"
         RETURN distinct sub_obj, nv_sub_obj, property
-
-        UNION
-        MATCH
-            (obj:PDG_OBJECT)
-                -[first_lookup:PDG]
-                    ->(sub_obj:PDG_OBJECT)
-                        -[arg:PDG]
-                            ->(call:PDG_CALL)
-                                -[:CG]
-                                    ->(func:VariableDeclarator)
-                                        -[param_ref:REF]
-                                            ->(param:PDG_OBJECT)
-                                                -[nv:PDG]
-                                                    ->(nv_sub_obj:PDG_OBJECT)
-                                                        -[second_lookup:PDG]
-                                                            ->(property:PDG_OBJECT)
-        WHERE
-            first_lookup.RelationType = "SO" AND
-            first_lookup.IdentifierName = "*" AND
-            nv.RelationType = "NV" AND
-            nv.IdentifierName = "*" AND
-            second_lookup.RelationType = "SO" AND
-            second_lookup.IdentifierName = "*" AND
-            param.IdentifierName = substring(arg.RelationType,4,size(arg.RelationType)-5)
-        RETURN distinct sub_obj, nv_sub_obj, property
-
     """
     
     """
@@ -176,16 +146,22 @@ class PrototypePollution:
         sink_string = "[" + ",".join([f"\"{sink}\"" for sink in sinks]) + "]"
         self.query.reset_call_info()
 
+        print(f"[INFO] Running prototype pollution query: Checking taint paths")
         # look for taint paths in the graph that lead to the keys found in the previous step
         taint_paths,_ = self.query.find_taint_paths(session,"TAINT_SOURCE",
                                                  lambda x: x['Id'] in sinks,sink_string)
-        taint_paths = list(filter(lambda x: all(rel["RelationType"] in ["SO","DEP","TAINT"] \
+        starts = [record["start"]["Id"] for record in taint_paths if record["start"]["Id"] in sinks]
+
+        # restrict the edges that are allowed in the taint paths
+        taint_paths = list(filter(lambda x: all(rel["RelationType"] in ["SO","DEP","TAINT","RET"] or rel["RelationType"].startswith("ARG") \
                                                for rel in x["path"].relationships), taint_paths))
+
         paths_to_report = []
         sources = {}
+
+        
         for record in taint_paths:
             sink = record["sink"]["Id"]
-
             # check for all assignments if the key influenced the assignment
             for pattern,ids in keys.items():
                 if sink in ids:
@@ -198,6 +174,17 @@ class PrototypePollution:
                 if sink == pattern['property']['Id']:
                     sources[pattern] = record["start"]["Id"] if record["start"]["Type"] != "TAINT_SOURCE" \
                         else record["path"].nodes[1]["Id"]
+                    
+
+        # some starting nodes might be the necessary keys themselves (so they're not in the taint paths)
+        for start in starts:
+                for pattern,ids in keys.items():
+                    if start in ids:
+                        ids.remove(start)
+                        if len(ids) == 0:
+                            paths_to_report.append(pattern)
+                        if start == pattern['property']['Id']:
+                            sources[pattern] = start
 
                     
         for path in paths_to_report:
@@ -206,9 +193,11 @@ class PrototypePollution:
             for ast_result in ast_results:
                 sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
                 sink_lineno = sink_location["start"]["line"]
+                file = sink_location["fname"]
                 sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
                 vuln_path = {
                     "vuln_type": "prototype-pollution",
+                    "file": file,
                     "sink": sink,
                     "sink_lineno": sink_lineno
                 }
