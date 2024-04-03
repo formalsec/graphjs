@@ -80,7 +80,6 @@ if [ "$DOCKER_LOGS" = true ]; then
         /bin/bash -c "python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s &> /docker_logs/graphjs-debug.log;
                       cp /var/log/neo4j/debug.log /docker_logs/neo4j-debug.log"
     mv docker_logs ${output_path}/
-    docker system prune -f
 else
     docker run -it \
         -v "${filename}":/input-file.js \
