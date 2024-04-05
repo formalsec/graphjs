@@ -79,6 +79,35 @@ def get_ast_source_and_assignment(assignment_obj, second_lookup_obj):
     RETURN distinct source_cfg, assignment_cfg
     """
 
+def generate_query_list_string(objs,add_begin_end=True):
+    return "[" + ",".join([f"\"{obj}\"" for obj in objs]) + "]" \
+        if add_begin_end else ",".join([f"\"{obj}\"" for obj in objs])
+
+class DangerousAssignment:
+    def __init__(self, first_lookup_obj, assignment_obj, second_lookup_obj):
+        self.first_lookup_obj = first_lookup_obj
+        self.assignment_obj = assignment_obj
+        self.second_lookup_obj = second_lookup_obj
+        self.info = {self.first_lookup_obj: False, self.assignment_obj: False, self.second_lookup_obj: False}
+        self.source = None
+ 
+    def mark_as_vulnerable(self,keyId,record):
+        self.info[keyId] = True
+        if keyId == self.second_lookup_obj:
+            self.source = record["start"]["Id"] if record["start"]["Type"] != "TAINT_SOURCE" \
+                        else record["path"].nodes[1]["Id"]
+
+
+    def is_vulnerable(self):
+        return all(self.info.values())
+    
+    def generate_query_list_string(self):
+        return generate_query_list_string([self.first_lookup_obj,self.assignment_obj,self.second_lookup_obj],
+                                           add_begin_end=False)
+    
+    def __repr__(self) -> str:
+        return f"First Lookup: {self.first_lookup_obj}, Assignment: {self.assignment_obj}, Second Lookup: {self.second_lookup_obj}"
+
 
 class PrototypePollution:
     first_lookup_obj = ""
@@ -119,77 +148,134 @@ class PrototypePollution:
 
     def __init__(self, query: Query):
         self.query = query
+        self.keys = {}
 
-    def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
-        print(f"[INFO] Running prototype pollution query: {self.queries[0][0]}")
-        self.query.start_timer()
-        pattern_results = session.run(self.check_lookup_pattern)
+    def find_first_lookup_obj(self, session):
+
+        first_lookup_query = """
+            MATCH
+                (obj:PDG_OBJECT)
+                    -[first_lookup:PDG]
+                        ->(sub_obj:PDG_OBJECT)
+            WHERE
+                first_lookup.RelationType = "SO" AND
+                first_lookup.IdentifierName = "*"
+            RETURN distinct sub_obj
+        """
+
+        results = session.run(first_lookup_query)
+
+        return [record["sub_obj"]["Id"] for record in results]
+        
+    def connect_to_second_lookup(self, session, startList,sub_obj=None):
+
+        def get_second_lookup_obj(startList):
+            connection_query = f"""
+                MATCH
+                    (start:PDG_OBJECT)
+                        -[edge:PDG]
+                            ->(end:PDG_OBJECT|PDG_RET|PDG_CALL)                
+                WHERE
+                    start.Id IN {startList}
+
+                OPTIONAL MATCH
+                    (end)
+                        -[second_lookup:PDG]
+                            ->(property:PDG_OBJECT)
+
+                OPTIONAL MATCH
+                    (end:PDG_CALL)
+                        -[:CG]
+                            ->(func:VariableDeclarator)
+                                -[param_ref:REF]
+                                    ->(param:PDG_OBJECT),
+                    (end)
+                        -[ret:PDG]
+                            ->(ret_obj:PDG_OBJECT)
+                WHERE
+                    edge.RelationType CONTAINS "ARG" AND 
+                    edge.RelationType CONTAINS param.IdentifierName AND
+                    ret.RelationType = "RET"
+
+                OPTIONAL MATCH
+                    (end:PDG_OBJECT)
+                        -[second_lookup:PDG]
+                            ->(property:PDG_OBJECT)
+                WHERE
+                    second_lookup.RelationType = "SO" AND
+                    second_lookup.IdentifierName = "*"
+                RETURN *
+            """
+
+            return session.run(connection_query)
+        
+        dangerous_assignments = []
         sinks = set()
-        keys = {}
+        results = get_second_lookup_obj(startList)
+        cont = False
+       
+        for record in results:
 
-        if(pattern_results.peek() is None):
-            self.query.time_detection("proto_pollution")
-            return vuln_paths
+            first_lookup_obj = sub_obj if sub_obj else record["start"]["Id"]
+            if record["end"]["Type"] == "PDG_OBJECT" and record["edge"]["RelationType"] == "NV" \
+                and record["edge"]["IdentifierName"] == "*":
+                assignment = DangerousAssignment(first_lookup_obj
+                                        , record["end"]["Id"], record["property"]["Id"])
+                dangerous_assignments.append(assignment)
+                self.keys[first_lookup_obj] = assignment
+                self.keys[record["end"]["Id"]] = assignment
+                self.keys[record["property"]["Id"]] = assignment
+                sinks.add(record["end"]["Id"])
+                sinks.add(record["property"]["Id"])
+                sinks.add(first_lookup_obj)
 
-        detection_results = []
 
-        # get the relevant objects that are used as keys (will be checked if attacker has control over them)
-        for pattern in pattern_results:
-            self.first_lookup_obj = pattern['sub_obj']['Id']
-            self.assignment_obj = pattern['nv_sub_obj']['Id']
-            self.second_lookup_obj = pattern['property']['Id']
-            sinks.add(pattern['sub_obj']['Id'])
-            sinks.add(pattern['nv_sub_obj']['Id'])
-            sinks.add(pattern['property']['Id'])
-            keys[pattern] = set([pattern['sub_obj']['Id'], pattern['nv_sub_obj']['Id'], pattern['property']['Id']])
 
-        sink_string = "[" + ",".join([f"\"{sink}\"" for sink in sinks]) + "]"
+            elif record["end"]["Type"] == "PDG_CALL":
+                other_assignments,cont,other_sinks = self.connect_to_second_lookup(session,
+                                                                       generate_query_list_string([record["param"]["Id"]]),
+                                                                       first_lookup_obj)
+                if cont:
+                    other_assignments,cont,other_sinks = self.connect_to_second_lookup(session, \
+                                                                       generate_query_list_string([record["ret_obj"]["Id"]]),
+                                                                       first_lookup_obj)
+                dangerous_assignments += other_assignments
+                sinks.update(other_sinks)
+
+            elif record["end"]["Type"] == "PDG_RET":
+                cont = True
+
+        return dangerous_assignments,cont,sinks
+
+    def find_tainted_assignments(self, session, sinks,dangerous_assignments):
+        sinks_str = "[" + ",".join([assignment.generate_query_list_string() for assignment in dangerous_assignments]) + "]"
         self.query.reset_call_info()
-
-        print(f"[INFO] Running prototype pollution query: Checking taint paths")
-        # look for taint paths in the graph that lead to the keys found in the previous step
         taint_paths,_ = self.query.find_taint_paths(session,"TAINT_SOURCE",
-                                                 lambda x: x['Id'] in sinks,sink_string)
-        starts = [record["start"]["Id"] for record in taint_paths if record["start"]["Id"] in sinks]
-
-        # restrict the edges that are allowed in the taint paths
+                                                 lambda x: x['Id'] in sinks,sinks_str)
+        
         taint_paths = list(filter(lambda x: all(rel["RelationType"] in ["SO","DEP","TAINT","RET"] or rel["RelationType"].startswith("ARG") \
                                                for rel in x["path"].relationships), taint_paths))
-
-        paths_to_report = []
-        sources = {}
-
         
         for record in taint_paths:
             sink = record["sink"]["Id"]
-            # check for all assignments if the key influenced the assignment
-            for pattern,ids in keys.items():
-                if sink in ids:
-                    ids.remove(sink)
-                    # if all the necessary keys are tainted that assignment is vulnerable and should be reported
-                    if len(ids) == 0:
-                        paths_to_report.append(pattern)
-                        
-                # since we're reporting the assignment we need to know the source of the taint
-                if sink == pattern['property']['Id']:
-                    sources[pattern] = record["start"]["Id"] if record["start"]["Type"] != "TAINT_SOURCE" \
-                        else record["path"].nodes[1]["Id"]
-                    
+            self.keys[sink].mark_as_vulnerable(sink,record)
 
-        # some starting nodes might be the necessary keys themselves (so they're not in the taint paths)
-        for start in starts:
-                for pattern,ids in keys.items():
-                    if start in ids:
-                        ids.remove(start)
-                        if len(ids) == 0:
-                            paths_to_report.append(pattern)
-                        if start == pattern['property']['Id']:
-                            sources[pattern] = start
+        return list(filter(lambda x: x.is_vulnerable(), dangerous_assignments))
+    
+    def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
+        print(f"[INFO] Running prototype pollution query: {self.queries[0][0]}")
+        self.query.start_timer()
+        sub_objs = self.find_first_lookup_obj(session)
+        detection_results = []
 
-                    
-        for path in paths_to_report:
+        dangerous_assignments,_ ,sinks= self.connect_to_second_lookup(session, generate_query_list_string(sub_objs))
+        print(f"[INFO] Running prototype pollution query: Checking taint paths")
+
+
+        vulnerable_assignments = self.find_tainted_assignments(session, sinks,dangerous_assignments)
+        for assignment in vulnerable_assignments:
             print(f"[INFO] Running prototype pollution query: {self.queries[4][0]}")
-            ast_results = session.run(get_ast_source_and_assignment(sources[path], path['property']['Id']))
+            ast_results = session.run(get_ast_source_and_assignment(assignment.source, assignment.second_lookup_obj))
             for ast_result in ast_results:
                 sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
                 sink_lineno = sink_location["start"]["line"]
