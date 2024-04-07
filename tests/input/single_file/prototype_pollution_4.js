@@ -1,5 +1,6 @@
-// tests if prototype pollution is detected if the lookups are done in a function and the property assignment is done in another function
-// Vulnerability should be reported for line 10
+// tests if prototype pollution is detected if the first lookup is done in the callee,
+// the assignment is done in the caller
+// Vulnerability should be reported for line 5
 function pollute (o, x, y, z) {
     let w = lookup(o, x);
     w[y] = z;

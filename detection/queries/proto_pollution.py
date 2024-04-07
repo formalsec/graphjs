@@ -80,10 +80,15 @@ def get_ast_source_and_assignment(assignment_obj, second_lookup_obj):
     """
 
 def generate_query_list_string(objs,add_begin_end=True):
+    # checks if all the objects in the assignment are vulnerable
     return "[" + ",".join([f"\"{obj}\"" for obj in objs]) + "]" \
         if add_begin_end else ",".join([f"\"{obj}\"" for obj in objs])
 
 class DangerousAssignment:
+    """
+    This class is used to keep track of the first lookup object, the assignment object and the second lookup object
+    that are connected in the graph. If the attacker can control all three objects, then the object is marked as vulnerable
+    """
     def __init__(self, first_lookup_obj, assignment_obj, second_lookup_obj):
         self.first_lookup_obj = first_lookup_obj
         self.assignment_obj = assignment_obj
@@ -92,6 +97,7 @@ class DangerousAssignment:
         self.source = None
  
     def mark_as_vulnerable(self,keyId,record):
+        # marks one the the objects in the assignment as vulnerable
         self.info[keyId] = True
         if keyId == self.second_lookup_obj:
             self.source = record["start"]["Id"] if record["start"]["Type"] != "TAINT_SOURCE" \
@@ -99,9 +105,11 @@ class DangerousAssignment:
 
 
     def is_vulnerable(self):
+        # checks if all the objects in the assignment are vulnerable
         return all(self.info.values())
     
     def generate_query_list_string(self):
+        # generates a string that can be used in a query
         return generate_query_list_string([self.first_lookup_obj,self.assignment_obj,self.second_lookup_obj],
                                            add_begin_end=False)
     
@@ -170,23 +178,30 @@ class PrototypePollution:
     def connect_to_second_lookup(self, session, startList,sub_obj=None):
 
         def get_second_lookup_obj(startList):
+            ## This query will connect the first lookup object to the second lookup object
+            # We consider differnt variables for different cases. We always return distinct results
+            # Stoping cases:
+            #       PDG_OBJECT:
+            #           - Verifiy that edge is a NV edge and the IdentifierName is "*"
+            #           - second_lookup edge is a SO edge and the IdentifierName is "*"
+            #       PDG_CALL:
+            #           - Get the param in question, ensure that we have an ARG edge
+            #           - Get the return object, ensure that we have a RET edge
+            #       PDG_RETURN:
+            #           - Find that calls to that function which that return object corresponds
+            #           - Get the next object, ensure that we have a RET edge
             connection_query = f"""
                 MATCH
                     (start:PDG_OBJECT)
                         -[edge:PDG]
-                            ->(end:PDG_OBJECT|PDG_RET|PDG_CALL)                
+                            ->(end:PDG_OBJECT|PDG_RETURN|PDG_CALL)                
                 WHERE
                     start.Id IN {startList}
 
                 OPTIONAL MATCH
-                    (end)
-                        -[second_lookup:PDG]
-                            ->(property:PDG_OBJECT)
-
-                OPTIONAL MATCH
                     (end:PDG_CALL)
                         -[:CG]
-                            ->(func:VariableDeclarator)
+                            ->(:VariableDeclarator)
                                 -[param_ref:REF]
                                     ->(param:PDG_OBJECT),
                     (end)
@@ -204,7 +219,21 @@ class PrototypePollution:
                 WHERE
                     second_lookup.RelationType = "SO" AND
                     second_lookup.IdentifierName = "*"
-                RETURN *
+
+                OPTIONAL MATCH
+                    (call:PDG_CALL)
+                        -[:CG]
+                            ->(:VariableDeclarator)
+                                -[:REF|PDG*1..]
+                                    ->(end:PDG_RETURN),
+                    (call)
+                        -[return_edge:PDG]
+                            ->(next_obj:PDG_OBJECT)
+
+
+                WHERE
+                    return_edge.RelationType = "RET"
+                RETURN distinct *
             """
 
             return session.run(connection_query)
@@ -235,44 +264,70 @@ class PrototypePollution:
                 other_assignments,cont,other_sinks = self.connect_to_second_lookup(session,
                                                                        generate_query_list_string([record["param"]["Id"]]),
                                                                        first_lookup_obj)
-                if cont:
+                # called function's return object is directly connected to 
+                # the param in question (the caller's path needs to be continued)
+                if cont: 
                     other_assignments,cont,other_sinks = self.connect_to_second_lookup(session, \
                                                                        generate_query_list_string([record["ret_obj"]["Id"]]),
                                                                        first_lookup_obj)
                 dangerous_assignments += other_assignments
                 sinks.update(other_sinks)
 
-            elif record["end"]["Type"] == "PDG_RET":
+            elif record["end"]["Type"] == "PDG_RETURN":
                 cont = True
+                if record["next_obj"]:
+                    other_assignments,cont,other_sinks = self.connect_to_second_lookup(session,
+                                                                       generate_query_list_string([record["next_obj"]["Id"]]),
+                                                                       first_lookup_obj)
+                    
+                    dangerous_assignments += other_assignments
+                    sinks.update(other_sinks)
+                    
 
         return dangerous_assignments,cont,sinks
 
     def find_tainted_assignments(self, session, sinks,dangerous_assignments):
         sinks_str = "[" + ",".join([assignment.generate_query_list_string() for assignment in dangerous_assignments]) + "]"
         self.query.reset_call_info()
+
+        # find tainted paths in the graph
         taint_paths,_ = self.query.find_taint_paths(session,"TAINT_SOURCE",
                                                  lambda x: x['Id'] in sinks,sinks_str)
         
+        # ensure that only DEP,SO, TAINT, RET are used to find those taint relationships
         taint_paths = list(filter(lambda x: all(rel["RelationType"] in ["SO","DEP","TAINT","RET"] or rel["RelationType"].startswith("ARG") \
                                                for rel in x["path"].relationships), taint_paths))
         
+        # mark the object as vulnerable if the attacker can have control over it
         for record in taint_paths:
             sink = record["sink"]["Id"]
             self.keys[sink].mark_as_vulnerable(sink,record)
 
+        # return the assignments that are vulnerable (i.e, attacker can control first lookup, second lookup and the assigment object)
         return list(filter(lambda x: x.is_vulnerable(), dangerous_assignments))
     
     def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
         print(f"[INFO] Running prototype pollution query: {self.queries[0][0]}")
         self.query.start_timer()
+
+        # identify the first lookup objects that the attacker can control over
         sub_objs = self.find_first_lookup_obj(session)
         detection_results = []
 
+        # connect this first lookup object to the second lookup object (they might go through call chains or function's return)
         dangerous_assignments,_ ,sinks= self.connect_to_second_lookup(session, generate_query_list_string(sub_objs))
-        print(f"[INFO] Running prototype pollution query: Checking taint paths")
 
-
+        if dangerous_assignments == []:
+            return vuln_paths
+        
+        # verify that the attcker has control over the first lookup, second lookup and the assigment object
+        print(f"[INFO] Running prototype pollution query: check_taint_paths")
         vulnerable_assignments = self.find_tainted_assignments(session, sinks,dangerous_assignments)
+
+        if vulnerable_assignments == []:
+            return vuln_paths
+        
+        # if there are any assignments that meet the above criteria, reporte them
         for assignment in vulnerable_assignments:
             print(f"[INFO] Running prototype pollution query: {self.queries[4][0]}")
             ast_results = session.run(get_ast_source_and_assignment(assignment.source, assignment.second_lookup_obj))

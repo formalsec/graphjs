@@ -1,6 +1,7 @@
-// tests if prototype pollution is detected if the property assignment is done in a function and the lookup is used as the argument
+// tests if prototype pollution is detected if the property assignment is done in called function 
+// and the lookup is used as the argument
 // further down the call chain
-// Vulnerability should be reported for line 14
+// Vulnerability should be reported for line 15
 function pollute (o, x, y, z) {
     var w = o[x];
     intermediate(w, y, z);

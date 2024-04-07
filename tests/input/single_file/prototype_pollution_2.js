@@ -1,4 +1,4 @@
-// direct prototype pollution but in a function
+// direct prototype pollution but in a called function
 // Vulnerability should be reported for line 10
 function f(x,y,z){
     g(x,y,z);
