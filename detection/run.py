@@ -13,7 +13,7 @@ from .queries.proto_pollution import PrototypePollution
 max_connection_tries = 3
 
 
-def traverse_graph(normalized_file, taint_summary_output, time_output_file, reconstruct_types=False, bolt_port=7687):
+def traverse_graph(source_file, taint_summary_output, time_output_file, reconstruct_types=False, bolt_port=7687):
     neo4j_connection_string = "bolt://127.0.0.1:" + str(bolt_port)
     config = utils.read_config()
     detection_file_name = f'{os.path.splitext(os.path.basename(taint_summary_output))[0]}_detection.json'
@@ -32,7 +32,7 @@ def traverse_graph(normalized_file, taint_summary_output, time_output_file, reco
                 time.sleep(30)
 
         if nr_tries == max_connection_tries:
-            sys.exit(f"Unable to connect to Neo4j instance: {e.code}")
+            sys.exit(f"Unable to connect to Neo4j instance: Max tries.")
 
         session = driver.session()
         vulnerable_paths = []
@@ -40,10 +40,13 @@ def traverse_graph(normalized_file, taint_summary_output, time_output_file, reco
         query = Query(reconstruct_types, time_output_file)
         query_types = [Injection(query), PrototypePollution(query)]
         for query_type in query_types:
-            query_type.find_vulnerable_paths(session, vulnerable_paths, normalized_file, detection_output, config)
+            query_type.find_vulnerable_paths(session, vulnerable_paths, source_file, detection_output, config)
 
         if len(vulnerable_paths) > 0:
             print(f'[INFO] Detected {len(vulnerable_paths)} vulnerabilities.')
+            # Path of the source file, relative to the location of the taint summary
+            relative_filepath = os.path.relpath(source_file, os.path.dirname(taint_summary_output))
+            [path.update({'filename': relative_filepath}) for path in vulnerable_paths]
             utils.save_output(vulnerable_paths, taint_summary_output)
         else:
             print(f'[INFO] No vulnerabilities detected.')

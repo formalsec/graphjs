@@ -42,7 +42,7 @@ class Injection:
     def __init__(self, query: Query):
         self.query = query
 
-    def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
+    def find_vulnerable_paths(self, session, vuln_paths, source_file, detection_output, config):
         print(f'[INFO] Running injection query.')
         self.query.start_timer()
         results = session.run(self.injection_query)
@@ -52,11 +52,11 @@ class Injection:
         for record in results:
             sink_name = record["sink"]["IdentifierName"]
             sink_lineno = json.loads(record["sink_ast"]["Location"])["start"]["line"]
-            sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
+            sink = my_utils.get_code_line_from_file(source_file, sink_lineno)
             vuln_path = {
                 "vuln_type": my_utils.get_injection_type(sink_name, config),
                 "sink": sink,
-                "sink_lineno": sink_lineno,
+                "sink_lineno": sink_lineno
             }
             my_utils.save_intermediate_output(vuln_path, detection_output)
             if not self.query.reconstruct_types and vuln_path not in vuln_paths:
@@ -70,15 +70,11 @@ class Injection:
                         "sink_obj": record["sink_cfg"],
                         "sink_lineno": sink_lineno,
                         "source_lineno": source_lineno,
-                        "sink_name": sink_name})
+                        "sink_name": sink_name
+                    }
+                )
         self.query.time_detection("injection")
 
-        # Run template query
-        '''
-        results = session.run(self.template_query)
-        for record in results:
-            print(record)
-        '''
         if self.query.reconstruct_types:
             print(f'[INFO] Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
