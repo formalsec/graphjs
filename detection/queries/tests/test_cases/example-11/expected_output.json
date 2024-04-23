@@ -1,0 +1,15 @@
+[
+  {
+    "call_paths": [[
+      {
+        "type": "New",
+        "fn_name": "f",
+        "prop": "prop"
+      },
+      {
+        "type": "Call",
+        "fn_name": "g"
+      }
+    ]]
+  }
+]

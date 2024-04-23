@@ -1,0 +1,20 @@
+[
+  {
+    "call_paths": [[
+      {
+        "type": "Call",
+        "fn_name": "f"
+      },
+      {
+        "type": "Method",
+        "fn_name": "g",
+        "prop": "prop"
+      },
+      {
+        "type": "Method",
+        "fn_name": "h",
+        "prop": "croc"
+      }
+    ]]
+  }
+]

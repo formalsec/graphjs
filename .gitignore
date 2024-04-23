@@ -16,7 +16,8 @@ neo4j-custom/neo4j_import.txt
 neo4j-custom/import-files/*
 
 graphjs-results
-import.report 
+import.report
+detection/queries/tests/output
 
 __pycache__/
 venv/

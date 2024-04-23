@@ -1,0 +1,11 @@
+[
+  {
+    "call_paths": [[
+      {
+        "type": "Method",
+        "fn_name": "f",
+        "prop": "prop"
+      }
+    ]]
+  }
+]

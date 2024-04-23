@@ -1,0 +1,8 @@
+[{
+  "call_paths": [[
+    {
+      "type": "Call",
+      "fn_name": "f"
+    }
+  ]]
+}]
