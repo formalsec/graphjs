@@ -9,11 +9,12 @@ graphjs = os.path.join(graphjs_path, 'graphjs.py')
 sys.path.append(graphjs_path)
 
 
-def compare_call_paths(call_path1, call_path2):
-    for call1 in call_path1:
-        for call2 in call_path2:
-            if not call1["type"] == call2["type"] or not call2["fn_name"] in call1["fn_name"]:
-                return False
+def compare_call_paths(self, call_path1, call_path2):
+    if len(call_path1) != len(call_path2):
+        return False
+    for call1, call2 in zip(call_path1, call_path2):
+        if not call1["type"] == call2["type"] or not call2["fn_name"] in call1["fn_name"]:
+            return False
     return True
 
 
@@ -30,12 +31,12 @@ def check_call_paths(self, expected_output_file, test_output_file):
             for expected_call in expected_call_path:
                 correct = False
                 for result_call in test_call_path:
-                    if compare_call_paths(expected_call, result_call):
+                    if compare_call_paths(self, expected_call, result_call):
                         correct = True
                 if correct:
                     correct_call_paths += 1
 
-            self.assertEqual(correct_call_paths, len(expected_call_path))
+            self.assertEqual(len(expected_call_path), correct_call_paths)
 
 
 def run_graphjs(test_filename, output_dir):
@@ -96,7 +97,6 @@ class TestCallPath(unittest.TestCase):
     def test_simple_top_level_call(self):
         run_graphjs("test_cases/example-13/test.js", "./output/example-13")
         check_call_paths(self, "test_cases/example-13/expected_output.json", "./output/example-13/taint_summary.json")
-
 
 
 if __name__ == '__main__':

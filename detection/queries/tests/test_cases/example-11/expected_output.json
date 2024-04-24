@@ -3,12 +3,12 @@
     "call_paths": [[
       {
         "type": "New",
-        "fn_name": "f",
-        "prop": "prop"
+        "fn_name": "F"
       },
       {
-        "type": "Call",
-        "fn_name": "g"
+        "type": "Method",
+        "fn_name": "g",
+        "prop": "g"
       }
     ]]
   }

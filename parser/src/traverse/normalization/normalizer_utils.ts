@@ -1154,7 +1154,8 @@ export function normObjectExpression(obj: ObjectExpression, children: Normalizat
         };
     }
 
-    if (parent?.type === "Property" || (parent?.type === "AssignmentExpression" && parent.left.type === "MemberExpression")) {
+    if (parent?.type === "Property" || (parent?.type === "AssignmentExpression" && parent.left.type === "MemberExpression") ||
+        parent.type === "ReturnStatement") {
         const { id, decl } = createVariableDeclaration(createEmptyObject(), obj.loc);
         const newAssignments: ExpressionStatement[] = [];
         // push declarations for each property using accesses to new variable
