@@ -5,7 +5,7 @@ from typing import TypedDict, Optional, NotRequired
 
 class CallType(TypedDict):
     type: Optional[str]
-    prop: NotRequired[str]
+    prop: NotRequired[Optional[str]]
     fn_name: Optional[str]
     fn_id: int
 
@@ -13,6 +13,8 @@ class CallType(TypedDict):
 class Function(TypedDict):
     id: int
     name: str
+    prop: Optional[str]
+    is_function: bool
 
 
 class FunctionArgs(TypedDict):
@@ -67,31 +69,35 @@ def check_if_function_is_property_exported(obj_id):
         """
 
 
-def check_if_function_is_direct_call(obj_id):
+# This query checks if the function identified with node <obj_id> is returned
+# by another function
+def function_is_returned(obj_id):
     return f"""
-        // Get function pattern
+        // Check if function is returned as direct function
         MATCH
-            ({{Id: "{obj_id}"}})-[ref:REF]->(obj:PDG_OBJECT)
-        WHERE ref.RelationType = "obj"
-        RETURN distinct obj.IdentifierName as fn_node_id
-    """
-
-
-def check_if_function_is_property_call(obj_id):
-    return f"""
-        // Match function pattern
+            (origin {{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]
+                ->(obj:PDG_OBJECT)
+                    <-[ret:REF]-(node)
+        RETURN distinct obj.IdentifierName as obj_name, null as prop_name,
+        obj.IdentifierName as fn_node_id, 0 as is_function,
+            node.Id as source_obj_id
+        UNION
+        // Check if function is returned via property 
         MATCH
-            ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
-                -[dep:PDG]->(sub_obj:PDG_OBJECT)
-                    <-[so:PDG]-(obj:PDG_OBJECT)
-                        <-[nv:PDG]-(parent_obj:PDG_OBJECT)
-        WHERE ref.RelationType = "obj"
+            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]
+                ->(obj:PDG_OBJECT)
+                    -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                        <-[so:PDG]-(fn_obj:PDG_OBJECT)
+                            <-[nv:PDG]-(parent_obj:PDG_OBJECT)
+        WHERE so.RelationType = "SO"
         AND dep.RelationType = "DEP" 
-        AND so.RelationType = "SO"
         AND nv.RelationType = "NV"
+        MATCH
+            (fn_obj:PDG_OBJECT)<-[ret:REF]-(node)
+        WHERE ret.RelationType = "return"
         // Get the AST origin node of the exported function (to get the location and Id)
         OPTIONAL MATCH
-            (obj:PDG_OBJECT)<-[nv:PDG*0..]-(origin_version_obj:PDG_OBJECT)
+            (parent_obj:PDG_OBJECT)<-[nvs:PDG*0..]-(origin_version_obj:PDG_OBJECT)
                 <-[origin_obj:REF]-(origin_obj_ast)
         WHERE origin_obj.RelationType = "obj"
         // Check if the object is a function or an object (to detect classes)
@@ -99,28 +105,7 @@ def check_if_function_is_property_call(obj_id):
             (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
         RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
             fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
-            origin_obj_ast.Id as source_obj_id
-        """
-
-
-def get_function_identifier(fn_id):
-    return f"""
-        MATCH
-            ({{Id: "{fn_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
-        WHERE ref.RelationType = "obj"
-        RETURN distinct fn_obj.IdentifierName as id
-    """
-
-
-# This query checks if the function identified with node <obj_id> is returned
-# by another function
-def function_is_returned(obj_id):
-    return f"""
-        MATCH
-            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]
-                ->(obj:PDG_OBJECT)
-                    <-[ret:REF]-(node)
-        RETURN distinct node 
+            node.Id as source_obj_id
     """
 
 
@@ -131,22 +116,11 @@ def function_is_returned(obj_id):
 # function is used as an argument of a function call
 # Detected cases: then() in promises
 def function_is_called(obj_id):
-    print("obj_id", obj_id)
     return f"""
         MATCH
             (source)-[def:FD]->(fn_def)
                  -[path:CFG*1..]->()
                     -[:CG*1]->({{Id: "{obj_id}"}})
-        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
-        RETURN distinct source as node
-        UNION
-        MATCH
-            (source)-[def:FD]->(fn_def)
-                 -[path:CFG*1..]->()
-                    -[ref:REF*0..1]->(fn_obj:PDG_OBJECT)
-                        <-[dep:PDG {{RelationType: "DEP"}}]-()
-                            <-[obj:REF {{RelationType: "obj"}}]
-                            -({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
     """
@@ -190,18 +164,13 @@ def get_exported_type(session, function_id: int) -> Optional[list[CallType]]:
     return None
 
 
-def get_return_type(session, function_id: int) -> Optional[CallType]:
-    direct_function = session.run(check_if_function_is_direct_call(function_id)).single()
-    if direct_function is not None:
-        return {'type': 'Call', 'fn_name': direct_function["fn_node_id"], 'fn_id': function_id}
-    property_function = session.run(check_if_function_is_property_call(function_id)).single()
-    if property_function is not None:
-        if not property_function["is_function"]:
-            return {'type': 'Method', 'prop': property_function["prop_name"], 'fn_name': property_function["fn_node_id"],
-                 'fn_id': function_id}
-        else:
-            return {'type': 'New', 'fn_name': property_function["obj_name"], 'fn_id': property_function["source_obj_id"]}
-
+def get_return_type(returner: Function) -> Optional[CallType]:
+    if returner["prop"] is None:
+        return {'type': 'Call', 'fn_name': returner["name"], 'fn_id': returner["id"]}
+    elif returner["prop"] is not None and returner["is_function"]:
+        return {'type': 'New', 'fn_name': returner["name"], 'fn_id': returner["id"], 'prop': returner["prop"]}
+    elif returner["prop"] is not None:
+        return {'type': 'Method', 'fn_name': returner["name"], 'fn_id': returner["id"], 'prop': returner["prop"]}
     return None
 
 
@@ -213,7 +182,7 @@ def find_callers(session, function_id: int) -> list[Function]:
 
 # This function returns the functions that return a function given as argument
 def find_returners(session, function_id: int) -> list[Function]:
-    return [{'id': int(fn["node"]["Id"]), 'name': fn["node"]["IdentifierName"]}
+    return [{'id': int(fn["source_obj_id"]), 'name': fn["obj_name"], 'prop': fn["prop_name"], 'is_function': fn["is_function"]}
             for fn in session.run(function_is_returned(function_id))]
 
 
@@ -221,7 +190,6 @@ def find_returners(session, function_id: int) -> list[Function]:
 def find_call_path(session, function_id: int) -> list[list[CallType]]:
     # Get function type
     fn_type: Optional[list[CallType]] = get_exported_type(session, function_id)
-    print(fn_type)
     # If function is exported, return the exported type
     if fn_type is not None:
         return [fn_type]
@@ -229,18 +197,16 @@ def find_call_path(session, function_id: int) -> list[list[CallType]]:
         call_paths: list[list[CallType]] = []
         # Get functions that call the current function (replace in call path)
         callers: list[Function] = find_callers(session, function_id)
-        print("Callers: ", callers)
         for caller in callers:
             cur_call_paths = find_call_path(session, caller['id'])
             call_paths += cur_call_paths
 
         # Get functions that return the current function (extend call path)
         returners: list[Function] = find_returners(session, function_id)
-        print("Returners: ", returners)
         for returner in returners:
             cur_call_paths = find_call_path(session, returner['id'])
             # For returns, we need to know the type (to extend)
-            return_type: CallType = get_return_type(session, function_id)
+            return_type: CallType = get_return_type(returner)
             cur_call_paths = extend_call_path(cur_call_paths, return_type)
             call_paths += cur_call_paths
     return call_paths

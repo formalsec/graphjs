@@ -13,7 +13,7 @@ def compare_call_paths(self, call_path1, call_path2):
     if len(call_path1) != len(call_path2):
         return False
     for call1, call2 in zip(call_path1, call_path2):
-        if not call1["type"] == call2["type"] or not call2["fn_name"] in call1["fn_name"]:
+        if not call1["type"] == call2["type"] or not call1["fn_name"] in call2["fn_name"]:
             return False
     return True
 
@@ -24,18 +24,13 @@ def check_call_paths(self, expected_output_file, test_output_file):
         expected_output = json.load(f1)
         with open(test_output_file, "r") as f2:
             test_output = json.load(f2)
-            test_call_path = expected_output[0]["call_paths"]  # For now, only one vulnerability
-            expected_call_path = test_output[0]["call_paths"]  # For now, only one vulnerability
-
+            test_call_path = test_output[0]["call_paths"]  # For now, only one vulnerability
+            expected_call_path = expected_output[0]["call_paths"]  # For now, only one vulnerability
             correct_call_paths = 0
             for expected_call in expected_call_path:
-                correct = False
                 for result_call in test_call_path:
                     if compare_call_paths(self, expected_call, result_call):
-                        correct = True
-                if correct:
-                    correct_call_paths += 1
-
+                        correct_call_paths += 1
             self.assertEqual(len(expected_call_path), correct_call_paths)
 
 
