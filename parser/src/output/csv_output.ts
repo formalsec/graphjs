@@ -43,6 +43,7 @@ export class CSVOutput extends OutputWriter {
                 case "CFG_F_END":
                 case "CFG_IF_END":
                 case "TAINT_SINK":
+                case "TAINT_SOURCE":
                     n.push(node.identifier);
                     break;
 

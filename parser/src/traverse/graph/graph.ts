@@ -62,6 +62,7 @@ export class Graph {
     addTaintNode(): GraphNode {
         const id = this.nodeCounter++;
         const node = new GraphNode(id, "TAINT_SOURCE", { type: "TAINT" });
+        node.identifier = "TAINT_SOURCE";
         this.nodes.set(id, node);
         this._taintNode = id;
         return node;

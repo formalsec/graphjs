@@ -312,7 +312,6 @@ class PrototypePollution:
 
         # identify the first lookup objects that the attacker can control over
         sub_objs = self.find_first_lookup_obj(session)
-        detection_results = []
 
         # connect this first lookup object to the second lookup object (they might go through call chains or function's return)
         dangerous_assignments,_ ,sinks= self.connect_to_second_lookup(session, generate_query_list_string(sub_objs))
@@ -345,31 +344,7 @@ class PrototypePollution:
                 my_utils.save_intermediate_output(vuln_path, detection_output)
                 if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                     vuln_paths.append(vuln_path)
-                else:
-                    source_cfg = ast_result["source_cfg"]
-                    source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
-                    detection_results.append({
-                        "sink_obj": ast_result["assignment_cfg"],
-                        "sink_lineno": sink_lineno,
-                        "source_lineno": source_lineno,
-                        "sink_name": sink
-                        }
-                    )
-
+                
         self.query.time_detection("proto_pollution")
-
-        if self.query.reconstruct_types:
-            print(f'[INFO] Prototype Pollution - Reconstructing attacker-controlled data.')
-            for detection_result in detection_results:
-                detection_objs = structure_queries.get_source(
-                    session, detection_result["sink_obj"], detection_result["sink_lineno"],
-                    detection_result["source_lineno"], detection_result["sink"],
-                    "prototype-pollution", config)
-
-                for detection_obj in detection_objs:
-                    if detection_obj not in vuln_paths:
-                        vuln_paths.append(detection_obj)
-
-            self.query.time_reconstruction("proto_pollution")
 
         return vuln_paths

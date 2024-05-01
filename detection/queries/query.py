@@ -19,7 +19,7 @@ class Query:
 	def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
 		pass
 
-	def taint_query(self,session,identifier="",type="",sinks="[]"):
+	def taint_query(self,session,identifier,sinks="[]"):
 		taint_query = f"""
 			MATCH path = 
 				(start)
@@ -27,37 +27,15 @@ class Query:
 						->(sink)
 				
 			WHERE
-				(start.IdentifierName = \"{identifier}\" OR start.Type="{type}") AND
-				(sink.Id IN {sinks} OR sink.Type="PDG_RETURN" OR sink.Type="PDG_CALL" OR
-				sink.Type="TAINT_SINK")
-			
+				(start.IdentifierName = \"{identifier}\") AND
+				(sink.Id IN {sinks} OR sink.Type IN ["PDG_RETURN","PDG_CALL","TAINT_SINK"])
+
 			OPTIONAL MATCH
 				(start)
 					-[call_edges:PDG*1..]
 						->(path_call:PDG_CALL)
 				WHERE
-					LAST(call_edges) IN path_edges AND
-					(start.IdentifierName = \"{identifier}\" OR start.Type=\"{type}\")
-
-			OPTIONAL MATCH
-				(start)
-					-[other_call_edges:PDG*1..]
-						->(other_call:PDG_CALL)
-				WHERE
-					NOT other_call IN nodes(path) AND
-					(start.IdentifierName = \"{identifier}\" OR start.Type=\"{type}\")
-
-			OPTIONAL MATCH  
-				(source_cfg)
-					-[param_ref:REF]
-						->(param),
-
-				(source_cfg)
-					-[:AST]
-						->(source_ast)
-				WHERE
-					param_ref.RelationType = "param" AND
-					param in nodes(path)
+					LAST(call_edges) IN path_edges
 
 			OPTIONAL MATCH  
 				(sink_cfg)
@@ -68,16 +46,16 @@ class Query:
 					-[:AST]
 						->(sink_ast)
 			
-			RETURN collect(LAST(call_edges)) as path_calls,source_cfg,source_ast,sink,sink_ast,path,sink_cfg,param,start;
+			RETURN collect(LAST(call_edges)) as path_calls,sink,sink_ast,path,sink_cfg,start;
 		"""
 
 		return session.run(taint_query)
 
-	def find_taint_paths(self,session,start,is_sink=lambda x: x["Type"] == "TAINT_SINK",sinks="[]"):
+	def find_taint_paths(self,session,start,is_sink=lambda x: x["Type"] == "TAINT_SINK",sinks="[]",callChain=set()):
 		results = []
 		vulnerable_paths = []
 		if(start == "TAINT_SOURCE"):
-			results = self.taint_query(session,type="TAINT_SOURCE",sinks=sinks)
+			results = self.taint_query(session,identifier="TAINT_SOURCE",sinks=sinks)
 		else:
 			results = self.taint_query(session,identifier=start,sinks=sinks)
 
@@ -88,7 +66,7 @@ class Query:
 				arg = call["RelationType"]
 				arg = arg[arg.find("(")+1:arg.find(")")]
 				if not arg in self.callInfo: # haven't checked this arg before
-					new_paths,callTaintPropagation = self.find_taint_paths(session,arg,is_sink,sinks) if arg != start else ([],False) # avoid infinite recursion
+					new_paths,callTaintPropagation = self.find_taint_paths(session,arg,is_sink,sinks,callChain=callChain.union([arg])) if not arg in callChain else ([],False) # avoid infinite recursion
 					vulnerable_paths += new_paths
 					if not callTaintPropagation:
 						valid = False
