@@ -19,6 +19,8 @@ def traverse_graph(source_file, taint_summary_output, time_output_file, reconstr
     detection_file_name = f'{os.path.splitext(os.path.basename(taint_summary_output))[0]}_detection.json'
     detection_output = os.path.join(os.path.dirname(taint_summary_output), detection_file_name)
     utils.init_intermediate_output(detection_output)
+    # Path of the source file, relative to the location of the taint summary
+    relative_filepath = str(os.path.relpath(source_file, os.path.dirname(taint_summary_output)))
 
     with GraphDatabase.driver(neo4j_connection_string, auth=(constants.NEO4J_USER, constants.NEO4J_PASSWORD)) as driver:
         nr_tries = 0
@@ -40,13 +42,10 @@ def traverse_graph(source_file, taint_summary_output, time_output_file, reconstr
         query = Query(reconstruct_types, time_output_file)
         query_types = [Injection(query), PrototypePollution(query)]
         for query_type in query_types:
-            query_type.find_vulnerable_paths(session, vulnerable_paths, source_file, detection_output, config)
+            query_type.find_vulnerable_paths(session, vulnerable_paths, source_file, relative_filepath, detection_output, config)
 
         if len(vulnerable_paths) > 0:
             print(f'[INFO] Detected {len(vulnerable_paths)} vulnerabilities.')
-            # Path of the source file, relative to the location of the taint summary
-            relative_filepath = os.path.relpath(source_file, os.path.dirname(taint_summary_output))
-            [path.update({'filename': relative_filepath}) for path in vulnerable_paths]
             utils.save_output(vulnerable_paths, taint_summary_output)
         else:
             print(f'[INFO] No vulnerabilities detected.')

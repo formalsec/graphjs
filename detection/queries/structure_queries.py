@@ -1,25 +1,23 @@
 import json
+
+from .query import DetectionResult
 from .query_type import get_obj_recon_queries, assign_types
 from typing import TypedDict, Optional, NotRequired
 
 
-class CallType(TypedDict):
+class Call(TypedDict):
     type: Optional[str]
-    prop: NotRequired[Optional[str]]
+    prop: NotRequired[str]
     fn_name: Optional[str]
     fn_id: int
-
-
-class Function(TypedDict):
-    id: int
-    name: str
-    prop: Optional[str]
-    is_function: bool
 
 
 class FunctionArgs(TypedDict):
     name: str
     args: object
+
+class SourceInfo(TypedDict):
+
 
 
 def check_if_function_is_directly_exported(obj_id):
@@ -138,7 +136,7 @@ def get_parent_function(obj_id):
     """
 
 
-def extend_call_path(call_path_list: list[list[CallType]], new_call: CallType) -> list[list[CallType]]:
+def extend_call_path(call_path_list: list[list[Call]], new_call: Call) -> list[list[Call]]:
     extended_call_path_list = []
     for call_path in call_path_list:
         call_path.append(new_call)
@@ -148,73 +146,77 @@ def extend_call_path(call_path_list: list[list[CallType]], new_call: CallType) -
 
 # This function checks if the function given as argument is exported (either
 # directly, via new, or via a method).
-def get_exported_type(session, function_id: int) -> Optional[list[CallType]]:
+def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
     direct_function = session.run(check_if_function_is_directly_exported(function_id)).single()
     if direct_function is not None:
         return [{'type': 'Call', 'fn_name': direct_function["fn_node_id"], 'fn_id': function_id}]
     property_function = session.run(check_if_function_is_property_exported(function_id)).single()
     if property_function is not None:
         if not property_function["is_function"]:
-            return [{'type': 'Method', 'prop': property_function["prop_name"], 'fn_name': property_function["fn_node_id"], 'fn_id': function_id}]
+            return [
+                {'type': 'Method', 'prop': property_function["prop_name"], 'fn_name': property_function["fn_node_id"],
+                 'fn_id': function_id}]
         else:
             return [
                 {'type': 'New', 'fn_name': property_function["obj_name"], 'fn_id': property_function["source_obj_id"]},
-                {'type': 'Method', 'prop': property_function["prop_name"], 'fn_name': property_function["fn_node_id"], 'fn_id': function_id}]
+                {'type': 'Method', 'prop': property_function["prop_name"], 'fn_name': property_function["fn_node_id"],
+                 'fn_id': function_id}]
 
     return None
 
 
-def get_return_type(returner: Function) -> Optional[CallType]:
-    if returner["prop"] is None:
-        return {'type': 'Call', 'fn_name': returner["name"], 'fn_id': returner["id"]}
-    elif returner["prop"] is not None and returner["is_function"]:
-        return {'type': 'New', 'fn_name': returner["name"], 'fn_id': returner["id"], 'prop': returner["prop"]}
-    elif returner["prop"] is not None:
-        return {'type': 'Method', 'fn_name': returner["name"], 'fn_id': returner["id"], 'prop': returner["prop"]}
+def get_return_type(returner) -> Optional[Call]:
+    if returner["prop_name"] is None:
+        return {'type': 'Call', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"]}
+    elif returner["prop_name"] is not None and returner["is_function"]:
+        return {'type': 'New', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"], 'prop': returner["prop_name"]}
+    elif returner["prop_name"] is not None:
+        return {'type': 'Method', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"], 'prop': returner["prop_name"]}
     return None
 
 
 # This function returns the functions that call a function given as argument
-def find_callers(session, function_id: int) -> list[Function]:
-    return [{'id': int(fn["node"]["Id"]), 'name': fn["node"]["IdentifierName"]}
-            for fn in session.run(function_is_called(function_id))]
+def find_callers(session, function_id: int) -> list[Call]:
+    return [
+        {'type': 'Call',
+         'fn_id': int(fn["node"]["Id"]),
+         'fn_name': fn["node"]["IdentifierName"]}
+        for fn in session.run(function_is_called(function_id))]
 
 
 # This function returns the functions that return a function given as argument
-def find_returners(session, function_id: int) -> list[Function]:
-    return [{'id': int(fn["source_obj_id"]), 'name': fn["obj_name"], 'prop': fn["prop_name"], 'is_function': fn["is_function"]}
-            for fn in session.run(function_is_returned(function_id))]
+def find_returners(session, function_id: int) -> list[Call]:
+    returners = session.run(function_is_returned(function_id))
+    return [get_return_type(returner) for returner in returners]
 
 
 # This function returns the call path from an exported function to the sink
-def find_call_path(session, function_id: int) -> list[list[CallType]]:
-    # Get function type
-    fn_type: Optional[list[CallType]] = get_exported_type(session, function_id)
+def find_call_path(session, function_id: int) -> list[list[Call]]:
+    # Check if function <function_id> is exported
+    call_type: Optional[list[Call]] = get_exported_type(session, function_id)
     # If function is exported, return the exported type
-    if fn_type is not None:
-        return [fn_type]
+    if call_type is not None:
+        return [call_type]
     else:
-        call_paths: list[list[CallType]] = []
-        # Get functions that call the current function (replace in call path)
-        callers: list[Function] = find_callers(session, function_id)
+        call_paths: list[list[Call]] = []
+        # Get functions that call the current function -> replace in call path
+        callers: list[Call] = find_callers(session, function_id)
         for caller in callers:
-            cur_call_paths = find_call_path(session, caller['id'])
+            cur_call_paths = find_call_path(session, caller['fn_id'])
             call_paths += cur_call_paths
 
-        # Get functions that return the current function (extend call path)
-        returners: list[Function] = find_returners(session, function_id)
+        # Get functions that return the current function -> extend call path
+        returners: list[Call] = find_returners(session, function_id)
         for returner in returners:
-            cur_call_paths = find_call_path(session, returner['id'])
-            # For returns, we need to know the type (to extend)
-            return_type: CallType = get_return_type(returner)
-            cur_call_paths = extend_call_path(cur_call_paths, return_type)
+            cur_call_paths = find_call_path(session, returner['fn_id'])
+            cur_call_paths = extend_call_path(cur_call_paths, returner)
             call_paths += cur_call_paths
     return call_paths
 
 
 # This functions returns a structure that maps the function names contained
 # in all call paths to its arguments and types
-def get_function_args(session, call_paths: list[list[CallType]], config):
+def get_function_args(session, call_paths: list[list[Call]], config) -> dict[FunctionArgs]:
     function_map: dict[FunctionArgs] = {}
     for call_path in call_paths:
         for call in call_path:
@@ -225,84 +227,41 @@ def get_function_args(session, call_paths: list[list[CallType]], config):
     return function_map
 
 
-# This function creates the exploit template
-# Gets the vulnerable call paths, and returns an auxiliary structure that maps
-# function names to its arguments and types
-def make_exploit_template(session, function_id: int, sink_lineno, sink_line_content, vuln_type, config):
-    # Find first level
-    fn_node = session.run(get_parent_function(function_id)).single()
+# This function generates the vulnerability info, which includes:
+# 1. Source and source line number
+# 2. Tainted Parameters
+# 3. Parameters' Type
+def get_vulnerability_info(session, detection_result: DetectionResult, config):
+    # Get call path
+    fn_node = session.run(get_parent_function(detection_result["sink_function"])).single()
     if not fn_node:
-        print("Unable to detect source function")
+        print("Unable to detect sink function.")
         return
 
-    call_paths: list[list[CallType]] = find_call_path(session, fn_node["node"]["Id"])
-    print(call_paths)
-    function_args = get_function_args(session, call_paths, config)
+    call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"])
+    function_args: dict[FunctionArgs] = get_function_args(session, call_paths, config)
 
-    return {
-        "vuln_type": vuln_type,
-        "sink": sink_line_content,
-        "sink_lineno": sink_lineno,
-        "call_paths": call_paths,
-        "function_args": function_args
-    }
+    taint_summary = build_taint_summary(detection_result, call_paths, function_args)
 
+    return taint_summary
 
-# This function gets the source object of the node sink_obj
-def get_source(session, sink_obj, sink_lineno, source_lineno, sink_name, vuln_type, config):
-    # Find first level
-    fn_node = session.run(get_parent_function(sink_obj.id)).single()
-    if not fn_node:
-        print("Unable to detect source function")
-        return
-
-    call_paths = make_exploit_template(session, sink_obj.id, sink_lineno, sink_name, vuln_type, config)
-    print(json.dumps(call_paths, indent=4))
-    return [call_paths]
-
-    # Contexts is an array of contexts (possible chains of functions)
-    # The first context is the base context (parent function of the sink)
-    contexts = [[create_context_obj(fn_node["node"], "base")]]
-    exported_fns = []  # This variable stores the exported functions
-
-    # Try to find outer contexts (go outwards until is exported)
-    while len(contexts) > 0:
-        # Get next possible context list
-        context = contexts.pop()
-        # Check if function is exported (directly or via an object property)
-        exported_fn = session.run(function_is_exported(context[0]['id'])).single()
-        if exported_fn:
-            source_lineno = json.loads(exported_fn["source"] or exported_fn["source_obj"])["start"]["line"]
-            exported_fn = add_to_exported_fns(session, exported_fn, context, sink_lineno, source_lineno,
-                                              sink_name, vuln_type, config)
-            exported_fns.append(exported_fn)
-        # If the function is not exported, it is a method of an exported function (instead of object) or it is a return
-        # of function. This may have different levels,
-        # e.g., a function returns a function that returns a function (2 levels)
-        else:
-            callee_nodes = session.run(function_is_called(context[0]['id'])).peek()
-            return_nodes = session.run(function_is_returned(context[0]['id'])).peek()
-
-            if callee_nodes is None and return_nodes is None:
-                print("Error", context)
-                exported_fns.append("Module not exported as expected.")
-                break
-
-            # If function is called by another function, replace last context with callee
-            if callee_nodes is not None:
-                for callee_node in callee_nodes:
-                    context[0] = create_context_obj(callee_node, "calls")
-                    contexts.append(context)
-
-            # If function is returned by another function, add parent function to the context stack
-            if return_nodes is not None:
-                # add to context and add to back of queue
-                for return_node in return_nodes:
-                    context.insert(0, create_context_obj(return_node, "returns"))
-                    contexts.append(context)
-    return exported_fns
+def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs]):
+    for call_path in call_paths:
+        # Get type of interaction protocol
+        outer_call: Call = call_path[0]
+        if outer_call["type"] == "Call": # Type is exported
+            source = "module.exports"
+        elif outer_call["type"] == "Method":
+            source = "module.exports" + outer_call["prop"]
+        elif outer_call["type"] == "New":
+            source = ?
 
 
+
+def get_type_call_path(call_path: list[Call]) -> str:
+
+
+'''
 # This function reconstructs the exported function
 # (takes into consideration returns and calls)
 def add_to_exported_fns(session, exported_fn, contexts, sink_lineno,
@@ -388,6 +347,7 @@ def create_reconstructed_base(session, fn_id, fn_name, config):
         "tainted_params": tainted_params,
         "params_types": params_types
     }
+'''
 
 
 def reconstruct_param_types(session, source_cfg_id, config):

@@ -42,7 +42,7 @@ class Injection:
     def __init__(self, query: Query):
         self.query = query
 
-    def find_vulnerable_paths(self, session, vuln_paths, source_file, detection_output, config):
+    def find_vulnerable_paths(self, session, vuln_paths, source_file, filename: str, detection_output, config):
         print(f'[INFO] Running injection query.')
         self.query.start_timer()
         results = session.run(self.injection_query)
@@ -53,37 +53,26 @@ class Injection:
             sink_name = record["sink"]["IdentifierName"]
             sink_lineno = json.loads(record["sink_ast"]["Location"])["start"]["line"]
             sink = my_utils.get_code_line_from_file(source_file, sink_lineno)
+            vuln_type = my_utils.get_injection_type(sink_name, config),
             vuln_path = {
-                "vuln_type": my_utils.get_injection_type(sink_name, config),
+                "filename": filename,
+                "vuln_type": vuln_type,
                 "sink": sink,
-                "sink_lineno": sink_lineno
+                "sink_lineno": sink_lineno,
+                "sink_function": record["sink_cfg"]["Id"]
             }
             my_utils.save_intermediate_output(vuln_path, detection_output)
             if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                 vuln_paths.append(vuln_path)
             elif self.query.reconstruct_types:
-                source_ast = record["source_ast"]
-                source_lineno = json.loads(source_ast["Location"])["start"]["line"]
-                detection_results.append(
-                    {
-                        "vuln_type": my_utils.get_injection_type(sink_name, config),
-                        "sink_obj": record["sink_cfg"],
-                        "sink_lineno": sink_lineno,
-                        "source_lineno": source_lineno,
-                        "sink_name": sink_name
-                    }
-                )
+                detection_results.append(vuln_path)
         self.query.time_detection("injection")
 
         if self.query.reconstruct_types:
             print(f'[INFO] Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
-                detection_objs = structure_queries.get_source(
-                    session, detection_result["sink_obj"], detection_result["sink_lineno"],
-                    detection_result["source_lineno"], detection_result["sink_name"],
-                    detection_result["vuln_type"], config)
-
-                for detection_obj in detection_objs:
+                vulnerabilities = structure_queries.get_vulnerability_info(session, detection_result, config)
+                for detection_obj in vulnerabilities:
                     if detection_obj not in vuln_paths:
                         vuln_paths.append(detection_obj)
             self.query.time_reconstruction("injection")

@@ -146,7 +146,7 @@ class PrototypePollution:
     def __init__(self, query: Query):
         self.query = query
 
-    def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
+    def find_vulnerable_paths(self, session, vuln_paths, vuln_file, filename: str, detection_output, config):
         print(f"[INFO] Running prototype pollution query: {self.queries[0][0]}")
         self.query.start_timer()
         pattern_results = session.run(self.queries[0][1])
@@ -208,7 +208,7 @@ class PrototypePollution:
         if self.query.reconstruct_types:
             print(f'[INFO] Prototype Pollution - Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
-                detection_objs = structure_queries.get_source(
+                detection_objs = structure_queries.get_vulnerability_info(
                     session, detection_result["sink_obj"], detection_result["sink_lineno"],
                     detection_result["source_lineno"], detection_result["sink"],
                     "prototype-pollution", config)

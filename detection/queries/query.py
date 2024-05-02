@@ -1,5 +1,14 @@
 from abc import abstractmethod
 import time
+from typing import TypedDict
+
+
+class DetectionResult(TypedDict):
+	filename: str
+	vuln_type: str
+	sink: str
+	sink_lineno: int
+	sink_function: int
 
 
 class Query:
@@ -13,7 +22,7 @@ class Query:
 		self.reconstruct_types = reconstruct_types
 
 	@abstractmethod
-	def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
+	def find_vulnerable_paths(self, session, detection_result: DetectionResult, config):
 		pass
 
 	# Timer related functions
