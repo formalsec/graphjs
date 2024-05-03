@@ -106,7 +106,8 @@ export function constructExportedObject(cpg:Graph,trackers:DependencyTracker){
                 let variable = trackers.variablesMap.get(result.identifier ?? "");
                 init = findDeclaration(variable,trackers,cpg)?.obj.init;
             }
-            exportedObject = constructObject(init,trackers,cpg,result.identifier ?? "");
+            if(init)
+                exportedObject = constructObject(init,trackers,cpg,result.identifier ?? "");
         }
 
     }
@@ -122,7 +123,9 @@ export function constructExportedObject(cpg:Graph,trackers:DependencyTracker){
                 let variable = trackers.variablesMap.get(result.identifier ?? "");
                 init = findDeclaration(variable,trackers,cpg)?.obj.init;
             }
-            exportedObject[prop] = constructObject(init,trackers,cpg,node.identifier ?? "");
+
+            if(init)
+                exportedObject[prop] = constructObject(init,trackers,cpg,node.identifier ?? "");
         }
 
 
@@ -140,8 +143,9 @@ export function constructExportedObject(cpg:Graph,trackers:DependencyTracker){
                 let variable = trackers.variablesMap.get(result.identifier ?? "");
                 init = findDeclaration(variable,trackers,cpg)?.obj.init;
             }
-
-            exportedObject[prop] = constructObject(init,trackers,cpg,node.identifier ?? "");
+            
+            if(init)
+                exportedObject[prop] = constructObject(init,trackers,cpg,node.identifier ?? "");
         }
     });
 
