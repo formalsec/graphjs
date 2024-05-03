@@ -65,6 +65,10 @@ class Query:
 			for call in result["path_calls"]:
 				arg = call["RelationType"]
 				arg = arg[arg.find("(")+1:arg.find(")")]
+
+				if arg == "self" or arg == "undefined":
+					continue
+
 				if not arg in self.callInfo: # haven't checked this arg before
 					new_paths,callTaintPropagation = self.find_taint_paths(session,arg,is_sink,sinks,callChain=callChain.union([arg])) if not arg in callChain else ([],False) # avoid infinite recursion
 					vulnerable_paths += new_paths

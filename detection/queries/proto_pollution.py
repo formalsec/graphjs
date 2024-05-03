@@ -64,19 +64,15 @@ def check_taint_sub_key(second_lookup_obj):
     """
 
 
-def get_ast_source_and_assignment(assignment_obj, second_lookup_obj):
+def get_ast_source_and_assignment(second_lookup_obj):
     return f"""
     MATCH
-        (source_cfg)
-            -[source_ref:REF]
-                ->(value),
         (assignment_cfg)
             -[assignment_ref:REF]
                 ->(property)
     WHERE
-        value.Id = \"{assignment_obj}\" AND
         property.Id = \"{second_lookup_obj}\"
-    RETURN distinct source_cfg, assignment_cfg
+    RETURN distinct assignment_cfg
     """
 
 def generate_query_list_string(objs,add_begin_end=True):
@@ -89,19 +85,13 @@ class DangerousAssignment:
     This class is used to keep track of the first lookup object, the assignment object and the second lookup object
     that are connected in the graph. If the attacker can control all three objects, then the object is marked as vulnerable
     """
-    def __init__(self, first_lookup_obj, assignment_obj, second_lookup_obj):
-        self.first_lookup_obj = first_lookup_obj
-        self.assignment_obj = assignment_obj
-        self.second_lookup_obj = second_lookup_obj
-        self.info = {self.first_lookup_obj: False, self.assignment_obj: False, self.second_lookup_obj: False}
-        self.source = None
+    def __init__(self,record, *keys):
+        self.info = {key:False for key in keys}
+        self.record = record
  
-    def mark_as_vulnerable(self,keyId,record):
+    def mark_as_vulnerable(self,keyId):
         # marks one the the objects in the assignment as vulnerable
         self.info[keyId] = True
-        if keyId == self.second_lookup_obj:
-            self.source = record["start"]["Id"] if record["start"]["Type"] != "TAINT_SOURCE" \
-                        else record["path"].nodes[1]["Id"]
 
 
     def is_vulnerable(self):
@@ -110,34 +100,17 @@ class DangerousAssignment:
     
     def generate_query_list_string(self):
         # generates a string that can be used in a query
-        return generate_query_list_string([self.first_lookup_obj,self.assignment_obj,self.second_lookup_obj],
+        return generate_query_list_string(list(self.info.keys()),
                                            add_begin_end=False)
     
     def __repr__(self) -> str:
-        return f"First Lookup: {self.first_lookup_obj}, Assignment: {self.assignment_obj}, Second Lookup: {self.second_lookup_obj}"
+        return f"Assignment: {self.info}"
 
 
 class PrototypePollution:
-    first_lookup_obj = ""
-    assignment_obj = ""
-    second_lookup_obj = ""
 
     """
     Prototype Pollution Queries
-    """
-    check_lookup_pattern = """
-        MATCH
-            (sub_obj:PDG_OBJECT)
-                -[nv:PDG]
-                    ->(nv_sub_obj:PDG_OBJECT)
-                        -[second_lookup:PDG]
-                            ->(property:PDG_OBJECT)
-        WHERE
-            nv.RelationType = "NV" AND
-            nv.IdentifierName = "*" AND
-            second_lookup.RelationType = "SO" AND
-            second_lookup.IdentifierName = "*"
-        RETURN distinct sub_obj, nv_sub_obj, property
     """
     
     """
@@ -146,6 +119,113 @@ class PrototypePollution:
     is well parsed the false negative rate will be close to 0.
     """
 
+
+    def __init__(self, query: Query):
+        self.query = query
+        self.keys = {}
+
+    def check_lookup_pattern(self, session):
+
+        check_lookup_pattern_query = """
+            MATCH
+                (obj:PDG_OBJECT)
+                    -[first_lookup:PDG]
+                        ->(sub_obj:PDG_OBJECT),
+
+                (property1:PDG_OBJECT)
+                    -[dep1:PDG]
+                        ->(sub_obj)
+            WHERE
+                first_lookup.RelationType = "SO" AND
+                first_lookup.IdentifierName = "*" AND
+                dep1.RelationType = "DEP"
+
+            MATCH
+                (sub_obj)
+                    -[nv:PDG]
+                        ->(nv_sub_obj:PDG_OBJECT)
+                            -[second_lookup:PDG]
+                                ->(property:PDG_OBJECT),
+                
+                (property2:PDG_OBJECT)
+                    -[dep2:PDG]
+                        ->(nv_sub_obj), 
+
+                (value:PDG_OBJECT)
+                    -[dep3:PDG]
+                        ->(property)     
+            
+            WHERE
+                nv.RelationType = "NV" AND
+                nv.IdentifierName = "*" AND
+                second_lookup.RelationType = "SO" AND
+                second_lookup.IdentifierName = "*" AND
+                dep2.RelationType = "DEP" AND
+                dep3.RelationType = "DEP"
+        RETURN distinct property1, property2, value,property
+
+        UNION
+        MATCH
+            (obj:PDG_OBJECT)
+                -[first_lookup:PDG]
+                    ->(sub_obj:PDG_OBJECT)
+                        -[arg:PDG]
+                            ->(call:PDG_CALL)
+                                -[:CG]
+                                    ->(func:VariableDeclarator)
+                                        -[param_ref:REF]
+                                            ->(param:PDG_OBJECT)
+                                                -[nv:PDG]
+                                                    ->(nv_sub_obj:PDG_OBJECT)
+                                                        -[second_lookup:PDG]
+                                                            ->(property:PDG_OBJECT),
+
+            (property1:PDG_OBJECT)
+                -[dep1:PDG]
+                    ->(sub_obj),
+            
+            (property2:PDG_OBJECT)
+                -[dep2:PDG]
+                    ->(nv_sub_obj), 
+
+            (value:PDG_OBJECT)
+                -[dep3:PDG]
+                    ->(property)  
+
+        WHERE
+            first_lookup.RelationType = "SO" AND
+            first_lookup.IdentifierName = "*" AND
+            nv.RelationType = "NV" AND
+            nv.IdentifierName = "*" AND
+            second_lookup.RelationType = "SO" AND
+            second_lookup.IdentifierName = "*" AND
+            param.IdentifierName = substring(arg.RelationType,4,size(arg.RelationType)-5) AND
+            dep1.RelationType = "DEP" AND
+            dep2.RelationType = "DEP" AND
+            dep3.RelationType = "DEP"
+        RETURN distinct property1, property2, value,property
+        """
+
+        results = session.run(check_lookup_pattern_query)
+        sinks = set()
+        possible_assignments = []
+
+        for record in results:
+            property1 = record["property1"]["Id"]
+            property2 = record["property2"]["Id"]
+            value = record["value"]["Id"]
+            assignment = DangerousAssignment(record,property1, value, property2)
+            possible_assignments.append(assignment)
+            sinks.add(property1)
+            sinks.add(value)
+            sinks.add(property2)
+            self.keys[property1] = assignment
+            self.keys[value] = assignment
+            self.keys[property2] = assignment
+
+
+        return sinks,possible_assignments
+        
     queries = [
         ("check_lookup_pattern", check_lookup_pattern),
         ("check_taint_key", check_taint_key),
@@ -153,138 +233,6 @@ class PrototypePollution:
         ("check_taint_sub_key", check_taint_sub_key),
         ("get_ast_source_and_assignment", get_ast_source_and_assignment),
     ]
-
-    def __init__(self, query: Query):
-        self.query = query
-        self.keys = {}
-
-    def find_first_lookup_obj(self, session):
-
-        first_lookup_query = """
-            MATCH
-                (obj:PDG_OBJECT)
-                    -[first_lookup:PDG]
-                        ->(sub_obj:PDG_OBJECT)
-            WHERE
-                first_lookup.RelationType = "SO" AND
-                first_lookup.IdentifierName = "*"
-            RETURN distinct sub_obj
-        """
-
-        results = session.run(first_lookup_query)
-
-        return [record["sub_obj"]["Id"] for record in results]
-        
-    def connect_to_second_lookup(self, session, startList,sub_obj=None):
-
-        def get_second_lookup_obj(startList):
-            ## This query will connect the first lookup object to the second lookup object
-            # We consider differnt variables for different cases. We always return distinct results
-            # Stoping cases:
-            #       PDG_OBJECT:
-            #           - Verifiy that edge is a NV edge and the IdentifierName is "*"
-            #           - second_lookup edge is a SO edge and the IdentifierName is "*"
-            #       PDG_CALL:
-            #           - Get the param in question, ensure that we have an ARG edge
-            #           - Get the return object, ensure that we have a RET edge
-            #       PDG_RETURN:
-            #           - Find that calls to that function which that return object corresponds
-            #           - Get the next object, ensure that we have a RET edge
-            connection_query = f"""
-                MATCH
-                    (start:PDG_OBJECT)
-                        -[edge:PDG]
-                            ->(end:PDG_OBJECT|PDG_RETURN|PDG_CALL)                
-                WHERE
-                    start.Id IN {startList}
-
-                OPTIONAL MATCH
-                    (end:PDG_CALL)
-                        -[:CG]
-                            ->(:VariableDeclarator)
-                                -[param_ref:REF]
-                                    ->(param:PDG_OBJECT),
-                    (end)
-                        -[ret:PDG]
-                            ->(ret_obj:PDG_OBJECT)
-                WHERE
-                    edge.RelationType CONTAINS "ARG" AND 
-                    edge.RelationType CONTAINS param.IdentifierName AND
-                    ret.RelationType = "RET"
-
-                OPTIONAL MATCH
-                    (end:PDG_OBJECT)
-                        -[second_lookup:PDG]
-                            ->(property:PDG_OBJECT)
-                WHERE
-                    second_lookup.RelationType = "SO" AND
-                    second_lookup.IdentifierName = "*"
-
-                OPTIONAL MATCH
-                    (call:PDG_CALL)
-                        -[:CG]
-                            ->(:VariableDeclarator)
-                                -[:REF|PDG*1..]
-                                    ->(end:PDG_RETURN),
-                    (call)
-                        -[return_edge:PDG]
-                            ->(next_obj:PDG_OBJECT)
-
-
-                WHERE
-                    return_edge.RelationType = "RET"
-                RETURN distinct *
-            """
-
-            return session.run(connection_query)
-        
-        dangerous_assignments = []
-        sinks = set()
-        results = get_second_lookup_obj(startList)
-        cont = False
-       
-        for record in results:
-
-            first_lookup_obj = sub_obj if sub_obj else record["start"]["Id"]
-            if record["end"]["Type"] == "PDG_OBJECT" and record["edge"]["RelationType"] == "NV" \
-                and record["edge"]["IdentifierName"] == "*":
-                assignment = DangerousAssignment(first_lookup_obj
-                                        , record["end"]["Id"], record["property"]["Id"])
-                dangerous_assignments.append(assignment)
-                self.keys[first_lookup_obj] = assignment
-                self.keys[record["end"]["Id"]] = assignment
-                self.keys[record["property"]["Id"]] = assignment
-                sinks.add(record["end"]["Id"])
-                sinks.add(record["property"]["Id"])
-                sinks.add(first_lookup_obj)
-
-
-
-            elif record["end"]["Type"] == "PDG_CALL":
-                other_assignments,cont,other_sinks = self.connect_to_second_lookup(session,
-                                                                       generate_query_list_string([record["param"]["Id"]]),
-                                                                       first_lookup_obj)
-                # called function's return object is directly connected to 
-                # the param in question (the caller's path needs to be continued)
-                if cont: 
-                    other_assignments,cont,other_sinks = self.connect_to_second_lookup(session, \
-                                                                       generate_query_list_string([record["ret_obj"]["Id"]]),
-                                                                       first_lookup_obj)
-                dangerous_assignments += other_assignments
-                sinks.update(other_sinks)
-
-            elif record["end"]["Type"] == "PDG_RETURN":
-                cont = True
-                if record["next_obj"]:
-                    other_assignments,cont,other_sinks = self.connect_to_second_lookup(session,
-                                                                       generate_query_list_string([record["next_obj"]["Id"]]),
-                                                                       first_lookup_obj)
-                    
-                    dangerous_assignments += other_assignments
-                    sinks.update(other_sinks)
-                    
-
-        return dangerous_assignments,cont,sinks
 
     def find_tainted_assignments(self, session, sinks,dangerous_assignments):
         sinks_str = "[" + ",".join([assignment.generate_query_list_string() for assignment in dangerous_assignments]) + "]"
@@ -294,14 +242,10 @@ class PrototypePollution:
         taint_paths,_ = self.query.find_taint_paths(session,"TAINT_SOURCE",
                                                  lambda x: x['Id'] in sinks,sinks_str)
         
-        # ensure that only DEP,SO, TAINT, RET are used to find those taint relationships
-        taint_paths = list(filter(lambda x: all(rel["RelationType"] in ["SO","DEP","TAINT","RET"] or rel["RelationType"].startswith("ARG") \
-                                               for rel in x["path"].relationships), taint_paths))
-        
         # mark the object as vulnerable if the attacker can have control over it
         for record in taint_paths:
             sink = record["sink"]["Id"]
-            self.keys[sink].mark_as_vulnerable(sink,record)
+            self.keys[sink].mark_as_vulnerable(sink)
 
         # return the assignments that are vulnerable (i.e, attacker can control first lookup, second lookup and the assigment object)
         return list(filter(lambda x: x.is_vulnerable(), dangerous_assignments))
@@ -310,26 +254,23 @@ class PrototypePollution:
         print(f"[INFO] Running prototype pollution query: {self.queries[0][0]}")
         self.query.start_timer()
 
-        # identify the first lookup objects that the attacker can control over
-        sub_objs = self.find_first_lookup_obj(session)
-
-        # connect this first lookup object to the second lookup object (they might go through call chains or function's return)
-        dangerous_assignments,_ ,sinks= self.connect_to_second_lookup(session, generate_query_list_string(sub_objs))
-
-        if dangerous_assignments == []:
+        # check if the graph has the pattern of prototype pollution
+        sinks,possible_assignments = self.check_lookup_pattern(session)
+       
+        if possible_assignments == []:
             return vuln_paths
         
         # verify that the attcker has control over the first lookup, second lookup and the assigment object
         print(f"[INFO] Running prototype pollution query: check_taint_paths")
-        vulnerable_assignments = self.find_tainted_assignments(session, sinks,dangerous_assignments)
+        vulnerable_assignments = self.find_tainted_assignments(session, sinks,possible_assignments)
 
         if vulnerable_assignments == []:
             return vuln_paths
         
-        # if there are any assignments that meet the above criteria, reporte them
+        # if there are any assignments that meet the above criteria, report them
         for assignment in vulnerable_assignments:
             print(f"[INFO] Running prototype pollution query: {self.queries[4][0]}")
-            ast_results = session.run(get_ast_source_and_assignment(assignment.source, assignment.second_lookup_obj))
+            ast_results = session.run(get_ast_source_and_assignment(assignment.record['property']['Id']))
             for ast_result in ast_results:
                 sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
                 sink_lineno = sink_location["start"]["line"]
