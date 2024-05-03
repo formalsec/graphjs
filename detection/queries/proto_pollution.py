@@ -91,7 +91,10 @@ class DangerousAssignment:
  
     def mark_as_vulnerable(self,keyId):
         # marks one the the objects in the assignment as vulnerable
-        self.info[keyId] = True
+        try:
+            self.info[keyId] = True
+        except KeyError:
+            pass
 
 
     def is_vulnerable(self):
@@ -122,7 +125,6 @@ class PrototypePollution:
 
     def __init__(self, query: Query):
         self.query = query
-        self.keys = {}
 
     def check_lookup_pattern(self, session):
 
@@ -219,9 +221,6 @@ class PrototypePollution:
             sinks.add(property1)
             sinks.add(value)
             sinks.add(property2)
-            self.keys[property1] = assignment
-            self.keys[value] = assignment
-            self.keys[property2] = assignment
 
 
         return sinks,possible_assignments
@@ -245,7 +244,8 @@ class PrototypePollution:
         # mark the object as vulnerable if the attacker can have control over it
         for record in taint_paths:
             sink = record["sink"]["Id"]
-            self.keys[sink].mark_as_vulnerable(sink)
+            for assignment in dangerous_assignments:
+                assignment.mark_as_vulnerable(sink)
 
         # return the assignments that are vulnerable (i.e, attacker can control first lookup, second lookup and the assigment object)
         return list(filter(lambda x: x.is_vulnerable(), dangerous_assignments))
@@ -260,16 +260,19 @@ class PrototypePollution:
         if possible_assignments == []:
             return vuln_paths
         
+        print(f"[INFO] Possible assignments: {possible_assignments}")
         # verify that the attcker has control over the first lookup, second lookup and the assigment object
         print(f"[INFO] Running prototype pollution query: check_taint_paths")
         vulnerable_assignments = self.find_tainted_assignments(session, sinks,possible_assignments)
+        print(f"[INFO][END] Possible assignments: {possible_assignments}")
+
 
         if vulnerable_assignments == []:
             return vuln_paths
         
         # if there are any assignments that meet the above criteria, report them
+        print(f"[INFO] Running prototype pollution query: {self.queries[4][0]}")
         for assignment in vulnerable_assignments:
-            print(f"[INFO] Running prototype pollution query: {self.queries[4][0]}")
             ast_results = session.run(get_ast_source_and_assignment(assignment.record['property']['Id']))
             for ast_result in ast_results:
                 sink_location = json.loads(ast_result["assignment_cfg"]["Location"])

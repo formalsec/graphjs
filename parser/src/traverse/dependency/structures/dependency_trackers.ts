@@ -787,7 +787,7 @@ export class DependencyTracker {
             ? matchTemporaryFunction.length > 0
             : false;
         const isTainted = !(isAnonymous && this.isInnerFunction(context));
-        this.addTaintedNodeEdge(nodeObj.id, stmtId, index,false);
+        this.addTaintedNodeEdge(nodeObj.id, stmtId, index,isTainted);
     }
 
     addTaintedNodeEdge(nodeId: number, stmtId: number, index: number, isTainted: boolean = true,createSourceEdge:boolean = true): void {

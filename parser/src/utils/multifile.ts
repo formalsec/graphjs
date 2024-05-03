@@ -100,7 +100,13 @@ export function constructExportedObject(cpg:Graph,trackers:DependencyTracker){
         let result = findDeclaration(trackers.moduleExportsIdentifier,trackers,cpg);
         
         if(result != undefined){
-            exportedObject = constructObject(result.obj.init,trackers,cpg,result.identifier);
+            let init = result.obj.init;
+
+            if(init == undefined){
+                let variable = trackers.variablesMap.get(result.identifier ?? "");
+                init = findDeclaration(variable,trackers,cpg)?.obj.init;
+            }
+            exportedObject = constructObject(init,trackers,cpg,result.identifier ?? "");
         }
 
     }
@@ -110,7 +116,13 @@ export function constructExportedObject(cpg:Graph,trackers:DependencyTracker){
         let result = findDeclaration(node.identifier,trackers,cpg);
         
         if(result != undefined){
-            exportedObject[prop] = constructObject(result.obj.init,trackers,cpg,node.identifier);
+            let init = result.obj.init;
+
+            if(init == undefined){
+                let variable = trackers.variablesMap.get(result.identifier ?? "");
+                init = findDeclaration(variable,trackers,cpg)?.obj.init;
+            }
+            exportedObject[prop] = constructObject(init,trackers,cpg,node.identifier ?? "");
         }
 
 
@@ -121,7 +133,15 @@ export function constructExportedObject(cpg:Graph,trackers:DependencyTracker){
         let result = findDeclaration(node.identifier,trackers,cpg);
         
         if(result != undefined){
-            exportedObject[prop] = constructObject(result.obj.init,trackers,cpg,node.identifier);
+
+            let init = result.obj.init;
+
+            if(init == undefined){
+                let variable = trackers.variablesMap.get(result.identifier ?? "");
+                init = findDeclaration(variable,trackers,cpg)?.obj.init;
+            }
+
+            exportedObject[prop] = constructObject(init,trackers,cpg,node.identifier ?? "");
         }
     });
 
