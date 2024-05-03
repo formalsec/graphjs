@@ -260,11 +260,9 @@ class PrototypePollution:
         if possible_assignments == []:
             return vuln_paths
         
-        print(f"[INFO] Possible assignments: {possible_assignments}")
         # verify that the attcker has control over the first lookup, second lookup and the assigment object
         print(f"[INFO] Running prototype pollution query: check_taint_paths")
         vulnerable_assignments = self.find_tainted_assignments(session, sinks,possible_assignments)
-        print(f"[INFO][END] Possible assignments: {possible_assignments}")
 
 
         if vulnerable_assignments == []:
