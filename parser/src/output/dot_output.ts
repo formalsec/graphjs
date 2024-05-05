@@ -107,6 +107,7 @@ function getEdgeLabel(e: GraphEdge) {
     switch (e.label) {
         case "NV":
         case "SO":
+        case "ARG":
         case "DEP": {
             label = `${e.label}(${e.objName})`;
             break;

@@ -63,10 +63,9 @@ class Query:
 		for result in results:
 			valid = True
 			for call in result["path_calls"]:
-				arg = call["RelationType"]
-				arg = arg[arg.find("(")+1:arg.find(")")]
+				arg = call["IdentifierName"]
 
-				if arg == "self" or arg == "undefined":
+				if arg == "this" or arg == "undefined":
 					continue
 
 				if not arg in self.callInfo: # haven't checked this arg before

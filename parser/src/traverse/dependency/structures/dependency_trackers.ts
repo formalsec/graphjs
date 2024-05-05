@@ -827,7 +827,7 @@ export class DependencyTracker {
                 .map(edge => edge.nodes[1]);
             functionParamNodes.forEach((paramNode: GraphNode, i: number) => {
                 // If a param does not have an origin, connect to taint source
-                this.addTaintedNodeEdge(paramNode.id, paramNode.functionNodeId, i,fnExpNode.exported,false);
+                this.addTaintedNodeEdge(paramNode.id, paramNode.functionNodeId, i)
             });
         })
     }

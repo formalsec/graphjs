@@ -167,20 +167,16 @@ class PrototypePollution:
         RETURN distinct property1, property2, value,property
 
         UNION
-        MATCH
+        MATCH pattern=  
             (obj:PDG_OBJECT)
                 -[first_lookup:PDG]
                     ->(sub_obj:PDG_OBJECT)
-                        -[arg:PDG]
-                            ->(call:PDG_CALL)
-                                -[:CG]
-                                    ->(func:VariableDeclarator)
-                                        -[param_ref:REF]
-                                            ->(param:PDG_OBJECT)
-                                                -[nv:PDG]
-                                                    ->(nv_sub_obj:PDG_OBJECT)
-                                                        -[second_lookup:PDG]
-                                                            ->(property:PDG_OBJECT),
+                        -[arg_edges:PDG|CG|REF*1..]
+                                ->(param:PDG_OBJECT)
+                                    -[nv:PDG]
+                                        ->(nv_sub_obj:PDG_OBJECT)
+                                            -[second_lookup:PDG]
+                                                ->(property:PDG_OBJECT),
 
             (property1:PDG_OBJECT)
                 -[dep1:PDG]
@@ -201,7 +197,8 @@ class PrototypePollution:
             nv.IdentifierName = "*" AND
             second_lookup.RelationType = "SO" AND
             second_lookup.IdentifierName = "*" AND
-            param.IdentifierName = substring(arg.RelationType,4,size(arg.RelationType)-5) AND
+            ALL(edge in arg_edges WHERE not edge.RelationType = "ARG" OR 
+                ANY(node in nodes(pattern) WHERE node.IdentifierName = edge.IdentifierName)) AND
             dep1.RelationType = "DEP" AND
             dep2.RelationType = "DEP" AND
             dep3.RelationType = "DEP"

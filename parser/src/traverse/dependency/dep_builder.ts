@@ -304,7 +304,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
 
                     }
 
-                    callNodeObj && trackers.graphCreateArgumentEdge(latestCalleeObj.id, callNodeObj.id,"ARG(self)");
+                    callNodeObj && trackers.graphCreateArgumentEdge(latestCalleeObj.id, callNodeObj.id,"ARG","this");
 
                 }
                 
@@ -323,7 +323,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
                 callArgumentLocations.forEach((location: number) => {
                     const callArgumentNode = trackers.graphGetNode(location);
                     if (callArgumentNode?.identifier) {
-                        callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,"ARG(undefined)");
+                        callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,"ARG","undefined");
                     }
                 });
             }
@@ -673,8 +673,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                         callArgumentLocations.forEach((location: number) => {
                             const callArgumentNode = trackers.graphGetNode(location);
                             if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                                let label = "ARG(" + calledArgNodes[i].identifier + ')';
-                                callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
+                                callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,"ARG",calledArgNodes[i].identifier);
                                 success = true;
                             }
                         });
@@ -723,8 +722,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
                             callArgumentNode = trackers.graphGetNode(callArgumentLocation)
                         }
                         if (callArgumentNode?.identifier && calledArgNodes.length > i) {
-                            let label = "ARG(" + calledArgNodes[i].identifier + ')';
-                            callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,label);
+                            callNodeObj && trackers.graphCreateArgumentEdge(callArgumentNode.id, callNodeObj.id,"ARG",calledArgNodes[i].identifier);
                             success = true;
                         }
                     });
