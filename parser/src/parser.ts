@@ -33,7 +33,7 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         let fileContent = fs.readFileSync(filename, "utf8");
         // Remove shebang line
         if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.replace(/^#!(.*\n)/, '\n');
-        
+
         // Parse AST
         const ast = esprima.parseModule(fileContent, { loc:true,tolerant: true });
         !silentMode && printStatus("AST Parsing");
@@ -131,14 +131,13 @@ function traverseDependecyGraph(depGraph: any,config:Config,normalizedOutputDir:
                         let params = funcGraph.edges.filter((e:GraphEdge) => e.label == "param").map((e:GraphEdge) => e.nodes[1]);
 
                         // connect object arguments to the parameters of the external function
-                        callNode.argsObjIDs.forEach((arg:number,index:number) => {
+                        callNode.argsObjIDs.forEach((args:number[],index:number) => {
                             
-                            if(arg != -1){ // if the argument is a constant its value is -1 (thus literals aren't considred here)
-                                
-                                let label = "ARG(" + params[index+1].identifier + ')';
-                                cpg.addEdge(arg,callNode.id,{type:"PDG",label:label});
-                            
-                            }   
+                            args.forEach((arg:number,index) => {
+                                if(arg != -1){ // if the argument is a constant its value is -1 (thus literals aren't considred here)
+                                    cpg.addEdge(arg,callNode.id, { type: "PDG", label: "ARG", objName: params[index+1].identifier });
+                                }   
+                            });
                         });
 
                         cpg.addEdge(callNode.id, funcGraph.id, { type: "CG", label: "CG" })

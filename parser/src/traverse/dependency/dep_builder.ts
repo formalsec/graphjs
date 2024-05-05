@@ -218,15 +218,16 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         callNodeObj.edges = callNode.edges;
         trackers.graphCreateCallEdge(callNodeObjId,calledFunc);
         trackers.addCallNode(callNodeObj);
-
+        let ids:number[] = []
         callNode.obj.arguments.forEach((arg: any, index: number) => {
             if (arg.type === "Identifier") {
                 const argLocation: number = trackers.storeGetObjectLocations(arg.name, callNode.functionContext).slice(-1)[0];
-                callNodeObj?.addArgsObjId(argLocation);
+                ids.push(argLocation);
             }
             else
-                callNodeObj?.addArgsObjId(-1);
+                ids.push(-1);
         });
+        callNodeObj.addArgsObjIds(ids);
     }
 
     let success:boolean = false;
