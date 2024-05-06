@@ -29,9 +29,16 @@ function constructObject(node:GraphNode,trackers:DependencyTracker,cpg:Graph,ide
                 // not a function (not in function context) so it might be an object, thus look for its declaration
                 // to check it
                 let objProp = findDeclaration(property.value.name,trackers,cpg);
+                
         
                 if(objProp != undefined){
-                    exportedObject[property.key.name] = constructObject(objProp.obj.init,trackers,cpg,property.value.name);
+                    let init = objProp.obj.init;
+                    if(init == undefined){
+                        let variable = trackers.variablesMap.get(objProp.identifier ?? "");
+                        init = findDeclaration(variable,trackers,cpg)?.obj.init;
+                    }
+                    if(init)
+                        exportedObject[property.key.name] = constructObject(init,trackers,cpg,property.value.name);
                 }
             }
         });
@@ -39,8 +46,16 @@ function constructObject(node:GraphNode,trackers:DependencyTracker,cpg:Graph,ide
         // some properties might be assigned to the object after its declaration
         findOtherProperties(identifier,trackers,cpg).forEach((newProp,propName) => {
             let newPropObj = findDeclaration(newProp,trackers,cpg);
-            if(newPropObj != undefined)
-                exportedObject[propName] = constructObject(newPropObj.obj.init,trackers,cpg,newProp);
+            if(newPropObj != undefined){
+                let init = newPropObj.obj.init;
+
+                if(init == undefined){
+                    let variable = trackers.variablesMap.get(newPropObj.identifier ?? "");
+                    init = findDeclaration(variable,trackers,cpg)?.obj.init;
+                }
+                if(init)
+                    exportedObject[propName] = constructObject(init,trackers,cpg,newProp);
+            }
         });
     
         return exportedObject;
