@@ -242,6 +242,7 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
 
 
 def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs]):
+    print("Call paths:", call_paths)
     vulnerabilities = []
     for call_path in call_paths:
         source: str = "unknown"
