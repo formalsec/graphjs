@@ -1,5 +1,3 @@
-import json
-
 from .query import DetectionResult
 from .query_type import get_obj_recon_queries, assign_types
 from typing import TypedDict, Optional, NotRequired
@@ -15,9 +13,6 @@ class Call(TypedDict):
 class FunctionArgs(TypedDict):
     name: str
     args: object
-
-class SourceInfo(TypedDict):
-
 
 
 def check_if_function_is_directly_exported(obj_id):
@@ -245,20 +240,38 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
 
     return taint_summary
 
+
 def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs]):
+    vulnerabilities = []
     for call_path in call_paths:
+        source: str = "unknown"
+        tainted_params = {}
+        param_types = {}
         # Get type of interaction protocol
-        outer_call: Call = call_path[0]
-        if outer_call["type"] == "Call": # Type is exported
-            source = "module.exports"
-        elif outer_call["type"] == "Method":
-            source = "module.exports" + outer_call["prop"]
-        elif outer_call["type"] == "New":
-            source = ?
+        if len(call_path) > 0:
+            outer_call: Call = call_path[0]
+            if outer_call["type"] == "Call" and outer_call["fn_name"] is not None: # Type is exported
+                source = "module.exports"
+            elif outer_call["type"] == "Method":  # Type is property of exported object
+                source = "module.exports." + outer_call["prop"]
+            elif outer_call["type"] == "New":
+                source = "new module.exports"
 
+            if outer_call["fn_name"] is not None:
+                param_types = function_args[outer_call["fn_name"]]
+                tainted_params = list(param_types.keys())
 
-
-def get_type_call_path(call_path: list[Call]) -> str:
+        vulnerabilities.append({
+            'filename': detection_result["filename"],
+            'vuln_type': detection_result["vuln_type"],
+            'sink': detection_result["sink"],
+            'sink_lineno': detection_result["sink_lineno"],
+            'sink_function': detection_result["sink_function"],
+            'source': source,
+            'tainted_params': tainted_params,
+            'param_types': param_types
+        })
+    return vulnerabilities
 
 
 '''

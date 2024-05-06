@@ -104,12 +104,12 @@ def get_built_in_functions(config):
 		raise Exception("Config file is missing the sinks")
 
 
-def get_injection_type(sink, config):
+def get_injection_type(sink, config) -> str:
 	if "sinks" in config:
 		for injection_type, vulns in config["sinks"].items():
 			for vuln in vulns:
 				if vuln["sink"] == sink:
-					return injection_type 
+					return injection_type
 	else:
 		raise Exception("Config file is missing the sinks")
 

@@ -1,3 +1,5 @@
+from typing import Dict, Any, Tuple
+
 from . import structure_queries
 from .my_utils import utils as my_utils
 import json
@@ -53,7 +55,7 @@ class Injection:
             sink_name = record["sink"]["IdentifierName"]
             sink_lineno = json.loads(record["sink_ast"]["Location"])["start"]["line"]
             sink = my_utils.get_code_line_from_file(source_file, sink_lineno)
-            vuln_type = my_utils.get_injection_type(sink_name, config),
+            vuln_type: str = my_utils.get_injection_type(sink_name, config)
             vuln_path = {
                 "filename": filename,
                 "vuln_type": vuln_type,
