@@ -93,6 +93,12 @@ class TestCallPath(unittest.TestCase):
         run_graphjs("test_cases/example-13/test.js", "./output/example-13")
         check_call_paths(self, "test_cases/example-13/expected_output.json", "./output/example-13/taint_summary.json")
 
+    def test_simple_promise_call(self):
+        run_graphjs("test_cases/example-14/test.js", "./output/example-14")
+
+    def test_property_export(self):
+        run_graphjs("test_cases/example-15/test.js", "./output/example-15")
+
 
 if __name__ == '__main__':
     unittest.main()

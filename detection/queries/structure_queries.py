@@ -32,6 +32,7 @@ def check_if_function_is_directly_exported(obj_id):
     """
 
 
+# A function can be exported through "module.exports = { prop: fn }" or "exports.prop = fn".
 def check_if_function_is_property_exported(obj_id):
     return f"""
         // Match function pattern
@@ -43,11 +44,19 @@ def check_if_function_is_property_exported(obj_id):
         AND dep.RelationType = "DEP" 
         AND so.RelationType = "SO"
         // Match property exported pattern
-        MATCH
+        OPTIONAL MATCH
             (obj)-[exp_dep:PDG]->(exports_prop:PDG_OBJECT)
                 <-[exp_so:PDG]-(exports_obj:PDG_OBJECT)
         WHERE exp_so.IdentifierName = "exports"
         AND exports_obj.IdentifierName CONTAINS "module"
+        OPTIONAL MATCH
+            ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+        WHERE ref.RelationType = "obj"
+        AND dep.RelationType = "DEP" 
+        AND so.RelationType = "SO"
+        AND obj.IdentifierName CONTAINS "exports"
         // Get the AST origin node of the exported function (to get the location and Id)
         OPTIONAL MATCH
             (obj:PDG_OBJECT)<-[nv:PDG*0..]-(origin_version_obj:PDG_OBJECT)
@@ -119,6 +128,18 @@ def function_is_called(obj_id):
     """
 
 
+def function_is_promise(obj_id):
+    return f"""
+        MATCH
+            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(obj:PDG_OBJECT)
+                -[dep:PDG]->(fn:PDG_OBJECT)
+                    <-[fn_ref:REF {{RelationType: "obj"}}]-(fn_stmt)
+                        <-[path:CFG*1..]-()<-[def:FD]-(source)
+        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
+        RETURN distinct source as node
+    """
+
+
 # This query returns the parent function of the function/node identified
 # with <obj_id>
 def get_parent_function(obj_id):
@@ -164,19 +185,31 @@ def get_return_type(returner) -> Optional[Call]:
     if returner["prop_name"] is None:
         return {'type': 'Call', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"]}
     elif returner["prop_name"] is not None and returner["is_function"]:
-        return {'type': 'New', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"], 'prop': returner["prop_name"]}
+        return {'type': 'New', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"],
+                'prop': returner["prop_name"]}
     elif returner["prop_name"] is not None:
-        return {'type': 'Method', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"], 'prop': returner["prop_name"]}
+        return {'type': 'Method', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"],
+                'prop': returner["prop_name"]}
     return None
 
 
 # This function returns the functions that call a function given as argument
 def find_callers(session, function_id: int) -> list[Call]:
-    return [
-        {'type': 'Call',
-         'fn_id': int(fn["node"]["Id"]),
-         'fn_name': fn["node"]["IdentifierName"]}
-        for fn in session.run(function_is_called(function_id))]
+    callers: list[Call] = []
+    promises = session.run(function_is_promise(function_id))
+    for promise in promises:
+        callers.append(
+            {'type': 'Call',
+             'fn_id': int(promise["node"]["Id"]),
+             'fn_name': promise["node"]["IdentifierName"]})
+    direct_calls = session.run(function_is_called(function_id))
+    for direct_call in direct_calls:
+        if direct_call not in callers:
+            callers.append(
+                {'type': 'Call',
+                 'fn_id': int(direct_call["node"]["Id"]),
+                 'fn_name': direct_call["node"]["IdentifierName"]})
+    return callers
 
 
 # This function returns the functions that return a function given as argument
@@ -241,7 +274,8 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
     return taint_summary
 
 
-def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs]):
+def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]],
+                        function_args: dict[FunctionArgs]):
     print("Call paths:", call_paths)
     vulnerabilities = []
     for call_path in call_paths:
@@ -251,7 +285,7 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
         # Get type of interaction protocol
         if len(call_path) > 0:
             outer_call: Call = call_path[0]
-            if outer_call["type"] == "Call" and outer_call["fn_name"] is not None: # Type is exported
+            if outer_call["type"] == "Call" and outer_call["fn_name"] is not None:  # Type is exported
                 source = "module.exports"
             elif outer_call["type"] == "Method":  # Type is property of exported object
                 source = "module.exports." + outer_call["prop"]
