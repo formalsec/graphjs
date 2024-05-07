@@ -253,7 +253,7 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
                 // Dependency callee <-- arguments
                 // We filter the deps to avoid having cycles in dependencies, e.g. orig = utils.escape(orig);
                 const acycleDeps = deps.filter((dep: Dependency) => dep.source !== returnLocation)
-                // Check if calle is an imported package
+                // Check if callee is an imported package
                 if (latestCalleeObj && !trackers.checkRequireChain(latestCalleeObj.identifier)) {
                     acycleDeps.forEach(d => {
                         if (latestCalleeObj && d.source !== latestCalleeObj.id) trackers.graphCreateDependencyEdge(d.source, latestCalleeObj.id, d)
@@ -319,8 +319,15 @@ function handleFunctionDeclaration(stmtId: number, stmt: GraphNode, funcNode: Gr
     params.forEach((p, i) => { trackers.addParamNode(stmtId, p, i, funcExpNode, funcNode.id); });
 
     // Create node for return object
-    trackers.createNewObject(stmtId, stmt.functionContext, funcIdentifier);
-
+    // First, check if object exists (cases where the function is exported before defined)
+    const funcObjectIdentifiers: number[] = trackers.getObjectVersions(funcIdentifier.name, stmt.functionContext)
+    if (funcObjectIdentifiers.length) {
+        funcObjectIdentifiers.forEach((funcObjectIdentifier: number) => {
+            trackers.graphCreateReferenceEdge(stmtId, funcObjectIdentifier, funcIdentifier.name)
+        })
+    } else {
+        trackers.createNewObject(stmtId, stmt.functionContext, funcIdentifier);
+    }
     trackers = popContext(trackers);
     return trackers;
 }
@@ -402,6 +409,13 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
 
     const objectLocations: number[] = evalSto(trackers, obj);
 
+    // It may happen that the right side is a function that wasn't defined yet.
+    // For that reason, if the right side is an identifier and does not exist in the store,
+    // we create an object preemptively
+    const rightLocations: number[] = evalSto(trackers, right);
+    if (!rightLocations.length && right.type === "Identifier") {
+        trackers.createNewObject(stmtId, functionContext, right.obj)
+    }
     // Evaluate the dependencies for the right side
     let deps: Dependency[] = evalDep(trackers, stmtId, right);
 
@@ -418,16 +432,12 @@ function handleObjectWrite(stmtId: number, functionContext: number, left: GraphN
     // This may happen if the object variable is not yet perceived as an object but already existed in the program
     if (objectLocations.length > 0) {
         trackers.addVersion(stmtId, objName, functionContext, propName, deps)
-    } else {
-        const rightLocations: number[] = evalSto(trackers, right);
-        // Only create new object if relevant (right side is also an object)
-        if (rightLocations.length) {
-            const newObjId: number = trackers.createNewObject(stmtId, functionContext, obj.obj);
-            const subObjId = trackers.addProp([newObjId], obj.obj.name, propName, functionContext, stmtId)
-            deps.forEach((dep: Dependency) => {
-                trackers.graphCreateDependencyEdge(dep.source, subObjId[0], dep)
-            });
-        }
+    } else { // If object does not exist yet
+        const newObjId: number = trackers.createNewObject(stmtId, functionContext, obj.obj);
+        const subObjId = trackers.addProp([newObjId], obj.obj.name, propName, functionContext, stmtId)
+        deps.forEach((dep: Dependency) => {
+            trackers.graphCreateDependencyEdge(dep.source, subObjId[0], dep)
+        });
     }
     return trackers;
 }
