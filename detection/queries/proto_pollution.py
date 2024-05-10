@@ -1,5 +1,5 @@
 from .query import Query
-from . import structure_queries
+from . import interaction_protocol
 from .my_utils import utils as my_utils
 import json
 
@@ -193,7 +193,7 @@ class PrototypePollution:
                     my_utils.save_intermediate_output(vuln_path, detection_output)
                     if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                         vuln_paths.append(vuln_path)
-                    elif self.query.reconstruct_types:
+                    elif self.query.reconstruct_types and vuln_path not in vuln_paths:
                         source_cfg = ast_result["source_cfg"]
                         source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
                         detection_results.append({
@@ -208,7 +208,7 @@ class PrototypePollution:
         if self.query.reconstruct_types:
             print(f'[INFO] Prototype Pollution - Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
-                detection_objs = structure_queries.get_vulnerability_info(
+                detection_objs = interaction_protocol.get_vulnerability_info(
                     session, detection_result["sink_obj"], detection_result["sink_lineno"],
                     detection_result["source_lineno"], detection_result["sink"],
                     "prototype-pollution", config)

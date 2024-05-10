@@ -15,6 +15,21 @@ class FunctionArgs(TypedDict):
     args: object
 
 
+class TaintSummaryCall(TypedDict):
+    source: str
+    param_types: FunctionArgs
+    tainted_params: list[str]
+    returns: NotRequired[dict]
+
+
+# Function: Returns the Cypher query that checks if a function is directly exported
+#   We consider a direct export if it exported as "module.exports = f" or "exports = f" TODO: the second case
+#   The Cypher patterns checks if the MDG object associated with the function definition (fn_obj) is a dependency of
+#   the sub object module.exports.
+# Parameters:
+#   obj_id: Function id
+# Query Returns:
+#   The node id of the function MDG object
 def check_if_function_is_directly_exported(obj_id):
     return f"""
         // Get function pattern
@@ -27,28 +42,35 @@ def check_if_function_is_directly_exported(obj_id):
         AND so.RelationType = "SO"
         AND so.IdentifierName = "exports"
         AND obj.IdentifierName CONTAINS "module"
-        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name,
-        fn_obj.IdentifierName as fn_node_id
+        RETURN fn_obj.IdentifierName as fn_node_id
     """
 
 
-# A function can be exported through "module.exports = { prop: fn }" or "exports.prop = fn".
+# Function: Returns the Cypher query that checks if a function is exported via a property
+#   We consider an export via property if it exported through "module.exports = { prop: fn }" or "exports.prop = fn"
+#   The Cypher detection pattern is composed of 2 parts.
+#       - 1 (module.exports = { prop: fn }): Checks if the MDG object associated with the function definition (fn_obj)
+#       is a property of an object that is a dependency of the sub object module.exports.
+#       - 2 (exports.prop = fn): Checks if the MDG object associated with the function definition (fn_obj) is a
+#       dependency of object exports.
+# Parameters:
+#   obj_id: Function id
+# Query Returns:
+#
 def check_if_function_is_property_exported(obj_id):
     return f"""
-        // Match function pattern
+        // Part 1: Check module.exports = prop: fn 
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
                 -[dep:PDG]->(sub_obj:PDG_OBJECT)
-                    <-[so:PDG]-(obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)-[exp_dep:PDG]->(exports_prop:PDG_OBJECT)
+                <-[exp_so:PDG]-(exports_obj:PDG_OBJECT)
         WHERE ref.RelationType = "obj"
         AND dep.RelationType = "DEP" 
         AND so.RelationType = "SO"
-        // Match property exported pattern
-        OPTIONAL MATCH
-            (obj)-[exp_dep:PDG]->(exports_prop:PDG_OBJECT)
-                <-[exp_so:PDG]-(exports_obj:PDG_OBJECT)
-        WHERE exp_so.IdentifierName = "exports"
+        AND exp_so.IdentifierName = "exports"
         AND exports_obj.IdentifierName CONTAINS "module"
+        // Part 2: Check exports.prop = fn 
         OPTIONAL MATCH
             ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
                 -[dep:PDG]->(sub_obj:PDG_OBJECT)
@@ -81,8 +103,7 @@ def function_is_returned(obj_id):
                 ->(obj:PDG_OBJECT)
                     <-[ret:REF]-(node)
         RETURN distinct obj.IdentifierName as obj_name, null as prop_name,
-        obj.IdentifierName as fn_node_id, 0 as is_function,
-            node.Id as source_obj_id
+        obj.IdentifierName as fn_node_id, 0 as is_function, node.Id as source_obj_id
         UNION
         // Check if function is returned via property 
         MATCH
@@ -128,13 +149,23 @@ def function_is_called(obj_id):
     """
 
 
+# Function: Returns the Cypher query that checks if a function used as a promise
+#   The Cypher patterns checks if the MDG object associated with the function definition (fn_obj) is a dependency of
+#   an object that results from a statement that initializes a promise. TODO: Missing cases for sure
+# Parameters:
+#   obj_id: Function id
+# Query Returns:
+#   The node id of the function MDG object
 def function_is_promise(obj_id):
     return f"""
         MATCH
-            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(obj:PDG_OBJECT)
-                -[dep:PDG]->(fn:PDG_OBJECT)
-                    <-[fn_ref:REF {{RelationType: "obj"}}]-(fn_stmt)
-                        <-[path:CFG*1..]-()<-[def:FD]-(source)
+            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(promise_ret:PDG_OBJECT)
+                    <-[stmt_ref:REF {{RelationType: "obj"}}]-(promise_stmt)
+                        // AST promise pattern
+                        -[:AST {{RelationType: "init"}}]->({{Type: "NewExpression"}})
+                            -[:AST {{RelationType: "callee"}}]->({{Type: "Identifier", IdentifierName: "Promise"}}),
+            (promise_stmt)<-[path:CFG*1..]-()<-[def:FD]-(source)
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
     """
@@ -198,6 +229,7 @@ def find_callers(session, function_id: int) -> list[Call]:
     callers: list[Call] = []
     promises = session.run(function_is_promise(function_id))
     for promise in promises:
+        print(promise)
         callers.append(
             {'type': 'Call',
              'fn_id': int(promise["node"]["Id"]),
@@ -274,39 +306,70 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
     return taint_summary
 
 
-def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]],
-                        function_args: dict[FunctionArgs]):
+def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs]):
     print("Call paths:", call_paths)
     vulnerabilities = []
+
     for call_path in call_paths:
-        source: str = "unknown"
-        tainted_params = {}
-        param_types = {}
-        # Get type of interaction protocol
-        if len(call_path) > 0:
-            outer_call: Call = call_path[0]
-            if outer_call["type"] == "Call" and outer_call["fn_name"] is not None:  # Type is exported
-                source = "module.exports"
-            elif outer_call["type"] == "Method":  # Type is property of exported object
-                source = "module.exports." + outer_call["prop"]
-            elif outer_call["type"] == "New":
-                source = "new module.exports"
+        current_call: TaintSummaryCall | None = None
 
-            if outer_call["fn_name"] is not None:
-                param_types = function_args[outer_call["fn_name"]]
-                tainted_params = list(param_types.keys())
+        # We build the interaction protocol, starting from the most inner return (last call)
+        if len(call_path) > 0:  # Has returns
+            inner_return: TaintSummaryCall | None = None
 
-        vulnerabilities.append({
+            # Iterates from the second element to the last
+            for depth, call in enumerate(call_path[::-1]):
+                current_call: TaintSummaryCall = build_call(call, function_args, len(call_path) - depth - 1)
+
+                # There is already a return
+                if inner_return is not None:
+                    current_call['returns'] = inner_return
+
+                inner_return = current_call
+
+        vulnerability = {
             'filename': detection_result["filename"],
             'vuln_type': detection_result["vuln_type"],
             'sink': detection_result["sink"],
             'sink_lineno': detection_result["sink_lineno"],
             'sink_function': detection_result["sink_function"],
-            'source': source,
-            'tainted_params': tainted_params,
-            'param_types': param_types
-        })
+            'source': current_call["source"],
+            'tainted_params': current_call["tainted_params"],
+            'param_types': current_call["param_types"]
+        }
+        if "returns" in current_call:
+            vulnerability["returns"] = current_call["returns"]
+
+        vulnerabilities.append(vulnerability)
+
     return vulnerabilities
+
+
+def build_call(call: Call, function_args: dict[FunctionArgs], depth: int) -> TaintSummaryCall:
+    source: str = "unknown"
+    tainted_params = []
+    param_types = {}
+
+    if depth == 0:
+        if call["type"] == "Call" and call["fn_name"] is not None:  # Type is exported
+            source = "module.exports"
+        elif call["type"] == "Method":  # Type is property of exported object
+            source = "module.exports." + call["prop"]
+        elif call["type"] == "New":
+            source = "new module.exports"
+    else:
+        if call["type"] == "Call" and call["fn_name"] is not None:  # Type is exported
+            source = ""
+        elif call["type"] == "Method":  # Type is property of exported object
+            source = "." + call["prop"]
+        elif call["type"] == "New":
+            source = "new"
+
+    if call["fn_name"] is not None:
+        param_types: FunctionArgs = function_args[call["fn_name"]]
+        tainted_params: list[str] = list(param_types.keys())
+
+    return {'source': source, 'param_types': param_types, 'tainted_params': tainted_params}
 
 
 '''
