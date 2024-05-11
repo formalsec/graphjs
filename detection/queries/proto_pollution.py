@@ -195,7 +195,7 @@ class PrototypePollution:
                         vuln_paths.append(vuln_path)
                     elif self.query.reconstruct_types:
                         source_cfg = ast_result["source_cfg"]
-                        source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
+                        source_lineno = "unknown" if "Location" not in source_cfg else json.loads(source_cfg["Location"])["start"]["line"]
                         detection_results.append({
                             "sink_obj": ast_result["assignment_cfg"],
                             "sink_lineno": sink_lineno,
@@ -210,7 +210,7 @@ class PrototypePollution:
             for detection_result in detection_results:
                 detection_objs = structure_queries.get_source(
                     session, detection_result["sink_obj"], detection_result["sink_lineno"],
-                    detection_result["source_lineno"], detection_result["sink"],
+                    detection_result["source_lineno"], detection_result["sink_name"],
                     "prototype-pollution", config)
 
                 for detection_obj in detection_objs:
