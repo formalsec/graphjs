@@ -46,7 +46,9 @@ def traverse_graph(source_file, taint_summary_output, time_output_file, reconstr
             print(f'[INFO] Detected {len(vulnerable_paths)} vulnerabilities.')
             # Path of the source file, relative to the location of the taint summary
             relative_filepath = os.path.relpath(source_file, os.path.dirname(taint_summary_output))
-            [path.update({'filename': relative_filepath}) for path in vulnerable_paths]
+            for path in vulnerable_paths:
+                if not isinstance(path, str):
+                    path.update({'filename': relative_filepath})
             utils.save_output(vulnerable_paths, taint_summary_output)
         else:
             print(f'[INFO] No vulnerabilities detected.')
