@@ -18,7 +18,7 @@ parser_main_path = constants.PARSER_PATH
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    
+
     # File path
     parser.add_argument("-f", "--file", type=str, required=True,
                         help="Path to JavaScript file (.js) or directory containing JavaScript files for analysis.")
@@ -113,7 +113,7 @@ def run_graph_js(file_path, output_path, generate_exploit=False, silent=True):
         print("[STEP 3] Symbolic test generation: Generating...")
 
         os.chdir(symb_tests_output)
-        os.system(f"instrumentation2 {file_path} {summary_path}")
+        os.system(f"instrumentation2 {summary_path} {file_path}")
         print("[STEP 3] Symbolic test generation: Completed.")
 
 
