@@ -8,6 +8,7 @@ class Call(TypedDict):
     prop: NotRequired[str]
     fn_name: Optional[str]
     fn_id: int
+    source_fn_id: int
 
 
 class FunctionArgs(TypedDict):
@@ -57,9 +58,34 @@ def check_if_function_is_directly_exported(obj_id):
 #   obj_id: Function id
 # Query Returns:
 #
-def check_if_function_is_property_exported(obj_id):
+
+
+def check_if_function_is_property_exported_via_exports(obj_id):
     return f"""
-        // Part 1: Check module.exports = prop: fn 
+        MATCH
+            ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+        WHERE ref.RelationType = "obj"
+        AND dep.RelationType = "DEP" 
+        AND so.RelationType = "SO"
+        AND obj.IdentifierName CONTAINS "exports"     
+        // Get the AST origin node of the exported function (to get the location and Id)
+        MATCH
+            (obj:PDG_OBJECT)<-[nv:PDG*0..]-(origin_version_obj:PDG_OBJECT)
+                <-[origin_obj:REF]-(origin_obj_ast)
+        WHERE origin_obj.RelationType = "obj"
+        // Check if the object is a function or an object (to detect classes)
+        OPTIONAL MATCH
+            (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
+        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
+            fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
+            origin_obj_ast.Id as source_obj_id
+        """
+
+
+def check_if_function_is_property_exported_via_module(obj_id):
+    return f"""
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
                 -[dep:PDG]->(sub_obj:PDG_OBJECT)
@@ -70,22 +96,44 @@ def check_if_function_is_property_exported(obj_id):
         AND so.RelationType = "SO"
         AND exp_so.IdentifierName = "exports"
         AND exports_obj.IdentifierName CONTAINS "module"
-        // Part 2: Check exports.prop = fn 
-        OPTIONAL MATCH
-            ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
-                -[dep:PDG]->(sub_obj:PDG_OBJECT)
-                    <-[so:PDG]-(obj:PDG_OBJECT)
-        WHERE ref.RelationType = "obj"
-        AND dep.RelationType = "DEP" 
-        AND so.RelationType = "SO"
-        AND obj.IdentifierName CONTAINS "exports"
         // Get the AST origin node of the exported function (to get the location and Id)
-        OPTIONAL MATCH
+        MATCH
             (obj:PDG_OBJECT)<-[nv:PDG*0..]-(origin_version_obj:PDG_OBJECT)
                 <-[origin_obj:REF]-(origin_obj_ast)
         WHERE origin_obj.RelationType = "obj"
         // Check if the object is a function or an object (to detect classes)
         OPTIONAL MATCH
+            (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
+        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
+            fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
+            origin_obj_ast.Id as source_obj_id
+        """
+
+
+def check_if_function_is_property_exported_via_prototype(obj_id):
+    return f"""
+        MATCH
+        ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+                        <-[proto_version:PDG]-(proto_obj:PDG_OBJECT)
+                            <-[proto_so:PDG]-(proto_fn:PDG_OBJECT)
+                                -[exp_dep:PDG]->(exports_prop:PDG_OBJECT)
+                                    <-[exp_so:PDG]-(exports_obj:PDG_OBJECT)
+        WHERE ref.RelationType = "obj"
+        AND dep.RelationType = "DEP" 
+        AND so.RelationType = "SO"
+        AND proto_version.RelationType = "NV"
+        AND proto_so.RelationType = "SO"
+        AND exp_so.IdentifierName = "exports"
+        AND exports_obj.IdentifierName CONTAINS "module"
+        // Get the AST origin node of the exported function (to get the location and Id)
+        MATCH
+            (obj:PDG_OBJECT)<-[nv:PDG*0..]-(origin_version_obj:PDG_OBJECT)
+                <-[origin_obj:REF]-(origin_obj_ast)
+        WHERE origin_obj.RelationType = "obj"
+        // Check if the object is a function or an object (to detect classes)
+        MATCH
             (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
         RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
             fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
@@ -108,18 +156,16 @@ def function_is_returned(obj_id):
         // Check if function is returned via property 
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]
-                ->(obj:PDG_OBJECT)
-                    -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                ->(obj:PDG_OBJECT)-[dep:PDG]->(sub_obj:PDG_OBJECT)
                         <-[so:PDG]-(fn_obj:PDG_OBJECT)
-                            <-[nv:PDG]-(parent_obj:PDG_OBJECT)
+                            <-[nv:PDG]-(parent_obj:PDG_OBJECT),
+            (fn_obj:PDG_OBJECT)<-[ret:REF]-(node)
         WHERE so.RelationType = "SO"
         AND dep.RelationType = "DEP" 
         AND nv.RelationType = "NV"
-        MATCH
-            (fn_obj:PDG_OBJECT)<-[ret:REF]-(node)
-        WHERE ret.RelationType = "return"
+        AND ret.RelationType = "return"
         // Get the AST origin node of the exported function (to get the location and Id)
-        OPTIONAL MATCH
+        MATCH
             (parent_obj:PDG_OBJECT)<-[nvs:PDG*0..]-(origin_version_obj:PDG_OBJECT)
                 <-[origin_obj:REF]-(origin_obj_ast)
         WHERE origin_obj.RelationType = "obj"
@@ -196,31 +242,59 @@ def extend_call_path(call_path_list: list[list[Call]], new_call: Call) -> list[l
 def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
     direct_function = session.run(check_if_function_is_directly_exported(function_id)).single()
     if direct_function is not None:
-        return [{'type': 'Call', 'fn_name': direct_function["fn_node_id"], 'fn_id': function_id}]
-    property_function = session.run(check_if_function_is_property_exported(function_id)).single()
+        return [{'type': 'Call',
+                 'fn_name': direct_function["fn_node_id"],
+                 'fn_id': function_id,
+                 'source_fn_id': function_id}]
+
+    property_function = session.run(check_if_function_is_property_exported_via_exports(function_id)).single()
+    if property_function is None:
+        property_function = session.run(check_if_function_is_property_exported_via_module(function_id)).single()
+    if property_function is None:
+        property_function = session.run(check_if_function_is_property_exported_via_prototype(function_id)).single()
+
     if property_function is not None:
         if not property_function["is_function"]:
             return [
-                {'type': 'Method', 'prop': property_function["prop_name"], 'fn_name': property_function["fn_node_id"],
-                 'fn_id': function_id}]
+                {'type': 'Method',
+                 'prop': property_function["prop_name"],
+                 'fn_name': property_function["fn_node_id"],
+                 'fn_id': function_id,
+                 'source_fn_id': function_id}]
         else:
             return [
-                {'type': 'New', 'fn_name': property_function["obj_name"], 'fn_id': property_function["source_obj_id"]},
-                {'type': 'Method', 'prop': property_function["prop_name"], 'fn_name': property_function["fn_node_id"],
-                 'fn_id': function_id}]
+                {'type': 'New',
+                 'fn_name': property_function["obj_name"],
+                 'fn_id': property_function["source_obj_id"],
+                 'source_fn_id': property_function["source_obj_id"]},
+                {'type': 'Method',
+                 'prop': property_function["prop_name"],
+                 'fn_name': property_function["fn_node_id"],
+                 'fn_id': function_id,
+                 'source_fn_id': function_id}]
 
     return None
 
 
-def get_return_type(returner) -> Optional[Call]:
+def get_return_type(returner, function_id: int) -> Optional[Call]:
+    print(returner)
     if returner["prop_name"] is None:
-        return {'type': 'Call', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"]}
+        return {'type': 'Call',
+                'fn_name': returner["obj_name"],
+                'fn_id': function_id,
+                'source_fn_id': returner["source_obj_id"]}
     elif returner["prop_name"] is not None and returner["is_function"]:
-        return {'type': 'New', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"],
+        return {'type': 'New',
+                'fn_name': returner["obj_name"],
+                'fn_id': function_id,
+                'source_fn_id': returner["source_obj_id"],
                 'prop': returner["prop_name"]}
     elif returner["prop_name"] is not None:
-        return {'type': 'Method', 'fn_name': returner["obj_name"], 'fn_id': returner["source_obj_id"],
-                'prop': returner["prop_name"]}
+        return {'type': 'Method',
+                'fn_name': returner["obj_name"],
+                'fn_id': function_id,
+                'prop': returner["prop_name"],
+                'source_fn_id': returner["source_obj_id"]}
     return None
 
 
@@ -247,7 +321,7 @@ def find_callers(session, function_id: int) -> list[Call]:
 # This function returns the functions that return a function given as argument
 def find_returners(session, function_id: int) -> list[Call]:
     returners = session.run(function_is_returned(function_id))
-    return [get_return_type(returner) for returner in returners]
+    return [get_return_type(returner, function_id) for returner in returners]
 
 
 # This function returns the call path from an exported function to the sink
@@ -268,7 +342,7 @@ def find_call_path(session, function_id: int) -> list[list[Call]]:
         # Get functions that return the current function -> extend call path
         returners: list[Call] = find_returners(session, function_id)
         for returner in returners:
-            cur_call_paths = find_call_path(session, returner['fn_id'])
+            cur_call_paths = find_call_path(session, returner['source_fn_id'])
             cur_call_paths = extend_call_path(cur_call_paths, returner)
             call_paths += cur_call_paths
     return call_paths
@@ -284,6 +358,7 @@ def get_function_args(session, call_paths: list[list[Call]], config) -> dict[Fun
                                                                    call["fn_id"],
                                                                    config)
             function_map[call["fn_name"]] = params_types
+    print(function_map)
     return function_map
 
 
@@ -307,7 +382,6 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
 
 
 def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs]):
-    print("Call paths:", call_paths)
     vulnerabilities = []
 
     for call_path in call_paths:
@@ -340,6 +414,7 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
         if "returns" in current_call:
             vulnerability["returns"] = current_call["returns"]
 
+        vulnerability["call_paths"] = call_path
         vulnerabilities.append(vulnerability)
 
     return vulnerabilities
