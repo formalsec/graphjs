@@ -89,8 +89,10 @@ def check_if_function_is_property_exported_via_module(obj_id):
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
                 -[dep:PDG]->(sub_obj:PDG_OBJECT)
-                    <-[so:PDG]-(obj:PDG_OBJECT)-[exp_dep:PDG]->(exports_prop:PDG_OBJECT)
-                <-[exp_so:PDG]-(exports_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+                        -[down_nv:PDG*0..]->(last_version_obj:PDG_OBJECT)
+                            -[exp_dep:PDG]->(exports_prop:PDG_OBJECT)
+                                <-[exp_so:PDG]-(exports_obj:PDG_OBJECT)
         WHERE ref.RelationType = "obj"
         AND dep.RelationType = "DEP" 
         AND so.RelationType = "SO"
