@@ -219,6 +219,38 @@ def function_is_promise(obj_id):
     """
 
 
+def function_is_promise_callback(obj_id):
+    return f"""
+        MATCH
+            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(callback_ret:PDG_OBJECT)
+                    <-[callback_ref:REF {{RelationType: "obj"}}]-(callback_stmt)
+                        // AST callback pattern
+                        -[:AST {{RelationType: "init"}}]->({{Type: "CallExpression"}})
+                            -[:AST {{RelationType: "callee"}}]->({{Type: "MemberExpression"}})
+                                -[:AST {{RelationType: "property"}}]->({{IdentifierName: "then"}}),
+            (callback_stmt)<-[path:CFG*1..]-()<-[def:FD]-(source)
+        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
+        RETURN distinct source as node
+    """
+
+
+def function_is_function_callback(obj_id):
+    return f"""
+        MATCH
+            (init {{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(callback_ret:PDG_OBJECT)
+                    <-[callback_ref:REF {{RelationType: "obj"}}]-(callback_stmt)
+                        // AST function callback pattern
+                        -[:AST {{RelationType: "init"}}]->({{Type: "CallExpression"}})
+                            -[:AST {{RelationType: "arg"}}]->(arg {{Type: "Identifier"}}),
+            (callback_stmt)<-[path:CFG*1..]-()<-[def:FD]-(source)
+        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
+        AND init.IdentifierName = arg.IdentifierName
+        RETURN distinct source as node
+    """
+
+
 # This query returns the parent function of the function/node identified
 # with <obj_id>
 def get_parent_function(obj_id):
@@ -279,7 +311,6 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
 
 
 def get_return_type(returner, function_id: int) -> Optional[Call]:
-    print(returner)
     if returner["prop_name"] is None:
         return {'type': 'Call',
                 'fn_name': returner["obj_name"],
@@ -303,20 +334,17 @@ def get_return_type(returner, function_id: int) -> Optional[Call]:
 # This function returns the functions that call a function given as argument
 def find_callers(session, function_id: int) -> list[Call]:
     callers: list[Call] = []
-    promises = session.run(function_is_promise(function_id))
-    for promise in promises:
-        print(promise)
+    promises = session.run(function_is_promise(function_id)).data()
+    # Callbacks
+    promise_callbacks = session.run(function_is_promise_callback(function_id)).data()
+    fn_callbacks = session.run(function_is_function_callback(function_id)).data()
+    # Direct call
+    direct_calls = session.run(function_is_called(function_id)).data()
+    for caller in promises + promise_callbacks + fn_callbacks + direct_calls:
         callers.append(
             {'type': 'Call',
-             'fn_id': int(promise["node"]["Id"]),
-             'fn_name': promise["node"]["IdentifierName"]})
-    direct_calls = session.run(function_is_called(function_id))
-    for direct_call in direct_calls:
-        if direct_call not in callers:
-            callers.append(
-                {'type': 'Call',
-                 'fn_id': int(direct_call["node"]["Id"]),
-                 'fn_name': direct_call["node"]["IdentifierName"]})
+             'fn_id': int(caller["node"]["Id"]),
+             'fn_name': caller["node"]["IdentifierName"]})
     return callers
 
 
