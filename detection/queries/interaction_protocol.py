@@ -112,6 +112,33 @@ def check_if_function_is_property_exported_via_module(obj_id):
         """
 
 
+def check_if_function_is_property_exported_via_module_prop(obj_id):
+    return f"""
+        MATCH
+            ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+                        <-[up_nv:PDG]-(exports_prop:PDG_OBJECT)
+                                <-[exp_so:PDG]-(exports_obj:PDG_OBJECT)
+        WHERE ref.RelationType = "obj"
+        AND dep.RelationType = "DEP" 
+        AND so.RelationType = "SO"
+        AND exp_so.IdentifierName = "exports"
+        AND exports_obj.IdentifierName CONTAINS "module"
+        // Get the AST origin node of the exported function (to get the location and Id)
+        MATCH
+            (obj:PDG_OBJECT)<-[nv:PDG*0..]-(origin_version_obj:PDG_OBJECT)
+                <-[origin_obj:REF]-(origin_obj_ast)
+        WHERE origin_obj.RelationType = "obj"
+        // Check if the object is a function or an object (to detect classes)
+        OPTIONAL MATCH
+            (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
+        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
+            fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
+            origin_obj_ast.Id as source_obj_id
+        """
+
+
 def check_if_function_is_property_exported_via_prototype(obj_id):
     return f"""
         MATCH
@@ -284,6 +311,9 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
     property_function = session.run(check_if_function_is_property_exported_via_exports(function_id)).single()
     if property_function is None:
         property_function = session.run(check_if_function_is_property_exported_via_module(function_id)).single()
+    if property_function is None:
+        property_function = session.run(check_if_function_is_property_exported_via_module_prop(function_id)).single()
+        print(property_function)
     if property_function is None:
         property_function = session.run(check_if_function_is_property_exported_via_prototype(function_id)).single()
 

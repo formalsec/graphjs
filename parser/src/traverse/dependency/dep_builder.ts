@@ -123,6 +123,11 @@ function handleMemberExpression(stmtId: number, stmt: GraphNode, variable: Ident
     const propName = (memExpNode.obj.computed && prop.type !== "Literal") ? '*' : prop.obj.name; // dynamic property
     const objectLocations: number[] = trackers.storeGetObjectLocations(objName, memExpNode.functionContext)
 
+    // It may happen that we are using a "global" obj such as exports that is supposed to exist in the scope
+    if (!objectLocations.length && obj.type === "Identifier") {
+        objectLocations.push(trackers.createNewObject(stmtId, stmt.functionContext, obj.obj))
+    }
+
     // evaluate dependency of expression
     const deps: Dependency[] = evalDep(trackers, stmtId, memExpNode);
 
