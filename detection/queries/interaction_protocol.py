@@ -23,15 +23,6 @@ class TaintSummaryCall(TypedDict):
     returns: NotRequired[dict]
 
 
-def check_if_function_is_top_level(obj_id: int):
-    return f"""
-        // Get function pattern
-        MATCH
-            (fn {{Id: "{obj_id}"}})<-[cfg:CFG*0..]-(main:CFG_F_START {{ IdentifierName: "__main__"}})
-        RETURN main.IdentifierName as fn_node_id
-    """
-
-
 # Function: Returns the Cypher query that checks if a function is directly exported
 #   We consider a direct export if it exported as "module.exports = f" or "exports = f" TODO: the second case
 #   The Cypher patterns checks if the MDG object associated with the function definition (fn_obj) is a dependency of
@@ -67,6 +58,8 @@ def check_if_function_is_directly_exported(obj_id):
 #   obj_id: Function id
 # Query Returns:
 #
+
+
 def check_if_function_is_property_exported_via_exports(obj_id):
     return f"""
         MATCH
@@ -308,12 +301,6 @@ def extend_call_path(call_path_list: list[list[Call]], new_call: Call) -> list[l
 # This function checks if the function given as argument is exported (either
 # directly, via new, or via a method).
 def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
-    top_level = session.run(check_if_function_is_top_level(function_id)).single()
-    if top_level is not None:
-        return [{'type': 'TopLevel',
-                 'fn_name': top_level["fn_node_id"],
-                 'fn_id': function_id,
-                 'source_fn_id': function_id}]
     direct_function = session.run(check_if_function_is_directly_exported(function_id)).single()
     if direct_function is not None:
         return [{'type': 'Call',
@@ -326,6 +313,7 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
         property_function = session.run(check_if_function_is_property_exported_via_module(function_id)).single()
     if property_function is None:
         property_function = session.run(check_if_function_is_property_exported_via_module_prop(function_id)).single()
+        print(property_function)
     if property_function is None:
         property_function = session.run(check_if_function_is_property_exported_via_prototype(function_id)).single()
 
@@ -430,6 +418,7 @@ def get_function_args(session, call_paths: list[list[Call]], config) -> dict[Fun
                                                                    call["fn_id"],
                                                                    config)
             function_map[call["fn_name"]] = params_types
+    print(function_map)
     return function_map
 
 
@@ -441,7 +430,8 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
     # Get call path
     fn_node = session.run(get_parent_function(detection_result["sink_function"])).single()
     if not fn_node:
-        return [{'type': 'TopLevelVuln'}]
+        print("Unable to detect sink function.")
+        return
 
     call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"])
     function_args: dict[FunctionArgs] = get_function_args(session, call_paths, config)
@@ -451,8 +441,7 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
     return taint_summary
 
 
-def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]],
-                        function_args: dict[FunctionArgs]):
+def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs]):
     vulnerabilities = []
 
     for call_path in call_paths:
@@ -472,24 +461,21 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
 
                 inner_return = current_call
 
-        if len(call_path) == 1 and call_path[0]["type"] == "TopLevel":
-            vulnerabilities.append({'type': 'TopLevelVuln'})
-        elif current_call is not None:  # Has returns
-            vulnerability = {
-                'filename': detection_result["filename"],
-                'vuln_type': detection_result["vuln_type"],
-                'sink': detection_result["sink"],
-                'sink_lineno': detection_result["sink_lineno"],
-                'sink_function': detection_result["sink_function"],
-                'source': current_call["source"],
-                'tainted_params': current_call["tainted_params"],
-                'param_types': current_call["param_types"]
-            }
-            if "returns" in current_call:
-                vulnerability["returns"] = current_call["returns"]
+        vulnerability = {
+            'filename': detection_result["filename"],
+            'vuln_type': detection_result["vuln_type"],
+            'sink': detection_result["sink"],
+            'sink_lineno': detection_result["sink_lineno"],
+            'sink_function': detection_result["sink_function"],
+            'source': current_call["source"],
+            'tainted_params': current_call["tainted_params"],
+            'param_types': current_call["param_types"]
+        }
+        if "returns" in current_call:
+            vulnerability["returns"] = current_call["returns"]
 
-            vulnerability["call_paths"] = call_path
-            vulnerabilities.append(vulnerability)
+        vulnerability["call_paths"] = call_path
+        vulnerabilities.append(vulnerability)
 
     return vulnerabilities
 

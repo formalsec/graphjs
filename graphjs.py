@@ -65,7 +65,7 @@ def build_graphjs_cmd(file_path, graph_output, silent=True):
     if silent:
         return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent"]
     else:
-        return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent --graph"]
+        return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent --graph --i=AST"]
 
 
 def run_queries(file_path, graph_path, run_path, summary_path, time_path, generate_exploit):
