@@ -1,0 +1,23 @@
+[
+    {
+        "filename": "../../../../graphjs-evaluation/datasets/vulcan-dataset/CWE-78/727/src/ascii-art.js",
+        "vuln_type": "command-injection",
+        "sink": "exec('open \"http://www.figlet.org/fontdb_example.cgi?font='+target.toLowerCase()+'.flf\"')",
+        "sink_lineno": 210,
+        "sink_function": "1350"
+    },
+    {
+        "filename": "../../../../graphjs-evaluation/datasets/vulcan-dataset/CWE-78/727/src/ascii-art.js",
+        "vuln_type": "path-traversal",
+        "sink": "fs.writeFile(argv.o, rendered);",
+        "sink_lineno": 62,
+        "sink_function": "381"
+    },
+    {
+        "filename": "../../../../graphjs-evaluation/datasets/vulcan-dataset/CWE-78/727/src/ascii-art.js",
+        "vuln_type": "path-traversal",
+        "sink": "fs.writeFile(dir+target.toLowerCase()+'.flf', str, function(err){",
+        "sink_lineno": 228,
+        "sink_function": "1534"
+    }
+]

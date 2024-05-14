@@ -1,0 +1,9 @@
+[
+    {
+        "filename": "../../../detection/queries/tests/test_cases/example-13/test.js",
+        "vuln_type": "code-injection",
+        "sink": "eval(arg);",
+        "sink_lineno": 3,
+        "sink_function": "11"
+    }
+]
