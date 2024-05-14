@@ -99,6 +99,8 @@ class TestCallPath(unittest.TestCase):
     def test_property_export(self):
         run_graphjs("test_cases/example-15/test.js", "./output/example-15")
 
+    def test_exports_module(self):
+        run_graphjs("test_cases/example-16/test.js", "./output/example-16")
 
 if __name__ == '__main__':
     unittest.main()

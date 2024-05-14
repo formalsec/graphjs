@@ -893,12 +893,11 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                     expr: newObj
                 };
             }
-        } else if (rightExpr.type === "AssignmentExpression") {
-            const newIdentifier = createRandomIdentifier()
-            const newRightExpr = copyObj(rightExpr.left);
-
-            const decl = createVariableDeclarationWithIdentifier(newIdentifier, newRightExpr, obj.loc).decl;
-            newObj.right = newIdentifier;
+        } else if (rightExpr.type === "AssignmentExpression" && rightExpr.left.type === "Identifier") {
+            // Separate statements (first statement is the right assignment and second statement is the left)
+            const decl: ExpressionStatement = createExpressionAssignment(rightExpr.left.name, rightExpr.right, obj.loc)
+            newObj.left = leftExpr
+            newObj.right = rightExpr.left
 
             return {
                 stmts: [...children[0].stmts, ...children[1].stmts, decl],
@@ -1155,7 +1154,7 @@ export function normObjectExpression(obj: ObjectExpression, children: Normalizat
     }
 
     if (parent?.type === "Property" || (parent?.type === "AssignmentExpression" && parent.left.type === "MemberExpression") ||
-        parent.type === "ReturnStatement") {
+        parent?.type === "ReturnStatement") {
         const { id, decl } = createVariableDeclaration(createEmptyObject(), obj.loc);
         const newAssignments: ExpressionStatement[] = [];
         // push declarations for each property using accesses to new variable
