@@ -146,7 +146,7 @@ class PrototypePollution:
     def __init__(self, query: Query):
         self.query = query
 
-    def find_vulnerable_paths(self, session, vuln_paths, vuln_file, filename: str, detection_output, config):
+    def find_vulnerable_paths(self, session, vuln_paths, source_file, filename: str, detection_output, config):
         print(f"[INFO] Running prototype pollution query: {self.queries[0][0]}")
         self.query.start_timer()
         pattern_results = session.run(self.queries[0][1])
@@ -184,34 +184,26 @@ class PrototypePollution:
                 for ast_result in ast_results:
                     sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
                     sink_lineno = sink_location["start"]["line"]
-                    sink = my_utils.get_code_line_from_file(vuln_file, sink_lineno)
+                    sink = my_utils.get_code_line_from_file(source_file, sink_lineno)
                     vuln_path = {
+                        "filename": filename,
                         "vuln_type": "prototype-pollution",
                         "sink": sink,
-                        "sink_lineno": sink_lineno
+                        "sink_lineno": sink_lineno,
+                        "sink_function": ast_result["assignment_cfg"]["Id"]
                     }
+                    print(vuln_path)
                     my_utils.save_intermediate_output(vuln_path, detection_output)
                     if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                         vuln_paths.append(vuln_path)
                     elif self.query.reconstruct_types and vuln_path not in vuln_paths:
-                        source_cfg = ast_result["source_cfg"]
-                        source_lineno = json.loads(source_cfg["Location"])["start"]["line"]
-                        detection_results.append({
-                            "sink_obj": ast_result["assignment_cfg"],
-                            "sink_lineno": sink_lineno,
-                            "source_lineno": source_lineno,
-                            "sink_name": sink
-                            }
-                        )
+                        detection_results.append(vuln_path)
         self.query.time_detection("proto_pollution")
 
         if self.query.reconstruct_types:
             print(f'[INFO] Prototype Pollution - Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
-                detection_objs = interaction_protocol.get_vulnerability_info(
-                    session, detection_result["sink_obj"], detection_result["sink_lineno"],
-                    detection_result["source_lineno"], detection_result["sink"],
-                    "prototype-pollution", config)
+                detection_objs = interaction_protocol.get_vulnerability_info(session, detection_result, config)
 
                 for detection_obj in detection_objs:
                     if detection_obj not in vuln_paths:
