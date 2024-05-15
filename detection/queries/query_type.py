@@ -69,6 +69,8 @@ def assign_type(session, param_name, obj_ids, config):
     Assign a JavaScript type to the attacker-controlled parameter param_name.
     """
     var_decls = find_variable_declarators(session, param_name, list(obj_ids))
+    if len(var_decls) > 0 and var_decls[0] is None:
+        return "any"
     sinks = my_utils.get_sinks_from_config(config)
     prototypes = config["prototypes"]
     functions_signatures = config["functions-signatures"]

@@ -313,7 +313,6 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
         property_function = session.run(check_if_function_is_property_exported_via_module(function_id)).single()
     if property_function is None:
         property_function = session.run(check_if_function_is_property_exported_via_module_prop(function_id)).single()
-        print(property_function)
     if property_function is None:
         property_function = session.run(check_if_function_is_property_exported_via_prototype(function_id)).single()
 
@@ -385,7 +384,11 @@ def find_returners(session, function_id: int) -> list[Call]:
 
 
 # This function returns the call path from an exported function to the sink
-def find_call_path(session, function_id: int) -> list[list[Call]]:
+def find_call_path(session, function_id: int, nodes: list[int]) -> list[list[Call]]:
+    # Avoid passing twice in the same function node
+    if function_id in nodes:
+        return []
+    nodes.append(function_id)
     # Check if function <function_id> is exported
     call_type: Optional[list[Call]] = get_exported_type(session, function_id)
     # If function is exported, return the exported type
@@ -398,13 +401,13 @@ def find_call_path(session, function_id: int) -> list[list[Call]]:
         for caller in callers:
             # Only process caller if it is not in the path (because of recursion)
             if caller["fn_id"] is not function_id:
-                cur_call_paths = find_call_path(session, caller['fn_id'])
+                cur_call_paths = find_call_path(session, caller['fn_id'], nodes)
                 call_paths += cur_call_paths
 
         # Get functions that return the current function -> extend call path
         returners: list[Call] = find_returners(session, function_id)
         for returner in returners:
-            cur_call_paths = find_call_path(session, returner['source_fn_id'])
+            cur_call_paths = find_call_path(session, returner['source_fn_id'], nodes)
             cur_call_paths = extend_call_path(cur_call_paths, returner)
             call_paths += cur_call_paths
     return call_paths
@@ -420,7 +423,6 @@ def get_function_args(session, call_paths: list[list[Call]], config) -> dict[Fun
                                                                    call["fn_id"],
                                                                    config)
             function_map[call["fn_name"]] = params_types
-    print(function_map)
     return function_map
 
 
@@ -435,7 +437,7 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
         print("Unable to detect sink function.")
         return
 
-    call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"])
+    call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"], [])
     function_args: dict[FunctionArgs] = get_function_args(session, call_paths, config)
 
     taint_summary = build_taint_summary(detection_result, call_paths, function_args)
