@@ -903,6 +903,17 @@ export function normAssignmentExpressions (obj: AssignmentExpression, children: 
                 stmts: [...children[0].stmts, ...children[1].stmts, decl],
                 expr: newObj
             };
+        } else if (rightExpr.type === "AssignmentExpression" && rightExpr.left.type === "MemberExpression" &&
+            rightExpr.left.object.type === "Identifier" && rightExpr.left.property.type === "Identifier") {
+            // Separate statements (first statement is the right assignment and second statement is the left)
+            const decl: ExpressionStatement = createPropertyAssignment(rightExpr.left.object, rightExpr.left.property, rightExpr.right, obj.loc);
+            newObj.left = leftExpr
+            newObj.right = rightExpr.left
+
+            return {
+                stmts: [...children[0].stmts, ...children[1].stmts, decl],
+                expr: newObj
+            };
         } else if (rightExpr.type === "MemberExpression" && leftExpr.type === "MemberExpression") {
             const newIdentifier = createRandomIdentifier()
 
