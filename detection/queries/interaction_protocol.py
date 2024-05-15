@@ -396,8 +396,10 @@ def find_call_path(session, function_id: int) -> list[list[Call]]:
         # Get functions that call the current function -> replace in call path
         callers: list[Call] = find_callers(session, function_id)
         for caller in callers:
-            cur_call_paths = find_call_path(session, caller['fn_id'])
-            call_paths += cur_call_paths
+            # Only process caller if it is not in the path (because of recursion)
+            if caller["fn_id"] is not function_id:
+                cur_call_paths = find_call_path(session, caller['fn_id'])
+                call_paths += cur_call_paths
 
         # Get functions that return the current function -> extend call path
         returners: list[Call] = find_returners(session, function_id)
