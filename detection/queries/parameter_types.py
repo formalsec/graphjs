@@ -86,22 +86,22 @@ def reconstruct_param_types(session, function_cfg_id, config):
             # If the parameter is in the map, check if it has properties
             else:
                 parent_param_types = params_types
-                params_types_pointer = params_types[parameter_name]
+                params_types = params_types[parameter_name]
 
                 for edge in param_obj["obj_edges"]:
                     sub_node_id = edge.nodes[1]["Id"]
                     if edge["RelationType"] == "SO" and obj_recon_flag:
                         prop_name = edge["IdentifierName"]
                         if prop_name not in params_types:
-                            params_types_pointer[prop_name] = {
+                            params_types[prop_name] = {
                                 "pdg_node_id": {sub_node_id}
                             }
                         else:
-                            params_types_pointer[prop_name]["pdg_node_id"].add(sub_node_id)
-                        params_types_pointer = params_types_pointer[prop_name]
+                            params_types[prop_name]["pdg_node_id"].add(sub_node_id)
+                        params_types = params_types[prop_name]
                     elif edge["RelationType"] == "DEP":
                         obj_recon_flag = False
-                        params_types[parameter_name]["pdg_node_id"].add(sub_node_id)
+                        params_types["pdg_node_id"].add(sub_node_id)
                 params_types = parent_param_types
 
     print(f'[INFO] Assigning types to attacker-controlled data.')
