@@ -192,7 +192,6 @@ class PrototypePollution:
                         "sink_lineno": sink_lineno,
                         "sink_function": ast_result["assignment_cfg"]["Id"]
                     }
-                    print(vuln_path)
                     my_utils.save_intermediate_output(vuln_path, detection_output)
                     if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                         vuln_paths.append(vuln_path)

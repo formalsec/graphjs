@@ -1,10 +1,9 @@
-from abc import abstractmethod
-import os
 from .my_utils import utils as my_utils
+from typing import Dict
 
 
-def get_obj_recon_queries(source):
-    recon_query = f"""
+def get_parameter_dependent_objects(fn_id):
+    return f"""
         MATCH
             obj_recon_path=
                 (source)
@@ -13,17 +12,21 @@ def get_obj_recon_queries(source):
                             -[obj_edges:PDG*0..]
                                 ->(obj_or_sink)
         WHERE 
-            source.Id = "{source}" AND
+            source.Id = "{fn_id}" AND
             ref_edge.RelationType = "param" AND
             (obj_or_sink:PDG_OBJECT OR obj_or_sink:TAINT_SINK)
         RETURN *
         ORDER BY 
             ref_edge.ParamIndex
+
     """
-    recon_logical_expr_query = f"""
+
+
+def get_parameter_expression_objects(fn_id):
+    return f"""
         MATCH
             obj_recon_path=
-                (source)
+                ({{Id: "{fn_id}"}})
                     -[ref_edge:REF]
                         ->(param:PDG_OBJECT)
                             -[dep_arg_edges:PDG*1..2]
@@ -38,7 +41,6 @@ def get_obj_recon_queries(source):
                                 -[right:AST]
                                     ->(:LogicalExpression)
         WHERE 
-            source.Id = "{source}" AND
             ref_edge.RelationType = "param" AND
             (
                 (size(dep_arg_edges) = 2 AND dep_arg_edges[0].RelationType = "ARG" AND dep_arg_edges[1].RelationType = "DEP") OR
@@ -48,7 +50,64 @@ def get_obj_recon_queries(source):
         ORDER BY 
             ref_edge.ParamIndex
     """
-    return [recon_query, recon_logical_expr_query]
+
+
+def get_parameter_name(full_name: str) -> str:
+    if "argv" not in full_name:
+        return full_name.split(".")[1].split("-")[0]
+    else:
+        return "argv"
+
+
+# This function is responsible for reconstructing the parameter types.
+# First, it reconstructs the object's structure and then assigns the types
+def reconstruct_param_types(session, function_cfg_id, config):
+
+    # Params_types stores
+    params_types: Dict[str, Dict[str, dict | set]] = {}
+
+    dependent_objects = session.run(get_parameter_dependent_objects(function_cfg_id))
+    expression_dependent_objects = session.run(get_parameter_expression_objects(function_cfg_id))
+
+    # This loops reconstructs the objects' structure
+    for obj_type in [dependent_objects, expression_dependent_objects]:
+        for param_obj in obj_type:
+
+            # Get parameter name
+            parameter_name = get_parameter_name(param_obj["param"]["IdentifierName"])
+            if parameter_name == "this":
+                continue
+
+            obj_recon_flag = True
+
+            # If parameter name is not in the map, simply add it
+            if parameter_name not in params_types:
+                params_types[parameter_name] = {"pdg_node_id": {param_obj["param"]["Id"]}}
+            # If the parameter is in the map, check if it has properties
+            else:
+                parent_param_types = params_types
+                params_types_pointer = params_types[parameter_name]
+
+                for edge in param_obj["obj_edges"]:
+                    sub_node_id = edge.nodes[1]["Id"]
+                    if edge["RelationType"] == "SO" and obj_recon_flag:
+                        prop_name = edge["IdentifierName"]
+                        if prop_name not in params_types:
+                            params_types_pointer[prop_name] = {
+                                "pdg_node_id": {sub_node_id}
+                            }
+                        else:
+                            params_types_pointer[prop_name]["pdg_node_id"].add(sub_node_id)
+                        params_types_pointer = params_types_pointer[prop_name]
+                    elif edge["RelationType"] == "DEP":
+                        obj_recon_flag = False
+                        params_types[parameter_name]["pdg_node_id"].add(sub_node_id)
+                params_types = parent_param_types
+
+    print(f'[INFO] Assigning types to attacker-controlled data.')
+    assign_types(session, params_types, config)
+
+    return list(params_types.keys()), params_types
 
 
 def assign_types(session, d, config):
