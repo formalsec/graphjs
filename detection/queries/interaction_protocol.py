@@ -415,14 +415,13 @@ def find_call_path(session, function_id: int, nodes: list[int]) -> list[list[Cal
 
 # This functions returns a structure that maps the function names contained
 # in all call paths to its arguments and types
-def get_function_args(session, call_paths: list[list[Call]], config) -> dict[FunctionArgs]:
+def get_function_args(session, call_paths: list[list[Call]], detection_result: DetectionResult, config) -> dict[FunctionArgs]:
     function_map: dict[FunctionArgs] = {}
     for call_path in call_paths:
         for call in call_path:
-            tainted_params, params_types = reconstruct_param_types(session,
-                                                                   call["fn_id"],
-                                                                   config)
-            function_map[call["fn_name"]] = params_types
+            if call["fn_name"] not in function_map:
+                tainted_params, params_types = reconstruct_param_types(session, call["fn_id"], detection_result, config)
+                function_map[call["fn_name"]] = params_types
     return function_map
 
 
@@ -438,7 +437,7 @@ def get_vulnerability_info(session, detection_result: DetectionResult, config):
         return
 
     call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"], [])
-    function_args: dict[FunctionArgs] = get_function_args(session, call_paths, config)
+    function_args: dict[FunctionArgs] = get_function_args(session, call_paths, detection_result, config)
 
     taint_summary = build_taint_summary(detection_result, call_paths, function_args)
 

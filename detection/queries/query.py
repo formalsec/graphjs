@@ -1,6 +1,6 @@
 from abc import abstractmethod
 import time
-from typing import TypedDict
+from typing import TypedDict, NotRequired
 
 
 class DetectionResult(TypedDict):
@@ -9,6 +9,8 @@ class DetectionResult(TypedDict):
 	sink: str
 	sink_lineno: int
 	sink_function: int
+	polluted_obj: NotRequired[object]
+	polluting_value: NotRequired[object]
 
 
 class Query:

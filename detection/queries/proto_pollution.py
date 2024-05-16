@@ -1,4 +1,6 @@
-from .query import Query
+import copy
+
+from .query import Query, DetectionResult
 from . import interaction_protocol
 from .my_utils import utils as my_utils
 import json
@@ -81,6 +83,7 @@ def get_ast_source_and_assignment(assignment_obj, second_lookup_obj):
 
 
 class PrototypePollution:
+    orig_obj = ""
     first_lookup_obj = ""
     assignment_obj = ""
     second_lookup_obj = ""
@@ -104,9 +107,10 @@ class PrototypePollution:
             nv.IdentifierName = "*" AND
             second_lookup.RelationType = "SO" AND
             second_lookup.IdentifierName = "*"
-        RETURN distinct sub_obj, nv_sub_obj, property
+        RETURN distinct obj, sub_obj, nv_sub_obj, property
 
         UNION
+        
         MATCH
             (obj:PDG_OBJECT)
                 -[first_lookup:PDG]
@@ -125,7 +129,7 @@ class PrototypePollution:
             nv.IdentifierName = "*" AND
             second_lookup.RelationType = "SO" AND
             second_lookup.IdentifierName = "*"
-        RETURN distinct sub_obj, nv_sub_obj, property
+        RETURN distinct obj, sub_obj, nv_sub_obj, property
 
     """
 
@@ -151,8 +155,9 @@ class PrototypePollution:
         self.query.start_timer()
         pattern_results = session.run(self.queries[0][1])
 
-        detection_results = []
+        detection_results: list[DetectionResult] = []
         for pattern in pattern_results:
+            self.orig_obj = pattern['obj']
             self.first_lookup_obj = pattern['sub_obj']['Id']
             self.assignment_obj = pattern['nv_sub_obj']['Id']
             self.second_lookup_obj = pattern['property']['Id']
@@ -196,7 +201,10 @@ class PrototypePollution:
                     if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                         vuln_paths.append(vuln_path)
                     elif self.query.reconstruct_types and vuln_path not in vuln_paths:
-                        detection_results.append(vuln_path)
+                        detection_result: DetectionResult = copy.deepcopy(vuln_path)
+                        detection_result["polluted_obj"] = self.orig_obj
+                        detection_result["polluting_value"] = tainted_source["value"]
+                        detection_results.append(detection_result)
         self.query.time_detection("proto_pollution")
 
         if self.query.reconstruct_types:

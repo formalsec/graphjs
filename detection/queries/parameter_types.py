@@ -1,8 +1,11 @@
 from .my_utils import utils as my_utils
 from typing import Dict
 
+from .query import DetectionResult
 
-def get_parameter_dependent_objects(fn_id):
+
+# Cypher Queries
+def get_parameter_dependent_objects(fn_id) -> str:
     return f"""
         MATCH
             obj_recon_path=
@@ -22,7 +25,7 @@ def get_parameter_dependent_objects(fn_id):
     """
 
 
-def get_parameter_expression_objects(fn_id):
+def get_parameter_expression_objects(fn_id) -> str:
     return f"""
         MATCH
             obj_recon_path=
@@ -59,10 +62,22 @@ def get_parameter_name(full_name: str) -> str:
         return "argv"
 
 
+# Find variable declarators in the graph that depend on param_name
+def get_variable_declarators(obj_ids: list[int]) -> str:
+    return f"""
+        MATCH
+            (vx:VariableDeclarator)
+                -[:REF]
+                    ->(obj:PDG_OBJECT)
+        WHERE
+            obj.Id in {obj_ids}
+        RETURN DISTINCT vx.IdentifierName as id
+    """
+
+
 # This function is responsible for reconstructing the parameter types.
 # First, it reconstructs the object's structure and then assigns the types
-def reconstruct_param_types(session, function_cfg_id, config):
-
+def reconstruct_param_types(session, function_cfg_id, detection_result: DetectionResult, config):
     # Params_types stores
     params_types: Dict[str, Dict[str, dict | set]] = {}
 
@@ -106,29 +121,89 @@ def reconstruct_param_types(session, function_cfg_id, config):
 
     print(f'[INFO] Assigning types to attacker-controlled data.')
     assign_types(session, params_types, config)
+    simplify_objects(params_types,
+                     config,
+                     detection_result.get('polluted_obj', False),
+                     detection_result.get('polluting_value', False))
 
     return list(params_types.keys()), params_types
 
 
-def assign_types(session, d, config):
-    """
-    Traverse the attacker-controlled data and assign a JavaScript type to each parameter.
-    """
-    if isinstance(d, dict):
-        for i, v in d.items():
-            if isinstance(v, dict) and len(v) == 1:
-                d[i] = assign_type(session, i, d[i]["pdg_node_id"], config)
+# This function traverses the parameters and assign a JavaScript type to each parameter.
+# It is recursive until it finds a single value
+def assign_types(session, param_structure, config):
+    if isinstance(param_structure, dict):
+        for key, value in param_structure.items():
+            if isinstance(value, dict) and len(value) == 1:
+                param_structure[key] = assign_type(session, key, list(param_structure[key]["pdg_node_id"]), config)
             else:
-                d[i].pop("pdg_node_id", None)
-                assign_types(session, d[i], config)
+                param_structure[key].pop("pdg_node_id", None)
+                assign_types(session, param_structure[key], config)
 
 
-def assign_type(session, param_name, obj_ids, config):
+def is_lazy_object(obj):
     """
-    Assign a JavaScript type to the attacker-controlled parameter param_name.
+    Check if object is lazy-object, e.g, {"*": {"*": "any" } }
     """
-    var_decls = find_variable_declarators(session, param_name, list(obj_ids))
-    if len(var_decls) > 0 and var_decls[0] is None:
+    if not isinstance(obj, dict):
+        return False
+
+    for key in obj.keys():
+        if key != "*":
+            return False
+
+        value = obj[key]
+        if isinstance(value, dict):
+            if not is_lazy_object(value):
+                return False
+        elif value != "any":
+            return False
+
+    return True
+
+
+def simplify_objects(params_types, config, polluted_object=False, polluting_value=False):
+    """
+    1 - Some objects might be arrays.
+    2 - Some objects don't contain useful information (lazy-objects), e.g, {"*": {"*": "any"}}
+    """
+    polluted_object_name = polluted_object["IdentifierName"].split(".")[1].split("-")[
+        0] if polluted_object else polluted_object
+    polluting_value_name = polluting_value["IdentifierName"].split(".")[1].split("-")[
+        0] if polluting_value else polluting_value
+    for i, v in params_types.items():
+        if isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()):
+            arr = []
+            for key, value in params_types[i].items():
+                if key.isdigit():
+                    arr.extend(["any"] * (int(key) - len(arr)))
+                    arr.insert(int(key), value)
+            if all(key == "length" or key.isdigit() or key == "*" for key in params_types[i].keys()):
+                params_types[i] = arr
+            else:
+                params_types[i] = f"{params_types[i]} | {arr}"
+        elif isinstance(v, dict) and "length" in params_types[i] and all(
+                key == "length" or key == "*" or key in config["prototypes"]["string"] for key in
+                params_types[i].keys()):
+            params_types[i] = f"{params_types[i]} | array | string"
+        elif isinstance(v, dict) and ("length" in params_types[i] and all(
+                key == "length" or key == "*" for key in params_types[i].keys())):
+            params_types[i] = f"{params_types[i]} | array"
+        elif is_lazy_object(params_types[i]) and polluted_object_name == i:
+            params_types[i] = f"polluted-object | array"
+        elif is_lazy_object(params_types[i]) and polluting_value_name == i:
+            params_types[i] = f"polluting-object | array"
+        elif is_lazy_object(params_types[i]):
+            params_types[i] = f"lazy-object | array"
+        elif isinstance(v, dict):
+            simplify_objects(params_types[i], config)
+
+
+# This function assigns a type to a parameter object (that may be represented by several objects)
+def assign_type(session, param_name: str, obj_ids: list[int], config):
+    variable_declarations = [r["id"] for r in session.run(get_variable_declarators(obj_ids))]
+    variable_declarations.insert(0, param_name)
+    if len(variable_declarations) > 0 and variable_declarations[0] is None:
         return "any"
     sinks = my_utils.get_sinks_from_config(config)
     prototypes = config["prototypes"]
@@ -150,7 +225,7 @@ def assign_type(session, param_name, obj_ids, config):
             object.RelationType = "object" AND
             type.IdentifierName in ["Array", "Number", "Object"] AND
             arg.RelationType = "arg" AND
-            id.IdentifierName in {var_decls}
+            id.IdentifierName in {variable_declarations}
         RETURN type.IdentifierName
     """
     results = session.run(arr_static_methods_query)
@@ -168,7 +243,7 @@ def assign_type(session, param_name, obj_ids, config):
         WHERE
             function.IdentifierName in {list(functions_signatures.keys())} AND
             arg.RelationType = "arg" AND
-            id.IdentifierName in {var_decls}
+            id.IdentifierName in {variable_declarations}
         RETURN function.IdentifierName, arg
     """
     results = session.run(any_built_in_functions_query)
@@ -196,7 +271,7 @@ def assign_type(session, param_name, obj_ids, config):
                     ->(var:Identifier)
         WHERE
             una_exp.SubType = "typeof" AND
-            id.IdentifierName in {var_decls} AND
+            id.IdentifierName in {variable_declarations} AND
             bin_exp.SubType in ["==", "==="] AND
             right.RelationType = "right" AND
             left.RelationType = "left" AND
@@ -216,7 +291,7 @@ def assign_type(session, param_name, obj_ids, config):
                         ->(id:Identifier)    
             WHERE
                 callee.RelationType = "callee" AND
-                 id.IdentifierName  = "{var_decls[0]}" 
+                 id.IdentifierName  = "{variable_declarations[0]}" 
             RETURN true
         """
         results = session.run(func_func_call_query)
@@ -237,7 +312,7 @@ def assign_type(session, param_name, obj_ids, config):
                         ->(proto_func:Identifier)
             WHERE
                 object.RelationType = "object" AND
-                id.IdentifierName in {var_decls} AND
+                id.IdentifierName in {variable_declarations} AND
                 property.RelationType = "property" AND
                 proto_func.IdentifierName in {prototypes["array"]}
             RETURN true
@@ -254,7 +329,7 @@ def assign_type(session, param_name, obj_ids, config):
                         ->(id:Identifier)    
             WHERE
                 right.RelationType = "right" AND
-                id.IdentifierName in {var_decls}
+                id.IdentifierName in {variable_declarations}
             RETURN true
         """
         results = session.run(arr_proto_func_call_query)
@@ -274,7 +349,7 @@ def assign_type(session, param_name, obj_ids, config):
             WHERE
                 bin_exp.SubType in ["==", "==="] AND
                 literal.SubType = "boolean" AND
-                id.IdentifierName in {var_decls}
+                id.IdentifierName in {variable_declarations}
             RETURN true
         """
         results = session.run(bool_bin_exp_query)
@@ -293,7 +368,7 @@ def assign_type(session, param_name, obj_ids, config):
                         ->(literal:Literal)    
             WHERE
                 literal.SubType = "number" AND
-                id.IdentifierName in {var_decls}
+                id.IdentifierName in {variable_declarations}
             RETURN true
         """
         results = session.run(num_bin_exp_query)
@@ -308,7 +383,7 @@ def assign_type(session, param_name, obj_ids, config):
                         ->(id:Identifier)
             WHERE
                 bin_exp.SubType in ["*", "-", "/", "**", "%", ">", "<", ">=", "<="] AND
-                id.IdentifierName in {var_decls}
+                id.IdentifierName in {variable_declarations}
             RETURN true
         """
         results = session.run(num_bin_exp_query)
@@ -329,7 +404,7 @@ def assign_type(session, param_name, obj_ids, config):
                         ->(proto_func:Identifier)
             WHERE
                 object.RelationType = "object" AND
-                id.IdentifierName = "{var_decls[0]}" AND
+                id.IdentifierName = "{variable_declarations[0]}" AND
                 property.RelationType = "property" AND
                 proto_func.IdentifierName in {prototypes["string"]}
             RETURN true
@@ -350,7 +425,7 @@ def assign_type(session, param_name, obj_ids, config):
             WHERE
                 bin_exp.SubType in ["+", "=="] AND
                 literal.SubType = "string" AND
-                id.IdentifierName in {var_decls} 
+                id.IdentifierName in {variable_declarations} 
             RETURN true
         """
         results = session.run(str_bin_exp_query)
@@ -364,7 +439,7 @@ def assign_type(session, param_name, obj_ids, config):
                     -[:AST]
                         ->(id:Identifier)
             WHERE
-                id.IdentifierName = "{var_decls[0]}"
+                id.IdentifierName = "{variable_declarations[0]}"
             RETURN true
         """
         results = session.run(str_tmplt_literal_query)
@@ -385,7 +460,7 @@ def assign_type(session, param_name, obj_ids, config):
                 (call_or_new_exp:CallExpression OR call_or_new_exp:NewExpression) AND
                 arg.RelationType = "arg" AND
                 arg.ArgumentIndex = "1" AND
-                id.IdentifierName in {var_decls} AND
+                id.IdentifierName in {variable_declarations} AND
                 callee.RelationType = "callee" AND
                 sink.IdentifierName in {sinks}
             RETURN true
@@ -408,7 +483,7 @@ def assign_type(session, param_name, obj_ids, config):
             WHERE
                 arg.RelationType = "arg" AND
                 arg.ArgumentIndex = "1" AND
-                id.IdentifierName in {var_decls} AND
+                id.IdentifierName in {variable_declarations} AND
                 callee.RelationType = "callee" AND
                 property.RelationType = "property" AND
                 sink.IdentifierName in {sinks}
@@ -427,7 +502,7 @@ def assign_type(session, param_name, obj_ids, config):
             WHERE
                 mem_exp.SubType = "computed" AND
                 property.RelationType = "property" AND
-                id.IdentifierName in {var_decls}
+                id.IdentifierName in {variable_declarations}
             RETURN true
         """
         results = session.run(prop_str_query)
@@ -437,85 +512,3 @@ def assign_type(session, param_name, obj_ids, config):
     types = list(types)
     types.sort()
     return {"_union": types} if len(types) > 1 else types[0] if len(types) == 1 else "any"
-
-
-def find_variable_declarators(session, param_name, obj_ids):
-    """
-    Find variable declarators in the graph that depend on param_name
-    """
-    find_var_decls_query = f"""
-        MATCH
-            (vx:VariableDeclarator)
-                -[:REF]
-                    ->(obj:PDG_OBJECT)
-        WHERE
-            obj.Id in {obj_ids}
-        RETURN vx 
-    """
-
-    results = session.run(find_var_decls_query)
-    var_decls = [param_name]
-    for record in results:
-        # destructuring is also a variable declarator
-        if record["vx"]["IdentifierName"]:
-            var_decls.append(record["vx"]["IdentifierName"])
-
-    return var_decls
-
-
-def is_lazy_object(self, obj):
-    """
-    Check if object is lazy-object, e.g, {"*": {"*": "any" } }
-    """
-    if not isinstance(obj, dict):
-        return False
-
-    for key in obj.keys():
-        if key != "*":
-            return False
-
-        value = obj[key]
-        if isinstance(value, dict):
-            if not self.is_lazy_object(value):
-                return False
-        elif value != "any":
-            return False
-
-    return True
-
-
-def simplify_objects(self, params_types, config, polluted_object=False, polluting_value=False):
-    """
-    1 - Some objects might be arrays.
-    2 - Some objects don't contain useful information (lazy-objects), e.g, {"*": {"*": "any"}}
-    """
-    polluted_object_name = polluted_object["IdentifierName"].split(".")[1].split("-")[
-        0] if polluted_object else polluted_object
-    polluting_value_name = polluting_value["IdentifierName"].split(".")[1].split("-")[
-        0] if polluting_value else polluting_value
-    for i, v in params_types.items():
-        if isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()):
-            arr = []
-            for key, value in params_types[i].items():
-                if key.isdigit():
-                    arr.extend(["any"] * (int(key) - len(arr)))
-                    arr.insert(int(key), value)
-            if all(key == "length" or key.isdigit() or key == "*" for key in params_types[i].keys()):
-                params_types[i] = arr
-            else:
-                params_types[i] = f"{params_types[i]} | {arr}"
-        elif isinstance(v, dict) and "length" in params_types[i] and all(
-                key == "length" or key == "*" or key in config["prototypes"]["string"] for key in
-                params_types[i].keys()):
-            params_types[i] = f"{params_types[i]} | array | string"
-        elif isinstance(v, dict) and ("length" in params_types[i] and all(
-                key == "length" or key == "*" for key in params_types[i].keys())):
-            params_types[i] = f"{params_types[i]} | array"
-        elif self.is_lazy_object(params_types[i]) and polluted_object_name == i:
-            params_types[i] = f"polluted-object | array"
-        elif self.is_lazy_object(params_types[i]) and polluting_value_name == i:
-            params_types[i] = f"polluting-object | array"
-        elif self.is_lazy_object(params_types[i]):
-            params_types[i] = f"lazy-object | array"
-        elif isinstance(v, dict):
-            self.simplify_objects(params_types[i], config)
