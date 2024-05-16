@@ -472,7 +472,7 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
             'sink_function': detection_result["sink_function"],
             'source': current_call["source"],
             'tainted_params': current_call["tainted_params"],
-            'param_types': current_call["param_types"]
+            'params_types': current_call["param_types"]
         }
         if "returns" in current_call:
             vulnerability["returns"] = current_call["returns"]

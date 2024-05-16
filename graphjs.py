@@ -85,7 +85,7 @@ def run_graph_js(file_path, output_path, generate_exploit=False, silent=True):
     file_path = os.path.abspath(file_path)
     # Generate default output path
     if output_path is None:
-        output_path = os.path.join(os.path.basename(file_path), "tool_outputs/graphjs")
+        output_path = os.path.abspath(os.path.join(os.path.basename(file_path), "tool_outputs/graphjs"))
     else:
         output_path = os.path.abspath(output_path)
     graph_output = os.path.join(output_path, "graph")
