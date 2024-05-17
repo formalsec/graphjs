@@ -50,7 +50,6 @@ class Injection:
         results = session.run(self.injection_query)
         detection_results = []
 
-        print(f'[INFO] Injection - Analyzing detected vulnerabilities.')
         for record in results:
             sink_name = record["sink"]["IdentifierName"]
             sink_lineno = json.loads(record["sink_ast"]["Location"])["start"]["line"]

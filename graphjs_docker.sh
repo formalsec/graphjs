@@ -26,7 +26,7 @@ Help()
 
 # Default values
 SILENT_MODE=false
-EXPLOIT=false
+EXTENDED_SUMMARY=false
 DOCKER_LOGS=false
 while getopts f:o:les:h flag; do
     case "${flag}" in
@@ -43,7 +43,7 @@ while getopts f:o:les:h flag; do
                 exit 1
             fi;;
         l) DOCKER_LOGS=true;;
-        e) EXPLOIT=true;;
+        e) EXTENDED_SUMMARY=true;;
         s) SILENT=true;;
         :?h) Help
         exit;;
@@ -77,7 +77,7 @@ if [ "$DOCKER_LOGS" = true ]; then
         -v "${output_path}":/output_path \
         -v "${SCRIPT_DIR}/docker_logs":/docker_logs \
         graphjs \
-        /bin/bash -c "python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s &> /docker_logs/graphjs-debug.log;
+        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s ${EXTENDED_SUMMARY:+ -e} &> /docker_logs/graphjs-debug.log;
                       cp /var/log/neo4j/debug.log /docker_logs/neo4j-debug.log"
     mv docker_logs ${output_path}/
 else
@@ -85,6 +85,6 @@ else
         -v "${filename}":/input-file.js \
         -v "${output_path}":/output_path \
         graphjs \
-        python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s
+        bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s ${EXTENDED_SUMMARY:+ -e}"
 fi
 

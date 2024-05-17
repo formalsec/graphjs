@@ -151,7 +151,7 @@ class PrototypePollution:
         self.query = query
 
     def find_vulnerable_paths(self, session, vuln_paths, source_file, filename: str, detection_output, config):
-        print(f"[INFO] Running prototype pollution query: {self.queries[0][0]}")
+        print(f"[INFO] Running prototype pollution query.")
         self.query.start_timer()
         pattern_results = session.run(self.queries[0][1])
 
@@ -162,28 +162,23 @@ class PrototypePollution:
             self.assignment_obj = pattern['nv_sub_obj']['Id']
             self.second_lookup_obj = pattern['property']['Id']
 
-            print(f"[INFO] Running prototype pollution query: {self.queries[1][0]}")
             taint_key_results = session.run(check_taint_key(self.first_lookup_obj))
             # If query is unable to find a taint key path, go to next pattern
             if taint_key_results.peek() is None:
                 continue
 
-            print(f"[INFO] Running prototype pollution query: {self.queries[2][0]}")
             taint_assignment_results = session.run(check_tainted_assignment(self.assignment_obj))
             # If query is unable to find a taint assignment path, go to next pattern
             if taint_assignment_results.peek() is None:
                 continue
 
-            print(f"[INFO] Running prototype pollution query: {self.queries[3][0]}")
             taint_sub_key_results = session.run(check_taint_sub_key(self.second_lookup_obj))
             # If query is unable to find a taint sub key path, go to next pattern
             if taint_sub_key_results.peek() is None:
                 continue
 
-            print(f'[INFO] Prototype Pollution - Analyzing detected vulnerabilities.')
             for tainted_source in taint_sub_key_results:
                 source = tainted_source['value']['Id']
-                print(f"[INFO] Running prototype pollution query: {self.queries[4][0]}")
                 ast_results = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj))
 
                 for ast_result in ast_results:

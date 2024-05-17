@@ -22,3 +22,6 @@ fi
 
 # Python dependencies
 pip3 install -r ./requirements.txt
+
+# Install instrumentation
+opam install -y ./instrumentation2

@@ -6,8 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip curl ca-certificates gnupg wget graphviz unzip && \
-    pip install --upgrade pip setuptools
+    apt-get install -y curl ca-certificates gnupg wget graphviz unzip software-properties-common opam
 
 # Install Node.js
 RUN mkdir -p /etc/apt/keyrings \
@@ -18,11 +17,26 @@ RUN mkdir -p /etc/apt/keyrings \
 
 # Install Neo4j
 ENV NEO4J_HOME="/var/lib/neo4j"
-RUN wget -O - https://debian.neo4j.com/neotechnology.gpg.key | apt-key add - && \
-    echo 'deb https://debian.neo4j.com stable 5' | tee -a /etc/apt/sources.list.d/neo4j.list && \
-    apt-get update && \
-    apt-get install -y neo4j=1:5.9.0 && \
-    echo dbms.security.auth_enabled=false >> /etc/neo4j/neo4j.conf && \
+RUN wget -O - https://debian.neo4j.com/neotechnology.gpg.key | apt-key add - \
+    && echo 'deb https://debian.neo4j.com stable 5' | tee -a /etc/apt/sources.list.d/neo4j.list \
+    && apt-get update \
+    && apt-get install -y neo4j=1:5.9.0 \
+    && echo dbms.security.auth_enabled=false >> /etc/neo4j/neo4j.conf
+
+# Install Python 3.11
+RUN add-apt-repository ppa:deadsnakes/ppa \
+    && apt install python3.11 python3-pip python3.11-dev -y \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && pip install --upgrade pip setuptools
+
+# Install Opam
+RUN opam init --disable-sandboxing --auto-setup -y \
+&& opam switch create -y 4.14 4.14.1 \
+&& eval $(opam env) \
+&& echo "eval \$(opam env)" >> ~/.bashrc
+
+# Clean up
+RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
