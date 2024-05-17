@@ -190,9 +190,9 @@ def simplify_objects(params_types, config, polluted_object=False, polluting_valu
                 key == "length" or key == "*" for key in params_types[i].keys())):
             params_types[i] = f"{params_types[i]} | array"
         elif is_lazy_object(params_types[i]) and polluted_object_name == i:
-            params_types[i] = f"polluted-object | array"
+            params_types[i] = f"object"
         elif is_lazy_object(params_types[i]) and polluting_value_name == i:
-            params_types[i] = f"polluting-object | array"
+            params_types[i] = f"polluted-object"
         elif is_lazy_object(params_types[i]):
             params_types[i] = f"lazy-object | array"
         elif isinstance(v, dict):

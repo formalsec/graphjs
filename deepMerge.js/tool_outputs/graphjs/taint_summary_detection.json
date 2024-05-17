@@ -1,0 +1,9 @@
+[
+    {
+        "filename": "../../../../graphjs-evaluation/datasets/vulcan-dataset/CWE-471/917/src/deepMerge.js",
+        "vuln_type": "prototype-pollution",
+        "sink": "target[key] = source[key];",
+        "sink_lineno": 14,
+        "sink_function": "105"
+    }
+]
