@@ -710,6 +710,10 @@ export class DependencyTracker {
         }
     }
 
+    graphCreateCallRefEdge(source: number, destination: number): void {
+        this.graph.addEdge(source, destination, { type: "REF", label: "call" })
+    }
+
     graphCreateSourceEdge(source: number, destination: number, index: number): void {
         this.graph.addEdge(source, destination, { type: "REF", label: "param", paramIndex: index.toString() })
     }

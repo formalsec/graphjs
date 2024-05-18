@@ -26,11 +26,35 @@ class Injection:
     def find_vulnerable_paths(self, session, vuln_paths, vuln_file, detection_output, config):
         print(f'[INFO] Running injection query.')
         self.query.start_timer()
-        self.query.reset_call_info()
-        sink_paths,_ = self.query.find_taint_paths(session,"TAINT_SOURCE")
+
+        taint_query = f"""
+            MATCH
+                (param:PDG_PARAM)
+                    -[edges:PDG*1..]
+                        ->(sink:TAINT_SINK),
+
+                (sink_cfg)
+					-[:SINK]
+						->(sink),
+
+				(sink_cfg)
+					-[:AST]
+						->(sink_ast)
+
+                WHERE
+                    ALL(
+							edge in edges WHERE
+							NOT edge.RelationType = "ARG" OR
+							edge.valid = true
+                    )
+            RETURN *
+            """
+        
+        sink_paths = session.run(taint_query)
 
         print(f'[INFO] Injection - Analyzing detected vulnerabilities.')
         for record in sink_paths:
+            if record["param"]["isExported"] or self.query.confirm_vulnerability(record["param"]["IdentifierName"]):
                 sink_name = record["sink"]["IdentifierName"]
                 json_info = json.loads(record["sink_ast"]["Location"])
                 sink_lineno = json_info["start"]["line"]

@@ -27,6 +27,8 @@ def traverse_graph(normalized_file, taint_summary_output, time_output_file, reco
         vulnerable_paths = []
 
         query = Query(reconstruct_types, time_output_file)
+
+        query.process_cg(session)
         query_types = [Injection(query), PrototypePollution(query)]
         for query_type in query_types:
             query_type.find_vulnerable_paths(session, vulnerable_paths, normalized_file, detection_output, config)

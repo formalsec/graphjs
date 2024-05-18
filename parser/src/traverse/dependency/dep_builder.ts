@@ -217,6 +217,8 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
         callNodeObj.functionName = name;
         callNodeObj.edges = callNode.edges;
         trackers.graphCreateCallEdge(callNodeObjId,calledFunc);
+        let funcNode = trackers.getFunctionNode(functionContext)?.id
+        funcNode && trackers.graphCreateCallRefEdge(funcNode,callNodeObjId);
         trackers.addCallNode(callNodeObj);
         let ids:number[] = []
         callNode.obj.arguments.forEach((arg: any, index: number) => {

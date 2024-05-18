@@ -235,7 +235,7 @@ class PrototypePollution:
         self.query.reset_call_info()
 
         # find tainted paths in the graph
-        taint_paths,_ = self.query.find_taint_paths(session,"TAINT_SOURCE",
+        taint_paths = self.query.find_taint_paths(session,"TAINT_SOURCE",
                                                  lambda x: x['Id'] in sinks,sinks_str)
         
         # mark the object as vulnerable if the attacker can have control over it
@@ -259,9 +259,9 @@ class PrototypePollution:
         
         # verify that the attcker has control over the first lookup, second lookup and the assigment object
         print(f"[INFO] Running prototype pollution query: check_taint_paths")
-        vulnerable_assignments = self.find_tainted_assignments(session, sinks,possible_assignments)
+        # vulnerable_assignments = self.find_tainted_assignments(session, sinks,possible_assignments)
 
-
+        vulnerable_assignments = []
         if vulnerable_assignments == []:
             return vuln_paths
         
