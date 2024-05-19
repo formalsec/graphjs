@@ -27,7 +27,7 @@ class Query:
 						(func:VariableDeclarator)
 							-[:REF]
 								->(param:PDG_OBJECT)
-									-[edges:PDG*..]
+									-[edges:PDG*1..]
 										->(return:PDG_RETURN)
 
 					WHERE 
@@ -64,7 +64,7 @@ class Query:
 
 			if start in cg:
 				for callee in cg[start]:
-					process_call_graph(session,cg,callee,visited)
+					process_call_graph(session,cg,callee[1],visited)
 
 			check_propagation(session,start)
 
@@ -82,23 +82,19 @@ class Query:
 
 		session.run(set_this_undefined_calls)
 
-		get_call_graph = f"""
+		get_call_graph = """
 				MATCH 
 					(func:VariableDeclarator)
 						-[ref_edge:REF]
 							->(call:PDG_CALL)
 								-[:CG]
 									->(called_func:VariableDeclarator),
-
 					(func)
 						-[:AST]
 							->(:FunctionExpression)
-
 				WHERE
 					ref_edge.RelationType = "call"
-
-
-				return distinct func,collect(called_func) as calls
+					RETURN DISTINCT func, COLLECT({call: call, called_func: called_func}) AS calls
 		"""
 
 		# check the taint propagation according to the call graph
@@ -107,14 +103,13 @@ class Query:
 
 		for record in results:
 			func = record["func"]["Id"]
-			cg[func] = set(map(lambda x: x["Id"], record["calls"]))
+			cg[func] = set(map(lambda x: (x["call"]["Id"],x["called_func"]["Id"]), record["calls"]))
 
 		visited = set()
 		for start in cg.keys():
 			if start not in visited:
 				process_call_graph(session,cg,start,visited)
 
-		# get the transposed call graph to connect the paths (now with only the edges that propagate taint)
 
 		add_param_tag_query  = """
 				MATCH
@@ -141,51 +136,10 @@ class Query:
     	"""
 
 		session.run(add_param_tag_query)
+
+		self.transpose_cg(session,cg)
 		
-		get_call_graph = """
-				MATCH 
-					(func:VariableDeclarator)
-						-[ref_edge:REF]
-							->(call:PDG_CALL),
-
-					(func)
-						-[:AST]
-							->(:FunctionExpression),
-
-					(func)
-						-[param_edge:REF]
-							->(param:PDG_PARAM)
-								-[edges:PDG*1..]
-									->(call)
-
-				WHERE
-					ref_edge.RelationType = "call" AND
-					param_edge.RelationType = "param" AND
-					ALL(
-							edge in edges[..-1] WHERE
-							NOT edge.RelationType = "ARG" OR
-							edge.valid = true
-                    )	
-
-
-				RETURN distinct param as from, LAST(edges).IdentifierName as to
-		"""
-
-		results = session.run(get_call_graph)
-
-		for record in results:
-			from_node = record["from"]
-			to_node = record["to"]
-
-			if to_node == "undefined" or to_node == "this":
-				continue
-
-			if to_node not in self.cgt:
-				self.cgt[to_node] = []
-
-
-			self.cgt[to_node].append((from_node["IdentifierName"],from_node["isExported"]))
-
+		
 
 
 	def find_taint_paths(self,session):
@@ -193,13 +147,15 @@ class Query:
 	
 	def confirm_vulnerability(self,identifier):
 		if identifier in self.cgt:
+			visited = set()
 			args_list = [self.cgt[identifier]]
 			while args_list != []:
 				current = args_list.pop()
+				visited.update(current)
 				if any([x[1] for x in current]):
 					return True
 				
-				args_list += [self.cgt[x[0]] for x in current]
+				args_list += [self.cgt[x[0]] for x in current if x[0] in self.cgt and x not in visited]
 		return False
 
 	# Timer related functions
@@ -214,3 +170,59 @@ class Query:
 	def time_reconstruction(self, type):
 		reconstruction_time = (time.time() - self.start_time) * 1000  # to ms
 		print(f'{type}_reconstruction: {reconstruction_time}', file=open(self.time_output_file, 'a'))
+
+	def transpose_cg(self,session,cg):
+
+		def get_params(session,func):
+			get_params_query = f"""
+				MATCH
+					(func:VariableDeclarator)
+						-[param_edge:REF]
+							->(param:PDG_PARAM)
+				WHERE
+					func.Id = \"{func}\" AND
+					param_edge.RelationType = 'param' AND
+					param_edge.ParamIndex <> 'this'
+				RETURN collect(param.Id) as params
+			"""
+
+			params = session.run(get_params_query).single()["params"]
+			return "[" + ",".join([f"\"{x}\"" for x in params]) + "]" if params != [] else ""
+		
+		def reaches_caller(session,paramsId,callId):
+			reaches_caller_query = f"""
+				MATCH
+					(param:PDG_PARAM)
+						-[edges:PDG*1..]
+							->(call:PDG_CALL)
+				WHERE
+					ALL(
+							edge in edges[..-1] WHERE
+							NOT edge.RelationType = "ARG" OR
+							edge.valid = true
+                    ) AND
+					param.Id IN {paramsId} AND
+					call.Id = \"{callId}\"
+				RETURN DISTINCT param as argument, LAST(edges).IdentifierName as parameter
+			"""
+
+			return session.run(reaches_caller_query)
+		
+		for caller in cg:
+
+			params = get_params(session,caller)
+			if params == "":
+				continue
+
+			for callee in cg[caller]:
+					results = reaches_caller(session,params,callee[0])
+
+					for record in results:
+						
+						parameter = record["parameter"]
+						if parameter not in self.cgt:
+							self.cgt[parameter] = set()
+
+						self.cgt[parameter].add((record["argument"]["IdentifierName"],record["argument"]["isExported"]))
+						
+				
