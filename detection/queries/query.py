@@ -117,8 +117,7 @@ class Query:
 						-[param_edge:REF]
 							->(param:PDG_OBJECT)
 				WHERE
-					param_edge.RelationType = 'param' AND
-					param_edge.ParamIndex <> 'this'
+					param_edge.RelationType = 'param'
 
 				SET param:PDG_PARAM
 				WITH param
