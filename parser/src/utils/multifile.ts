@@ -14,7 +14,7 @@ function findFuncNode(targetName:any,trackers:DependencyTracker):GraphNode|undef
 }
 
 // given a node, construct the object encapsulated by it, so that it can be used to construct the exported object
-function constructObject(node:GraphNode,trackers:DependencyTracker,cpg:Graph,identifier:string=""):GraphNode|undefined{
+function constructObject(node:GraphNode,trackers:DependencyTracker,cpg:Graph,identifier:string=""):GraphNode|any{
     let exportedObject:any = {};
     if(node.type == "ObjectExpression"){
         // is an object so recursively construct its properties
@@ -64,6 +64,8 @@ function constructObject(node:GraphNode,trackers:DependencyTracker,cpg:Graph,ide
         // is a function, just return its cpg (by returning the head of the graph)
         return findFuncNode(identifier,trackers);
     }
+
+    return {};
 }
 
 // given the name of a variable, look for node that holds its declaration
