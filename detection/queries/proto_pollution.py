@@ -195,7 +195,7 @@ class PrototypePollution:
                     my_utils.save_intermediate_output(vuln_path, detection_output)
                     if not self.query.reconstruct_types and vuln_path not in vuln_paths:
                         vuln_paths.append(vuln_path)
-                    elif self.query.reconstruct_types and vuln_path not in vuln_paths:
+                    elif self.query.reconstruct_types and not exists_vuln_path(detection_results, vuln_path):
                         detection_result: DetectionResult = copy.deepcopy(vuln_path)
                         detection_result["polluted_obj"] = self.orig_obj
                         detection_result["polluting_value"] = tainted_source["value"]
@@ -214,3 +214,14 @@ class PrototypePollution:
             self.query.time_reconstruction("proto_pollution")
 
         return vuln_paths
+
+
+def exists_vuln_path(detection_results: list[DetectionResult], path) -> bool:
+    for detection_result in detection_results:
+        if path["filename"] == detection_result["filename"] and \
+                path["vuln_type"] == detection_result["vuln_type"] and \
+                path["sink"] == detection_result["sink"] and \
+                path["sink_lineno"] == detection_result["sink_lineno"] and \
+                path["sink_function"] == detection_result["sink_function"]:
+            return True
+    return False

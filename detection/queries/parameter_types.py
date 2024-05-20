@@ -181,20 +181,20 @@ def simplify_objects(params_types, config, polluted_object=False, polluting_valu
             if all(key == "length" or key.isdigit() or key == "*" for key in params_types[i].keys()):
                 params_types[i] = arr
             else:
-                params_types[i] = f"{params_types[i]} | {arr}"
+                params_types[i] = {'_union': [params_types[i], arr] }
         elif isinstance(v, dict) and "length" in params_types[i] and all(
                 key == "length" or key == "*" or key in config["prototypes"]["string"] for key in
                 params_types[i].keys()):
-            params_types[i] = f"{params_types[i]} | array | string"
+            params_types[i] = {'_union': [params_types[i], "array", "string"]}
         elif isinstance(v, dict) and ("length" in params_types[i] and all(
                 key == "length" or key == "*" for key in params_types[i].keys())):
-            params_types[i] = f"{params_types[i]} | array"
+            params_types[i] = {'_union': [params_types[i], "array"]}
         elif is_lazy_object(params_types[i]) and polluted_object_name == i:
             params_types[i] = f"object"
         elif is_lazy_object(params_types[i]) and polluting_value_name == i:
             params_types[i] = f"polluted-object"
         elif is_lazy_object(params_types[i]):
-            params_types[i] = f"lazy-object | array"
+            params_types[i] = {'_union': [params_types[i], "array"]}
         elif isinstance(v, dict):
             simplify_objects(params_types[i], config)
 
