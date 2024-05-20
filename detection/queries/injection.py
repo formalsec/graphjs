@@ -29,9 +29,11 @@ class Injection:
 
         taint_query = f"""
             MATCH
-                (param:PDG_PARAM)
-                    -[edges:PDG*1..]
-                        ->(sink:TAINT_SINK),
+                (func:VariableDeclarator)
+                    -[ref_edge:REF]
+                        ->(param:PDG_OBJECT)
+                            -[edges:PDG*1..]
+                                ->(sink:TAINT_SINK),
 
                 (sink_cfg)
 					-[:SINK]
@@ -42,6 +44,7 @@ class Injection:
 						->(sink_ast)
 
                 WHERE
+                    ref_edge.RelationType = "param" AND
                     ALL(
 							edge in edges WHERE
 							NOT edge.RelationType = "ARG" OR
@@ -54,7 +57,8 @@ class Injection:
 
         print(f'[INFO] Injection - Analyzing detected vulnerabilities.')
         for record in sink_paths:
-            if record["param"]["isExported"] or self.query.confirm_vulnerability(record["param"]["IdentifierName"]):
+ 
+            if self.query.confirm_vulnerability(session,record["func"]["Id"],record["param"]):
                 sink_name = record["sink"]["IdentifierName"]
                 json_info = json.loads(record["sink_ast"]["Location"])
                 sink_lineno = json_info["start"]["line"]

@@ -218,11 +218,14 @@ class PrototypePollution:
 
             taint_query = f"""
                         MATCH  
-                            (param:PDG_PARAM)
-                                -[edges:PDG*0..]
-                                        ->(sink:POLLUTION_SINK)
+                           (func:VariableDeclarator)
+                                -[ref_edge:REF]
+                                    ->(param:PDG_OBJECT)
+                                        -[edges:PDG*0..]
+                                            ->(sink:POLLUTION_SINK)
 
                         WHERE
+                            ref_edge.RelationType = "param" AND 
                             sink.Id = \"{id}\" AND
                             ALL(
                                 edge in edges WHERE
@@ -230,10 +233,10 @@ class PrototypePollution:
                                 edge.valid = true
                             )
 
-                        RETURN param
+                        RETURN *
                 """
             for record in session.run(taint_query):
-                if record["param"]["isExported"] or self.query.confirm_vulnerability(record["param"]["IdentifierName"]):
+                if self.query.confirm_vulnerability(session,record["func"]["Id"],record["param"]):
                     return True
             return False
         
