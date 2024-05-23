@@ -192,9 +192,9 @@ def simplify_objects(params_types, config, polluted_object=False, polluting_valu
         elif is_lazy_object(params_types[i]) and polluted_object_name == i:
             params_types[i] = f"object"
         elif is_lazy_object(params_types[i]) and polluting_value_name == i:
-            params_types[i] = f"polluted-object"
+            params_types[i] = {'_union': ["polluted_object2", "polluted_object2"]}
         elif is_lazy_object(params_types[i]):
-            params_types[i] = {'_union': [params_types[i], "array"]}
+            params_types[i] = {'_union': ["object", "array"]}
         elif isinstance(v, dict):
             simplify_objects(params_types[i], config)
 
