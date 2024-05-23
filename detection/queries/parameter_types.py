@@ -121,10 +121,11 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
 
     print(f'[INFO] Assigning types to attacker-controlled data.')
     assign_types(session, params_types, config)
-    simplify_objects(params_types,
-                     config,
-                     detection_result.get('polluted_obj', False),
-                     detection_result.get('polluting_value', False))
+    if detection_result["vuln_type"] == "prototype-pollution":
+        simplify_objects(params_types,
+                         config,
+                         detection_result.get('polluted_obj', False),
+                         detection_result.get('polluting_value', False))
 
     return list(params_types.keys()), params_types
 
@@ -162,6 +163,14 @@ def is_lazy_object(obj):
     return True
 
 
+def check_if_object(obj):
+    if not isinstance(obj, dict):
+        return False
+
+    if "*" in obj.keys() or "length" in obj.keys():
+        return True
+
+
 def simplify_objects(params_types, config, polluted_object=False, polluting_value=False):
     """
     1 - Some objects might be arrays.
@@ -172,7 +181,11 @@ def simplify_objects(params_types, config, polluted_object=False, polluting_valu
     polluting_value_name = polluting_value["IdentifierName"].split(".")[1].split("-")[
         0] if polluting_value else polluting_value
     for i, v in params_types.items():
-        if isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()):
+        if check_if_object(params_types[i]) and polluted_object_name == i:
+            params_types[i] = f"object"
+        elif check_if_object(params_types[i]) and polluting_value_name == i:
+            params_types[i] = {'_union': ["polluted_object2", "polluted_object3"]}
+        elif isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()):
             arr = []
             for key, value in params_types[i].items():
                 if key.isdigit():
@@ -185,15 +198,11 @@ def simplify_objects(params_types, config, polluted_object=False, polluting_valu
         elif isinstance(v, dict) and "length" in params_types[i] and all(
                 key == "length" or key == "*" or key in config["prototypes"]["string"] for key in
                 params_types[i].keys()):
-            params_types[i] = {'_union': [params_types[i], "array", "string"]}
+            params_types[i] = {'_union': ["object", "array", "string"]}
         elif isinstance(v, dict) and ("length" in params_types[i] and all(
                 key == "length" or key == "*" for key in params_types[i].keys())):
-            params_types[i] = {'_union': [params_types[i], "array"]}
-        elif is_lazy_object(params_types[i]) and polluted_object_name == i:
-            params_types[i] = f"object"
-        elif is_lazy_object(params_types[i]) and polluting_value_name == i:
-            params_types[i] = {'_union': ["polluted_object2", "polluted_object2"]}
-        elif is_lazy_object(params_types[i]):
+            params_types[i] = {'_union': ["object", "array"]}
+        elif check_if_object(params_types[i]):
             params_types[i] = {'_union': ["object", "array"]}
         elif isinstance(v, dict):
             simplify_objects(params_types[i], config)

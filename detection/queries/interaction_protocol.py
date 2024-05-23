@@ -464,7 +464,10 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
 
                 inner_return = current_call
 
+        vulnerability_type: str = get_vulnerability_type(call_path)
+
         vulnerability = {
+            'type': vulnerability_type,
             'filename': detection_result["filename"],
             'vuln_type': detection_result["vuln_type"],
             'sink': detection_result["sink"],
@@ -508,3 +511,21 @@ def build_call(call: Call, function_args: dict[FunctionArgs], depth: int) -> Tai
         tainted_params: list[str] = list(param_types.keys())
 
     return {'source': source, 'param_types': param_types, 'tainted_params': tainted_params}
+
+
+def get_vulnerability_type(call_path: list[Call]) -> str:
+    if len(call_path) == 1:
+        if call_path[0]["type"] == "Call":
+            return "VFunExported"
+        if call_path[0]["type"] == "Method":
+            return "VFunPropOfExportedObj"
+        if call_path[0]["type"] == "New":
+            return "VNewCall"
+
+    if len(call_path) > 1:
+        if call_path[0]["type"] == "New":
+            return "VNewCall"
+        if call_path[0]["type"] == "Call" or call_path[0]["type"] == "Method":
+            return "VFunRetByExport"
+
+    return "unknown"

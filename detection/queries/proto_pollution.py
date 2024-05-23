@@ -182,8 +182,12 @@ class PrototypePollution:
                 ast_results = session.run(get_ast_source_and_assignment(source, self.second_lookup_obj))
 
                 for ast_result in ast_results:
-                    sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
-                    sink_lineno = sink_location["start"]["line"]
+                    sink_raw_location = ast_result["assignment_cfg"]["Location"]
+                    if sink_raw_location is not None:
+                        sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
+                        sink_lineno = sink_location["start"]["line"]
+                    else:
+                        sink_lineno = "?"
                     sink = my_utils.get_code_line_from_file(source_file, sink_lineno)
                     vuln_path = {
                         "filename": filename,
