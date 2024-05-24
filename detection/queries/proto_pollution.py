@@ -186,9 +186,10 @@ class PrototypePollution:
                     if sink_raw_location is not None:
                         sink_location = json.loads(ast_result["assignment_cfg"]["Location"])
                         sink_lineno = sink_location["start"]["line"]
+                        sink = my_utils.get_code_line_from_file(source_file, sink_lineno)
                     else:
                         sink_lineno = "?"
-                    sink = my_utils.get_code_line_from_file(source_file, sink_lineno)
+                        sink = "?"
                     vuln_path = {
                         "filename": filename,
                         "vuln_type": "prototype-pollution",
