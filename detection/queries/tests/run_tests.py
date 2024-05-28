@@ -105,5 +105,8 @@ class TestCallPath(unittest.TestCase):
     def test_then_callback(self):
         run_graphjs("test_cases/example-17/test.js", "./output/example-17")
 
+    def test_pp_other_function(self):
+        run_graphjs("test_cases/example-18/test.js", "./output/example-18")
+
 if __name__ == '__main__':
     unittest.main()
