@@ -32,8 +32,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-e", "--exploit", action="store_true",
                         help="Generates symbolic tests.")
     # Query type
-    parser.add_argument("-q", "--query_type", type=str, choices=["bottom_up_greedy", "legacy"],
-                        default="bottom_up_greedy", help="Selects the type of query to run.")
+    parser.add_argument("-q", "--query_type", type=str, choices=["bottom_up_greedy", "intra"],
+                        default="intra", help="Selects the type of query to run.")
 
 
 def parse_arguments():

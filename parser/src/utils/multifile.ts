@@ -14,7 +14,7 @@ function findFuncNode(targetName: any, trackers: DependencyTracker): GraphNode |
 }
 
 // Given a node, construct the object encapsulated by it, so that it can be used to construct the exported object
-function constructObject(node: GraphNode, trackers: DependencyTracker, cpg: Graph, identifier: string = ""): GraphNode | any {
+function constructObject(node: any, trackers: DependencyTracker, cpg: Graph, identifier: string = ""): GraphNode | any {
     const exportedObject: any = {};
     if (node.type === "ObjectExpression") {
         // is an object so recursively construct its properties

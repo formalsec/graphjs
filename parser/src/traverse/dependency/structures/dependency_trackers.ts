@@ -789,10 +789,6 @@ export class DependencyTracker {
     }
 
     /** Sink node methods **/
-    graphCheckSinkNode(sink: string): number | undefined {
-        return this.graph.sinkNodes.get(sink);
-    }
-
     graphAddSinkNode(sink: string): GraphNode {
         return this.graph.addSinkNode(sink);
     }

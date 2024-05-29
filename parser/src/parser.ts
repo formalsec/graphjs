@@ -120,7 +120,7 @@ function traverseDependencyGraph(depGraph: any, config: Config, normalizedOutput
                     const params = funcGraph.edges.filter((e: GraphEdge) => e.label === "param").map((e: GraphEdge) => e.nodes[1]);
 
                     // connect object arguments to the parameters of the external function
-                    callNode.argsObjIDs.forEach((args: number[], index: number) => {
+                    callNode.argsObjIDs.forEach((args: number[]) => {
                         args.forEach((arg: number, index) => {
                             if (arg !== -1) { // if the argument is a constant its value is -1 (thus literals aren't considred here)
                                 cpg.addEdge(arg, callNode.id, { type: "PDG", label: "ARG", objName: params[index + 1].identifier });
@@ -146,7 +146,7 @@ function traverseDependencyGraph(depGraph: any, config: Config, normalizedOutput
 }
 
 // Parse program arguments
-const { argv } = yargs(process.argv.slice(2))
+const argv = yargs(process.argv.slice(2))
     .usage('Usage: $0 <command> [options]')
     // JavaScript file to be analyzed
     .option('f', { alias: 'file', nargs: 1, desc: 'Load a JavaScript file', type: 'string', demandOption: true })
@@ -170,7 +170,7 @@ const { argv } = yargs(process.argv.slice(2))
     .example('$0 -f ./foo.js -c ../config.json', 'process the foo.js file using the config.json options')
     .example('$0 -f ./foo.js -c ../config.json -i="AST"', 'process the foo.js file using the config.json options')
     .example('$0 -f ./foo.js -c ../config.json -if="__main__"', 'process the foo.js file using the config.json options')
-    .help('h').alias('h', 'help');
+    .help('h').alias('h', 'help').parseSync();
 
 const filename: string = argv.file as string;
 const configFile: string = path.resolve(__dirname, argv.config as string);

@@ -27,8 +27,6 @@ export interface PackageSource {
     packages: Package[]
 }
 
-export type Sink = FunctionSink | NewSink | PackageSink;
-export type Source = PackageSource;
 export interface Config {
     functions: FunctionSink[]
     news: NewSink[]
