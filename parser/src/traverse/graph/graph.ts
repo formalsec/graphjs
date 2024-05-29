@@ -5,16 +5,16 @@ import { type OutputManager } from "../../output/output_strategy";
 export class Graph {
     private nodeCounter: number;
     private edgeCounter: number;
-    private _nodes: Map<number, GraphNode>;
-    private _edges: Map<number, GraphEdge>;
+    private readonly _nodes: Map<number, GraphNode>;
+    private readonly _edges: Map<number, GraphEdge>;
     private _outputManager: OutputManager | null;
-    private _startNodes: Map<string, GraphNode[]>; // Change this to a custom type
+    private readonly _startNodes: Map<string, GraphNode[]>; // Change this to a custom type
     private _taintNode: number;
-    private _sinkNodes: Map<string, number>;
+    private readonly _sinkNodes: Map<string, number>;
 
-    constructor(outputManager: OutputManager | null) {
-        this.nodeCounter = 0;
-        this.edgeCounter = 0;
+    constructor(outputManager: OutputManager | null, nodeCounter: number = 0, edgeCounter: number = 0) {
+        this.nodeCounter = nodeCounter;
+        this.edgeCounter = edgeCounter;
 
         this._nodes = new Map();
         this._edges = new Map();
@@ -61,6 +61,7 @@ export class Graph {
     addTaintNode(): GraphNode {
         const id = this.nodeCounter++;
         const node = new GraphNode(id, "TAINT_SOURCE", { type: "TAINT" });
+        node.identifier = "TAINT_SOURCE";
         this.nodes.set(id, node);
         this._taintNode = id;
         return node;
@@ -108,5 +109,29 @@ export class Graph {
     output(filename: string): void {
         if (this._outputManager) this._outputManager.output(this, filename);
         else console.log("Output Manager is null");
+    }
+
+    addExternalFuncNode(label: string, node: GraphNode): void {
+        const funcNode: GraphNode | undefined = this.nodes.get(node.id);
+
+        if (!funcNode) {
+            this.addStartNodes(label, node);
+
+            const stack: GraphNode[] = [node];
+            this.nodes.set(node.id, node);
+
+            while (stack.length > 0) {
+                const current: GraphNode | undefined = stack.pop();
+                if (current) {
+                    current.edges.forEach((edge: GraphEdge) => {
+                        if (!this.nodes.has(edge.nodes[1].id)) {
+                            stack.push(edge.nodes[1]);
+                            this.nodes.set(edge.nodes[1].id, edge.nodes[1]);
+                        }
+                        this.edges.set(edge.id, edge);
+                    });
+                }
+            }
+        }
     }
 }

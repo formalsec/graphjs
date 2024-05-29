@@ -9,7 +9,7 @@ interface CallGraphReturn {
     config: Config
 }
 
-function buildCallGraph(pdgGraph: Graph, functionContexts: FContexts, origConfig: Config): CallGraphReturn {
+export function buildCallGraph(pdgGraph: Graph, functionContexts: FContexts, origConfig: Config): CallGraphReturn {
     const graph = pdgGraph;
     let newConfig: Config = copyObj(origConfig);
     const visitedNodes: number[] = [];

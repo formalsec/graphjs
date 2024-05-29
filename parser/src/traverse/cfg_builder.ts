@@ -13,7 +13,7 @@ export type FContexts = Map<number, number[]>;
 // CFGraphReturn represents the return of the CFG analysis -> graph and function contexts
 export interface CFGraphReturn { graph: Graph, functionContexts: FContexts }
 
-function buildCFG(astGraph: Graph): CFGraphReturn {
+export function buildCFG(astGraph: Graph): CFGraphReturn {
     const graph: Graph = astGraph;
     const intraContextStack: number[] = new Array<number>();
     const functionContexts: FContexts = new Map();
@@ -61,8 +61,6 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
                 graph.addEdge(nodeId, calledFunctionId, { type: "CG", label: "CG" })
                 if (stmtId) graph.addEdge(stmtId.id, calledFunctionId, { type: "CG", label: "CG" })
             } else if (parentNode) {
-                const possibleContexts: number[] = Array.from(functionContexts).filter(([key, value]) => value.includes(calledFunctionId))
-                    .map(([key, value]) => key); // the defined function can be defined in the higher contexts of the callee function or in the same context
                 const functionName: string = parentNode.obj.right.name;
                 const functionId: number | undefined = functionList.get(`${calledFunctionId}.${functionName}`)
                 if (!functionId) return;
@@ -70,7 +68,6 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
                 graph.addEdge(nodeId, functionId, { type: "CG", label: "CG" })
                 if (stmtId) graph.addEdge(stmtId.id, functionId, { type: "CG", label: "CG" })
             }
-
         })
     }
 
@@ -256,7 +253,7 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
             }
 
             case "SwitchStatement": {
-                const [discriminant, ...cases] = node.edges.map((edge) => traverse(edge.nodes[1], node.functionContext));
+                const [, ...cases] = node.edges.map((edge) => traverse(edge.nodes[1], node.functionContext));
 
                 const _endSwitch = graph.addNode("CFG_SWITCH_END", { type: "CFG" });
                 _endSwitch.identifier = node.id.toString();
@@ -281,17 +278,17 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
                 node.cfgEndNodeId = _endSwitch.id;
 
                 if (test) {
-                    graph.addEdge(node.id, test.root.id, {type: "CFG", label: "test"});
-                    if (!consequent || !consequent.length) {
-                        graph.addEdge(test.exit.id, _endSwitch.id, {type: "CFG"});
+                    graph.addEdge(node.id, test.root.id, { type: "CFG", label: "test" });
+                    if (!consequent?.length) {
+                        graph.addEdge(test.exit.id, _endSwitch.id, { type: "CFG" });
                     } else {
-                        graph.addEdge(test.exit.id, consequent[0].root.id, {type: "CFG", label: "TRUE"});
+                        graph.addEdge(test.exit.id, consequent[0].root.id, { type: "CFG", label: "TRUE" });
                         let previousNode = consequent[0].exit
                         consequent.slice(1).forEach(consequentNode => {
-                            graph.addEdge(previousNode.id, consequentNode.root.id, {type: "CFG"});
+                            graph.addEdge(previousNode.id, consequentNode.root.id, { type: "CFG" });
                             previousNode = consequentNode.exit;
                         })
-                        graph.addEdge(previousNode.id, _endSwitch.id, {type: "CFG"});
+                        graph.addEdge(previousNode.id, _endSwitch.id, { type: "CFG" });
                     }
                 }
 
@@ -300,7 +297,6 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
                     exit: _endSwitch
                 };
             }
-
 
             case "WhileStatement": {
                 const [test, body] = node.edges.map((edge) => traverse(edge.nodes[1], node.functionContext));
@@ -366,7 +362,7 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
             // Due to the normalization, this does not happen? TODO
             case "ForOfStatement":
             case "ForInStatement": {
-                const [left, right, body] = node.edges.map((edge) => traverse(edge.nodes[1], node.functionContext));
+                const [left, , body] = node.edges.map((edge) => traverse(edge.nodes[1], node.functionContext));
 
                 const _endIf = graph.addNode("FOR_END", { type: "CFG" });
                 _endIf.identifier = node.id.toString();
@@ -431,8 +427,8 @@ function buildCFG(astGraph: Graph): CFGraphReturn {
 
     const startASTNodes = graph.startNodes.get("AST");
     if (startASTNodes) traverse(startASTNodes[0], -1);
-    //console.log(functionList)
-    //console.log(unknownCalls)
+    // console.log(functionList)
+    // console.log(unknownCalls)
     return { graph, functionContexts };
 }
 

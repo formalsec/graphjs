@@ -16,7 +16,7 @@ describe("Testing edge class", () => {
             label: "EdgeLabel",
             argumentIndex: 1,
             paramIndex: 2,
-            stmtIndex: 3,
+            stmtIndex: 3
         };
 
         node1 = new GraphNode(1, "Node1");

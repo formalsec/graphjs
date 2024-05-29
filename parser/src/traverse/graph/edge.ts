@@ -36,20 +36,20 @@ export interface EdgeInfo {
 }
 
 export class GraphEdge {
-    private _id: number;
-    private _nodes: GraphNode[];
-    private _type: string;
-    private _label: string;
-    private _obj_name: string;
-    private _argument_index: number;
-    private _param_index: number;
-    private _stmt_index: number;
-    private _element_index: number;
-    private _expression_index: number;
-    private _method_index: number;
-    private _specifier_index: number;
-    private _source_obj_name: string;
-    private _isPropertyDependency: boolean;
+    private readonly _id: number;
+    private readonly _nodes: GraphNode[];
+    private readonly _type: string;
+    private readonly _label: string;
+    private readonly _obj_name: string;
+    private readonly _argument_index: number;
+    private readonly _param_index: number;
+    private readonly _stmt_index: number;
+    private readonly _element_index: number;
+    private readonly _expression_index: number;
+    private readonly _method_index: number;
+    private readonly _specifier_index: number;
+    private readonly _source_obj_name: string;
+    private readonly _isPropertyDependency: boolean;
 
     constructor(id: number, node1: GraphNode, node2: GraphNode, edgeInfo: EdgeInfo) {
         this._id = id;
@@ -128,9 +128,5 @@ export class GraphEdge {
 
     get isPropertyDependency(): boolean {
         return this._isPropertyDependency;
-    }
-
-    set isPropertyDependency(value: boolean) {
-        this._isPropertyDependency = value;
     }
 }

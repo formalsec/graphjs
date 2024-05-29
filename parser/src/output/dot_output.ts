@@ -1,12 +1,12 @@
 import { OutputWriter } from "./output_writer";
-import { Graph } from "../traverse/graph/graph";
-import { GraphNode } from "../traverse/graph/node";
-import { GraphEdge } from "../traverse/graph/edge";
+import { type Graph } from "../traverse/graph/graph";
+import { type GraphNode } from "../traverse/graph/node";
+import { type GraphEdge } from "../traverse/graph/edge";
 import path from "path";
 import graphviz from "graphviz";
 import escodegen from "escodegen";
 
-function getNodeLabel(n: GraphNode, showCode: any) {
+function getNodeLabel(n: GraphNode, showCode: any): string {
     let label = `#${n.id} ${n.type} (${n.functionContext})`;
     if (n.obj) {
         switch (n.type) {
@@ -15,37 +15,39 @@ function getNodeLabel(n: GraphNode, showCode: any) {
                 break;
 
             case "TAINT_SINK":
-                label = `#${n.id} ${n.type} (${n.identifier})`;
+                label = `#${n.id} ${n.type} (${n.identifier ?? "?"})`;
                 break;
 
             case "PDG_OBJECT":
+            case "PDG_CALL":
+            case "PDG_RETURN":
+            case "PDG_PARAM":
                 // label = `#${n.id} ${n.type} ${n.identifier}`;
-                label = `#${n.id} ${n.identifier}`;
+                label = `#${n.id} ${n.identifier ?? "?"}`;
                 break;
 
             case "CFG_F_START":
             case "CFG_F_END":
-                label = `#${n.id} ${n.type} ${n.identifier}`;
+                label = `#${n.id} ${n.type} ${n.identifier ?? "?"}`;
                 break;
 
             case "Identifier": {
-                label = `#${n.id} ${n.type} (${n.identifier}) - (${n.functionContext})`;
+                label = `#${n.id} ${n.type} (${n.identifier ?? "?"}) - (${n.functionContext})`;
                 break;
             }
 
             case "VariableDeclarator": {
                 const { init } = n.obj;
-                label = `#${n.id} Variable (${n.identifier}) - (${n.functionContext})`;
+                label = `#${n.id} Variable (${n.identifier ?? "?"}) - (${n.functionContext})`;
 
                 if (init) {
                     if (showCode) {
-                        if (init.type === "FunctionExpression"
-                        || init.type === "ArrowFunctionExpression") {
+                        if (init.type === "FunctionExpression" ||
+                        init.type === "ArrowFunctionExpression") {
                             const { namespace } = n.edges[0].nodes[1];
-                            label = `#${n.id}» ${n.identifier} = Function (${namespace}) - (${n.functionContext})`;
+                            label = `#${n.id}» ${n.identifier ?? "?"} = Function (${namespace ?? "?"}) - (${n.functionContext})`;
                         } else {
                             const code = escodegen.generate(n.obj);
-                            // label = `#${n.id} ${n.type} \n\n${code}`;
                             label = `#${n.id}» ${code}`;
                         }
                     }
@@ -62,14 +64,10 @@ function getNodeLabel(n: GraphNode, showCode: any) {
                 break;
             }
 
-            // case 'Literal':
-            //     label = `#${n.id} ${n.type} (${n.obj.raw})`;
-            //     break;
-
             case "UpdateExpression":
             case "UnaryExpression":
             case "BinaryExpression": {
-                label = `#${n.id} ${n.type} (${n.obj.operator}) - (${n.functionContext})`;
+                label = `#${n.id} ${n.type} (${n.obj.operator as string}) - (${n.functionContext})`;
                 break;
             }
 
@@ -77,14 +75,13 @@ function getNodeLabel(n: GraphNode, showCode: any) {
             case "FunctionDeclaration":
             case "FunctionExpression":
             case "LabeledStatement": {
-                label = `#${n.id} Function (${n.identifier}) - (${n.functionContext})`;
+                label = `#${n.id} Function (${n.identifier ?? "?"}) - (${n.functionContext})`;
                 break;
             }
 
             case "ReturnStatement": {
                 if (showCode) {
-                    const code = escodegen.generate(n.obj);
-                    // label = `#${n.id} ${n.type} \n\n${code}`;
+                    const code: string = escodegen.generate(n.obj);
                     label = `#${n.id}» ${code}`;
                 }
                 break;
@@ -98,12 +95,13 @@ function getNodeLabel(n: GraphNode, showCode: any) {
     return label;
 }
 
-function getEdgeLabel(e: GraphEdge) {
+function getEdgeLabel(e: GraphEdge): string | number {
     let label;
 
     switch (e.label) {
         case "NV":
         case "SO":
+        case "ARG":
         case "DEP": {
             label = `${e.label}(${e.objName})`;
             break;
@@ -163,7 +161,7 @@ function getEdgeLabel(e: GraphEdge) {
     return label;
 }
 
-function getEdgeColor(e: GraphEdge) {
+function getEdgeColor(e: GraphEdge): string {
     let color;
     switch (e.type) {
         case "AST":
@@ -186,7 +184,7 @@ function getEdgeColor(e: GraphEdge) {
     return color;
 }
 
-function getEdgeStyle(e: GraphEdge) {
+function getEdgeStyle(e: GraphEdge): string {
     let style;
     switch (e.type) {
         case "REF":
@@ -200,8 +198,12 @@ function getEdgeStyle(e: GraphEdge) {
     return style;
 }
 
-function getNodeColor(n: GraphNode) {
+function getNodeColor(n: GraphNode): string | undefined {
     let color;
+    if (n.exported) {
+        return "darkviolet";
+    }
+
     if (n.obj) {
         switch (n.obj.type) {
             case "AST":
@@ -227,7 +229,7 @@ function getNodeColor(n: GraphNode) {
 export class DotOutput extends OutputWriter {
     private showCode: any;
 
-    output(graph: Graph, options: any, filename: string) {
+    output(graph: Graph, options: any, filename: string): void {
         const gDot = graphviz.digraph("G");
         this.showCode = options.show_code || false;
 
@@ -239,32 +241,29 @@ export class DotOutput extends OutputWriter {
         nodesToPrint.push(graph.nodes.get(graph.taintNode));
 
         while (nodesToPrint.length > 0) {
-            const n = nodesToPrint.shift();
+            const n: GraphNode | undefined = nodesToPrint.shift();
             if (n) {
                 if (nodesVisited.includes(n.id)) {
-                    // eslint-disable-next-line no-continue
                     continue;
                 }
 
-                if (options.ignore && options.ignore.includes(n.obj.type)) {
-                    // eslint-disable-next-line no-continue
+                if (options.ignore?.includes(n.obj.type)) {
                     continue;
                 }
 
-                if (options.ignore_func && options.ignore_func.includes(n.identifier)) {
-                    // eslint-disable-next-line no-continue
+                if (options.ignore_func?.includes(n.identifier)) {
                     continue;
                 }
 
                 nodesVisited.push(n.id);
-                let edges = n.edges;
+                let edges: GraphEdge[] = n.edges;
 
                 if (options.ignore) {
                     edges = n.edges.filter((e: GraphEdge) => !options.ignore.includes(e.type));
                 }
 
-                const nodeLabel = getNodeLabel(n, this.showCode);
-                const nodeColor = getNodeColor(n);
+                const nodeLabel: string = getNodeLabel(n, this.showCode);
+                const nodeColor: string | undefined = getNodeColor(n);
                 gDot.addNode(nodeLabel, { fontcolor: nodeColor, color: nodeColor });
 
                 if (this.showCode && n.type === "ExpressionStatement") {
@@ -296,8 +295,8 @@ export class DotOutput extends OutputWriter {
                                     label: edgeLabel,
                                     fontcolor: edgeColor,
                                     color: edgeColor,
-                                    style: edgeStyle,
-                                },
+                                    style: edgeStyle
+                                }
                             );
                         }
                     }

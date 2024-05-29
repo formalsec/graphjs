@@ -1,21 +1,20 @@
 import buildAST from "../ast_builder";
-import esprima = require("esprima");
 import { Graph } from "../graph/graph";
 import { normalizeScript } from "../normalization/normalizer";
 import escodegen from "escodegen";
+import esprima = require("esprima");
 
 describe("Testing node class", () => {
     beforeEach(() => {
 
     });
 
-    function runASTBuilder(code: string) {
-        let ast = esprima.parseModule(code, { loc: true, tolerant: true});
-        let normalized = normalizeScript(ast);
+    function runASTBuilder(code: string): Graph {
+        let ast = esprima.parseModule(code, { loc: true, tolerant: true });
+        const normalized = normalizeScript(ast);
         code = escodegen.generate(normalized);
-        ast = esprima.parseModule(code, { loc: true, tolerant: true});
-        const graph = buildAST(ast);
-        return graph;
+        ast = esprima.parseModule(code, { loc: true, tolerant: true });
+        return buildAST(ast, 0, 0, "");
     }
 
     function testMetrics(graph: any, numNodes: number, numEdges: number): void {

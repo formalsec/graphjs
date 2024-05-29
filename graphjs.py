@@ -31,6 +31,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     # Generate exploits
     parser.add_argument("-e", "--exploit", action="store_true",
                         help="Generates symbolic tests.")
+    # Query type
+    parser.add_argument("-q", "--query_type", type=str, choices=["bottom_up_greedy", "legacy"],
+                        default="bottom_up_greedy", help="Selects the type of query to run.")
 
 
 def parse_arguments():
@@ -39,7 +42,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output, generate_exploit):
+def check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit):
     # Check if input file exists
     if not os.path.exists(file_path):
         sys.exit(f"Input file doesn't exist: ${file_path}")
@@ -56,7 +59,7 @@ def check_arguments(file_path, output_path, graph_output, run_output, symb_tests
     os.mkdir(graph_output)  # Create graph output folder
     os.mkdir(run_output)  # Create run output folder (neo4j stats)
     if generate_exploit:
-        os.mkdir(symb_tests_output)  # Create symbolic tests output folder
+        os.mkdir(symbolic_tests_output)  # Create symbolic tests output folder
 
 
 def build_graphjs_cmd(file_path, graph_output, silent=True):
@@ -68,19 +71,16 @@ def build_graphjs_cmd(file_path, graph_output, silent=True):
         return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent --graph --i=AST"]
 
 
-def run_queries(file_path, graph_path, run_path, summary_path, time_path, generate_exploit):
+def run_queries(file_path, graph_path, run_path, summary_path, time_path, generate_exploit, query_type):
     neo4j_management.import_csv_local(graph_path, run_path)
     print("[STEP 2] Queries: Imported")
 
     # Perform graph traversals
     print("[STEP 3] Queries: Traversing Graph...")
-    detection.traverse_graph(file_path,
-                             summary_path,
-                             time_path,
-                             generate_exploit)
+    detection.traverse_graph(file_path, summary_path, time_path, query_type, generate_exploit)
 
 
-def run_graph_js(file_path, output_path, generate_exploit=False, silent=True):
+def run_graph_js(file_path, output_path, query_type, generate_exploit=False, silent=True):
     # Get absolute paths
     file_path = os.path.abspath(file_path)
     # Generate default output path
@@ -92,8 +92,8 @@ def run_graph_js(file_path, output_path, generate_exploit=False, silent=True):
     run_output = os.path.join(output_path, "run")
     time_output = os.path.join(run_output, "time_stats.txt")
     summary_path = os.path.join(output_path, "taint_summary.json")
-    symb_tests_output = os.path.join(output_path, "symbolic_tests")
-    check_arguments(file_path, output_path, graph_output, run_output, symb_tests_output, generate_exploit)
+    symbolic_tests_output = os.path.join(output_path, "symbolic_tests")
+    check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit)
 
     # Build MDG
     graphjs_cmd = build_graphjs_cmd(file_path, graph_output, silent)
@@ -105,14 +105,14 @@ def run_graph_js(file_path, output_path, generate_exploit=False, silent=True):
 
     # Execute Graph Traversals (Queries)
     print("[STEP 2] Queries: Importing the graph...")
-    run_queries(file_path, graph_output, run_output, summary_path, time_output, generate_exploit)
+    run_queries(file_path, graph_output, run_output, summary_path, time_output, generate_exploit, query_type)
     print("[STEP 3] Queries: Completed.")
 
     # Generate symbolic tests
     if generate_exploit:
         print("[STEP 3] Symbolic test generation: Generating...")
 
-        os.chdir(symb_tests_output)
+        os.chdir(symbolic_tests_output)
         os.system(f"instrumentation2 {summary_path} {file_path}")
         print("[STEP 3] Symbolic test generation: Completed.")
 
@@ -120,4 +120,4 @@ def run_graph_js(file_path, output_path, generate_exploit=False, silent=True):
 if __name__ == "__main__":
     # Parse arguments
     args = parse_arguments()
-    run_graph_js(args.file, args.output, args.exploit, args.silent)
+    run_graph_js(args.file, args.output, args.query_type, args.exploit, args.silent)

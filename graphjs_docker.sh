@@ -28,7 +28,7 @@ Help()
 SILENT_MODE=false
 EXTENDED_SUMMARY=false
 DOCKER_LOGS=false
-while getopts f:o:les:h flag; do
+while getopts f:o:lesh flag; do
     case "${flag}" in
         f) filename=$OPTARG
             filename="$( realpath "$filename" )"
@@ -64,6 +64,12 @@ if [ ! -d "$output_path" ]; then
   output_path="$file_parent_dir/tool_outputs/graphjs"
 fi
 
+if [ "$EXTENDED_SUMMARY" = true ]; then
+    EXTENDED_SUMMARY_FLAG="-s"
+else
+    EXTENDED_SUMMARY_FLAG=""
+fi
+
 
 # Build docker image if it does not exist
 if [ -z "$(docker images -q graphjs)" ]; then
@@ -77,7 +83,7 @@ if [ "$DOCKER_LOGS" = true ]; then
         -v "${output_path}":/output_path \
         -v "${SCRIPT_DIR}/docker_logs":/docker_logs \
         graphjs \
-        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s ${EXTENDED_SUMMARY:+ -e} &> /docker_logs/graphjs-debug.log;
+        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s ${EXTENDED_SUMMARY_FLAG} &> /docker_logs/graphjs-debug.log;
                       cp /var/log/neo4j/debug.log /docker_logs/neo4j-debug.log"
     mv docker_logs ${output_path}/
 else
@@ -85,6 +91,6 @@ else
         -v "${filename}":/input-file.js \
         -v "${output_path}":/output_path \
         graphjs \
-        bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s ${EXTENDED_SUMMARY:+ -e}"
+        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path -s ${EXTENDED_SUMMARY_FLAG}"
 fi
 

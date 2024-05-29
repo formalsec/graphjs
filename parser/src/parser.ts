@@ -3,29 +3,32 @@ import fs = require("fs");
 import path = require("path");
 import esprima = require("esprima");
 import escodegen from "escodegen";
+import dependencyTree from "dependency-tree";
+
 import { normalizeScript } from "./traverse/normalization/normalizer";
 import buildAST from "./traverse/ast_builder";
-const { buildCFG } = require("./traverse/cfg_builder");
-const { buildCallGraph } = require("./traverse/cg_builder");
-const { buildPDG } = require("./traverse/dependency/dep_builder");
-const { OutputManager } = require("./output/output_strategy");
-const { DotOutput } = require("./output/dot_output");
-const { CSVOutput } = require("./output/csv_output");
-
-import { type CFGraphReturn } from "./traverse/cfg_builder";
-
-import { printStatus } from "./utils/utils";
+import { buildCallGraph } from "./traverse/cg_builder";
+import { buildCFG, type CFGraphReturn } from "./traverse/cfg_builder";
+import { constructExportedObject, findCorrespondingFile, printDependencyGraph, retrieveFunctionGraph } from "./utils/multifile";
+import { getFunctionName } from "./traverse/dependency/utils/nodes";
 import { readConfig, type Config } from "./utils/config_reader";
 import { Graph } from "./traverse/graph/graph";
-import { type PDGReturn } from "./traverse/dependency/dep_builder";
-import * as process from "process";
+import { buildPDG, type PDGReturn } from "./traverse/dependency/dep_builder";
+import { type GraphNode } from "./traverse/graph/node";
+import { type GraphEdge } from "./traverse/graph/edge";
+import { DependencyTracker } from "./traverse/dependency/structures/dependency_trackers";
+import { OutputManager } from "./output/output_strategy";
+import { DotOutput } from "./output/dot_output";
+import { CSVOutput } from "./output/csv_output";
+import { printStatus } from "./utils/utils";
 
 // Generate the program graph (AST + CFG + CG + PDG)
-function parse(filename: string, config: Config, fileOutput: string, silentMode: boolean): Graph {
+function parse(filename: string, config: Config, fileOutput: string, silentMode: boolean, nodeCounter: number,
+    edgeCounter: number): [Graph, DependencyTracker] {
     try {
-        let fileContent = fs.readFileSync(filename, "utf8");
+        let fileContent: string = fs.readFileSync(filename, "utf8");
         // Remove shebang line
-        if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.slice(fileContent.indexOf('\n'));
+        if (fileContent.slice(0, 2) === "#!") fileContent = fileContent.replace(/^#!(.*\r?\n)/, '\n')
 
         // Parse AST
         const ast = esprima.parseModule(fileContent, { loc: true, tolerant: true });
@@ -41,7 +44,7 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
         if (fileOutput) fs.writeFileSync(fileOutput, code);
 
         // Build AST graph
-        const astGraph = buildAST(normalizedAst);
+        const astGraph = buildAST(normalizedAst, nodeCounter, edgeCounter, filename);
         !silentMode && printStatus("Build AST");
 
         // Build Control Flow Graph (CFG)
@@ -62,12 +65,84 @@ function parse(filename: string, config: Config, fileOutput: string, silentMode:
 
         // Print trackers
         !silentMode && trackers.print();
-        return pdgGraph;
+
+        // Return the pdg graph and trackers
+        return [pdgGraph, trackers];
     } catch (e: any) {
         console.log("Error:", e.stack);
     }
 
-    return new Graph(null);
+    return [new Graph(null), new DependencyTracker(new Graph(null), new Map<number, number[]>())];
+}
+
+// Traverse the dependency tree of the given file and generate the code property graph that accounts for all the dependencies
+function traverseDependencyGraph(depGraph: any, config: Config, normalizedOutputDir: string, silentMode: boolean): Graph {
+    function traverse(currFile: string, depGraph: any, config: Config, normalizedOutputDir: string, silentMode: boolean,
+        exportedObjects: Map<string, Object>, nodeCounter: number, edgeCounter: number): [Graph, number, number, DependencyTracker] {
+        let trackers: DependencyTracker;
+        let cpg = new Graph(null);
+        for (const [file, childDepGraph] of Object.entries(depGraph)) { // first parse its dependencies
+            // skip empty dependencies or already parsed files
+            if (exportedObjects.has(file)) continue;
+            [cpg, nodeCounter, edgeCounter, trackers] = traverse(file, childDepGraph, config, normalizedOutputDir, silentMode, exportedObjects, nodeCounter, edgeCounter);
+        }
+
+        // parse the file and generate the exported Object
+        [cpg, trackers] = parse(currFile, config, path.join(normalizedOutputDir, path.basename(currFile)), silentMode,
+            nodeCounter, edgeCounter);
+        nodeCounter = cpg.number_nodes;
+        const exported = constructExportedObject(cpg, trackers);
+
+        // add the exported objects to the map
+        const dir = path.dirname(currFile);
+        exportedObjects.set(currFile, exported);
+        exportedObjects.set(currFile.slice(0, -3), exported); // remove the .js extension (it might be referenced without it)
+
+        // add the exported functions to cpg to generate the final graph
+        trackers.callNodesList.forEach((callNode: GraphNode) => {
+            const { calleeName, functionName } = getFunctionName(callNode);
+
+            let [module, propertiesToTraverse] = findCorrespondingFile(calleeName, callNode.functionContext, trackers);
+            propertiesToTraverse.push(functionName);
+
+            if (module) { // external call
+                module = path.join(dir, module);
+                const exportedObj: any = exportedObjects.get(module);
+
+                if (!exportedObj || Object.keys(exportedObj).length === 0) return;
+
+                const funcGraph: GraphNode | undefined = retrieveFunctionGraph(exportedObj, propertiesToTraverse);
+
+                if (funcGraph) {
+                    // add the exported function to the start nodes of the graph
+                    cpg.addExternalFuncNode(`function ${module}.${funcGraph.identifier ?? ""}`, funcGraph);
+
+                    const params = funcGraph.edges.filter((e: GraphEdge) => e.label === "param").map((e: GraphEdge) => e.nodes[1]);
+
+                    // connect object arguments to the parameters of the external function
+                    callNode.argsObjIDs.forEach((args: number[], index: number) => {
+                        args.forEach((arg: number, index) => {
+                            if (arg !== -1) { // if the argument is a constant its value is -1 (thus literals aren't considred here)
+                                cpg.addEdge(arg, callNode.id, { type: "PDG", label: "ARG", objName: params[index + 1].identifier });
+                            }
+                        });
+                    });
+
+                    cpg.addEdge(callNode.id, funcGraph.id, { type: "CG", label: "CG" })
+                }
+            }
+        });
+
+        edgeCounter = cpg.number_edges;
+
+        return [cpg, nodeCounter, edgeCounter, trackers];
+    }
+
+    const [cpg, nodeCounter, edgeCounter, trackers] = traverse(Object.keys(depGraph)[0], depGraph, config, normalizedOutputDir, silentMode, new Map<string, Object>(), 0, 0);
+
+    trackers.addTaintedNodes();
+
+    return cpg;
 }
 
 // Parse program arguments
@@ -111,7 +186,14 @@ if (!fs.existsSync(configFile)) console.error(`${configFile} is not a valid conf
 
 // Generate code property graph
 const config = readConfig(configFile);
-const graph = parse(filename, config, normalizedPath, silentMode);
+
+const depTree = dependencyTree({
+    filename,
+    directory: path.dirname(filename)
+});
+
+const graph = traverseDependencyGraph(depTree, config, path.dirname(normalizedPath), silentMode);
+
 if (!graph) console.error(`Unable to generate code property graph`);
 
 // Generate output files
@@ -125,6 +207,7 @@ if (argv.csv) {
 if (argv.graph) {
     graph.outputManager = new OutputManager(graphOptions, new DotOutput());
     graph.output(argv.o);
+    printDependencyGraph(depTree, path.join(argv.o, 'dependency_graph.txt'));
 }
 
 const statsFileName = path.join(argv.o, 'graph_stats.json')

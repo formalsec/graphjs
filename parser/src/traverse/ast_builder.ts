@@ -3,12 +3,15 @@ import { copyObj } from "../utils/utils";
 import { Graph } from "./graph/graph";
 import { type GraphNode } from "./graph/node";
 
-export default function buildAST(originalObj: estree.Program): Graph {
-    const graph = new Graph(null);
+export default function buildAST(originalObj: estree.Program, nodeCounter: number, edgeCounter: number, filename: string): Graph {
+    const graph: Graph = new Graph(null, nodeCounter, edgeCounter);
 
     function traverse(obj: estree.Node, parentNode: GraphNode | null): GraphNode {
         function mapReduce(arr: estree.Node[], anotherParentNode: GraphNode | null): GraphNode[] {
             return arr.map((item) => traverse(item, anotherParentNode));
+        }
+        if (obj.loc && "fname" in obj.loc) {
+            obj.loc.fname = filename;
         }
 
         switch (obj.type) {
@@ -179,7 +182,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
 
             case "SequenceExpression": {
                 const objNode = graph.addNode(obj.type, obj);
-                const elements: Array<estree.Expression> = [];
+                const elements: estree.Expression[] = [];
                 obj.expressions.forEach((e) => {
                     if (e !== null) elements.push(e);
                 });
@@ -395,8 +398,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
             // }
 
             case "VariableDeclaration": {
-                const objNode = traverse(obj.declarations[0], parentNode);
-                return objNode;
+                return traverse(obj.declarations[0], parentNode);
             }
 
             case "VariableDeclarator": {
@@ -457,8 +459,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
             case "ThisExpression": {
                 const newObj = copyObj(obj);
                 newObj.name = "this";
-                const objNode = graph.addNode(newObj.type, newObj);
-                return objNode
+                return graph.addNode(newObj.type, newObj)
             }
 
             case "ExportSpecifier": {
@@ -500,8 +501,7 @@ export default function buildAST(originalObj: estree.Program): Graph {
 
             default: {
                 console.trace(`Expression ${obj.type}  didn't match with case values.`);
-                const objNode = graph.addNode(obj.type, obj);
-                return objNode;
+                return graph.addNode(obj.type, obj);
             }
         }
     }

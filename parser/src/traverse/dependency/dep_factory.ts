@@ -36,14 +36,6 @@ export function isDVar(dep: Dependency): boolean {
     return dep.type === DependencyType[DependencyType.DVar];
 }
 
-export function isDCallee(dep: Dependency): boolean {
-    return dep.type === DependencyType[DependencyType.DCallee];
-}
-
-export function isDObject(dep: Dependency): boolean {
-    return dep.type === DependencyType[DependencyType.DObject];
-}
-
 export function changeToCalleeDep(dep: Dependency): Dependency {
     return {
         type: DependencyType[DependencyType.DCallee],

@@ -1,0 +1,8 @@
+[
+    {
+        "vuln_type": "prototype-pollution",
+        "file": "/Volumes/FS/tese/graphjs/tests/input/single_file/prototype_pollution_1.js",
+        "sink": "o[x][y] = z;",
+        "sink_lineno": 4
+    }
+]

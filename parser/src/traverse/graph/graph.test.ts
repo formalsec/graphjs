@@ -1,9 +1,7 @@
-/* eslint-disable no-undef */
 import { OutputWriter } from "../../output/output_writer";
-import { DotOutput } from "../../output/dot_output";
 import { OutputManager } from "../../output/output_strategy";
 import { Graph } from "./graph";
-import { GraphNode } from "./node";
+import { type GraphNode } from "./node";
 
 describe("Testing graph class", () => {
     let graph: Graph;
@@ -36,7 +34,7 @@ describe("Testing graph class", () => {
             label: "EdgeLabel",
             argument_index: 1,
             param_index: 2,
-            stmt_index: 3,
+            stmt_index: 3
         };
 
         const localEdges = new Map();
@@ -97,14 +95,13 @@ describe("Testing graph class", () => {
     test("check if output manager matches", () => {
         let testNumber = 0;
         class LocalOutput extends OutputWriter {
-            output(graph: Graph, options: any, filename: string) {
+            output(graph: Graph, options: any, filename: string): number {
                 testNumber = 1;
                 return testNumber;
             }
-        };
+        }
 
-        const outputManager = new OutputManager({}, new LocalOutput());
-        graph.outputManager = outputManager;
+        graph.outputManager = new OutputManager({}, new LocalOutput());
         graph.output("");
         expect(testNumber).toBe(1);
     });

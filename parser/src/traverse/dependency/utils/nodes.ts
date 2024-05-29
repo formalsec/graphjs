@@ -1,9 +1,9 @@
-import { GraphNode } from "../../graph/node";
+import { type GraphNode } from "../../graph/node";
 import { getASTNode } from "../../../utils/utils";
 import { type Identifier, type ThisExpression } from "estree";
 
 export function getFunctionName(node: GraphNode): { calleeName: string, functionName: string } {
-    const callASTNode = getASTNode(node, "callee");
+    const callASTNode: GraphNode = getASTNode(node, "callee");
 
     let functionName: string, calleeName: string, calleeObj: Identifier | ThisExpression;
     if (callASTNode.obj.type === "MemberExpression") {
@@ -18,9 +18,4 @@ export function getFunctionName(node: GraphNode): { calleeName: string, function
         else calleeName = calleeObj.name;
     }
     return { calleeName, functionName }
-}
-
-export function getObjectNameFromIdentifier(identifier: string | null): string | undefined {
-    return identifier?.split('.').pop()?.split('-')[0];
-
 }

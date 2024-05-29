@@ -1,10 +1,10 @@
 import fs from "fs";
 import { OutputWriter } from "./output_writer";
 import path from "path";
-import { Graph } from "../traverse/graph/graph";
-import { GraphNode } from "../traverse/graph/node";
-import { GraphEdge } from "../traverse/graph/edge";
-import { Literal } from "estree";
+import { type Graph } from "../traverse/graph/graph";
+import { type GraphNode } from "../traverse/graph/node";
+import { type GraphEdge } from "../traverse/graph/edge";
+import { type Literal } from "estree";
 import escodegen from "escodegen";
 
 export class CSVOutput extends OutputWriter {
@@ -36,10 +36,14 @@ export class CSVOutput extends OutputWriter {
                 case "FunctionDeclaration":
                 case "FunctionExpression":
                 case "PDG_OBJECT":
+                case "PDG_PARAM":
+                case "PDG_CALL":
+                case "PDG_RETURN":
                 case "CFG_F_START":
                 case "CFG_F_END":
                 case "CFG_IF_END":
                 case "TAINT_SINK":
+                case "TAINT_SOURCE":
                     n.push(node.identifier);
                     break;
 

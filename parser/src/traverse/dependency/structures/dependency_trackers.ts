@@ -1,12 +1,11 @@
 import { type Graph } from "../../graph/graph";
-import { type GraphNode } from "../../graph/node";
+import { GraphNode } from "../../graph/node";
 import { deepCopyStore, getAllASTNodes, getASTNode, getNextLocationName } from "../../../utils/utils";
 import * as DependencyFactory from "../dep_factory";
 import { type Dependency } from "../dep_factory";
 import { type Identifier } from "estree";
 import type { GraphEdge } from "../../graph/edge";
 import { type PackageOperation } from "../../../utils/summary_reader";
-import { getObjectNameFromIdentifier } from "../utils/nodes";
 
 export type Store = Map<string, number[]>;
 type FContexts = Map<number, number[]>;
@@ -38,6 +37,24 @@ export class DependencyTracker {
     // This value represents a map of the operations corresponding to each program assignment
     private assignments: AssignmentMap;
 
+    // This value represents a list of nodes that are function calls
+    private callNodes: GraphNode[];
+    // This value represents the declared functions in the code
+    private declaredFuncs: Map<string, GraphNode>;
+
+    // This value represents the module.exports identifier (if it is assigned in the code)
+    private moduleExports: string;
+    // This value represents the module.exports aliases (i.e, variables that point to module.exports)
+    private moduleExportsAliases: Set<string>;
+    // This value represents assignments to module.exports or its aliases
+    private moduleExportsAssignments: Map<string, GraphNode>;
+    // This value represents the exports aliases (i.e, variables that point to exports)
+    private exportsAlias: Set<string>;
+    // This value represents assignments to exports or its aliases
+    private exportsAssignments: Map<string, GraphNode>;
+    // This value represents if exports points to module.exports (in case module.exports is assigned to a different object)
+    private exportsPointsToModuleExports: boolean;
+
     constructor(graph: Graph, functionContexts: FContexts) {
         this.graph = graph;
         this.store = new Map();
@@ -47,6 +64,14 @@ export class DependencyTracker {
         this.lazyRequireChain = new Map();
         this.variableMap = new Map();
         this.assignments = new Map();
+        this.callNodes = [];
+        this.exportsAlias = new Set();
+        this.moduleExportsAliases = new Set();
+        this.exportsAssignments = new Map();
+        this.moduleExportsAssignments = new Map();
+        this.moduleExports = "";
+        this.exportsPointsToModuleExports = true;
+        this.declaredFuncs = new Map();
     }
 
     private setContext(newContext: number[]): void {
@@ -63,12 +88,81 @@ export class DependencyTracker {
         this.lazyRequireChain = new Map(newLazyRequireChain);
     }
 
+    private setCallNodes(newCallNodes: GraphNode[]): void {
+        this.callNodes = [...newCallNodes];
+    }
+
+    private setExportsAssignments(newExportsAssignments: Map<string, GraphNode>): void {
+        this.exportsAssignments = new Map(newExportsAssignments);
+    }
+
+    private setExportsAlias(newExportsAlias: Set<string>): void {
+        this.exportsAlias = new Set(newExportsAlias);
+    }
+
+    private setModuleExportsAliases(newModuleExportsAliases: Set<string>): void {
+        this.moduleExportsAliases = new Set(newModuleExportsAliases);
+    }
+
+    setModuleExportsIdentifier(value: string): void {
+        this.moduleExports = value;
+        this.exportsPointsToModuleExports = false;
+        this.moduleExportsAssignments.clear();
+        this.exportsAssignments.clear();
+        this.moduleExportsAliases.clear();
+        this.exportsAlias.clear();
+    }
+
+    private setModuleExportsAssignments(newModuleExportsAssignments: Map<string, GraphNode>): void {
+        this.moduleExportsAssignments = new Map(newModuleExportsAssignments);
+    }
+
     private setVariableMap(newVariableMap: VPMap): void {
         this.variableMap = new Map(newVariableMap);
     }
 
     private setAssignmentMap(assignmentMap: AssignmentMap): void {
         this.assignments = new Map(assignmentMap);
+    }
+
+    private setDeclaredFuncs(declaredFuncs: Map<string, GraphNode>): void {
+        this.declaredFuncs = new Map(declaredFuncs);
+    }
+
+    get assignmentsMap(): AssignmentMap {
+        return this.assignments;
+    }
+
+    get variablesMap(): VPMap {
+        return this.variableMap;
+    }
+
+    get callNodesList(): GraphNode[] {
+        return this.callNodes;
+    }
+
+    get moduleExportsIdentifier(): string {
+        return this.moduleExports;
+    }
+
+    get moduleExportsAliasesSet(): Set<string> {
+        return this.moduleExportsAliases;
+    }
+
+    get moduleExportsAssignmentsMap(): Map<string, GraphNode> {
+        return this.moduleExportsAssignments;
+    }
+
+    get exportsAssignmentsMap(): Map<string, GraphNode> {
+        return this.exportsAssignments;
+    }
+
+    get exportsAliasSet(): Set<string> {
+        return this.exportsAlias;
+    }
+
+    get declaredFuncsMap(): Map<string, GraphNode> {
+        return this.declaredFuncs;
     }
 
     pushIntraContext(context: number): void {
@@ -134,6 +228,11 @@ export class DependencyTracker {
         return false
     }
 
+    // Keeps track of the called nodes
+    addCallNode(callNode: GraphNode): void {
+        this.callNodes.push(callNode);
+    }
+
     // Checks if function call is defining a new lazy require (e.g. const v2 = lazy(<name>, <alias>);
     checkIfLazyDefinition(callNode: GraphNode): void {
         if (callNode.obj.callee.type === "Identifier") {
@@ -171,6 +270,33 @@ export class DependencyTracker {
         if (ops) {
             this.assignments.set(assignmentNumber, [...ops, op]);
         } else this.assignments.set(assignmentNumber, [op]);
+    }
+
+    addExportsAssignment(prop: string, value: GraphNode): void {
+        this.exportsPointsToModuleExports && this.exportsAssignments.set(prop, value);
+    }
+
+    addModuleExportsAssignment(prop: string, value: GraphNode): void {
+        this.moduleExportsAssignments.set(prop, value);
+    }
+
+    addExportsAlias(alias: string): void {
+        this.exportsAlias.add(alias);
+    }
+
+    addModuleExportsAlias(alias: string): void {
+        this.moduleExportsAliases.add(alias);
+    }
+
+    addDeclaredFunc(funcName: string, node: GraphNode): void {
+        // Copy the node to avoid changing the original
+        const func: GraphNode = new GraphNode(node.id, node.type, node.obj);
+        func.identifier = node.identifier;
+        func.functionContext = node.functionContext;
+        node.edges.forEach((edge: GraphEdge): void => { // remove the control flow edges (not needed if the function is exported)
+            edge.type !== "CFG" && func.addEdge(edge);
+        });
+        this.declaredFuncs.set(funcName, func);
     }
 
     checkAssignment(assignmentNumber: number, operation: string): number | undefined {
@@ -261,7 +387,7 @@ export class DependencyTracker {
     getPossibleObjectContexts(name: string, context: number | undefined = undefined): string[] {
         if (context) {
             const functionContexts: number[] = this.funcContexts.get(context) ?? []
-            return [context, ...functionContexts].map((ctx: number) => `${ctx}.${name}`) ?? []
+            return [...functionContexts, context].map((ctx: number) => `${ctx}.${name}`) ?? []
         } else {
             return this.intraContextStack.map((ctx: number) => `${ctx}.${name}`)
         }
@@ -312,10 +438,10 @@ export class DependencyTracker {
     * Adds a new location to the graph -> new node with name objName
     * Used in: addProp, addVersion, createNewObject
      */
-    graphAddLocation(objName: string, context: number, _stmtId: number): GraphNode {
+    graphAddLocation(objName: string, context: number, _stmtId: number, type: string = "PDG_OBJECT"): GraphNode {
         // Create location
         const locationName: string = getNextLocationName(objName, context)
-        const nodeLocation: GraphNode = this.graph.addNode("PDG_OBJECT", { type: "PDG" });
+        const nodeLocation: GraphNode = this.graph.addNode(type, { type: "PDG" });
         nodeLocation.identifier = locationName;
 
         return nodeLocation;
@@ -408,12 +534,12 @@ export class DependencyTracker {
     /*
     * Creates a new object: creates location in graph and adds to store
      */
-    createNewObject(stmtId: number, functionContext: number, variable: Identifier): number {
+    createNewObject(stmtId: number, functionContext: number, variable: Identifier, type: string = "PDG_OBJECT"): number {
         // Check if object was already created (because of loops)
         let newObjectAssigned: number | undefined = this.checkAssignment(stmtId, `obj_${variable.name}`)
         if (!newObjectAssigned) {
             // Create location
-            const location = this.graphAddLocation(variable.name, functionContext, stmtId)
+            const location: GraphNode = this.graphAddLocation(variable.name, functionContext, stmtId, type)
             newObjectAssigned = location.id
             // Add to store
             this.storeAddLocation(variable.name, location.id, functionContext)
@@ -528,33 +654,23 @@ export class DependencyTracker {
         }
     }
 
-    graphCreateCallStatementDependencyEdges(_stmtId: number, newObjId: number, deps: Dependency[]): void {
-        const varDeps = deps.filter(dep => DependencyFactory.isDVar(dep));
-
-        // calleeDeps.forEach(dep => { this.graphCreateReferenceEdge(stmtId, dep.source); });
-        varDeps.forEach(dep => { this.graphCreateDependencyEdge(dep.source, newObjId, dep); });
-    }
-
-    graphCreateCallDependencyEdge(source: number, destination: number, objName: string): void {
-        if (source !== destination) {
-            const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
-            if (!sourceEdges.includes(destination)) { this.graph.addEdge(source, destination, { type: "PDG", label: "DEP", objName }); }
-        }
-    }
-
-    graphCreateArgumentEdge(source: number, functionArg: number, sourceName?: string): void {
+    graphCreateArgumentEdge(source: number, functionArg: number, label: string, sourceName?: string): void {
         if (source !== functionArg) {
             const sourceEdges: number[] = this.graphGetNode(source)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
             if (!sourceEdges.includes(functionArg)) {
                 if (!sourceName) {
                     this.graph.addEdge(source, functionArg, {
                         type: "PDG",
-                        label: "ARG",
+                        label,
                         objName: sourceName
                     });
-                } else this.graph.addEdge(source, functionArg, { type: "PDG", label: "ARG", objName: sourceName });
+                } else this.graph.addEdge(source, functionArg, { type: "PDG", label, objName: sourceName });
             }
         }
+    }
+
+    graphCreateCallRefEdge(source: number, destination: number): void {
+        this.graph.addEdge(source, destination, { type: "REF", label: "call" })
     }
 
     graphCreateSourceEdge(source: number, destination: number, index: number): void {
@@ -565,8 +681,12 @@ export class DependencyTracker {
         this.graph.addEdge(source, destination, { type: "SINK", label: "SINK", objName: type })
     }
 
-    graphCreateReturnEdge(source: number, destination: number): void {
-        this.graph.addEdge(source, destination, { type: "REF", label: "return" })
+    graphCreatePDGReturnEdge(source: number, destination: number): void {
+        this.graph.addEdge(source, destination, { type: "PDG", label: "RET" })
+    }
+
+    graphCreateCallEdge(source: number, destination: number): void {
+        this.graph.addEdge(source, destination, { type: "CG", label: "CG" })
     }
 
     graphCreateNewVersionEdge(oldObjId: number, newObjId: number, propName: string): void {
@@ -596,10 +716,7 @@ export class DependencyTracker {
                     if (op.objs.some((obj: number) => obj >= calledArgNodes.length)) break; // This should not happen
                     propertyLocations.forEach((location: number) => {
                         // Create argument edge between new property and function argument
-                        this.graphCreateArgumentEdge(location, calledArgNodes[op.objs[0]].id)
-                        // Create dependency edge between new property and function argument
-                        const keyDependency: string | undefined = getObjectNameFromIdentifier(calledArgNodes[op.objs[1]].identifier)
-                        if (keyDependency) { this.graphCreateCallDependencyEdge(calledArgNodes[op.objs[1]].id, location, keyDependency) }
+                        this.graphCreateArgumentEdge(location, calledArgNodes[op.objs[0]].id, "ARG")
                     })
                 }
             }
@@ -629,11 +746,11 @@ export class DependencyTracker {
         this.addTaintedNodeEdge(nodeObj.id, stmtId, index, isTainted);
     }
 
-    addTaintedNodeEdge(nodeId: number, stmtId: number, index: number, isTainted: boolean = true): void {
+    addTaintedNodeEdge(nodeId: number, stmtId: number, index: number, isTainted: boolean = true, createSourceEdge: boolean = true): void {
         const sourceEdges: number[] = this.graphGetNode(this.graph.taintNode)?.edges.map((edge: GraphEdge) => edge.nodes[1].id) ?? []
         if (!sourceEdges.includes(nodeId)) {
             if (isTainted) this.graph.addEdge(this.graph.taintNode, nodeId, { type: "PDG", label: "TAINT" }); // this.create source edge
-            this.graphCreateSourceEdge(stmtId, nodeId, index !== undefined ? index : -1); // sources from argv e.g. do not connect as param edge?
+            createSourceEdge && this.graphCreateSourceEdge(stmtId, nodeId, index !== undefined ? index : -1); // sources from argv e.g. do not connect as param edge?
         }
     }
 
@@ -685,16 +802,8 @@ export class DependencyTracker {
     }
 
     getFunctionNode(context: number): GraphNode | undefined {
-        const functionCFGNode = this.graph.nodes.get(context);
+        const functionCFGNode: GraphNode | undefined = this.graph.nodes.get(context);
         if (functionCFGNode) return this.graph.nodes.get(functionCFGNode.functionNodeId)
-    }
-
-    getFunctionObject(functionId: number): GraphNode | undefined {
-        const functionNode = this.graph.nodes.get(functionId);
-        if (functionNode) {
-            const edges: GraphEdge[] = functionNode.edges.filter((edge: GraphEdge) => edge.type === "REF" && edge.label === "obj")
-            if (edges.length > 0) return edges[0].nodes[1]
-        }
     }
 
     getFunctionNodeFromName(name: string): GraphNode | undefined {
@@ -706,13 +815,21 @@ export class DependencyTracker {
     }
 
     clone(): DependencyTracker {
-        const clone = new DependencyTracker(this.graph, this.funcContexts);
+        const clone: DependencyTracker = new DependencyTracker(this.graph, this.funcContexts);
         clone.setStore(this.store);
         clone.setContext(this.intraContextStack);
         clone.setRequireChain(this.requireChain);
         clone.setLazyRequireChain(this.lazyRequireChain);
         clone.setVariableMap(this.variableMap);
         clone.setAssignmentMap(this.assignments);
+        clone.setCallNodes(this.callNodes);
+        clone.setModuleExportsIdentifier(this.moduleExportsIdentifier);
+        clone.setModuleExportsAssignments(this.moduleExportsAssignmentsMap);
+        clone.setExportsAssignments(this.exportsAssignmentsMap);
+        clone.setExportsAlias(this.exportsAlias);
+        clone.setModuleExportsAliases(this.moduleExportsAliases);
+        clone.setDeclaredFuncs(this.declaredFuncs);
+        clone.exportsPointsToModuleExports = this.exportsPointsToModuleExports;
         return clone;
     }
 

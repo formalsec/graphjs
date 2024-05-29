@@ -54,9 +54,6 @@ export function checkIfSink(calleeName: string, functionName: string, context: n
 }
 
 function addPackageSinkNode(sinkName: string, packageName: string, sink: PackageSink, dependencies: Dependency[], stmtId: number, trackers: DependencyTracker): void {
-    // Check if the sink node already exists for this function
-    const checkSink: number | undefined = trackers.graphCheckSinkNode(sinkName);
-
     const sinkNode: number = trackers.graphAddSinkNode(sinkName).id;
 
     // connect appropriate arguments to sink node, according to config
@@ -74,9 +71,6 @@ function addPackageSinkNode(sinkName: string, packageName: string, sink: Package
 }
 
 function addFunctionSinkNode(sinkName: string, sink: FunctionSink, dependencies: Dependency[], stmtId: number, trackers: DependencyTracker): void {
-    // Check if the sink node already exists for this function
-    const checkSink: number | undefined = trackers.graphCheckSinkNode(sinkName);
-
     // Create sink node if it does not exist
     const sinkNode: number = trackers.graphAddSinkNode(sinkName).id;
 

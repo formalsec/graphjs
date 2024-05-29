@@ -5,12 +5,12 @@ import { type GraphEdge } from "./edge";
  * This class represents the graph nodes
  */
 export class GraphNode {
-    private _id: number;
+    private readonly _id: number;
     /* This value can be:
     - [AST, CFG] for starter nodes
     - Type of AST statement, for AST nodes
     - CFG_F_START, CFG_END, CFG_IF_END, CFG_WHILE_END, CFG_TRY_STMT_END, FOR_END, for CFG nodes */
-    private _type: string;
+    private readonly _type: string;
     private _obj: any;
     private _edges: GraphEdge[];
     // This value represents the identifier of the node for CFG nodes (Program, ArrowFunctionExpression, FunctionDeclaration, FunctionExpression, LabeledStatement)
@@ -23,13 +23,16 @@ export class GraphNode {
     private _functionContext: number;
     // This value represents the id of the graph node that contains the function declaration
     private _functionNodeId: number;
-    private _internalStructure: any;
+    private readonly _internalStructure: any;
     private _used: boolean;
     private _cfgEndNodeId: number;
-    private _propertyDependencies: Dependency[]; // stores the dependencies of the tainted properties
+    private readonly _propertyDependencies: Dependency[]; // stores the dependencies of the tainted properties
     private _arguments: boolean;
     // This value represents additional information for AST nodes: object type for Literal, operator type for BinaryExpression and computation type for MemberExpression
     private _subtype: string;
+
+    private _exported: boolean;
+    private readonly _argsObjsIds: number[][];
 
     constructor(id: number, type: string, obj = {}) {
         this._id = id;
@@ -47,6 +50,12 @@ export class GraphNode {
         this._propertyDependencies = [];
         this._arguments = false;
         this._subtype = ""
+        this._exported = false;
+        this._argsObjsIds = [];
+    }
+
+    get argsObjIDs(): number[][] {
+        return this._argsObjsIds;
     }
 
     get id(): number {
@@ -67,6 +76,10 @@ export class GraphNode {
 
     get edges(): GraphEdge[] {
         return this._edges;
+    }
+
+    set edges(edges: GraphEdge[]) {
+        this._edges = edges;
     }
 
     get identifier(): string | null {
@@ -113,8 +126,8 @@ export class GraphNode {
         return this._internalStructure;
     }
 
-    set internalStructure(struct) {
-        this._internalStructure = struct;
+    get exported(): boolean {
+        return this._exported;
     }
 
     get used(): boolean {
@@ -145,8 +158,16 @@ export class GraphNode {
         this._propertyDependencies.push(...dep);
     }
 
+    addArgsObjIds(ids: number[]): void {
+        this._argsObjsIds.push(ids);
+    }
+
     setUsed(): void {
         this._used = true;
+    }
+
+    setExported(): void {
+        this._exported = true;
     }
 
     addEdge(edge: GraphEdge): void {

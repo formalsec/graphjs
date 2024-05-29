@@ -1,0 +1,8 @@
+[
+    {
+        "vuln_type": "code-injection",
+        "file": "/Volumes/FS/tese/graphjs/tests/input/single_file/taint_args-2.js",
+        "sink": "eval(x);",
+        "sink_lineno": 5
+    }
+]

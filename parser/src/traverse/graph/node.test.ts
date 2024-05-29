@@ -1,4 +1,4 @@
-import { GraphEdge, EdgeInfo } from "./edge";
+import { GraphEdge, type EdgeInfo } from "./edge";
 import { GraphNode } from "./node";
 
 function createEmptyEdgeInfo(): EdgeInfo {
@@ -66,7 +66,7 @@ describe("Testing node class", () => {
             new GraphEdge(2, node, node, createEmptyEdgeInfo()),
             new GraphEdge(3, node, node, createEmptyEdgeInfo())
         ];
-        newEdges.forEach((e: GraphEdge) => node.addEdge(e));
+        newEdges.forEach((e: GraphEdge) => { node.addEdge(e); });
         expect(node.edges.length).toBe(newEdges.length);
         expect(node.edges).toEqual(newEdges);
     });
@@ -81,9 +81,9 @@ describe("Testing node class", () => {
 
     test("make sure node is visitor", () => {
         let testNumber = 0;
-        const changeTestNumber = () => { testNumber = 1; };
+        const changeTestNumber = (): void => { testNumber = 1; };
         const visitor = {
-            visit: () => { changeTestNumber(); },
+            visit: () => { changeTestNumber(); }
         };
 
         node.accept(visitor);

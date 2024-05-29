@@ -4,15 +4,13 @@ import fs = require("fs");
 import escodegen from "escodegen";
 
 import { resetVariableCount } from "../../utils/utils";
-import {
-    normalizeScript,
-} from "../normalization/normalizer";
+import { normalizeScript } from "../normalization/normalizer";
 
-function testNormalization(testInputPath: string) {
+function testNormalization(testInputPath: string): void {
     let testInputId = 1;
     let codePath = `${testInputPath}/input-code-${testInputId}.js`;
     let expectedCodePath = `${testInputPath}/input-expected-code-${testInputId}.js`;
-    while(fs.existsSync(codePath) && fs.existsSync(expectedCodePath)) {
+    while (fs.existsSync(codePath) && fs.existsSync(expectedCodePath)) {
         const code = fs.readFileSync(codePath, "utf8");
         const expectedCode = fs.readFileSync(expectedCodePath, "utf8");
 
