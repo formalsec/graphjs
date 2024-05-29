@@ -1,3 +1,6 @@
+from ..bottom_up_greedy.proto_pollution import connect_arg_to_param
+
+
 def check_taint_key(first_lookup_obj):
     return f"""
         MATCH
@@ -99,7 +102,7 @@ def check_lookup_pattern():
             (obj:PDG_OBJECT)
                 -[first_lookup:PDG]
                     ->(sub_obj:PDG_OBJECT)
-                        -[arg:PDG*]
+                        -[arg:PARAMETER*1..]
                             ->(arg_sub_obj:PDG_OBJECT)
                                 -[nv:PDG]
                                     ->(nv_sub_obj:PDG_OBJECT)
@@ -108,7 +111,6 @@ def check_lookup_pattern():
         WHERE
             first_lookup.RelationType = "SO" AND
             first_lookup.IdentifierName = "*" AND
-            ALL(edge IN arg WHERE edge.RelationType = "ARG") AND
             nv.RelationType = "NV" AND
             nv.IdentifierName = "*" AND
             second_lookup.RelationType = "SO" AND
@@ -119,6 +121,8 @@ def check_lookup_pattern():
 
 def get_detection_results(session):
     detection_results = []
+    
+    session.run(connect_arg_to_param())
     pattern_results = session.run(check_lookup_pattern())
     
     for pattern in pattern_results:
