@@ -248,9 +248,7 @@ def is_tainted(session, query, property1, property2, value):
 
 def get_detection_results(session, query):
 	detection_results = []
-	orig_obj = None
-	tainted_source = None
-	
+
 	session.run(connect_arg_to_param())
 	results = session.run(check_lookup_pattern())
 	
@@ -262,9 +260,10 @@ def get_detection_results(session, query):
 		prop = record["property"]["Id"]
 		
 		if is_tainted(session, query, property1, property2, value):
-			detection_results = session.run(get_ast_source_and_assignment(prop))
+			detection_result = session.run(get_ast_source_and_assignment(prop)).single()
 			tainted_source = value
+			detection_results.append((detection_result, orig_obj, tainted_source))
 	
 	session.run(remove_arg_to_param())
 	
-	return detection_results, orig_obj, tainted_source
+	return detection_results

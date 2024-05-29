@@ -24,13 +24,13 @@ class PrototypePollution:
         tainted_source = None
         # Run queries based on type
         if query_type == 'intra':
-            results, orig_obj, tainted_source = intra_queries(session)
+            results = intra_queries(session)
         elif query_type == 'bottom_up_greedy':
-            results, orig_obj, tainted_source = bottom_up_greedy_queries(session, self.query)
+            results = bottom_up_greedy_queries(session, self.query)
         else:
             results = []
         
-        for result in results:
+        for (result, orig_obj, tainted_source) in results:
             sink_raw_location = result["assignment_cfg"]["Location"]
             if sink_raw_location is not None:
                 sink_location = json.loads(result["assignment_cfg"]["Location"])

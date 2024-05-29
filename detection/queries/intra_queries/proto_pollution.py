@@ -119,8 +119,6 @@ def check_lookup_pattern():
 
 def get_detection_results(session):
     detection_results = []
-    orig_obj = None
-    tainted_source = None
     pattern_results = session.run(check_lookup_pattern())
     
     for pattern in pattern_results:
@@ -146,6 +144,7 @@ def get_detection_results(session):
         
         for tainted_source in taint_sub_key_results:
             source = tainted_source['value']['Id']
-            detection_results = session.run(get_ast_source_and_assignment(source, second_lookup_obj))
-            
-    return detection_results, orig_obj, tainted_source["value"]
+            detection_result = session.run(get_ast_source_and_assignment(source, second_lookup_obj)).single()
+            detection_results.append((detection_result, orig_obj, tainted_source["value"]))
+    
+    return detection_results
