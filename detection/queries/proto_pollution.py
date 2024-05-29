@@ -26,7 +26,7 @@ class PrototypePollution:
         if query_type == 'intra':
             results, orig_obj, tainted_source = intra_queries(session)
         elif query_type == 'bottom_up_greedy':
-            results, orig_obj, tainted_source = bottom_up_greedy_queries(self, session)
+            results, orig_obj, tainted_source = bottom_up_greedy_queries(session, self.query)
         else:
             results = []
         

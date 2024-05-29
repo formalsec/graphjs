@@ -181,7 +181,7 @@ def check_lookup_pattern():
 		"""
 
 
-def is_tainted(self, session, property1, property2, value):
+def is_tainted(session, query, property1, property2, value):
 	# Checks if the assignment is tainted
 	# first it adds the label POLLUTION_SINK to property1, property2 and value
 	# this simply speeds up the query, because only these nodes are considered as sinks at a time
@@ -207,7 +207,7 @@ def is_tainted(self, session, property1, property2, value):
 			RETURN *
 		"""
 		for record in session.run(taint_query):
-			if self.query.confirm_vulnerability(session, record["func"]["Id"], record["param"]):
+			if query.confirm_vulnerability(session, record["func"]["Id"], record["param"]):
 				return True
 		return False
 	
@@ -246,7 +246,7 @@ def is_tainted(self, session, property1, property2, value):
 	return result
 
 
-def get_detection_results(self, session):
+def get_detection_results(session, query):
 	detection_results = []
 	orig_obj = None
 	tainted_source = None
@@ -259,10 +259,10 @@ def get_detection_results(self, session):
 		property1 = record["property1"]
 		property2 = record["property2"]
 		value = record["value"]
-		property = record["property"]["Id"]
+		prop = record["property"]["Id"]
 		
-		if self.is_tainted(session, property1, property2, value):
-			detection_results = session.run(get_ast_source_and_assignment(property))
+		if is_tainted(session, query, property1, property2, value):
+			detection_results = session.run(get_ast_source_and_assignment(prop))
 			tainted_source = value
 	
 	session.run(remove_arg_to_param())
