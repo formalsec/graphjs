@@ -6,6 +6,7 @@ from .query import DetectionResult
 
 # Cypher Queries
 def get_parameter_dependent_objects(fn_id) -> str:
+    print(fn_id)
     return f"""
         MATCH
             obj_recon_path=
@@ -17,9 +18,11 @@ def get_parameter_dependent_objects(fn_id) -> str:
         WHERE 
             source.Id = "{fn_id}" AND
             ref_edge.RelationType = "param" AND
+            ALL(edge IN obj_edges WHERE
+                NOT edge.RelationType = "ARG") AND
             (obj_or_sink:PDG_OBJECT OR obj_or_sink:TAINT_SINK)
-        RETURN *
-        ORDER BY 
+        RETURN distinct *
+        ORDER BY
             ref_edge.ParamIndex
 
     """
@@ -45,11 +48,13 @@ def get_parameter_expression_objects(fn_id) -> str:
                                     ->(:LogicalExpression)
         WHERE 
             ref_edge.RelationType = "param" AND
+            ALL(edge IN obj_edges WHERE
+                NOT edge.RelationType = "ARG") AND
             (
                 (size(dep_arg_edges) = 2 AND dep_arg_edges[0].RelationType = "ARG" AND dep_arg_edges[1].RelationType = "DEP") OR
                 (size(dep_arg_edges) = 1 AND dep_arg_edges[0].RelationType = "DEP") 
             ) 
-        RETURN *
+        RETURN distinct *
         ORDER BY 
             ref_edge.ParamIndex
     """
