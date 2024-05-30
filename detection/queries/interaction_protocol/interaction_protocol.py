@@ -266,7 +266,7 @@ def function_is_function_callback(obj_id):
     return f"""
         MATCH
             (init {{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(fn_obj:PDG_OBJECT)
-                -[arg:PDG {{RelationType: "ARG"}}]->(callback_ret:PDG_CALL)
+                -[arg_callback:PDG {{RelationType: "ARG"}}]->(callback_ret:PDG_CALL)
                     <-[callback_ref:REF {{RelationType: "obj"}}]-(callback_stmt)
                         // AST function callback pattern
                         -[:AST {{RelationType: "init"}}]->({{Type: "CallExpression"}})

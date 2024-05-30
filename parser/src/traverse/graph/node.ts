@@ -168,6 +168,7 @@ export class GraphNode {
 
     setExported(): void {
         this._exported = true;
+        if (!this.subtype.length) this.subtype = "exported";
     }
 
     addEdge(edge: GraphEdge): void {
