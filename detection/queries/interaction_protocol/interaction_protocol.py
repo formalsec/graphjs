@@ -1,5 +1,5 @@
-from .parameter_types import reconstruct_param_types
-from .query import DetectionResult
+from detection.queries.interaction_protocol.parameter_types import reconstruct_param_types
+from detection.queries.query import DetectionResult
 from typing import TypedDict, Optional, NotRequired
 
 
@@ -235,7 +235,7 @@ def function_is_promise(obj_id):
     return f"""
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(fn_obj:PDG_OBJECT)
-                -[dep:PDG]->(promise_ret:PDG_OBJECT)
+                -[arg:PDG {{RelationType: "ARG"}}]->(promise_call:PDG_CALL)
                     <-[stmt_ref:REF {{RelationType: "obj"}}]-(promise_stmt)
                         // AST promise pattern
                         -[:AST {{RelationType: "init"}}]->({{Type: "NewExpression"}})
@@ -250,7 +250,7 @@ def function_is_promise_callback(obj_id):
     return f"""
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(fn_obj:PDG_OBJECT)
-                -[dep:PDG]->(callback_ret:PDG_OBJECT)
+                -[arg:PDG {{RelationType: "ARG"}}]->(callback_ret:PDG_CALL)
                     <-[callback_ref:REF {{RelationType: "obj"}}]-(callback_stmt)
                         // AST callback pattern
                         -[:AST {{RelationType: "init"}}]->({{Type: "CallExpression"}})
@@ -266,7 +266,7 @@ def function_is_function_callback(obj_id):
     return f"""
         MATCH
             (init {{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(fn_obj:PDG_OBJECT)
-                -[dep:PDG]->(callback_ret:PDG_OBJECT)
+                -[arg:PDG {{RelationType: "ARG"}}]->(callback_ret:PDG_CALL)
                     <-[callback_ref:REF {{RelationType: "obj"}}]-(callback_stmt)
                         // AST function callback pattern
                         -[:AST {{RelationType: "init"}}]->({{Type: "CallExpression"}})

@@ -1,12 +1,11 @@
-from .my_utils import utils as my_utils
+from detection.queries.my_utils import utils as my_utils
 from typing import Dict
 
-from .query import DetectionResult
+from detection.queries.query import DetectionResult
 
 
 # Cypher Queries
 def get_parameter_dependent_objects(fn_id) -> str:
-    print(fn_id)
     return f"""
         MATCH
             obj_recon_path=
@@ -95,6 +94,7 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
 
             # Get parameter name
             parameter_name = get_parameter_name(param_obj["param"]["IdentifierName"])
+            print(f"{parameter_name}: {param_obj['param']['IdentifierName']}")
             if parameter_name == "this":
                 continue
 
@@ -110,6 +110,7 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
 
                 for edge in param_obj["obj_edges"]:
                     sub_node_id = edge.nodes[1]["Id"]
+                    print(f"{sub_node_id}: {edge.nodes[1]['Id']}")
                     if edge["RelationType"] == "SO" and obj_recon_flag:
                         prop_name = edge["IdentifierName"]
                         if prop_name not in params_types:
