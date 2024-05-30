@@ -1,7 +1,7 @@
 import copy
 
 from .query import Query, DetectionResult
-from . import interaction_protocol
+from .interaction_protocol import interaction_protocol
 from .my_utils import utils as my_utils
 import json
 
