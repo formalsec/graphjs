@@ -30,10 +30,10 @@ def save_intermediate_output(vuln_path, output_file):
 		f.close()
 	else:
 		vuln_paths = []
-
-	if vuln_path not in vuln_paths:
-		simple_path = copy.deepcopy(vuln_path)
-		del simple_path["sink_function"]
+	
+	simple_path = copy.deepcopy(vuln_path)
+	del simple_path["sink_function"]
+	if simple_path not in vuln_paths:
 		vuln_paths.append(simple_path)
 
 	with open(output_file, "w", encoding='utf-8') as f:
