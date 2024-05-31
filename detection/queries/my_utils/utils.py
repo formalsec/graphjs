@@ -31,6 +31,7 @@ def save_intermediate_output(vuln_path, output_file):
 		vuln_paths = []
 
 	if vuln_path not in vuln_paths:
+		del vuln_paths["sink_function"]
 		vuln_paths.append(vuln_path)
 
 	with open(output_file, "w", encoding='utf-8') as f:

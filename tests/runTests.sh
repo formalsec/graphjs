@@ -39,7 +39,7 @@ done
 for file in ${MULTI_FILE_TESTS}/*; do
     echo "${BLUE}[INFO] Running test: ${file}${NC}"
     ../graphjs_docker.sh -f ${file}/main.js -o graphjs-results -s > /dev/null
-    cp ../graphjs-results/taint_summary.json ${OUTPUT_DIR}/multifile_${file:t:r}_taint_summary.json
+    cp graphjs-results/taint_summary.json ${OUTPUT_DIR}/multifile_${file:t:r}_taint_summary.json
 done
 
 

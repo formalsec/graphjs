@@ -33,7 +33,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="Generates symbolic tests.")
     # Query type
     parser.add_argument("-q", "--query_type", type=str, choices=["bottom_up_greedy", "intra"],
-                        default="intra", help="Selects the type of query to run.")
+                        default="bottom_up_greedy", help="Selects the type of query to run.")
 
 
 def parse_arguments():

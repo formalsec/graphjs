@@ -87,4 +87,4 @@ else
         graphjs \
         /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path ${FLAGS}"
 fi
-
+docker system prune -f
