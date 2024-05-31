@@ -133,7 +133,7 @@ def check_if_function_is_property_exported_via_module_prop(obj_id):
         // Check if the object is a function or an object (to detect classes)
         OPTIONAL MATCH
             (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
-        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
+        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name,
             fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
             origin_obj_ast.Id as source_obj_id
         """
@@ -176,23 +176,29 @@ def function_is_returned(obj_id):
     return f"""
         // Check if function is returned as direct function
         MATCH
-            (origin {{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]
-                ->(obj:PDG_OBJECT)
-                    <-[ret:REF]-(node)
+            (origin {{Id: "{obj_id}"}})
+                -[ref:REF {{RelationType: "obj"}}]->(obj:PDG_OBJECT)
+                    -[dep:PDG {{RelationType: "DEP"}}]->(ret_obj:PDG_RETURN)
+                        <-[ret:REF]-(stmt_node)
+                            <-[ast_path:AST*0..]-(fn_node:FunctionExpression)
+                                <-[init:AST {{RelationType: "init"}}]-(node:VariableDeclarator)
         RETURN distinct obj.IdentifierName as obj_name, null as prop_name,
         obj.IdentifierName as fn_node_id, 0 as is_function, node.Id as source_obj_id
         UNION
         // Check if function is returned via property 
         MATCH
-            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]
-                ->(obj:PDG_OBJECT)-[dep:PDG]->(sub_obj:PDG_OBJECT)
+            ({{Id: "{obj_id}"}})
+                -[ref:REF {{RelationType: "obj"}}]->(obj:PDG_OBJECT)
+                    -[dep:PDG]->(sub_obj:PDG_OBJECT)
                         <-[so:PDG]-(fn_obj:PDG_OBJECT)
                             <-[nv:PDG]-(parent_obj:PDG_OBJECT),
-            (fn_obj:PDG_OBJECT)<-[ret:REF]-(node)
+            (fn_obj)-[dep_ret:PDG {{RelationType: "DEP"}}]->(ret_obj:PDG_RETURN)
+                <-[ret:REF]-(stmt_node)
+                    <-[ast_path:AST*0..]-(fn_node:FunctionExpression)
+                        <-[init:AST {{RelationType: "init"}}]-(node:VariableDeclarator)
         WHERE so.RelationType = "SO"
-        AND dep.RelationType = "DEP" 
+        AND dep.RelationType = "DEP"
         AND nv.RelationType = "NV"
-        AND ret.RelationType = "return"
         // Get the AST origin node of the exported function (to get the location and Id)
         MATCH
             (parent_obj:PDG_OBJECT)<-[nvs:PDG*0..]-(origin_version_obj:PDG_OBJECT)
@@ -201,7 +207,7 @@ def function_is_returned(obj_id):
         // Check if the object is a function or an object (to detect classes)
         OPTIONAL MATCH
             (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
-        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
+        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name,
             fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
             node.Id as source_obj_id
     """
