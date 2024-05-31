@@ -478,7 +478,6 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
             'vuln_type': detection_result["vuln_type"],
             'sink': detection_result["sink"],
             'sink_lineno': detection_result["sink_lineno"],
-            'sink_function': detection_result["sink_function"],
             'source': current_call["source"],
             'tainted_params': current_call["tainted_params"],
             'params_types': current_call["param_types"]
