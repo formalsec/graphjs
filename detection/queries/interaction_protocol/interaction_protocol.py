@@ -18,7 +18,7 @@ class FunctionArgs(TypedDict):
 
 class TaintSummaryCall(TypedDict):
     source: str
-    param_types: FunctionArgs
+    params_types: FunctionArgs
     tainted_params: list[str]
     returns: NotRequired[dict]
 
@@ -480,7 +480,7 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
             'sink_lineno': detection_result["sink_lineno"],
             'source': current_call["source"],
             'tainted_params': current_call["tainted_params"],
-            'params_types': current_call["param_types"]
+            'params_types': current_call["params_types"]
         }
         if "returns" in current_call:
             vulnerability["returns"] = current_call["returns"]
@@ -515,7 +515,7 @@ def build_call(call: Call, function_args: dict[FunctionArgs], depth: int) -> Tai
         param_types: FunctionArgs = function_args[call["fn_name"]]
         tainted_params: list[str] = list(param_types.keys())
 
-    return {'source': source, 'param_types': param_types, 'tainted_params': tainted_params}
+    return {'source': source, 'params_types': param_types, 'tainted_params': tainted_params}
 
 
 def get_vulnerability_type(call_path: list[Call]) -> str:
