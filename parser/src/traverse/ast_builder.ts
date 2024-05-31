@@ -10,7 +10,7 @@ export default function buildAST(originalObj: estree.Program, nodeCounter: numbe
         function mapReduce(arr: estree.Node[], anotherParentNode: GraphNode | null): GraphNode[] {
             return arr.map((item) => traverse(item, anotherParentNode));
         }
-        if (obj.loc && "fname" in obj.loc) {
+        if (obj.loc) { // need to keep the filename for the location (to later find the correct line)
             obj.loc.fname = filename;
         }
 

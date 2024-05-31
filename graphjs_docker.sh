@@ -65,6 +65,9 @@ if [ ! -d "$output_path" ]; then
   output_path="$file_parent_dir/tool_outputs/graphjs"
 fi
 
+input_dir=$(dirname "$filename")
+fname=$(basename "$filename")
+
 # Build docker image if it does not exist
 if [ -z "$(docker images -q graphjs)" ]; then
     docker build . -t graphjs
@@ -73,18 +76,18 @@ fi
 if [ "$DOCKER_LOGS" = true ]; then
     mkdir -p ${SCRIPT_DIR}/docker_logs
     docker run -it \
-        -v "${filename}":/input-file.js \
+        -v "$input_dir":/input \
         -v "${output_path}":/output_path \
         -v "${SCRIPT_DIR}/docker_logs":/docker_logs \
         graphjs \
-        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path ${FLAGS} &> /docker_logs/graphjs-debug.log;
+        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input/$fname -o /output_path ${FLAGS} &> /docker_logs/graphjs-debug.log;
                       cp /var/log/neo4j/debug.log /docker_logs/neo4j-debug.log"
     mv docker_logs ${output_path}/
 else
     docker run -it \
-        -v "${filename}":/input-file.js \
+        -v "$input_dir":/input \
         -v "${output_path}":/output_path \
         graphjs \
-        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input-file.js -o /output_path ${FLAGS}"
+        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input/$fname -o /output_path ${FLAGS}"
 fi
 docker system prune -f

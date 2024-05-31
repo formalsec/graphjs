@@ -218,27 +218,32 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     // Ensure that the object has the same information as the AST node
     const calledFunc: number = callNode.edges.find((e: GraphEdge): boolean => e.type === "CG")?.nodes[1].id ?? -1;
 
-    if (callNodeObj) {
+    if(callNodeObj){
         callNodeObj.functionContext = functionContext;
         callNodeObj.functionName = callName;
         callNodeObj.edges = callNode.edges;
-        // Create CG edge between call object and called function
-        trackers.graphCreateCallEdge(callNodeObjId, calledFunc);
-        // Create REF call between function node and call object
-        const funcNode: number | undefined = trackers.getFunctionNode(functionContext)?.id
-        funcNode && trackers.graphCreateCallRefEdge(funcNode, callNodeObjId);
+        trackers.graphCreateCallEdge(callNodeObjId,calledFunc);
+        let funcNode = trackers.getFunctionNode(functionContext);
+        if(funcNode){
+            let funcNodeId = funcNode.id;
+            let funcNodeName = funcNode.identifier;
+            funcNodeId && trackers.graphCreateCallRefEdge(funcNodeId,callNodeObjId);
+            funcNodeName && trackers.declaredFuncsMap.set(funcNodeName,funcNode);
+        }
         trackers.addCallNode(callNodeObj);
-
-        const argsLocations: number[] = []
-        callNode.obj.arguments.forEach((arg: any) => {
+        let ids:number[] = []
+        callNode.obj.arguments.forEach((arg: any, index: number) => {
             if (arg.type === "Identifier") {
                 const argLocation: number = trackers.storeGetObjectLocations(arg.name, callNode.functionContext).slice(-1)[0];
-                argsLocations.push(argLocation);
-            } else { argsLocations.push(-1); }
+                ids.push(argLocation);
+            }
+            else
+                ids.push(-1);
         });
-        callNodeObj.addArgsObjIds(argsLocations);
+        callNodeObj.addArgsObjIds(ids);
     }
 
+    
     let success: boolean;
     // Map call arguments (variables passed to the call map to the arguments of the called function definition)
     [trackers, success] = mapCallArguments(callNode, functionContext, functionName, calleeName, stmtId, config, trackers, callNodeObj);
