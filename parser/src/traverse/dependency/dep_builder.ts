@@ -22,10 +22,15 @@ function handleExpressionStatement(stmtId: number, stmt: GraphNode, expNode: Gra
     switch (expNode.type) {
         case "Literal":
         case "Identifier":
-        case "SequenceExpression": {
             return trackers.clone();
+        case "SequenceExpression": {
+            const expressions: GraphEdge[] = getAllASTEdges(expNode, "expression");
+            expressions.forEach((edge: GraphEdge) => {
+                const expression: GraphNode = edge.nodes[1];
+                trackers = handleExpressionStatement(stmtId, stmt, expression, config, trackers);
+            });
+            return trackers;
         }
-
         case "AssignmentExpression": {
             const left = getASTNode(expNode, "left");
             const right = getASTNode(expNode, "right");

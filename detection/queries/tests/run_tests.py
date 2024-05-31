@@ -28,8 +28,7 @@ def check_call_paths(self, expected_output_file, test_output_file):
             expected_call_path = expected_output[0]["call_paths"]  # For now, only one vulnerability
             correct_call_paths = 0
             for expected_call in expected_call_path:
-                for result_call in test_call_path:
-                    if compare_call_paths(self, expected_call, result_call):
+                    if compare_call_paths(self, expected_call, test_call_path):
                         correct_call_paths += 1
             self.assertEqual(len(expected_call_path), correct_call_paths)
 
@@ -105,8 +104,9 @@ class TestCallPath(unittest.TestCase):
     def test_then_callback(self):
         run_graphjs("test_cases/example-17/test.js", "./output/example-17")
 
-    def test_pp_other_function(self):
+    def test_call_on_an_object(self):
         run_graphjs("test_cases/example-18/test.js", "./output/example-18")
+
 
 if __name__ == '__main__':
     unittest.main()

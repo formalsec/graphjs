@@ -23,6 +23,14 @@ class TaintSummaryCall(TypedDict):
     returns: NotRequired[dict]
 
 
+# Check if the function is marked as exported
+def check_if_function_is_exported(obj_id):
+    return f"""
+    MATCH (fn_obj {{Id: "{obj_id}"}})
+    RETURN CASE WHEN fn_obj.SubType = "exported" THEN true ELSE false END AS is_exported
+    """
+
+
 # Function: Returns the Cypher query that checks if a function is directly exported
 #   We consider a direct export if it exported as "module.exports = f" or "exports = f" TODO: the second case
 #   The Cypher patterns checks if the MDG object associated with the function definition (fn_obj) is a dependency of
@@ -227,6 +235,14 @@ def function_is_called(obj_id):
                     -[:CG*1]->({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
+        UNION
+        MATCH
+            ({{Id: "{obj_id}"}})-[ref:REF {{RelationType: "obj"}}]->(fn_obj:PDG_OBJECT)
+                -[arg:PDG {{RelationType: "ARG"}}]->(call:PDG_CALL)
+                    <-[stmt_ref:REF {{RelationType: "obj"}}]-(call_stmt),
+            (call_stmt)<-[path:CFG*1..]-()<-[def:FD]-(source)
+        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
+        RETURN distinct source as node
     """
 
 
@@ -369,13 +385,14 @@ def get_return_type(returner, function_id: int) -> Optional[Call]:
 # This function returns the functions that call a function given as argument
 def find_callers(session, function_id: int) -> list[Call]:
     callers: list[Call] = []
-    promises = session.run(function_is_promise(function_id)).data()
+    # promises = session.run(function_is_promise(function_id)).data()
     # Callbacks
-    promise_callbacks = session.run(function_is_promise_callback(function_id)).data()
-    fn_callbacks = session.run(function_is_function_callback(function_id)).data()
+    # promise_callbacks = session.run(function_is_promise_callback(function_id)).data()
+    # fn_callbacks = session.run(function_is_function_callback(function_id)).data()
     # Direct call
     direct_calls = session.run(function_is_called(function_id)).data()
-    for caller in promises + promise_callbacks + fn_callbacks + direct_calls:
+    # for caller in promises + promise_callbacks + fn_callbacks + direct_calls:
+    for caller in direct_calls:
         callers.append(
             {'type': 'Call',
              'fn_id': int(caller["node"]["Id"]),
