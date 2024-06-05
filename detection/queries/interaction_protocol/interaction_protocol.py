@@ -178,6 +178,33 @@ def check_if_function_is_property_exported_via_prototype(obj_id):
         """
 
 
+def check_if_function_is_property_exported_via_this_property(obj_id):
+    return f"""
+        MATCH
+        ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+                        <-[this_version:PDG*1..]-(this_obj:PDG_OBJECT)
+                            <-[param:REF]-(class_ast_obj)
+                                -[class_obj_ref:REF]->(class_obj:PDG_OBJECT)
+                                    -[exp_dep:PDG]->(exports_prop:PDG_OBJECT)
+                                        <-[exp_so:PDG]-(exports_obj:PDG_OBJECT)
+        WHERE ref.RelationType = "obj"
+        AND dep.RelationType = "DEP"
+        AND so.RelationType = "SO"
+        AND ALL(edge IN this_version WHERE edge.RelationType = "NV")
+        AND param.RelationType = "param"
+        AND param.ParamIndex = "this"
+        AND class_obj_ref.RelationType = "obj"
+        AND exp_so.IdentifierName = "exports"
+        AND exports_obj.IdentifierName CONTAINS "module"
+        RETURN distinct class_obj.IdentifierName as obj_name, so.IdentifierName as prop_name,
+            fn_obj.IdentifierName as fn_node_id, 1 as is_function,
+            class_ast_obj.Id as source_obj_id
+        """
+
+
+
 # This query checks if the function identified with node <obj_id> is returned
 # by another function
 def function_is_returned(obj_id):
@@ -337,7 +364,8 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
         property_function = session.run(check_if_function_is_property_exported_via_module_prop(function_id)).single()
     if property_function is None:
         property_function = session.run(check_if_function_is_property_exported_via_prototype(function_id)).single()
-
+    if property_function is None:
+        property_function = session.run(check_if_function_is_property_exported_via_this_property(function_id)).single()
     if property_function is not None:
         if not property_function["is_function"]:
             return [
