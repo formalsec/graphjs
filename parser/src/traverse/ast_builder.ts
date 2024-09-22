@@ -3,6 +3,8 @@ import { copyObj } from "../utils/utils";
 import { Graph } from "./graph/graph";
 import { type GraphNode } from "./graph/node";
 
+
+
 export default function buildAST(originalObj: estree.Program, nodeCounter: number, edgeCounter: number, filename: string): Graph {
     const graph: Graph = new Graph(null, nodeCounter, edgeCounter);
 
@@ -11,6 +13,8 @@ export default function buildAST(originalObj: estree.Program, nodeCounter: numbe
             return arr.map((item) => traverse(item, anotherParentNode));
         }
         if (obj.loc) { // need to keep the filename for the location (to later find the correct line)
+            // why use typescript if we want to do this
+            // @ts-expect-error this is because of the filter but raises an error anyway
             obj.loc.fname = filename;
         }
 

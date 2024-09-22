@@ -223,32 +223,31 @@ function handleCallStatement(stmtId: number, functionContext: number, variable: 
     // Ensure that the object has the same information as the AST node
     const calledFunc: number = callNode.edges.find((e: GraphEdge): boolean => e.type === "CG")?.nodes[1].id ?? -1;
 
-    if(callNodeObj){
+    if (callNodeObj) {
         callNodeObj.functionContext = functionContext;
         callNodeObj.functionName = callName;
         callNodeObj.edges = callNode.edges;
-        trackers.graphCreateCallEdge(callNodeObjId,calledFunc);
-        let funcNode = trackers.getFunctionNode(functionContext);
-        if(funcNode){
-            let funcNodeId = funcNode.id;
-            let funcNodeName = funcNode.identifier;
-            funcNodeId && trackers.graphCreateCallRefEdge(funcNodeId,callNodeObjId);
-            funcNodeName && trackers.declaredFuncsMap.set(funcNodeName,funcNode);
+        trackers.graphCreateCallEdge(callNodeObjId, calledFunc);
+        const funcNode = trackers.getFunctionNode(functionContext);
+        if (funcNode) {
+            const funcNodeId = funcNode.id;
+            const funcNodeName = funcNode.identifier;
+            funcNodeId && trackers.graphCreateCallRefEdge(funcNodeId, callNodeObjId);
+            funcNodeName && trackers.declaredFuncsMap.set(funcNodeName, funcNode);
         }
         trackers.addCallNode(callNodeObj);
-        let ids:number[] = []
-        callNode.obj.arguments.forEach((arg: any, index: number) => {
+        const ids: number[] = []
+        callNode.obj.arguments.forEach((arg: any, _: number) => {
             if (arg.type === "Identifier") {
                 const argLocation: number = trackers.storeGetObjectLocations(arg.name, callNode.functionContext).slice(-1)[0];
                 ids.push(argLocation);
-            }
-            else
+            } else {
                 ids.push(-1);
+            }
         });
         callNodeObj.addArgsObjIds(ids);
     }
 
-    
     let success: boolean;
     // Map call arguments (variables passed to the call map to the arguments of the called function definition)
     [trackers, success] = mapCallArguments(callNode, functionContext, functionName, calleeName, stmtId, config, trackers, callNodeObj);
@@ -653,7 +652,6 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
         const auxiliaryFunctionSummary: boolean = config.summaries.auxiliary_functions.includes(callName);
         if (auxiliaryFunctionSummary) {
             // Get arguments that are functions
-            // @ts-expect-error this is because of the filter but raises an error anyway
             const innerFunctions: GraphNode[] = callArgs.filter(arg => arg.identifier != null)
                 .map(arg => trackers.getFunctionNodeFromName(arg.identifier ?? "?"))
                 .filter((fn: GraphNode | undefined) => fn !== undefined)
