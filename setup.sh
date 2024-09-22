@@ -16,12 +16,11 @@ else
     exit 1
 fi
 
+# Python dependencies
+pip3 install -r ./requirements.txt
 
 # Install npm dependencies and compile typescript code
 (cd ./parser && npm install && tsc)
 
-# Python dependencies
-pip3 install -r ./requirements.txt
-
 # Install instrumentation
-opam install -y ./instrumentation2
+# opam install -y ./instrumentation2
