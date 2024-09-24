@@ -40,15 +40,18 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     # Silent mode
     parser.add_argument("-s", "--silent", action="store_true",
                         help="Silent mode - does not save graph .svg.")
-    # Generate taint summary with type information
-    parser.add_argument("--with-types", dest="with_types", action="store_true",
-                        help="Generates taint_summary with type information.")
     # Generate exploits
     parser.add_argument("-e", "--exploit", action="store_true",
                         help="Generates symbolic tests (implies --with-types).")
-   # Query type
+    # Query type
     parser.add_argument("-q", "--query_type", type=str, choices=["bottom_up_greedy", "intra"],
                         default="bottom_up_greedy", help="Selects the type of query to run.")
+    # Generate taint summary with type information
+    parser.add_argument("--with-types", dest="with_types", action="store_true",
+                        help="Generates taint_summary with type information.")
+    # Allow dirty output directories
+    parser.add_argument("--dirty", dest="dirty", action="store_true",
+                        help="Don't clean output dir if it exists.")
 
 
 def parse_arguments():
@@ -57,12 +60,12 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit):
+def check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit, dirty):
     # Check if input file exists
     if not os.path.exists(file_path):
         sys.exit(f"Input file doesn't exist: ${file_path}")
     # Clean previous output files
-    if os.path.exists(output_path):
+    if os.path.exists(output_path) and not dirty:
         for item in os.listdir(output_path):
             item_path = os.path.join(output_path, item)
             if os.path.isfile(item_path):
@@ -70,10 +73,12 @@ def check_arguments(file_path, output_path, graph_output, run_output, symbolic_t
             elif os.path.isdir(item_path):
                 shutil.rmtree(item_path)
     else:
-        os.makedirs(output_path)  # Create output folder
-    os.mkdir(graph_output)  # Create graph output folder
-    os.mkdir(run_output)  # Create run output folder (neo4j stats)
-    if generate_exploit:
+        os.makedirs(output_path, exist_ok=True)  # Create output folder
+    if not os.path.exists(graph_output):
+        os.mkdir(graph_output)  # Create graph output folder
+    if not os.path.exists(run_output):
+        os.mkdir(run_output)  # Create run output folder (neo4j stats)
+    if generate_exploit and not os.path.exists(symbolic_tests_output):
         os.mkdir(symbolic_tests_output)  # Create symbolic tests output folder
 
 
@@ -95,7 +100,7 @@ def run_queries(file_path, graph_path, run_path, summary_path, time_path, genera
     detection.traverse_graph(file_path, summary_path, time_path, query_type, generate_exploit)
 
 
-def run_graph_js(file_path, output_path, query_type, with_types=False, generate_exploit=False, silent=True):
+def run_graph_js(file_path, output_path, query_type, with_types=False, generate_exploit=False, silent=True, dirty=False):
     # Get absolute paths
     file_path = os.path.abspath(file_path)
     # Generate default output path
@@ -108,7 +113,7 @@ def run_graph_js(file_path, output_path, query_type, with_types=False, generate_
     time_output = os.path.join(run_output, "time_stats.txt")
     summary_path = os.path.join(output_path, "taint_summary.json")
     symbolic_tests_output = os.path.join(output_path, "symbolic_tests")
-    check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit)
+    check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit, dirty)
 
     # Build MDG
     graphjs_cmd = build_graphjs_cmd(file_path, graph_output, silent)
@@ -135,4 +140,4 @@ def run_graph_js(file_path, output_path, query_type, with_types=False, generate_
 if __name__ == "__main__":
     # Parse arguments
     args = parse_arguments()
-    run_graph_js(args.file, args.output, args.query_type, args.with_types, args.exploit, args.silent)
+    run_graph_js(args.file, args.output, args.query_type, args.with_types, args.exploit, args.silent, args.dirty)
