@@ -652,6 +652,7 @@ function mapCallArguments(callNode: GraphNode, _functionContext: number, callNam
         const auxiliaryFunctionSummary: boolean = config.summaries.auxiliary_functions.includes(callName);
         if (auxiliaryFunctionSummary) {
             // Get arguments that are functions
+            // @ts-ignore
             const innerFunctions: GraphNode[] = callArgs.filter(arg => arg.identifier != null)
                 .map(arg => trackers.getFunctionNodeFromName(arg.identifier ?? "?"))
                 .filter((fn: GraphNode | undefined) => fn !== undefined)
