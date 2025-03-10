@@ -4,6 +4,7 @@ import os.path
 import pathlib
 import shutil
 import sys
+import json
 
 script = pathlib.Path(__file__).resolve()
 project_dir = script.parent.absolute()
@@ -60,6 +61,42 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def get_index_file(file_path):
+    # Check if file_path is a directory
+    if os.path.isdir(file_path):
+        # Check if directory contains a package.json file
+        if os.path.exists(os.path.join(file_path, "package.json")):
+            # Get the packe.json content
+            with open(os.path.join(file_path, "package.json"), "r") as f:
+                package_json = json.load(f)
+                
+                # Get the main field
+                main = package_json.get("main", None)
+                if main:
+                    print(f"Using main file: {main}")
+                    return os.path.join(file_path, main)
+                
+        # If no 'main' field, check for default 'index.js'
+        print(f"No 'main' field found. Looking for default entry point...")
+
+        # List of possible locations where the main file might be
+        possible_files = [
+            'index.js',  # Default main file
+            'lib/index.js',  # Common folder for libraries
+            'src/index.js',  # Common folder for source files
+            'dist/index.js'  # Common folder for distribution files
+        ]
+
+        for file in possible_files:
+            file_path = os.path.join(file_path, file)
+            if os.path.exists(file_path):
+                print(f"Found default entry point: {file}")
+                return file_path
+        
+        # If no default entry point is found, exit
+        sys.exit(f"No default entry point found in directory: ${file_path}")
+
+
 def check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit, dirty):
     # Check if input file exists
     if not os.path.exists(file_path):
@@ -114,6 +151,10 @@ def run_graph_js(file_path, output_path, query_type, with_types=False, generate_
     summary_path = os.path.join(output_path, "taint_summary.json")
     symbolic_tests_output = os.path.join(output_path, "symbolic_tests")
     check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit, dirty)
+    
+    # If file_path is a directory, get the package index file
+    if os.path.isdir(file_path):
+        file_path = get_index_file(file_path)
 
     # Build MDG
     graphjs_cmd = build_graphjs_cmd(file_path, graph_output, silent)

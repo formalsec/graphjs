@@ -33,7 +33,7 @@ while getopts f:o:lesh flag; do
     case "${flag}" in
         f) filename=$OPTARG
             filename="$( realpath "$filename" )"
-            if [ ! -f "$filename" ]; then
+            if [ ! -f "$filename" ] && [ ! -d "$filename" ]; then
                 echo "File $OPTARG does not exist."
                 exit 1
             fi;;
@@ -52,7 +52,7 @@ while getopts f:o:lesh flag; do
 done
 
 # Check if the required filename is provided
-if [ ! -f "$filename" ]; then
+if [ ! -f "$filename" ] && [ ! -d "$filename" ]; then
   echo "Option -f is required."
   Help
   exit 1
@@ -80,7 +80,7 @@ if [ "$DOCKER_LOGS" = true ]; then
         -v "${output_path}":/output_path \
         -v "${SCRIPT_DIR}/docker_logs":/docker_logs \
         graphjs \
-        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input/$fname -o /output_path ${FLAGS} &> /docker_logs/graphjs-debug.log;
+        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs -f /input/$fname -o /output_path ${FLAGS} &> /docker_logs/graphjs-debug.log;
                       cp /var/log/neo4j/debug.log /docker_logs/neo4j-debug.log"
     mv docker_logs ${output_path}/
 else
@@ -88,6 +88,6 @@ else
         -v "$input_dir":/input \
         -v "${output_path}":/output_path \
         graphjs \
-        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs.py -f /input/$fname -o /output_path ${FLAGS}"
+        /bin/bash -c "eval \$(opam env); python3 /graphjs/graphjs -f /input/$fname -o /output_path ${FLAGS}"
 fi
 docker system prune -f

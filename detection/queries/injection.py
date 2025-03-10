@@ -102,7 +102,7 @@ class Injection:
 		if self.query.reconstruct_types:
 			print(f'[INFO] Reconstructing attacker-controlled data.')
 			for detection_result in detection_results:
-				vulnerabilities = interaction_protocol.get_vulnerability_info(session, detection_result, config)
+				vulnerabilities = interaction_protocol.get_vulnerability_info(session, detection_result, source_file, config)
 				for detection_obj in vulnerabilities:
 					if detection_obj not in vuln_paths:
 						vuln_paths.append(detection_obj)

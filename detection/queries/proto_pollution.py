@@ -61,7 +61,7 @@ class PrototypePollution:
         if self.query.reconstruct_types:
             print(f'[INFO] Prototype Pollution - Reconstructing attacker-controlled data.')
             for detection_result in detection_results:
-                detection_objs = interaction_protocol.get_vulnerability_info(session, detection_result, config)
+                detection_objs = interaction_protocol.get_vulnerability_info(session, detection_result, source_file, config)
 
                 for detection_obj in detection_objs:
                     if detection_obj not in vuln_paths:

@@ -1,7 +1,7 @@
 from detection.queries.interaction_protocol.parameter_types import reconstruct_param_types
 from detection.queries.query import DetectionResult
 from typing import TypedDict, Optional, NotRequired
-
+import json
 
 class Call(TypedDict):
     type: Optional[str]
@@ -254,6 +254,7 @@ def function_is_returned(obj_id):
 # functions (which will call them internally), this query also checks if the
 # function is used as an argument of a function call
 # Detected cases: then() in promises
+# The last union is for the case of a call in exported functions
 def function_is_called(obj_id):
     return f"""
         MATCH
@@ -268,6 +269,14 @@ def function_is_called(obj_id):
                 -[arg:PDG {{RelationType: "ARG"}}]->(call:PDG_CALL)
                     <-[stmt_ref:REF {{RelationType: "obj"}}]-(call_stmt),
             (call_stmt)<-[path:CFG*1..]-()<-[def:FD]-(source)
+        WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
+        RETURN distinct source as node
+        UNION
+        MATCH
+            (source)-[def:FD]->(fn_def)
+                 -[path:CFG*1..]->(call_stmt:VariableDeclarator)
+                    -[stmt_ref:REF {{RelationType: "obj"}}]->(call_obj:PDG_CALL)
+                        -[:CG*1]->({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
     """
@@ -336,6 +345,13 @@ def get_parent_function(obj_id):
                  -[path:CFG*1..]->({{Id: "{obj_id}"}})
         WHERE exists ( (source)-[:AST {{RelationType: "init"}}]->() )
         RETURN distinct source as node
+    """
+
+def get_function_name(obj_id):
+    return f"""
+        MATCH
+            ({{Id: "{obj_id}"}})-[:AST {{RelationType: "init"}}]->(fn_obj:FunctionExpression)
+        RETURN distinct fn_obj.Location as location
     """
 
 
@@ -435,32 +451,38 @@ def find_returners(session, function_id: int) -> list[Call]:
 
 
 # This function returns the call path from an exported function to the sink
-def find_call_path(session, function_id: int, nodes: list[int]) -> list[list[Call]]:
+def find_call_path(session, function_id: int, nodes: list[int], main_file: str) -> list[list[Call]]:
     # Avoid passing twice in the same function node
     if function_id in nodes:
         return []
     nodes.append(function_id)
-    # Check if function <function_id> is exported
-    call_type: Optional[list[Call]] = get_exported_type(session, function_id)
-    # If function is exported, return the exported type
-    if call_type is not None:
-        return [call_type]
-    else:
-        call_paths: list[list[Call]] = []
-        # Get functions that call the current function -> replace in call path
-        callers: list[Call] = find_callers(session, function_id)
-        for caller in callers:
-            # Only process caller if it is not in the path (because of recursion)
-            if caller["fn_id"] is not function_id:
-                cur_call_paths = find_call_path(session, caller['fn_id'], nodes)
-                call_paths += cur_call_paths
+    # Check if function is in the main file
+    function_ast = session.run(get_function_name(function_id)).single()
+    if function_ast is not None:
+        fn_name = json.loads(function_ast["location"])["fname"]
+        if main_file == fn_name:
+            # Check if function <function_id> is exported
+            call_type: Optional[list[Call]] = get_exported_type(session, function_id)
+ 
+            # If function is exported, return the exported type
+            if call_type is not None:
+                return [call_type]
 
-        # Get functions that return the current function -> extend call path
-        returners: list[Call] = find_returners(session, function_id)
-        for returner in returners:
-            cur_call_paths = find_call_path(session, returner['source_fn_id'], nodes)
-            cur_call_paths = extend_call_path(cur_call_paths, returner)
+    call_paths: list[list[Call]] = []
+    # Get functions that call the current function -> replace in call path
+    callers: list[Call] = find_callers(session, function_id)
+    for caller in callers:
+        # Only process caller if it is not in the path (because of recursion)
+        if caller["fn_id"] is not function_id:
+            cur_call_paths = find_call_path(session, caller['fn_id'], nodes, main_file)
             call_paths += cur_call_paths
+
+    # Get functions that return the current function -> extend call path
+    returners: list[Call] = find_returners(session, function_id)
+    for returner in returners:
+        cur_call_paths = find_call_path(session, returner['source_fn_id'], nodes, main_file)
+        cur_call_paths = extend_call_path(cur_call_paths, returner)
+        call_paths += cur_call_paths
     return call_paths
 
 
@@ -480,22 +502,22 @@ def get_function_args(session, call_paths: list[list[Call]], detection_result: D
 # 1. Source and source line number
 # 2. Tainted Parameters
 # 3. Parameters' Type
-def get_vulnerability_info(session, detection_result: DetectionResult, config):
+def get_vulnerability_info(session, detection_result: DetectionResult, source_file: str, config):
     # Get call path
     fn_node = session.run(get_parent_function(detection_result["sink_function"])).single()
     if not fn_node:
         print("Unable to detect sink function.")
         return
 
-    call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"], [])
+    call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"], [], source_file)
     function_args: dict[FunctionArgs] = get_function_args(session, call_paths, detection_result, config)
 
-    taint_summary = build_taint_summary(detection_result, call_paths, function_args)
+    taint_summary = build_taint_summary(detection_result, call_paths, function_args, source_file)
 
     return taint_summary
 
 
-def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs]):
+def build_taint_summary(detection_result: DetectionResult, call_paths: list[list[Call]], function_args: dict[FunctionArgs], source_file: str):
     vulnerabilities = []
 
     for call_path in call_paths:
@@ -519,7 +541,7 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
 
         vulnerability = {
             'type': vulnerability_type,
-            'filename': detection_result["filename"],
+            'filename': source_file,
             'vuln_type': detection_result["vuln_type"],
             'sink': detection_result["sink"],
             'sink_lineno': detection_result["sink_lineno"],
