@@ -128,7 +128,8 @@ export function createVariableDeclaration(obj: Expression | null | undefined, or
             {
                 type: "VariableDeclarator",
                 id,
-                init: obj
+                init: obj,
+                loc: originalSource
             }
         ],
         kind: (constant) ? "const" : "let",
@@ -149,7 +150,8 @@ export function createVariableDeclarationWithIdentifier(identifier: Identifier, 
             {
                 type: "VariableDeclarator",
                 id: identifier,
-                init: obj
+                init: obj,
+                loc: originalSource
             }
         ],
         kind: (constant) ? "const" : "let",
@@ -386,6 +388,12 @@ export function normVariableDeclaration(obj: VariableDeclaration, children: Norm
         if (child.stmts) { stmts.push(...child.stmts); }
         // expr === null which happens in some cases when the declarator has no expression due to normalization
         if (child.expr == null) continue;
+        
+        // Ensure the child.expr has a loc property if it doesn't already
+        if (child.expr.type === "VariableDeclarator" && !child.expr.loc) {
+            child.expr.loc = obj.loc;
+        }
+        
         newObj.declarations = [child.expr];
         stmts.push(newObj)
     }

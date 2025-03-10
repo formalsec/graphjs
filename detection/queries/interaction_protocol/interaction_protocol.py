@@ -350,7 +350,8 @@ def get_parent_function(obj_id):
 def get_function_name(obj_id):
     return f"""
         MATCH
-            ({{Id: "{obj_id}"}})-[:AST {{RelationType: "init"}}]->(fn_obj:FunctionExpression)
+            ({{Id: "{obj_id}"}})-[:AST {{RelationType: "init"}}]->(fn_obj)
+        WHERE fn_obj:FunctionExpression OR fn_obj:ArrowFunctionExpression
         RETURN distinct fn_obj.Location as location
     """
 
