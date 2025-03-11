@@ -72,6 +72,7 @@ def get_index_file(file_path):
                 # Get the main field
                 main = package_json.get("main", None)
                 if main:
+                    main = os.path.normpath(main)
                     # Check if it has a file extension
                     if not main.endswith(".js"):
                         main += ".js"
