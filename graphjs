@@ -61,22 +61,29 @@ def parse_arguments():
     return parser.parse_args()
 
 
+# If the input is a directory, get the package entry file
 def get_index_file(file_path):
-    # Check if file_path is a directory
-    if os.path.isdir(file_path):
-        # Check if directory contains a package.json file
+    if os.path.isdir(file_path):    
+        # Directory contains a package.json file
         if os.path.exists(os.path.join(file_path, "package.json")):
-            # Get the packe.json content
             with open(os.path.join(file_path, "package.json"), "r") as f:
                 package_json = json.load(f)
                 
                 # Get the main field
                 main = package_json.get("main", None)
                 if main:
+                    # Check if it has a file extension
+                    if not main.endswith(".js"):
+                        main += ".js"
+                    # Check if main is a directory with only one file
+                    if os.path.isdir(os.path.join(file_path, main)):
+                        main_files = os.listdir(os.path.join(file_path, main))
+                        if len(main_files) == 1:
+                            main = os.path.join(main, main_files[0])
                     print(f"Using main file: {main}")
                     return os.path.join(file_path, main)
-                
-        # If no 'main' field, check for default 'index.js'
+        
+        # No package.json file, check for default entry file
         print(f"No 'main' field found. Looking for default entry point...")
 
         # List of possible locations where the main file might be
