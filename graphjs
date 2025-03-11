@@ -74,7 +74,7 @@ def get_index_file(file_path):
                 if main:
                     main = os.path.normpath(main)
                     # Check if it has a file extension
-                    if not main.endswith(".js"):
+                    if not main.endswith(".js") and not main.endswith(".mjs") and not main.endswith(".cjs"):
                         main += ".js"
                     # Check if main is a directory with only one file
                     if os.path.isdir(os.path.join(file_path, main)):
