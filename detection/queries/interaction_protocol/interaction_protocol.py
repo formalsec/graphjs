@@ -35,6 +35,7 @@ def check_if_function_is_exported(obj_id):
 #   We consider a direct export if it exported as "module.exports = f" or "exports = f" TODO: the second case
 #   The Cypher patterns checks if the MDG object associated with the function definition (fn_obj) is a dependency of
 #   the sub object module.exports.
+#   The optional matchis for the case where the exports object is defined before the function is defined
 # Parameters:
 #   obj_id: Function id
 # Query Returns:
@@ -44,10 +45,17 @@ def check_if_function_is_directly_exported(obj_id):
         // Get function pattern
         MATCH
             ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
-                -[dep:PDG]->(sub_obj:PDG_OBJECT)
-                    <-[so:PDG]-(obj:PDG_OBJECT)
         WHERE ref.RelationType = "obj"
-        AND dep.RelationType = "DEP" 
+
+        OPTIONAL MATCH path = (fn_obj)<-[nv:PDG*1..]-(last_version_obj:PDG_OBJECT)
+            WHERE ALL(r IN nv WHERE r.RelationType = "NV")  // Ensures all relationships in the path are NV
+
+        WITH fn_obj, 
+            CASE WHEN last_version_obj IS NOT NULL THEN last_version_obj ELSE fn_obj END AS last_fn_obj
+
+        MATCH (last_fn_obj)-[dep:PDG]->(sub_obj:PDG_OBJECT)
+                <-[so:PDG]-(obj:PDG_OBJECT)
+        WHERE dep.RelationType = "DEP" 
         AND so.RelationType = "SO"
         AND so.IdentifierName = "exports"
         AND obj.IdentifierName CONTAINS "module"
