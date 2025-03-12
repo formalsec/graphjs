@@ -527,6 +527,7 @@ def find_call_path(session, function_id: int, nodes: list[int], main_file: str, 
     if function_ast is not None:
         fn_name = json.loads(function_ast["location"])["fname"]
         if main_file == fn_name:
+            call_type: Optional[list[Call]] = None
             # Check if function <function_id> is a server initialization 
             if vulnerability_type == "path-traversal":
                 call_type: Optional[list[Call]] = check_server_type_vulnerability(fn_name)
