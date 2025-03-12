@@ -51,6 +51,7 @@ def launch_process_bg(command: str, args: str, timeout, wait_for_output=None, ou
 
 def measure_import_time(import_output_file, time_output):
 	elapsed_time = 0.0
+	elapsed_time_ms = 0.0
 	with open(import_output_file, 'r') as file:
 		for line in file:
 			if "IMPORT DONE in" in line:
