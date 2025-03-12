@@ -510,7 +510,7 @@ def check_server_type_vulnerability(fn_name: str) -> Optional[list[Call]]:
             if port is not None:
                 return [
                     {'type': 'ServerInitialization',
-                    'port': port,
+                    'port': int(port),
                     'fn_name': fn_name}
                     ]
     return None
