@@ -2,6 +2,9 @@ from detection.queries.interaction_protocol.parameter_types import reconstruct_p
 from detection.queries.query import DetectionResult
 from typing import TypedDict, Optional, NotRequired
 import json
+import re
+create_server_pattern = re.compile(r'\bcreateServer\b')
+listen_pattern = re.compile(r'\.listen\((\d+|"(\d+)")\)')
 
 class Call(TypedDict):
     type: Optional[str]
@@ -493,9 +496,28 @@ def find_returners(session, function_id: int) -> list[Call]:
     returners = session.run(function_is_returned(function_id))
     return [get_return_type(returner, function_id) for returner in returners]
 
+def extract_port(match):
+    return match.group(1) if match.group(1).isdigit() else match.group(2)
+
+def check_server_type_vulnerability(fn_name: str) -> Optional[list[Call]]:
+    with open(fn_name, "r") as fd:
+        file_data = fd.read()
+
+    if create_server_pattern.search(file_data):
+        listen_match = listen_pattern.search(file_data)
+        if listen_match:
+            port = extract_port(listen_match)
+            if port is not None:
+                return [
+                    {'type': 'ServerInitialization',
+                    'port': port,
+                    'fn_name': fn_name}
+                    ]
+    return None
+
 
 # This function returns the call path from an exported function to the sink
-def find_call_path(session, function_id: int, nodes: list[int], main_file: str) -> list[list[Call]]:
+def find_call_path(session, function_id: int, nodes: list[int], main_file: str, vulnerability_type: str) -> list[list[Call]]:
     # Avoid passing twice in the same function node
     if function_id in nodes:
         return []
@@ -505,8 +527,13 @@ def find_call_path(session, function_id: int, nodes: list[int], main_file: str) 
     if function_ast is not None:
         fn_name = json.loads(function_ast["location"])["fname"]
         if main_file == fn_name:
-            # Check if function <function_id> is exported
-            call_type: Optional[list[Call]] = get_exported_type(session, function_id)
+            # Check if function <function_id> is a server initialization 
+            if vulnerability_type == "path-traversal":
+                call_type: Optional[list[Call]] = check_server_type_vulnerability(fn_name)
+            
+            if call_type is None:
+                # Check if function <function_id> is exported
+                call_type: Optional[list[Call]] = get_exported_type(session, function_id)
  
             # If function is exported, return the exported type
             if call_type is not None:
@@ -518,13 +545,13 @@ def find_call_path(session, function_id: int, nodes: list[int], main_file: str) 
     for caller in callers:
         # Only process caller if it is not in the path (because of recursion)
         if caller["fn_id"] is not function_id:
-            cur_call_paths = find_call_path(session, caller['fn_id'], nodes, main_file)
+            cur_call_paths = find_call_path(session, caller['fn_id'], nodes, main_file, vulnerability_type)
             call_paths += cur_call_paths
 
     # Get functions that return the current function -> extend call path
     returners: list[Call] = find_returners(session, function_id)
     for returner in returners:
-        cur_call_paths = find_call_path(session, returner['source_fn_id'], nodes, main_file)
+        cur_call_paths = find_call_path(session, returner['source_fn_id'], nodes, main_file, vulnerability_type)
         cur_call_paths = extend_call_path(cur_call_paths, returner)
         call_paths += cur_call_paths
     return call_paths
@@ -536,6 +563,8 @@ def get_function_args(session, call_paths: list[list[Call]], detection_result: D
     function_map: dict[FunctionArgs] = {}
     for call_path in call_paths:
         for call in call_path:
+            if call["type"] == "ServerInitialization":
+                continue
             if call["fn_name"] not in function_map:
                 tainted_params, params_types = reconstruct_param_types(session, call["fn_id"], detection_result, config)
                 function_map[call["fn_name"]] = params_types
@@ -553,7 +582,7 @@ def get_vulnerability_info(session, detection_result: DetectionResult, source_fi
         print("Unable to detect sink function.")
         return
 
-    call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"], [], source_file)
+    call_paths: list[list[Call]] = find_call_path(session, fn_node["node"]["Id"], [], source_file, detection_result["vuln_type"])
     function_args: dict[FunctionArgs] = get_function_args(session, call_paths, detection_result, config)
 
     taint_summary = build_taint_summary(detection_result, call_paths, function_args, source_file)
@@ -582,19 +611,35 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
                 inner_return = current_call
 
         vulnerability_type: str = get_vulnerability_type(call_path)
-
-        vulnerability = {
-            'type': vulnerability_type,
-            'filename': source_file,
-            'vuln_type': detection_result["vuln_type"],
-            'sink': detection_result["sink"],
-            'sink_lineno': detection_result["sink_lineno"],
-            'source': current_call["source"],
-            'tainted_params': current_call["tainted_params"],
-            'params_types': current_call["params_types"]
-        }
-        if "returns" in current_call:
-            vulnerability["returns"] = current_call["returns"]
+        
+        if vulnerability_type == "VServerInitialization":
+            vulnerability = {
+                'type': vulnerability_type,
+                'filename': source_file,
+                'vuln_type': detection_result["vuln_type"],
+                'sink': detection_result["sink"],
+                'sink_lineno': detection_result["sink_lineno"],
+                'source': current_call["source"],
+                'tainted_params': current_call["tainted_params"],
+                'params_types': current_call["params_types"],
+                "client" : {
+                    "type": "GET",
+                    "port": call_path[0]["port"]
+                }
+            }
+        else: 
+            vulnerability = {
+                'type': vulnerability_type,
+                'filename': source_file,
+                'vuln_type': detection_result["vuln_type"],
+                'sink': detection_result["sink"],
+                'sink_lineno': detection_result["sink_lineno"],
+                'source': current_call["source"],
+                'tainted_params': current_call["tainted_params"],
+                'params_types': current_call["params_types"]
+            }
+            if "returns" in current_call:
+                vulnerability["returns"] = current_call["returns"]
 
         vulnerability["call_paths"] = call_path
         vulnerabilities.append(vulnerability)
@@ -606,6 +651,9 @@ def build_call(call: Call, function_args: dict[FunctionArgs], depth: int) -> Tai
     source: str = "unknown"
     tainted_params = []
     param_types = {}
+
+    if depth == 0 and call["type"] == "ServerInitialization":
+        return {'source': "", 'params_types': {}, 'tainted_params': []}
 
     if depth == 0:
         if call["type"] == "Call" and call["fn_name"] is not None:  # Type is exported
@@ -637,6 +685,8 @@ def get_vulnerability_type(call_path: list[Call]) -> str:
             return "VFunPropOfExportedObj"
         if call_path[0]["type"] == "New":
             return "VNewCall"
+        if call_path[0]["type"] == "ServerInitialization":
+            return "VServerInitialization"
 
     if len(call_path) > 1:
         if call_path[0]["type"] == "New":
