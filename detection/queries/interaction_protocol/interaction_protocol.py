@@ -190,6 +190,34 @@ def check_if_function_is_property_exported_via_module_prop(obj_id):
         RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name,
             fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
             origin_obj_ast.Id as source_obj_id
+        UNION
+        MATCH
+            ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+                        -[dep_obj:PDG]->(exports_obj_prop:PDG_OBJECT)
+                            <-[exp_obj_so:PDG]-(exports_obj:PDG_OBJECT)
+                                <-[up_nv:PDG*1..]-(last_version_exports_prop:PDG_OBJECT)
+                                        <-[exp_so:PDG]-(last_version_exports_obj:PDG_OBJECT)
+        WHERE ref.RelationType = "obj"
+        AND dep.RelationType = "DEP" 
+        AND so.RelationType = "SO"
+        AND dep_obj.RelationType = "DEP"
+        AND exp_obj_so.RelationType = "SO"
+        AND ALL(edge IN up_nv WHERE edge.RelationType = "NV")
+        AND exp_so.IdentifierName = "exports"
+        AND last_version_exports_obj.IdentifierName CONTAINS "module"
+        // Get the AST origin node of the exported function (to get the location and Id)
+        MATCH
+            (obj:PDG_OBJECT)<-[nv:PDG*0..]-(origin_version_obj:PDG_OBJECT)
+                <-[origin_obj:REF]-(origin_obj_ast)
+        WHERE origin_obj.RelationType = "obj"
+        // Check if the object is a function or an object (to detect classes)
+        OPTIONAL MATCH
+            (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
+        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name,
+            fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
+            origin_obj_ast.Id as source_obj_id
         """
 
 
@@ -286,10 +314,16 @@ def function_is_returned(obj_id):
                 <-[origin_obj:REF]-(origin_obj_ast)
         WHERE origin_obj.RelationType = "obj"
         // Check if the object is a function or an object (to detect classes)
+        // Check if any version
         OPTIONAL MATCH
-            (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
+            (node)-[:PDG {{RelationType: "DEP"}}]->(class_obj:PDG_OBJECT)
+                -[obj_nv:PDG*1..]->(some_class_obj)
+                    -[obj_so]->(class_prop:PDG_OBJECT)
+        WHERE ALL(nv IN obj_nv WHERE nv.RelationType = "NV")
+        AND obj_so.RelationType = "SO"
+        AND obj_so.IdentifierName = "is_class"
         RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name,
-            fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
+            fn_obj.IdentifierName as fn_node_id, COUNT(class_prop) as is_function,
             node.Id as source_obj_id
     """
 

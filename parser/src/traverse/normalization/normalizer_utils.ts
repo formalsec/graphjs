@@ -105,6 +105,14 @@ export function createBooleanLiteral(value: boolean): SimpleLiteral {
     };
 }
 
+export function createStringLiteral(value: string): SimpleLiteral {
+    return {
+        type: "Literal",
+        value,
+        raw: value
+    };
+}
+
 interface CreatedDeclaration {
     id: Identifier
     decl: VariableDeclaration
@@ -1328,6 +1336,9 @@ export function normClassDeclaration(obj: ClassDeclaration, children: Normalizat
             }
         });
     }
+
+    const classMarker = createPropertyAssignment(id, createStringLiteral("is_class"), createBooleanLiteral(true), obj.loc)
+    stmts.push(classMarker);
 
     return {
         stmts: [funcDecl.decl, ...stmts],
