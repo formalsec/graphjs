@@ -571,7 +571,7 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
         else:
             return [
                 {'type': 'New',
-                 'prop': property_function["exp_prop_name"] if "exp_prop_name" in property_function else None,
+                 'prop': property_function["exp_prop_name"] if "exp_prop_name" in property_function.keys() else None,
                  'fn_name': property_function["obj_name"],
                  'fn_id': property_function["source_obj_id"],
                  'source_fn_id': property_function["source_obj_id"]},
