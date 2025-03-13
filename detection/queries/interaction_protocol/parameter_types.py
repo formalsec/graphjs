@@ -5,6 +5,28 @@ from detection.queries.query import DetectionResult
 
 
 # Cypher Queries
+def get_params_of_arg (call_id) -> str:
+    return f"""
+        MATCH
+            (arg:PDG_OBJECT)
+			    -[arg_edge:PDG]
+				    ->(call:PDG_CALL)
+                        -[:CG]
+						    ->(func)
+                                -[param_edge:REF]
+                                    ->(param:PDG_OBJECT),
+            (:VariableDeclarator)
+                -[arg_edge_2:REF]
+                    ->(arg_2:PDG_OBJECT)
+
+        WHERE
+            call.Id = "{call_id}" AND
+            arg.Id = arg_2.Id AND
+            arg_edge_2.ParamIndex = param_edge.ParamIndex
+            
+        RETURN func, param
+    """
+
 def get_parameter_dependent_objects(fn_id) -> str:
     return f"""
         MATCH
@@ -76,20 +98,23 @@ def get_variable_declarators(obj_ids: list[int]) -> str:
         RETURN DISTINCT vx.IdentifierName as id
     """
 
+def add_property(params_types, prop_name, sub_node_id):
+    if prop_name not in params_types:
+        params_types[prop_name] = { "pdg_node_id": {sub_node_id} }
+    else:
+        params_types[prop_name]["pdg_node_id"].add(sub_node_id)
 
-# This function is responsible for reconstructing the parameter types.
-# First, it reconstructs the object's structure and then assigns the types
-def reconstruct_param_types(session, function_cfg_id, detection_result: DetectionResult, config):
-    # Params_types stores
+
+def reconstruct_param_structure(session, function_cfg_id, checked_functions):
     params_types: Dict[str, Dict[str, dict | set]] = {}
-    params_lazy_obj: Dict[str, list] = {}
+    checked_functions.add(function_cfg_id)
 
     dependent_objects = session.run(get_parameter_dependent_objects(function_cfg_id))
     expression_dependent_objects = session.run(get_parameter_expression_objects(function_cfg_id))
+
     # This loops reconstructs the objects' structure
     for obj_type in [dependent_objects, expression_dependent_objects]:
         for param_obj in obj_type:
-
             # Get parameter name
             parameter_name = get_parameter_name(param_obj["param"]["IdentifierName"])
             if parameter_name == "this":
@@ -100,7 +125,6 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
             # If parameter name is not in the map, simply add it
             if parameter_name not in params_types:
                 params_types[parameter_name] = {"pdg_node_id": {param_obj["param"]["Id"]}}
-                params_lazy_obj[parameter_name] = [False, False]
             # If the parameter is in the map, check if it has properties
             else:
                 parent_param_types = params_types
@@ -109,22 +133,35 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
                 for edge in param_obj["obj_edges"]:
                     sub_node_id = edge.nodes[1]["Id"]
                     if edge["RelationType"] == "SO" and obj_recon_flag:
-                        params_lazy_obj[parameter_name][0] = True
                         prop_name = edge["IdentifierName"]
-                        if prop_name not in params_types:
-                            params_types[prop_name] = {
-                                "pdg_node_id": {sub_node_id}
-                            }
-                        else:
-                            params_types[prop_name]["pdg_node_id"].add(sub_node_id)
+                        add_property(params_types, prop_name, sub_node_id)
                         params_types = params_types[prop_name]
                     elif edge["RelationType"] == "DEP":
                         obj_recon_flag = False
                         params_types["pdg_node_id"].add(sub_node_id)
-                    elif edge["RelationType"] == "ARG":
-                        params_lazy_obj[parameter_name][1] = True
+                    elif edge["RelationType"] == "ARG" and obj_recon_flag:
+                        results = session.run(get_params_of_arg(sub_node_id))
+                        for res in results:
+                            func = res["func"]
+                            param = res["param"]
+                            if (func["Id"] not in checked_functions):
+                                new_param_types = reconstruct_param_structure(session, func["Id"], checked_functions)
+                                new_param_name = get_parameter_name(param["IdentifierName"])
+                                new_param_types = new_param_types[new_param_name]
+                                for key, values in new_param_types.items():
+                                    if key != "pdg_node_id":
+                                        params_types[key] = values
+                                                        
                 params_types = parent_param_types
+    return params_types
 
+
+# This function is responsible for reconstructing the parameter types.
+# First, it reconstructs the object's structure and then assigns the types
+def reconstruct_param_types(session, function_cfg_id, detection_result: DetectionResult, config):
+    # Params_types stores
+    checked_functions = set()
+    params_types = reconstruct_param_structure(session, function_cfg_id, checked_functions)
 
     print(f'[INFO] Assigning types to attacker-controlled data.')
     assign_types(session, params_types, config)
@@ -134,11 +171,6 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
                          config,
                          detection_result.get('polluted_obj', False),
                          detection_result.get('polluting_value', False))
-
-    for parameter in params_types:
-        if params_lazy_obj[parameter] == [True, True]:
-            lazy_obj = "lazy_object"
-            params_types[parameter] = { "_union": [params_types[parameter], lazy_obj] }
 
     return list(params_types.keys()), params_types
 
