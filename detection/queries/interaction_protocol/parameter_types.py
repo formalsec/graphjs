@@ -124,7 +124,7 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
                 params_types = parent_param_types
 
     print(f'[INFO] Assigning types to attacker-controlled data.')
-    assign_types(session, params_types, config)
+    assign_types(session, params_types, config, detection_result["vuln_type"])
 
     if detection_result["vuln_type"] == "prototype-pollution":
         simplify_objects(params_types,
@@ -137,7 +137,7 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
 
 # This function traverses the parameters and assign a JavaScript type to each parameter.
 # It is recursive until it finds a single value
-def assign_types(session, param_structure, config):
+def assign_types(session, param_structure, config, vuln_type):
     if isinstance(param_structure, dict):
         for key, value in param_structure.items():
             if isinstance(value, dict) and len(value) == 1:
@@ -145,7 +145,7 @@ def assign_types(session, param_structure, config):
             else:
                 param_structure[key].pop("pdg_node_id", None)
                 assign_types(session, param_structure[key], config)
-            if isinstance(value, dict) and "length" in value:
+            if vuln_type != "prototype-pollution" and isinstance(value, dict) and "length" in value:
                 param_structure[key] = {"_union": [param_structure[key], "string", "array"]}
 
 
