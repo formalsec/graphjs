@@ -41,21 +41,25 @@ def check_if_function_is_top_level(obj_id):
             <-[call:CG]-(call_obj:PDG_CALL)
                 <-[call_ast:REF]-(call_obj_ast)
     WHERE call_ast.RelationType = "obj"
+    // Check AST
     MATCH
         (call_obj_ast:VariableDeclarator)
             -[init:AST]->(call_expr:CallExpression)
                 -[callee:AST]->(callee_obj:Identifier)
     WHERE init.RelationType = "init"
     AND callee_obj.IdentifierName = fn_obj.IdentifierName
+    // Check function is in main
     MATCH
         (cfg_obj:CFG_F_START)
-    WHERE 
-        cfg_obj.Id = fn_obj.FunctionContext
+    WHERE cfg_obj.Id = fn_obj.FunctionContext
+    AND cfg_obj.IdentifierName = "__main__"
+    // Check call is in main
     MATCH
         (cfg_call_obj:CFG_F_START)
     WHERE 
         cfg_call_obj.Id = call_obj.FunctionContext
-    RETURN CASE WHEN cfg_obj.IdentifierName = "__main__" THEN true ELSE false END AS is_top_level, fn_obj.IdentifierName as fn_name
+        AND cfg_call_obj.IdentifierName = "__main__"
+    RETURN fn_obj.IdentifierName as fn_name
     """
 
 
@@ -567,7 +571,7 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
         else:
             return [
                 {'type': 'New',
-                 'prop': property_function["exp_prop_name"],
+                 'prop': property_function["exp_prop_name"] if "exp_prop_name" in property_function else None,
                  'fn_name': property_function["obj_name"],
                  'fn_id': property_function["source_obj_id"],
                  'source_fn_id': property_function["source_obj_id"]},
@@ -581,7 +585,7 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
 
 def get_top_level_function(session, function_id: int) -> Optional[list[Call]]:
     top_level_function = session.run(check_if_function_is_top_level(function_id)).single()
-    if top_level_function is not None and top_level_function["is_top_level"]:
+    if top_level_function is not None:
         return [{'type': 'TopLevel',
                  'fn_name': top_level_function["fn_name"],
                  'fn_id': function_id,
