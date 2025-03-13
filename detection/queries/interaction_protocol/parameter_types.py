@@ -17,8 +17,6 @@ def get_parameter_dependent_objects(fn_id) -> str:
         WHERE 
             source.Id = "{fn_id}" AND
             ref_edge.RelationType = "param" AND
-            ALL(edge IN obj_edges WHERE
-                NOT edge.RelationType = "ARG") AND
             (obj_or_sink:PDG_OBJECT OR obj_or_sink:TAINT_SINK)
         RETURN distinct *
         ORDER BY
@@ -84,10 +82,10 @@ def get_variable_declarators(obj_ids: list[int]) -> str:
 def reconstruct_param_types(session, function_cfg_id, detection_result: DetectionResult, config):
     # Params_types stores
     params_types: Dict[str, Dict[str, dict | set]] = {}
+    params_lazy_obj: Dict[str, list] = {}
 
     dependent_objects = session.run(get_parameter_dependent_objects(function_cfg_id))
     expression_dependent_objects = session.run(get_parameter_expression_objects(function_cfg_id))
-
     # This loops reconstructs the objects' structure
     for obj_type in [dependent_objects, expression_dependent_objects]:
         for param_obj in obj_type:
@@ -102,6 +100,7 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
             # If parameter name is not in the map, simply add it
             if parameter_name not in params_types:
                 params_types[parameter_name] = {"pdg_node_id": {param_obj["param"]["Id"]}}
+                params_lazy_obj[parameter_name] = [False, False]
             # If the parameter is in the map, check if it has properties
             else:
                 parent_param_types = params_types
@@ -110,6 +109,7 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
                 for edge in param_obj["obj_edges"]:
                     sub_node_id = edge.nodes[1]["Id"]
                     if edge["RelationType"] == "SO" and obj_recon_flag:
+                        params_lazy_obj[parameter_name][0] = True
                         prop_name = edge["IdentifierName"]
                         if prop_name not in params_types:
                             params_types[prop_name] = {
@@ -121,7 +121,10 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
                     elif edge["RelationType"] == "DEP":
                         obj_recon_flag = False
                         params_types["pdg_node_id"].add(sub_node_id)
+                    elif edge["RelationType"] == "ARG":
+                        params_lazy_obj[parameter_name][1] = True
                 params_types = parent_param_types
+
 
     print(f'[INFO] Assigning types to attacker-controlled data.')
     assign_types(session, params_types, config)
@@ -131,6 +134,11 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
                          config,
                          detection_result.get('polluted_obj', False),
                          detection_result.get('polluting_value', False))
+
+    for parameter in params_types:
+        if params_lazy_obj[parameter] == [True, True]:
+            lazy_obj = "lazy_object"
+            params_types[parameter] = { "_union": [params_types[parameter], lazy_obj] }
 
     return list(params_types.keys()), params_types
 
