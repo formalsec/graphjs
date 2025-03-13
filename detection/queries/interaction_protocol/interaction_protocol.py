@@ -42,6 +42,12 @@ def check_if_function_is_top_level(obj_id):
                 <-[call_ast:REF]-(call_obj_ast)
     WHERE call_ast.RelationType = "obj"
     MATCH
+        (call_obj_ast:VariableDeclarator)
+            -[init:AST]->(call_expr:CallExpression)
+                -[callee:AST]->(callee_obj:Identifier)
+    WHERE init.RelationType = "init"
+    AND callee_obj.IdentifierName = fn_obj.IdentifierName
+    MATCH
         (cfg_obj:CFG_F_START)
     WHERE 
         cfg_obj.Id = fn_obj.FunctionContext
