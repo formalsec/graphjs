@@ -144,7 +144,7 @@ def assign_types(session, param_structure, config, vuln_type):
                 param_structure[key] = assign_type(session, key, list(param_structure[key]["pdg_node_id"]), config)
             else:
                 param_structure[key].pop("pdg_node_id", None)
-                assign_types(session, param_structure[key], config)
+                assign_types(session, param_structure[key], config, vuln_type)
             if vuln_type != "prototype-pollution" and isinstance(value, dict) and "length" in value:
                 param_structure[key] = {"_union": [param_structure[key], "string", "array"]}
 
