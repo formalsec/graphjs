@@ -267,7 +267,75 @@ def check_if_function_is_property_exported_via_prototype(obj_id):
             (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
         RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
             fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
-            origin_obj_ast.Id as source_obj_id
+            origin_obj_ast.Id as source_obj_id, null as exp_prop_name
+        UNION
+        MATCH
+        ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+                        <-[proto_version:PDG]-(proto_obj:PDG_OBJECT)
+                            <-[proto_so:PDG]-(proto_fn:PDG_OBJECT)
+                                -[exp_dep:PDG]->(exports_prop_dep:PDG_OBJECT)
+        WHERE ref.RelationType = "obj"
+        AND dep.RelationType = "DEP" 
+        AND so.RelationType = "SO"
+        AND proto_version.RelationType = "NV"
+        AND proto_so.RelationType = "SO"
+        // module exports pattern
+        MATCH
+            (exports_prop_dep:PDG_OBJECT)
+                <-[exp_prop_so:PDG]-(module_exports_prop_obj:PDG_OBJECT)
+                    <-[exp_prop_nv:PDG]-(module_exports_obj:PDG_OBJECT)
+                        <-[module_exp_so:PDG]-(module_obj:PDG_OBJECT)
+        WHERE exp_prop_so.RelationType = "SO"
+        AND exp_prop_nv.RelationType = "NV"
+        AND module_exp_so.IdentifierName = "exports"
+        AND module_obj.IdentifierName CONTAINS "module"
+        // Get the AST origin node of the exported function (to get the location and Id)
+        MATCH
+            (obj:PDG_OBJECT)<-[nv:PDG*1..]-(origin_version_obj_so:PDG_OBJECT)
+                <-[origin_version_obj_so_edge:PDG]-(origin_version_obj:PDG_OBJECT)
+                    <-[origin_obj:REF]-(origin_obj_ast)
+        WHERE origin_obj.RelationType = "obj"
+        AND origin_version_obj_so_edge.RelationType = "SO"
+        // Check if the object is a function or an object (to detect classes)
+        MATCH
+            (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
+        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
+            fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
+            origin_obj_ast.Id as source_obj_id, exp_prop_so.IdentifierName as exp_prop_name
+        UNION
+        MATCH
+        ({{Id: "{obj_id}"}})-[ref:REF]->(fn_obj:PDG_OBJECT)
+                -[dep:PDG]->(sub_obj:PDG_OBJECT)
+                    <-[so:PDG]-(obj:PDG_OBJECT)
+                        <-[proto_version:PDG*0..]-(proto_obj:PDG_OBJECT)
+                            <-[proto_so:PDG]-(proto_fn:PDG_OBJECT)
+                                -[exp_dep:PDG]->(exports_prop_dep:PDG_OBJECT)
+        WHERE ref.RelationType = "obj"
+        AND dep.RelationType = "DEP" 
+        AND so.RelationType = "SO"
+        AND ALL(edge IN proto_version WHERE edge.RelationType = "NV")
+        AND proto_so.RelationType = "SO"
+        // exports pattern
+        MATCH
+        (exports_prop_dep:PDG_OBJECT)
+                <-[exp_prop_so:PDG]-(exports_prop_obj:PDG_OBJECT)
+                    <-[exp_prop_nvs:PDG*0..]-(exports_obj:PDG_OBJECT)
+        WHERE exp_prop_so.RelationType = "SO"
+        AND ALL(edge IN exp_prop_nvs WHERE edge.RelationType = "NV")
+        AND exports_obj.IdentifierName CONTAINS "exports"
+        // Get the AST origin node of the exported function (to get the location and Id)
+        MATCH
+            (obj:PDG_OBJECT)<-[nv:PDG*0..]-(origin_version_obj:PDG_OBJECT)
+                <-[origin_obj:REF]-(origin_obj_ast)
+        WHERE origin_obj.RelationType = "obj"
+        // Check if the object is a function or an object (to detect classes)
+        MATCH
+            (origin_obj_ast)-[def:FD]->(origin_obj_cfg:CFG_F_START)
+        RETURN distinct obj.IdentifierName as obj_name, so.IdentifierName as prop_name, 
+            fn_obj.IdentifierName as fn_node_id, COUNT(origin_obj_cfg) as is_function,
+            origin_obj_ast.Id as source_obj_id, exp_prop_so.IdentifierName as exp_prop_name
         """
 
 
@@ -493,6 +561,7 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
         else:
             return [
                 {'type': 'New',
+                 'prop': property_function["exp_prop_name"],
                  'fn_name': property_function["obj_name"],
                  'fn_id': property_function["source_obj_id"],
                  'source_fn_id': property_function["source_obj_id"]},
@@ -727,8 +796,10 @@ def build_call(call: Call, function_args: dict[FunctionArgs], depth: int) -> Tai
             source = "module.exports"
         elif call["type"] == "Method":  # Type is property of exported object
             source = "module.exports." + call["prop"]
-        elif call["type"] == "New":
+        elif call["type"] == "New" and call["prop"] is None:
             source = "new module.exports"
+        elif call["type"] == "New" and call["prop"] is not None:
+            source = "new module.exports." + call["prop"]
         elif call["type"] == "TopLevel":
             source = call["fn_name"]
     else:
