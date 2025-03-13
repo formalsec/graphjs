@@ -33,6 +33,18 @@ def check_if_function_is_exported(obj_id):
     RETURN CASE WHEN fn_obj.SubType = "exported" THEN true ELSE false END AS is_exported
     """
 
+# Check if the function is top level
+def check_if_function_is_top_level(obj_id):
+    return f"""
+    MATCH 
+        (fn_obj {{Id: "{obj_id}"}})
+    MATCH
+        (cfg_obj:CFG_F_START)
+    WHERE 
+        cfg_obj.Id = fn_obj.FunctionContext
+    RETURN CASE WHEN cfg_obj.IdentifierName = "__main__" THEN true ELSE false END AS is_top_level, fn_obj.IdentifierName as fn_name
+    """
+
 
 # Function: Returns the Cypher query that checks if a function is directly exported
 #   We consider a direct export if it exported as "module.exports = f" or "exports = f" TODO: the second case
@@ -485,6 +497,15 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
 
     return None
 
+def get_top_level_function(session, function_id: int) -> Optional[list[Call]]:
+    top_level_function = session.run(check_if_function_is_top_level(function_id)).single()
+    if top_level_function is not None:
+        return [{'type': 'TopLevel',
+                 'fn_name': top_level_function["fn_name"],
+                 'fn_id': function_id,
+                 'source_fn_id': function_id}]
+    return None
+
 
 def get_return_type(returner, function_id: int) -> Optional[Call]:
     if returner["prop_name"] is None:
@@ -569,6 +590,10 @@ def find_call_path(session, function_id: int, nodes: list[int], main_file: str, 
             if call_type is None:
                 # Check if function <function_id> is exported
                 call_type: Optional[list[Call]] = get_exported_type(session, function_id)
+            
+            if call_type is None:
+                # Check if function <function_id> is top level function
+                call_type: Optional[list[Call]] = get_top_level_function(session, function_id)
  
             # If function is exported, return the exported type
             if call_type is not None:
@@ -697,6 +722,8 @@ def build_call(call: Call, function_args: dict[FunctionArgs], depth: int) -> Tai
             source = "module.exports." + call["prop"]
         elif call["type"] == "New":
             source = "new module.exports"
+        elif call["type"] == "TopLevel":
+            source = call["fn_name"]
     else:
         if call["type"] == "Call" and call["fn_name"] is not None:  # Type is exported
             source = ""
@@ -722,6 +749,8 @@ def get_vulnerability_type(call_path: list[Call]) -> str:
             return "VNewCall"
         if call_path[0]["type"] == "ServerInitialization":
             return "VServerInitialization"
+        if call_path[0]["type"] == "TopLevel":
+            return "VTopLevel"
 
     if len(call_path) > 1:
         if call_path[0]["type"] == "New":

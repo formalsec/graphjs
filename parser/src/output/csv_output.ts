@@ -15,7 +15,7 @@ export class CSVOutput extends OutputWriter {
         // Id:ID¿Type¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL
 
         const nodesWriteStream = fs.createWriteStream(path.join(fileDir, "nodes.csv"));
-        nodesWriteStream.write("Id:ID¿Type¿SubType¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL\n");
+        nodesWriteStream.write("Id:ID¿Type¿SubType¿FunctionContext¿IdentifierName¿Raw¿InternalStructure¿Location¿Code¿Label:LABEL\n");
 
         graph.nodes.forEach((node: GraphNode) => {
             const n = [];
@@ -28,6 +28,9 @@ export class CSVOutput extends OutputWriter {
 
             // node subtype
             n.push(node.subtype)
+
+            // node function context
+            n.push(node.functionContext)
 
             // node identifier name
             switch (node.type) {
