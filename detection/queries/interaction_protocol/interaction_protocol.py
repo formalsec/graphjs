@@ -38,10 +38,17 @@ def check_if_function_is_top_level(obj_id):
     return f"""
     MATCH 
         (fn_obj {{Id: "{obj_id}"}})
+            <-[call:CG]-(call_obj:PDG_CALL)
+                <-[call_ast:REF]-(call_obj_ast)
+    WHERE call_ast.RelationType = "obj"
     MATCH
         (cfg_obj:CFG_F_START)
     WHERE 
         cfg_obj.Id = fn_obj.FunctionContext
+    MATCH
+        (cfg_call_obj:CFG_F_START)
+    WHERE 
+        cfg_call_obj.Id = call_obj.FunctionContext
     RETURN CASE WHEN cfg_obj.IdentifierName = "__main__" THEN true ELSE false END AS is_top_level, fn_obj.IdentifierName as fn_name
     """
 
@@ -499,7 +506,7 @@ def get_exported_type(session, function_id: int) -> Optional[list[Call]]:
 
 def get_top_level_function(session, function_id: int) -> Optional[list[Call]]:
     top_level_function = session.run(check_if_function_is_top_level(function_id)).single()
-    if top_level_function is not None:
+    if top_level_function is not None and top_level_function["is_top_level"]:
         return [{'type': 'TopLevel',
                  'fn_name': top_level_function["fn_name"],
                  'fn_id': function_id,
