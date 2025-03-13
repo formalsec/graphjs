@@ -125,6 +125,7 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
 
     print(f'[INFO] Assigning types to attacker-controlled data.')
     assign_types(session, params_types, config)
+
     if detection_result["vuln_type"] == "prototype-pollution":
         simplify_objects(params_types,
                          config,
@@ -144,6 +145,8 @@ def assign_types(session, param_structure, config):
             else:
                 param_structure[key].pop("pdg_node_id", None)
                 assign_types(session, param_structure[key], config)
+            if isinstance(value, dict) and "length" in value:
+                param_structure[key] = {"_union": [param_structure[key], "string", "array"]}
 
 
 def is_lazy_object(obj):
