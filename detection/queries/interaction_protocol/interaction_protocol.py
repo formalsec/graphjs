@@ -742,6 +742,9 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
     for call_path in call_paths:
         current_call: TaintSummaryCall | None = None
 
+        if len(call_path) == 2 and call_path[0]["type"] == "TopLevel":
+            call_path = call_path[1:]
+
         # We build the interaction protocol, starting from the most inner return (last call)
         if len(call_path) > 0:  # Has returns
             inner_return: TaintSummaryCall | None = None
