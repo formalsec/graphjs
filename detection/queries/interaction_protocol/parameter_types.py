@@ -79,6 +79,31 @@ def get_variable_declarators(obj_ids: list[int]) -> str:
     """
 
 
+# This query checks if there is a path from the polluting value to the arguments keyword
+# and returns the function arguments affected by the arguments object
+# 1. This path starts by finding a PDG_OBJECT with an IdentifierName that starts with "arguments-"
+# 2. This object has a SO edge with a RelationType of "SO" and an IdentifierName of "*"
+# 3. There is a path via PDG edges (0 or more) from the arguments_so_obj, 
+# that finishes with an ARG edge to a PDG_CALL object, connected to a function
+# 4. Then, it returns the function arguments affected by the arguments object
+def check_argument_dependencies(polluting_object_id: str) -> str:
+    return f"""
+        MATCH
+            (arguments_obj:PDG_OBJECT)
+                -[arg_edge:PDG]->(arguments_so_obj:PDG_OBJECT)
+                    -[pdg_edges:PDG*0..]->(arg_object:PDG_OBJECT)
+                        -[arg_call_edge:PDG]->(call_object:PDG_CALL)
+                            -[:CG]->(function_def_obj)
+                                -[param_ref:REF]->(param_obj:PDG_OBJECT)
+                                    -[polluted_pdg_edges:PDG*0..]->(polluting_object:PDG_OBJECT)
+        WHERE arguments_obj.IdentifierName CONTAINS "arguments-"
+        AND arg_edge.IdentifierName = "*"
+        AND arg_call_edge.RelationType = "ARG"
+        AND param_ref.RelationType = "param"
+        AND polluting_object.Id = "{polluting_object_id}"
+        RETURN distinct param_obj.IdentifierName as param_name
+    """
+
 # This function is responsible for reconstructing the parameter types.
 # First, it reconstructs the object's structure and then assigns the types
 def reconstruct_param_types(session, function_cfg_id, detection_result: DetectionResult, config):
@@ -127,10 +152,22 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
     assign_types(session, params_types, config, detection_result["vuln_type"])
 
     if detection_result["vuln_type"] == "prototype-pollution":
+        polluted_object = detection_result.get('polluted_obj', False)
+        polluting_value = detection_result.get('polluting_value', False)
+
+        # If there is a polluting value that is not in the params_types, we will check if it comes from the arguments keyword
+        # and then we will assign the type union (polluted_object2, polluted_object3) to the polluted object
+        if polluting_value and polluted_object not in params_types.keys():
+            # Check if the polluting value is an argument
+            polluting_value_is_argument = session.run(check_argument_dependencies(polluting_value["Id"])).single()
+            if polluting_value_is_argument:
+                polluting_obj_name = get_parameter_name(polluting_value_is_argument["param_name"])
+                params_types[polluting_obj_name] = {'_union': ["polluted_object2", "polluted_object3"]}
+
         simplify_objects(params_types,
                          config,
-                         detection_result.get('polluted_obj', False),
-                         detection_result.get('polluting_value', False))
+                         polluted_object,
+                         polluting_value)
 
     return list(params_types.keys()), params_types
 
@@ -213,6 +250,8 @@ def simplify_objects(params_types, config, polluted_object=False, polluting_valu
             params_types[i] = {'_union': ["object", "array"]}
         elif isinstance(v, dict):
             simplify_objects(params_types[i], config)
+        elif v == "any" and i == polluted_object_name:
+            params_types[i] = "object"
 
 
 # This function assigns a type to a parameter object (that may be represented by several objects)
