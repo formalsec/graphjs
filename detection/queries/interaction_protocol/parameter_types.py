@@ -14,7 +14,7 @@ def get_parameter_dependent_objects(fn_id) -> str:
                         ->(param:PDG_OBJECT)
                             -[obj_edges:PDG*0..]
                                 ->(obj_or_sink)
-        WHERE 
+        WHERE
             source.Id = "{fn_id}" AND
             ref_edge.RelationType = "param" AND
             ALL(edge IN obj_edges WHERE
@@ -45,16 +45,16 @@ def get_parameter_expression_objects(fn_id) -> str:
                             ->(:AssignmentExpression)
                                 -[right:AST]
                                     ->(:LogicalExpression)
-        WHERE 
+        WHERE
             ref_edge.RelationType = "param" AND
             ALL(edge IN obj_edges WHERE
                 NOT edge.RelationType = "ARG") AND
             (
                 (size(dep_arg_edges) = 2 AND dep_arg_edges[0].RelationType = "ARG" AND dep_arg_edges[1].RelationType = "DEP") OR
-                (size(dep_arg_edges) = 1 AND dep_arg_edges[0].RelationType = "DEP") 
-            ) 
+                (size(dep_arg_edges) = 1 AND dep_arg_edges[0].RelationType = "DEP")
+            )
         RETURN distinct *
-        ORDER BY 
+        ORDER BY
             ref_edge.ParamIndex
     """
 
@@ -83,7 +83,7 @@ def get_variable_declarators(obj_ids: list[int]) -> str:
 # and returns the function arguments affected by the arguments object
 # 1. This path starts by finding a PDG_OBJECT with an IdentifierName that starts with "arguments-"
 # 2. This object has a SO edge with a RelationType of "SO" and an IdentifierName of "*"
-# 3. There is a path via PDG edges (0 or more) from the arguments_so_obj, 
+# 3. There is a path via PDG edges (0 or more) from the arguments_so_obj,
 # that finishes with an ARG edge to a PDG_CALL object, connected to a function
 # 4. Then, it returns the function arguments affected by the arguments object
 def check_argument_dependencies(polluting_object_id: str) -> str:
@@ -242,7 +242,7 @@ def simplify_objects(params_types, config, polluted_object=False, polluting_valu
         elif isinstance(v, dict) and "length" in params_types[i] and all(
                 key == "length" or key == "*" or key in config["prototypes"]["string"] for key in
                 params_types[i].keys()):
-            params_types[i] = {'_union': ["object", "array", "string"]}
+            params_types[i] = {'_union': ["object", ["string", "string" ], "string"]}
         elif isinstance(v, dict) and ("length" in params_types[i] and all(
                 key == "length" or key == "*" for key in params_types[i].keys())):
             params_types[i] = {'_union': ["object", "array"]}
@@ -343,10 +343,10 @@ def assign_type(session, param_name: str, obj_ids: list[int], config):
             MATCH
                 (:CallExpression)
                     -[callee:AST]
-                        ->(id:Identifier)    
+                        ->(id:Identifier)
             WHERE
                 callee.RelationType = "callee" AND
-                 id.IdentifierName  = "{variable_declarations[0]}" 
+                 id.IdentifierName  = "{variable_declarations[0]}"
             RETURN true
         """
         results = session.run(func_func_call_query)
@@ -381,7 +381,7 @@ def assign_type(session, param_name: str, obj_ids: list[int], config):
             MATCH
                 (:ForOfStatement)
                     -[right:AST]
-                        ->(id:Identifier)    
+                        ->(id:Identifier)
             WHERE
                 right.RelationType = "right" AND
                 id.IdentifierName in {variable_declarations}
@@ -400,7 +400,7 @@ def assign_type(session, param_name: str, obj_ids: list[int], config):
                         ->(id:Identifier),
                 (bin_exp)
                     -[:AST]
-                        ->(literal:Literal)    
+                        ->(literal:Literal)
             WHERE
                 bin_exp.SubType in ["==", "==="] AND
                 literal.SubType = "boolean" AND
@@ -420,7 +420,7 @@ def assign_type(session, param_name: str, obj_ids: list[int], config):
                         ->(id:Identifier),
                 (bin_exp)
                     -[:AST]
-                        ->(literal:Literal)    
+                        ->(literal:Literal)
             WHERE
                 literal.SubType = "number" AND
                 id.IdentifierName in {variable_declarations}
@@ -476,11 +476,11 @@ def assign_type(session, param_name: str, obj_ids: list[int], config):
                         ->(id:Identifier),
                 (bin_exp)
                     -[:AST]
-                        ->(literal:Literal)    
+                        ->(literal:Literal)
             WHERE
                 bin_exp.SubType in ["+", "=="] AND
                 literal.SubType = "string" AND
-                id.IdentifierName in {variable_declarations} 
+                id.IdentifierName in {variable_declarations}
             RETURN true
         """
         results = session.run(str_bin_exp_query)
@@ -529,7 +529,7 @@ def assign_type(session, param_name: str, obj_ids: list[int], config):
             MATCH
                 (call_exp:CallExpression)
                     -[arg:AST]
-                        ->(id:Identifier),    
+                        ->(id:Identifier),
                 (call_exp)
                     -[callee:AST]
                         ->(:MemberExpression)
