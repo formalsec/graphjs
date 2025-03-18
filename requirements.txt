@@ -1,2 +1,2 @@
-docker==7.0.0
-neo4j==5.9.0
+docker
+neo4j
