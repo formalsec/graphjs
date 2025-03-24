@@ -3,18 +3,28 @@ import neo4j.exceptions
 import os
 import sys
 import time
+import shutil
 
 from .queries.query import Query
 from .queries.my_utils import utils
 from .neo4j_import.utils import neo4j_constants as constants
+from .queries.load import Load_mdg
 from .queries.injection import Injection
 from .queries.proto_pollution import PrototypePollution
 
 max_connection_tries = 3
 
 
-def traverse_graph(source_file, taint_summary_output, time_output_file, query_type, reconstruct_types=False,
-                   bolt_port=7687):
+def traverse_graph(
+    graph_dir,
+    source_file,
+    taint_summary_output,
+    time_output_file,
+    query_type,
+    reconstruct_types=False,
+    bolt_port=7687,
+    optimized=True
+):
     neo4j_connection_string = "bolt://127.0.0.1:" + str(bolt_port)
     config = utils.read_config()
     detection_file_name = f'{os.path.splitext(os.path.basename(taint_summary_output))[0]}_detection.json'
@@ -39,6 +49,21 @@ def traverse_graph(source_file, taint_summary_output, time_output_file, query_ty
 
         session = driver.session()
         vulnerable_paths = []
+
+        # Copy `.csv` to import dir: /var/lib/neo4j/import
+        if optimized:
+            import_dir = "/var/lib/neo4j/import" # FIXME: make configurable?
+            nodes_file = os.path.join(graph_dir, "nodes.csv")
+            rels_file = os.path.join(graph_dir, "rels.csv")
+            shutil.copy(nodes_file, import_dir)
+            shutil.copy(rels_file, import_dir)
+            # Import graph before running queries
+            loader = Load_mdg()
+            session.run(loader.get_delete_query())
+            session.run(loader.get_load_nodes_query())
+            session.run(loader.get_load_rels_query())
+            print("[STEP 2] Queries: Imported")
+
 
         query = Query(reconstruct_types, time_output_file)
 
