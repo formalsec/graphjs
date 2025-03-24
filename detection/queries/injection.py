@@ -38,15 +38,15 @@ class Injection:
 					->(param:PDG_OBJECT)
 						-[edges:PDG*1..]
 							->(sink:TAINT_SINK),
-			
+
 			(sink_cfg)
 				-[:SINK]
 					->(sink),
-			
+
 			(sink_cfg)
 				-[:AST]
 					->(sink_ast)
-			
+
 			WHERE
 				ref_edge.RelationType = "param" AND
 				ALL(
@@ -79,7 +79,7 @@ class Injection:
 		for record in results:
 			if query_type == "intra" or (query_type == "bottom_up_greedy" and
 			self.query.confirm_vulnerability(session, record["func"]["Id"], record["param"])):
-			
+
 				sink_name = record["sink"]["IdentifierName"]
 				sink_lineno = json.loads(record["sink_ast"]["Location"])["start"]["line"]
 				file = json.loads(record["sink_ast"]["Location"])["fname"]
