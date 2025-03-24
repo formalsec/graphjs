@@ -178,6 +178,53 @@ def check_lookup_pattern():
 			dep2.RelationType = "DEP" AND
 			dep3.RelationType = "DEP"
 		RETURN distinct obj, property1, property2, value, property
+
+		UNION
+		MATCH
+		(obj:PDG_OBJECT)
+			-[first_lookup:PDG]
+				->(sub_obj:PDG_OBJECT),
+		
+		(property1:PDG_OBJECT)
+			-[dep1:PDG]
+				->(sub_obj)
+		WHERE
+			first_lookup.RelationType = "SO" AND
+			first_lookup.IdentifierName = "*" AND
+			dep1.RelationType = "DEP"
+		
+		MATCH
+			(sub_obj)
+				-[if_dep:PDG {RelationType: "DEP"} ]
+					->(if_result:PDG_OBJECT)
+						-[nv:PDG]
+							->(nv_sub_obj:PDG_OBJECT)
+								-[second_lookup:PDG]
+									->(property:PDG_OBJECT),
+				
+		(property2:PDG_OBJECT)
+			-[dep2:PDG]
+				->(nv_sub_obj),
+		
+		(value:PDG_OBJECT)
+			-[dep3:PDG]
+				->(property),
+		
+		(if_result)
+			<-[ref:REF {RelationType: "obj"}]
+				-(:ExpressionStatement)
+					-[:AST {RelationType: "expression"}]
+						->(:AssignmentExpression)
+							-[:AST {RelationType: "right"}]
+								->(:LogicalExpression)
+		WHERE
+			nv.RelationType = "NV" AND
+			nv.IdentifierName = "*" AND
+			second_lookup.RelationType = "SO" AND
+			second_lookup.IdentifierName = "*" AND
+			dep2.RelationType = "DEP" AND
+			dep3.RelationType = "DEP"
+		RETURN distinct obj, property1, property2, value, property
 		"""
 
 
