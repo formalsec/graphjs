@@ -236,7 +236,10 @@ def simplify_objects(params_types, config, polluted_object=False, polluting_valu
                     arr.extend(["any"] * (int(key) - len(arr)))
                     arr.insert(int(key), value)
             if all(key == "length" or key.isdigit() or key == "*" for key in params_types[i].keys()):
-                params_types[i] = arr
+                if len(arr) == 1 and arr[0] == "any":
+                    params_types[i] = "array"
+                else:
+                    params_types[i] = arr
             else:
                 params_types[i] = {'_union': [params_types[i], arr] }
         elif isinstance(v, dict) and "length" in params_types[i] and all(
