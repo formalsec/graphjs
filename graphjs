@@ -53,6 +53,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     # Allow dirty output directories
     parser.add_argument("--dirty", dest="dirty", action="store_true",
                         help="Don't clean output dir if it exists.")
+    parser.add_argument("--optimized-import", dest="optimized", action="store_true",
+                        help="Try optimized import without stopping neo4j")
+
+
 
 
 def parse_arguments():
@@ -63,12 +67,12 @@ def parse_arguments():
 
 # If the input is a directory, get the package entry file
 def get_index_file(file_path):
-    if os.path.isdir(file_path):    
+    if os.path.isdir(file_path):
         # Directory contains a package.json file
         if os.path.exists(os.path.join(file_path, "package.json")):
             with open(os.path.join(file_path, "package.json"), "r") as f:
                 package_json = json.load(f)
-                
+
                 # Get the main field
                 main = package_json.get("main", None)
                 if main:
@@ -83,7 +87,7 @@ def get_index_file(file_path):
                             main = os.path.join(main, main_files[0])
                     print(f"Using main file: {main}")
                     return os.path.join(file_path, main)
-        
+
         # No package.json file, check for default entry file
         print(f"No 'main' field found. Looking for default entry point...")
 
@@ -100,7 +104,7 @@ def get_index_file(file_path):
             if os.path.exists(file_path):
                 print(f"Found default entry point: {file}")
                 return file_path
-        
+
         # If no default entry point is found, exit
         sys.exit(f"No default entry point found in directory: ${file_path}")
 
@@ -136,16 +140,26 @@ def build_graphjs_cmd(file_path, graph_output, silent=True):
         return ["node", f"{mdg_generator_path} -f {abs_input_file} -o {graph_output} --csv --silent --graph --i=AST"]
 
 
-def run_queries(file_path, graph_path, run_path, summary_path, time_path, generate_exploit, query_type):
-    neo4j_management.import_csv_local(graph_path, run_path)
-    print("[STEP 2] Queries: Imported")
+def run_queries(file_path, graph_path, run_path, summary_path, time_path,
+                generate_exploit, query_type, optimized):
+    if not optimized:
+        neo4j_management.import_csv_local(graph_path, run_path)
+        print("[STEP 2] Queries: Imported")
 
     # Perform graph traversals
     print("[STEP 3] Queries: Traversing Graph...")
-    detection.traverse_graph(file_path, summary_path, time_path, query_type, generate_exploit)
+    detection.traverse_graph(
+        graph_path,
+        file_path,
+        summary_path,
+        time_path,
+        query_type,
+        generate_exploit,
+        optimized=optimized
+    )
 
 
-def run_graph_js(file_path, output_path, query_type, with_types=False, generate_exploit=False, silent=True, dirty=False):
+def run_graph_js(file_path, output_path, query_type, with_types=False, generate_exploit=False, silent=True, dirty=False, optimized=False):
     # Get absolute paths
     file_path = os.path.abspath(file_path)
     # Generate default output path
@@ -159,7 +173,7 @@ def run_graph_js(file_path, output_path, query_type, with_types=False, generate_
     summary_path = os.path.join(output_path, "taint_summary.json")
     symbolic_tests_output = os.path.join(output_path, "symbolic_tests")
     check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit, dirty)
-    
+
     # If file_path is a directory, get the package index file
     if os.path.isdir(file_path):
         file_path = get_index_file(file_path)
@@ -174,7 +188,8 @@ def run_graph_js(file_path, output_path, query_type, with_types=False, generate_
 
     # Execute Graph Traversals (Queries)
     print("[STEP 2] Queries: Importing the graph...")
-    run_queries(file_path, graph_output, run_output, summary_path, time_output, (with_types or generate_exploit), query_type)
+    run_queries(file_path, graph_output, run_output, summary_path, time_output,
+                (with_types or generate_exploit), query_type, optimized)
     print("[STEP 3] Queries: Completed.")
 
     # Generate symbolic tests
@@ -189,4 +204,4 @@ def run_graph_js(file_path, output_path, query_type, with_types=False, generate_
 if __name__ == "__main__":
     # Parse arguments
     args = parse_arguments()
-    run_graph_js(args.file, args.output, args.query_type, args.with_types, args.exploit, args.silent, args.dirty)
+    run_graph_js(args.file, args.output, args.query_type, args.with_types, args.exploit, args.silent, args.dirty, args.optimized)
