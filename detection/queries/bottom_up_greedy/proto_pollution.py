@@ -225,6 +225,23 @@ def check_lookup_pattern():
 			dep2.RelationType = "DEP" AND
 			dep3.RelationType = "DEP"
 		RETURN distinct obj, property1, property2, value, property
+
+		UNION
+		// Find the pattern for the first lookup with a dependency to a property
+		MATCH (obj:PDG_OBJECT)-[:PDG {RelationType: "SO"}]->(sub_obj:PDG_OBJECT)
+		
+		// Find the pattern for the property write in the first lookup object with a dependency to the second lookup object
+		MATCH (sub_obj)
+			-[nv:PDG { RelationType: "NV", IdentifierName: "*" } ]
+			->(nv_sub_obj:PDG_OBJECT)
+				-[:PDG { RelationType: "SO", IdentifierName: "*" }]
+				->(property:PDG_OBJECT),
+		
+		(property2:PDG_OBJECT)-[:PDG { RelationType: "DEP" }]->(nv_sub_obj)
+		
+		// Find ?
+		MATCH (value:PDG_OBJECT) - [:PDG { RelationType: "DEP" }] -> (property)
+		RETURN distinct obj, obj as property1, property2, value, property
 		"""
 
 
