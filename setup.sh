@@ -20,4 +20,4 @@ fi
 pip3 install -r ./requirements.txt
 
 # Install npm dependencies and compile typescript code
-(cd ./parser && npm install && tsc)
+(cd ./parser && npm install && npx tsc)

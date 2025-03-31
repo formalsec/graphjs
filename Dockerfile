@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && \
-    apt-get install -y curl ca-certificates gnupg wget graphviz unzip software-properties-common opam
+    apt-get install -y curl ca-certificates gnupg wget graphviz unzip software-properties-common sudo
 
 # Install Node.js
 RUN mkdir -p /etc/apt/keyrings \
@@ -21,7 +21,11 @@ RUN wget -O - https://debian.neo4j.com/neotechnology.gpg.key | apt-key add - \
     && echo 'deb https://debian.neo4j.com stable 5' | tee -a /etc/apt/sources.list.d/neo4j.list \
     && apt-get update \
     && apt-get install -y neo4j=1:5.9.0 \
-    && echo dbms.security.auth_enabled=false >> /etc/neo4j/neo4j.conf
+    && echo dbms.security.auth_enabled=false >> /etc/neo4j/neo4j.conf \
+    && chown -R neo4j:neo4j /var/lib/neo4j \
+    && chown -R neo4j:neo4j /var/log/neo4j \
+    && chmod -R g+rw /var/lib/neo4j \
+    && chmod -R g+rw /var/log/neo4j
 
 # Install Python 3.11
 RUN add-apt-repository ppa:deadsnakes/ppa \
@@ -34,7 +38,18 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Configure 'graphjs' user
+RUN useradd -ms /bin/bash graphjs \
+    && usermod -aG neo4j graphjs \
+    && echo graphjs:graphjs | chpasswd \
+    && cp /etc/sudoers /etc/sudoers.bak \
+    && echo "graphjs ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
+    && su - graphjs -c "id"
+
+USER graphjs
+WORKDIR /home/graphjs
+
 # Build graphjs
-COPY ./ /graphjs
-WORKDIR /graphjs
+COPY --chown=graphjs:graphjs ./ /home/graphjs
+WORKDIR /home/graphjs
 RUN ./setup.sh

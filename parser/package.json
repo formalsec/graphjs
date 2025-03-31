@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "",
   "scripts": {
-    "preinstall": "npm i -g typescript",
     "start": "ts-node-dev --transpile-only ./src/parser.ts",
     "explode": "start-custom-cache",
     "lint": "eslint . --ext .ts",

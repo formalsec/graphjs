@@ -79,5 +79,5 @@ docker run -it \
     -v "$input_dir":/input \
     -v "${output_path}":/output_path \
     graphjs \
-    /bin/bash -c "python3 /graphjs/graphjs -f /input/$fname -o /output_path ${FLAGS}"
-docker system prune -f
+    /bin/bash -c "python3 graphjs -f /input/$fname -o /output_path ${FLAGS}"
+#docker system prune -f
