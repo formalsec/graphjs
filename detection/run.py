@@ -1,3 +1,4 @@
+import logging
 from neo4j import GraphDatabase
 import neo4j.exceptions
 import os
@@ -13,6 +14,9 @@ from .queries.injection import Injection
 from .queries.proto_pollution import PrototypePollution
 
 max_connection_tries = 3
+# Remove Neo4j warnings
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("neo4j.notifications").setLevel(logging.ERROR)
 
 
 def traverse_graph(
