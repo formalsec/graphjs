@@ -21,6 +21,3 @@ pip3 install -r ./requirements.txt
 
 # Install npm dependencies and compile typescript code
 (cd ./parser && npm install && tsc)
-
-# Install instrumentation
-# opam install -y ./instrumentation2

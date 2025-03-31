@@ -29,12 +29,6 @@ RUN add-apt-repository ppa:deadsnakes/ppa \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
     && pip install --upgrade pip setuptools
 
-# Install Opam
-RUN opam init --disable-sandboxing --auto-setup -y \
-&& opam switch create -y 4.14 4.14.1 \
-&& eval $(opam env) \
-&& echo "eval \$(opam env)" >> ~/.bashrc
-
 # Clean up
 RUN apt-get update && \
     apt-get clean && \

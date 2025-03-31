@@ -192,14 +192,6 @@ def run_graph_js(file_path, output_path, query_type, with_types=False, generate_
                 (with_types or generate_exploit), query_type, optimized)
     print("[STEP 3] Queries: Completed.")
 
-    # Generate symbolic tests
-    if generate_exploit:
-        print("[STEP 3] Symbolic test generation: Generating...")
-
-        os.chdir(symbolic_tests_output)
-        os.system(f"instrumentation2 {summary_path} {file_path}")
-        print("[STEP 3] Symbolic test generation: Completed.")
-
 
 if __name__ == "__main__":
     # Parse arguments
