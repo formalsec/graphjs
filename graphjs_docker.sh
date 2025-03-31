@@ -8,14 +8,14 @@ PARENT_DIR=$(dirname "${SCRIPT_DIR}")
 # Display help
 Help()
 {
-    echo "Usage: ./graphjs_docker.sh -f <file> [options]"
-    echo "Description: Run Graph.js for a given file <file> in a Docker container."
+    echo "Usage: ./graphjs_docker.sh -i <path> [options]"
+    echo "Description: Run Graph.js for a given input path <path> in a Docker container."
     echo ""
     echo "Required:"
-    echo "-f <path>    Filename (.js) / Package path."
+    echo "-i <path>    Input path (filename to run specific file or directory to run package level)."
     echo ""
     echo "Options:"
-§§    echo "-o <path>    Path to store analysis results."
+    echo "-o <path>    Path to store analysis results."
     echo "-e           Create exploit template."
     echo "-s           Silent mode: Does not save graph .svg."
     echo "-h           Print this help."
@@ -27,11 +27,11 @@ Help()
 SILENT_MODE=false
 EXTENDED_SUMMARY=false
 FLAGS=""
-while getopts f:o:esh flag; do
+while getopts i:o:esh flag; do
     case "${flag}" in
-        f) filename=$OPTARG
-            filename="$( realpath "$filename" )"
-            if [ ! -f "$filename" ] && [ ! -d "$filename" ]; then
+        i) input_path=$OPTARG
+            input_path="$( realpath "$input_path" )"
+            if [ ! -f "$input_path" ] && [ ! -d "$input_path" ]; then
                 echo "File $OPTARG does not exist."
                 exit 1
             fi;;
@@ -48,22 +48,27 @@ while getopts f:o:esh flag; do
     esac
 done
 
-# Check if the required filename is provided
-if [ ! -f "$filename" ] && [ ! -d "$filename" ]; then
-  echo "Option -f is required."
+# Check if the required input path is provided
+if [ ! -f "$input_path" ] && [ ! -d "$input_path" ]; then
+  echo "Option -i is required."
   Help
   exit 1
 fi
 
 # If output_path is not provided, use default
 if [ ! -d "$output_path" ]; then
-  # Generate output file
-  file_parent_dir=$(dirname "$(dirname "$filename")")
-  output_path="$file_parent_dir/tool_outputs/graphjs"
+    # Generate output file
+    # If path is a directory, go up one level only
+    if [ -d "$input_path" ]; then
+        file_parent_dir=$(dirname "$input_path")
+    else
+        file_parent_dir=$(dirname "$(dirname "$input_path")")        
+    fi
+    output_path="$file_parent_dir/tool_outputs/graphjs"
 fi
 
-input_dir=$(dirname "$filename")
-fname=$(basename "$filename")
+input_dir=$(dirname "$input_path")
+fname=$(basename "$input_path")
 
 # Build docker image if it does not exist
 if [ -z "$(docker images -q graphjs)" ]; then

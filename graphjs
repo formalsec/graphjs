@@ -109,7 +109,7 @@ def get_index_file(file_path):
         sys.exit(f"No default entry point found in directory: ${file_path}")
 
 
-def check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit, dirty):
+def check_arguments(file_path, output_path, graph_output, run_output, dirty):
     # Check if input file exists
     if not os.path.exists(file_path):
         sys.exit(f"Input file doesn't exist: ${file_path}")
@@ -127,8 +127,6 @@ def check_arguments(file_path, output_path, graph_output, run_output, symbolic_t
         os.mkdir(graph_output)  # Create graph output folder
     if not os.path.exists(run_output):
         os.mkdir(run_output)  # Create run output folder (neo4j stats)
-    if generate_exploit and not os.path.exists(symbolic_tests_output):
-        os.mkdir(symbolic_tests_output)  # Create symbolic tests output folder
 
 
 def build_graphjs_cmd(file_path, graph_output, silent=True):
@@ -171,8 +169,7 @@ def run_graph_js(file_path, output_path, query_type, with_types=False, generate_
     run_output = os.path.join(output_path, "run")
     time_output = os.path.join(run_output, "time_stats.txt")
     summary_path = os.path.join(output_path, "taint_summary.json")
-    symbolic_tests_output = os.path.join(output_path, "symbolic_tests")
-    check_arguments(file_path, output_path, graph_output, run_output, symbolic_tests_output, generate_exploit, dirty)
+    check_arguments(file_path, output_path, graph_output, run_output, dirty)
 
     # If file_path is a directory, get the package index file
     if os.path.isdir(file_path):
