@@ -43,8 +43,7 @@ RUN useradd -ms /bin/bash graphjs \
     && usermod -aG neo4j graphjs \
     && echo graphjs:graphjs | chpasswd \
     && cp /etc/sudoers /etc/sudoers.bak \
-    && echo "graphjs ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
-    && su - graphjs -c "id"
+    && echo "graphjs ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers 
 
 USER graphjs
 WORKDIR /home/graphjs

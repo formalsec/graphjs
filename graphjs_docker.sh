@@ -65,8 +65,10 @@ if [ ! -d "$output_path" ]; then
         file_parent_dir=$(dirname "$(dirname "$input_path")")        
     fi
     output_path="$file_parent_dir/tool_outputs/graphjs"
+    mkdir -p ${output_path}
 fi
 
+echo $output_path
 input_dir=$(dirname "$input_path")
 fname=$(basename "$input_path")
 
@@ -76,8 +78,8 @@ if [ -z "$(docker images -q graphjs)" ]; then
 fi
 
 docker run -it \
-    -v "$input_dir":/input \
+    -v "${input_dir}":/input \
     -v "${output_path}":/output_path \
     graphjs \
-    /bin/bash -c "python3 graphjs -f /input/$fname -o /output_path ${FLAGS}"
+    /bin/bash -c "sudo chown graphjs:graphjs -R /output_path; python3 graphjs -f /input/$fname -o /output_path ${FLAGS}"
 #docker system prune -f
