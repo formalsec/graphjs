@@ -816,7 +816,6 @@ def build_taint_summary(detection_result: DetectionResult, call_paths: list[list
             if "returns" in current_call:
                 vulnerability["returns"] = current_call["returns"]
 
-        vulnerability["call_paths"] = call_path
         vulnerabilities.append(vulnerability)
 
     return vulnerabilities
