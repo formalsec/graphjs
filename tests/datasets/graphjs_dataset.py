@@ -99,11 +99,11 @@ if __name__ == "__main__":
         if args.d == "vulcan":
             DATASET = DATASET_PATH / "vulcan-dataset" / cwe /"*"
         elif args.d == "secbench":
-            DATASET = os.path.join("secbench-dataset", cwe, "*")
+            DATASET = DATASET_PATH / "secbench-dataset" / cwe /"*"
         elif args.d == "collected":
-            DATASET = os.path.join("collected-dataset", cwe, "*")
+            DATASET = DATASET_PATH / "collected-dataset" / cwe /"*"
         elif args.d == "test":
-            DATASET = os.path.join("test-dataset", cwe, "*")
+            DATASET = DATASET_PATH / "test-dataset" / cwe /"*"
         if args.d == "zeroday":
-            DATASET = os.path.join("zeroday", "*")
+            DATASET = DATASET_PATH / "zeroday" / cwe /"*"
         run_graphjs_dataset(args.p)
