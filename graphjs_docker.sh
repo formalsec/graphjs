@@ -68,7 +68,6 @@ if [ ! -d "$output_path" ]; then
     mkdir -p ${output_path}
 fi
 
-echo $output_path
 input_dir=$(dirname "$input_path")
 fname=$(basename "$input_path")
 
