@@ -104,6 +104,20 @@ def check_argument_dependencies(polluting_object_id: str) -> str:
         RETURN distinct param_obj.IdentifierName as param_name
     """
 
+
+# This query checks if the polluting value depends on values that are in the param_types and are not the polluted_object
+# Cases:
+# 1. polluting value is a function return which arguments are in the param_types
+def check_value_dependencies(polluting_object_id: str) -> str:
+    return f"""
+        MATCH
+            (:PDG_OBJECT {{Id: "{polluting_object_id}"}})
+                <-[:PDG {{ RelationType: "RET" }}]-
+                    (:PDG_CALL)
+                        <-[arg_edge:PDG {{ RelationType: "ARG"}}]-(arg:PDG_OBJECT)
+        RETURN collect(distinct arg) as arg_names
+    """
+
 # This function is responsible for reconstructing the parameter types.
 # First, it reconstructs the object's structure and then assigns the types
 def reconstruct_param_types(session, function_cfg_id, detection_result: DetectionResult, config):
@@ -164,10 +178,24 @@ def reconstruct_param_types(session, function_cfg_id, detection_result: Detectio
                 polluting_obj_name = get_parameter_name(polluting_value_is_argument["param_name"])
                 params_types[polluting_obj_name] = {'_union': ["polluted_object2", "polluted_object3"]}
 
+        # If the polluting value depends on values that are in the param_types and are not the polluted_object, change the polluting value
+        if polluting_value and polluting_value["Id"] not in params_types.keys():
+            param_types_names = list(params_types.keys())
+            polluting_value_dependencies = session.run(check_value_dependencies(polluting_value["Id"])).single()
+            if polluting_value_dependencies and len(polluting_value_dependencies) == 1:
+                # Get the polluting value dependencies that are in the param_type_names and are not the polluted_object
+                polluting_values = [ 
+                    dep for dep in polluting_value_dependencies[0] if
+                        get_parameter_name(dep["IdentifierName"]) in param_types_names and 
+                        get_parameter_name(dep["IdentifierName"]) != get_parameter_name(polluted_object["IdentifierName"])
+                    
+                ]
+                polluting_values.append(polluting_value)
+
         simplify_objects(params_types,
                          config,
                          polluted_object,
-                         polluting_value)
+                         polluting_values)
 
     return list(params_types.keys()), params_types
 
@@ -215,19 +243,18 @@ def check_if_object(obj):
         return True
 
 
-def simplify_objects(params_types, config, polluted_object=False, polluting_value=False):
+def simplify_objects(params_types, config, polluted_object=False, polluting_values: list [str] = []):
     """
     1 - Some objects might be arrays.
     2 - Some objects don't contain useful information (lazy-objects), e.g, {"*": {"*": "any"}}
     """
     polluted_object_name = polluted_object["IdentifierName"].split(".")[1].split("-")[
         0] if polluted_object else polluted_object
-    polluting_value_name = polluting_value["IdentifierName"].split(".")[1].split("-")[
-        0] if polluting_value else polluting_value
-    for i, v in params_types.items():
+    polluting_value_names = [ get_parameter_name(polluting_value["IdentifierName"]) for polluting_value in polluting_values ]
+    for (i, v) in params_types.items():
         if check_if_object(params_types[i]) and polluted_object_name == i:
-            params_types[i] = f"object"
-        elif check_if_object(params_types[i]) and polluting_value_name == i:
+            params_types[i] = "object"
+        elif check_if_object(params_types[i]) and i in polluting_value_names:
             params_types[i] = {'_union': ["polluted_object2", "polluted_object3"]}
         elif isinstance(v, dict) and any(key.isdigit() for key in params_types[i].keys()):
             arr = []
