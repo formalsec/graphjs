@@ -38,8 +38,8 @@ while getopts i:o:esh flag; do
         o) output_path=$OPTARG
             output_path="$( realpath "$output_path" )"
             if [ ! -d "$output_path" ]; then
-                echo "Output path $OPTARG does not exist."
-                exit 1
+                echo "Output path $OPTARG does not exist. Creating new directory."
+                mkdir -p $output_path
             fi;;
         e) FLAGS+=" -e";;
         s) FLAGS+=" -s";;
@@ -80,5 +80,5 @@ docker run -it \
     -v "${input_dir}":/input \
     -v "${output_path}":/output_path \
     graphjs \
-    /bin/bash -c "sudo chown graphjs:graphjs -R /output_path; python3 graphjs -f /input/$fname -o /output_path ${FLAGS}"
+    /bin/bash -c "sudo chown graphjs:graphjs -R /output_path; python3 graphjs -f /input/$fname -o /output_path ${FLAGS}; chmod 777 -R /output_path;"
 #docker system prune -f
