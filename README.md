@@ -2,7 +2,7 @@
 
 Mafalda Ferreira, Miguel Monteiro, Tiago Brito, Miguel E. Coimbra, Nuno Santos, Limin Jia, and José Fragoso
 Santos. 2024. Efficient Static Vulnerability Analysis for JavaScript with Multiversion Dependency Graphs.
-https://doi.org/XXXX
+https://dl.acm.org/doi/10.1145/3656394
 
 
 ## Artifact evaluation
@@ -151,7 +151,7 @@ graphjs-results
 
 ---
 
-## Reusability 
+## Reusability
 
 Graph.js code is designed to enable  straightforward usage by others, and can be easily adapted to accommodate
 new scenarios. As described before, Graph.js  is composed of two phases: graph construction and graph queries.
@@ -169,7 +169,7 @@ src
 └── cg-builder.ts
 ```
 The code referring to the MDG construction algorithm is located
-in `src/traverse/dependency, where the file `structures/dependency_trackers.ts` 
+in `src/traverse/dependency, where the file `structures/dependency_trackers.ts`
 contains the rules and structures referred in the paper.
 The MDG is intended to be generic, so all the building steps can be
 adapted to new scenarios by creating new types of nodes and edges.
